@@ -1,0 +1,20 @@
+{
+  "kind": "collectionType",
+  "collectionName": "units",
+  "info": {
+    "singularName": "unit",
+    "pluralName": "units",
+    "displayName": "Unit",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

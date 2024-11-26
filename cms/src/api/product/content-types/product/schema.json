@@ -1,0 +1,67 @@
+{
+  "kind": "collectionType",
+  "collectionName": "products",
+  "info": {
+    "singularName": "product",
+    "pluralName": "products",
+    "displayName": "Product",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "default": "Tên hàng hóa"
+    },
+    "skuCode": {
+      "type": "string"
+    },
+    "code": {
+      "type": "text"
+    },
+    "expiredAt": {
+      "type": "date"
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "category": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::category.category",
+      "inversedBy": "product"
+    },
+    "unit": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::unit.unit"
+    },
+    "tags": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::tag.tag"
+    },
+    "images": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "productDetails": {
+      "type": "component",
+      "repeatable": false,
+      "component": "component.product-item"
+    },
+    "history": {
+      "type": "component",
+      "repeatable": true,
+      "component": "component.product-item"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+FROM mysql:8.0.35-debian
+
+RUN apt-get update -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  curl                          \
+  vim                           \
+  cron                          \
+  mysql-client                  \
+  locales
+
+# # Install migration tool
+# RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.15.2/migrate.linux-amd64.tar.gz | tar xvz \
+#     && mv migrate /usr/local/bin/migrate
+# ENTRYPOINT ["/bin/bash", "-c", "source /entrypoint-db.sh; /bin/bash"]
+
+WORKDIR /root/gamein-db

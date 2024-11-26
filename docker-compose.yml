@@ -1,0 +1,40 @@
+version: "3.9"
+name: tm
+services:
+  adminer:
+    image: adminer:latest
+    restart: always
+    environment:
+      ADMINER_DEFAULT_SERVER: sql
+      MYSQL_HOST: ${DB_HOST:-sql}
+    ports:
+      - "8080:8080"
+    networks:
+      - tm-network
+
+  database:
+    mem_limit: 2048m
+    image: mysql:latest
+    restart: unless-stopped
+    ports:
+      - 3306:3306
+    env_file: .env
+    environment:
+      MYSQL_HOST: database
+    volumes:
+      - ./db/dump:/root/inventory-cms:delegated
+      - sql-modules:/var/lib/mysql:delegated
+    networks:
+      - tm-network
+networks:
+  tm-network:
+    driver: bridge
+
+volumes:
+  sql-modules:
+    # external: true
+    driver: local
+    driver_opts:
+      type: "nfs"
+      device: "$PWD/db/mysql"
+      o: bind
