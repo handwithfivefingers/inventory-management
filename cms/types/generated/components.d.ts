@@ -1,5 +1,18 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface ComponentInformation extends Struct.ComponentSchema {
+  collectionName: 'components_component_information';
+  info: {
+    displayName: 'Information';
+  };
+  attributes: {
+    address: Schema.Attribute.Text;
+    email: Schema.Attribute.Email;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    phone: Schema.Attribute.String;
+  };
+}
+
 export interface ComponentOrderItem extends Struct.ComponentSchema {
   collectionName: 'components_component_order_items';
   info: {
@@ -26,13 +39,14 @@ export interface ComponentProductItem extends Struct.ComponentSchema {
     salePrice: Schema.Attribute.BigInteger;
     sold: Schema.Attribute.Integer;
     VAT: Schema.Attribute.Decimal;
-    wholesalePrice: Schema.Attribute.BigInteger;
+    wholeSalePrice: Schema.Attribute.BigInteger;
   };
 }
 
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'component.information': ComponentInformation;
       'component.order-item': ComponentOrderItem;
       'component.product-item': ComponentProductItem;
     }

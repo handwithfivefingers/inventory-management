@@ -25,11 +25,10 @@
       "relation": "oneToOne",
       "target": "api::customer.customer"
     },
-    "vendor": {
+    "warehouse": {
       "type": "relation",
-      "relation": "manyToOne",
-      "target": "api::vendor.vendor",
-      "inversedBy": "orders"
+      "relation": "oneToOne",
+      "target": "api::warehouse.warehouse"
     }
   }
 }

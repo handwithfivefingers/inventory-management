@@ -16,32 +16,10 @@
       "type": "string",
       "required": true
     },
-    "categories": {
+    "warehouses": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::category.category",
-      "private": true,
-      "mappedBy": "vendor"
-    },
-    "customers": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::customer.customer",
-      "private": true,
-      "mappedBy": "vendor"
-    },
-    "orders": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::order.order",
-      "private": true,
-      "mappedBy": "vendor"
-    },
-    "products": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::product.product",
-      "private": true,
+      "target": "api::warehouse.warehouse",
       "mappedBy": "vendor"
     }
   }

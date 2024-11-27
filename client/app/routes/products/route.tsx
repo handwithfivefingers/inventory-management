@@ -28,7 +28,7 @@ export default function Products() {
             <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton component={Link} to="/add">
+                <TMButton component={Link} to="./add">
                   Thêm
                 </TMButton>
                 <TMButton>Nhập từ Excel</TMButton>

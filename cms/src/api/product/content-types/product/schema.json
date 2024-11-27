@@ -62,12 +62,6 @@
       "type": "component",
       "repeatable": true,
       "component": "component.product-item"
-    },
-    "vendor": {
-      "type": "relation",
-      "relation": "manyToOne",
-      "target": "api::vendor.vendor",
-      "inversedBy": "products"
     }
   }
 }

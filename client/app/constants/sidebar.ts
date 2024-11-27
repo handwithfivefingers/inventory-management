@@ -12,4 +12,12 @@ export const SIDE_BAR = [
     to: "/import-order",
     label: vi.ImportOrder,
   },
+  {
+    to: "/warehouses",
+    label: vi.WareHouse,
+  },
+  {
+    to: "/providers",
+    label: vi.Provider,
+  },
 ];

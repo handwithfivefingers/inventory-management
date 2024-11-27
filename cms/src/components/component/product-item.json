@@ -15,7 +15,7 @@
     "regularPrice": {
       "type": "biginteger"
     },
-    "wholesalePrice": {
+    "wholeSalePrice": {
       "type": "biginteger"
     },
     "costPrice": {

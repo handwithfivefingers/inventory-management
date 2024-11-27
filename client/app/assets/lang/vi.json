@@ -1,5 +1,7 @@
 {
   "Order": "Đơn hàng",
   "Product": "Sản phẩm",
-  "ImportOrder": "Nhập đơn hàng"
+  "ImportOrder": "Nhập đơn hàng",
+  "WareHouse": "Kho, Bãi",
+  "Provider": "Nhà cung cấp"
 }
