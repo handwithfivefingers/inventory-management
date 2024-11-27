@@ -21,6 +21,12 @@
       "relation": "oneToOne",
       "target": "api::product.product",
       "mappedBy": "category"
+    },
+    "vendor": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::vendor.vendor",
+      "inversedBy": "categories"
     }
   }
 }

@@ -1,5 +1,5 @@
 version: "3.9"
-name: tm
+
 services:
   adminer:
     image: adminer:latest
@@ -18,11 +18,12 @@ services:
     restart: unless-stopped
     ports:
       - 3306:3306
-    env_file: .env
+    # env_file: .env
     environment:
       MYSQL_HOST: database
+      MYSQL_ROOT_PASSWORD: mysql
     volumes:
-      - ./db/dump:/root/inventory-cms:delegated
+      # - ./db/dump:/root/inventory-cms:delegated
       - sql-modules:/var/lib/mysql:delegated
     networks:
       - tm-network

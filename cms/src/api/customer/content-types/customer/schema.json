@@ -23,6 +23,12 @@
     },
     "birthday": {
       "type": "date"
+    },
+    "vendor": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::vendor.vendor",
+      "inversedBy": "customers"
     }
   }
 }
