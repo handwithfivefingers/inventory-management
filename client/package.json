@@ -17,15 +17,18 @@
     "@remix-run/serve": "^2.15.0",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
+    "feather-icons": "^4.29.2",
     "isbot": "^4.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.53.2",
     "react-number-format": "^5.4.2",
     "sass": "^1.81.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@redux-devtools/extension": "^3.3.0",
     "@remix-run/dev": "^2.15.0",
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",

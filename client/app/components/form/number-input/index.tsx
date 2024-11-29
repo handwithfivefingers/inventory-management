@@ -3,13 +3,12 @@ import { ITextInput, TextInput } from "../text-input";
 import { forwardRef } from "react";
 export interface INumberInput extends ITextInput {
   thousandSeparator?: string;
+  displayType?: string;
   onValueChange?: (...arg: any) => any;
 }
 export const NumberInput = forwardRef<HTMLInputElement, INumberInput>(
-  ({ thousandSeparator = ",", onValueChange, prefix, ...rest }, ref) => {
+  ({ thousandSeparator = ",", onValueChange, displayType = "input", prefix, ...rest }, ref) => {
     const handleChange = (values: any, sourceInfor: any) => {
-      console.log("values", values);
-      console.log("sourceInfor", sourceInfor);
       if (onValueChange) onValueChange?.(values, sourceInfor);
     };
     return (
@@ -17,10 +16,11 @@ export const NumberInput = forwardRef<HTMLInputElement, INumberInput>(
         customInput={TextInput}
         thousandSeparator={thousandSeparator}
         {...(rest as any)}
-        displayType="input"
+        displayType={displayType}
         prefix={prefix}
         onValueChange={handleChange}
         ref={ref}
+        style={{ textAlign: "right" }}
       />
     );
   }

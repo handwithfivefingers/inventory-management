@@ -58,10 +58,17 @@
       "repeatable": false,
       "component": "component.product-item"
     },
-    "history": {
-      "type": "component",
-      "repeatable": true,
-      "component": "component.product-item"
+    "transfers": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::transfer.transfer",
+      "mappedBy": "product"
+    },
+    "inventories": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::inventory.inventory",
+      "mappedBy": "product"
     }
   }
 }

@@ -9,6 +9,10 @@ import { productService } from "~/action.server/products.service";
 import { NumberInput } from "~/components/form/number-input";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
+import { http } from "~/http";
+import { useUser } from "~/store/user.store";
+import { useVendor } from "~/store/vendor.store";
+import { useWarehouse } from "~/store/warehouse.store";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
@@ -16,10 +20,11 @@ export const meta: MetaFunction = () => {
 export const action = async ({ request }: any) => {
   const formData = await request.formData();
   const data = await formData.get("data");
-  const parsed = JSON.parse(data);
-  console.log("parsed", parsed);
-  const stringify = JSON.stringify({ data: parsed });
-  const resp = await productService.createProduct(stringify as any);
+
+  const dataJson = JSON.parse(data);
+  const bodyData = { data: dataJson.data };
+  http.setToken(dataJson.Authorization);
+  const resp = await productService.createProduct(bodyData, dataJson.qs);
   return resp;
 };
 const productSchema = z.object({
@@ -27,9 +32,11 @@ const productSchema = z.object({
   code: z.string().optional(),
   skuCode: z.string().optional(),
   unit: z.string().optional(),
-
+  category: z.string().optional(),
+  tags: z.string().optional(),
+  description: z.string().optional(),
+  quantity: z.number().or(z.string()).optional(),
   productDetails: z.object({
-    inStock: z.number().optional(),
     costPrice: z.number().or(z.string()).optional(),
     regularPrice: z.number().or(z.string()).optional(),
     salePrice: z.number().or(z.string()).optional(),
@@ -46,8 +53,12 @@ export default function ProductItem() {
       name: "",
       code: "SM-001",
       skuCode: "ASM-0000001",
+      quantity: 10,
+      unit: undefined,
+      category: undefined,
+      description: undefined,
+      tags: undefined,
       productDetails: {
-        inStock: 10,
         costPrice: "20000",
         regularPrice: "50000",
         salePrice: "45000",
@@ -62,13 +73,34 @@ export default function ProductItem() {
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
+  const { warehouse } = useWarehouse();
+  const { defaultActive } = useVendor();
+  const { jwt } = useUser();
   const onSubmit = (v: any): void => {
-    v.warehouses = "not8o7o77wixki7pi8ke3zfe";
-    v.vendor = "nc4muju7axrit4jgb57mzctv";
+    const qs = {
+      quantity: v.quantity as string,
+      warehouseId: warehouse?.documentId as string,
+      vendorId: defaultActive?.documentId as string,
+    };
+    const { ...parsed } = v;
+    delete parsed.quantity;
+    delete parsed.warehouseId;
+    delete parsed.vendorId;
 
-    productClientService.createProduct({ data: v }).then((res) => {
-      console.log("res", res);
-    });
+    // productClientService.createProduct({ data: parsed }, qs).then((res) => {
+    //   console.log("res", res);
+    // });
+
+    fetcher.submit(
+      {
+        data: JSON.stringify({
+          data: parsed,
+          qs: qs,
+          Authorization: `${jwt}`,
+        }),
+      },
+      { method: "POST", action: "/products/add" }
+    );
   };
 
   console.log("fetcher", fetcher);
@@ -231,23 +263,85 @@ export default function ProductItem() {
             />
           </div>
           <div className="col-span-6">
-            <TextInput name="unit" label="Đơn vị tính" />
-          </div>
-
-          <div className="col-span-6 ">
-            <TextInput name="inStock" label="Tồn kho" />
+            <Controller
+              name="quantity"
+              control={formMethods.control}
+              render={({ field }) => {
+                return (
+                  <NumberInput
+                    label="Tồn kho"
+                    value={field.value as any}
+                    onValueChange={(v, info) => {
+                      field.onChange(v.value);
+                    }}
+                  />
+                );
+              }}
+            />
           </div>
           <div className="col-span-6">
-            <TextInput name="category" label="Danh mục" />
+            <Controller
+              name="unit"
+              control={formMethods.control}
+              render={({ field }) => {
+                return (
+                  <TextInput
+                    label="Đơn vị tính"
+                    {...field}
+                    onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                  />
+                );
+              }}
+            />
           </div>
-
           <div className="col-span-6">
-            <TextInput name="tags" label="Thành phần" />
+            <Controller
+              name="category"
+              control={formMethods.control}
+              render={({ field }) => {
+                return (
+                  <TextInput
+                    label="Danh Mục"
+                    {...field}
+                    onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                  />
+                );
+              }}
+            />
+          </div>
+          <div className="col-span-6">
+            <Controller
+              name="tags"
+              control={formMethods.control}
+              render={({ field }) => {
+                return (
+                  <TextInput
+                    label="Thành phần"
+                    {...field}
+                    onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                  />
+                );
+              }}
+            />
           </div>
           <div className="col-span-12">
-            <TextInput name="note" label="Ghi chú" />
+            <Controller
+              name="description"
+              control={formMethods.control}
+              render={({ field }) => {
+                return (
+                  <TextInput
+                    label="Ghi chú"
+                    {...field}
+                    onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                  />
+                );
+              }}
+            />
           </div>
-          <TMButton htmlType="submit">Submit</TMButton>
+          <div className="ml-auto col-span-12">
+            <TMButton htmlType="submit">Submit</TMButton>
+          </div>
         </form>
       </div>
     </div>

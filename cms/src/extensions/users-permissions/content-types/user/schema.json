@@ -64,6 +64,11 @@
       "target": "plugin::users-permissions.role",
       "inversedBy": "users",
       "configurable": false
+    },
+    "vendors": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vendor.vendor"
     }
   }
 }

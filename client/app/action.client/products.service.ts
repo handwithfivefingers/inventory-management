@@ -1,6 +1,6 @@
 import { http } from "~/http";
 interface IProductDetails {
-  inStock?: number;
+  quantity?: number;
   salePrice?: number;
   regularPrice?: number;
   wholeSalePrice?: number;
@@ -25,14 +25,25 @@ interface ICreateProductParams {
     history?: IProductDetails[];
   };
 }
+interface ICreateProductQueryParams {
+  warehouseId: string;
+  vendorId: string;
+  quantity: string;
+}
+
 const API_PATH = {
   products: "/products",
 };
 
 const productClientService = {
-  createProduct: (params: ICreateProductParams) => {
-    console.log("productClientService params", params);
-    return http.post(API_PATH.products, params);
+  createProduct: (params: ICreateProductParams, qsParams: ICreateProductQueryParams) => {
+    console.log("params", params);
+    const qs = new URLSearchParams({
+      warehouseId: qsParams.warehouseId,
+      vendorId: qsParams.vendorId,
+      quantity: qsParams.quantity,
+    });
+    return http.post(API_PATH.products + "?" + qs.toString(), params);
   },
 };
 

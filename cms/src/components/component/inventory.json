@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_component_inventories",
+  "info": {
+    "displayName": "InventoryItem",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "warehouse": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::warehouse.warehouse"
+    },
+    "quantity": {
+      "type": "integer",
+      "min": 0
+    }
+  }
+}

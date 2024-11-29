@@ -28,6 +28,15 @@ class HTTPService {
     this.headers.append("Content-Type", "application/json");
   }
 
+  setHeader(key: string, value: string) {
+    this.headers.set(key, value);
+  }
+  removeHeader(key: string) {
+    this.headers.delete(key);
+  }
+  setToken(token: string) {
+    this.headers.set("Authorization", `Bearer ${token}`);
+  }
   get(path?: string, paramsOptions?: IGetParams) {
     const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
     const headers = this.headers;
@@ -39,14 +48,13 @@ class HTTPService {
   post(path?: string, data: IData<any> = {}, paramsOptions?: IGetParams) {
     const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
     const headers = this.headers;
-
     const options = {
       headers: paramsOptions?.headers ? paramsOptions?.headers : headers,
       method: "POST",
       body: JSON.stringify(data),
     };
     console.log("options", options);
-    return fetch(url, options);
+    return fetch(url, options).then((res) => res.json());
   }
 }
 

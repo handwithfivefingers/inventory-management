@@ -15,11 +15,6 @@
     "note": {
       "type": "text"
     },
-    "OrderItem": {
-      "type": "component",
-      "repeatable": true,
-      "component": "component.order-item"
-    },
     "customer": {
       "type": "relation",
       "relation": "oneToOne",
@@ -29,6 +24,11 @@
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::warehouse.warehouse"
+    },
+    "OrderDetails": {
+      "type": "component",
+      "repeatable": true,
+      "component": "component.order-item"
     }
   }
 }

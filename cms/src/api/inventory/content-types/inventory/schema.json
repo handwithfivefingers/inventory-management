@@ -15,15 +15,16 @@
     "quantity": {
       "type": "integer"
     },
-    "product": {
+    "warehouse": {
       "type": "relation",
       "relation": "oneToOne",
-      "target": "api::product.product"
-    },
-    "warehouses": {
-      "type": "relation",
-      "relation": "oneToMany",
       "target": "api::warehouse.warehouse"
+    },
+    "product": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::product.product",
+      "inversedBy": "inventories"
     }
   }
 }

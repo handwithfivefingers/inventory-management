@@ -1,9 +1,9 @@
-import { TMButton } from "../tm-button";
-
+import { cn } from "~/libs/utils";
+import styles from "./styles.module.scss";
 interface ICol {
   title: string;
   dataIndex: string;
-  render?: (record: any) => React.ReactNode;
+  render?: (record: any, index: number) => React.ReactNode;
 }
 
 interface IRow {
@@ -70,16 +70,23 @@ TMTable.Row = ({ columns, data, onClick }: IRow) => {
     <tr onClick={handleCellClick} className="cursor-pointer group">
       {columns.map((item, i) => {
         return (
-          <TMTable.Cell key={`cell_${i}`}>{item?.render ? item?.render(data) : data?.[item?.dataIndex]}</TMTable.Cell>
+          <TMTable.Cell className={styles.cell} key={`cell_${i}`}>
+            {item?.render ? item?.render(data, i) : data?.[item?.dataIndex]}
+          </TMTable.Cell>
         );
       })}
     </tr>
   );
 };
 
-TMTable.Cell = ({ children }: any) => {
+TMTable.Cell = ({ children, className }: any) => {
   return (
-    <td className="border-b border-slate-200 dark:border-slate-600 p-4 pl-8 text-slate-500 dark:text-slate-400 group-hover:backdrop-brightness-200">
+    <td
+      className={cn(
+        "border-b border-slate-200 dark:border-slate-600 p-4 pl-8 text-slate-500 dark:text-slate-400 group-hover:backdrop-brightness-200",
+        className
+      )}
+    >
       {children}
     </td>
   );

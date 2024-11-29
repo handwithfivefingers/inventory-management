@@ -452,14 +452,14 @@ export interface ApiInventoryInventory extends Struct.CollectionTypeSchema {
       'api::inventory.inventory'
     > &
       Schema.Attribute.Private;
-    product: Schema.Attribute.Relation<'oneToOne', 'api::product.product'>;
+    product: Schema.Attribute.Relation<'manyToOne', 'api::product.product'>;
     publishedAt: Schema.Attribute.DateTime;
     quantity: Schema.Attribute.Integer;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    warehouses: Schema.Attribute.Relation<
-      'oneToMany',
+    warehouse: Schema.Attribute.Relation<
+      'oneToOne',
       'api::warehouse.warehouse'
     >;
   };
@@ -485,7 +485,7 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::order.order'> &
       Schema.Attribute.Private;
     note: Schema.Attribute.Text;
-    OrderItem: Schema.Attribute.Component<'component.order-item', true>;
+    OrderDetails: Schema.Attribute.Component<'component.order-item', true>;
     publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -545,8 +545,11 @@ export interface ApiProductProduct extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     description: Schema.Attribute.RichText;
     expiredAt: Schema.Attribute.Date;
-    history: Schema.Attribute.Component<'component.product-item', true>;
     images: Schema.Attribute.Media<'images', true>;
+    inventories: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::inventory.inventory'
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -560,6 +563,7 @@ export interface ApiProductProduct extends Struct.CollectionTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     skuCode: Schema.Attribute.String;
     tags: Schema.Attribute.Relation<'oneToMany', 'api::tag.tag'>;
+    transfers: Schema.Attribute.Relation<'oneToMany', 'api::transfer.transfer'>;
     unit: Schema.Attribute.Relation<'oneToOne', 'api::unit.unit'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -622,6 +626,46 @@ export interface ApiTagTag extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiTransferTransfer extends Struct.CollectionTypeSchema {
+  collectionName: 'transfers';
+  info: {
+    description: '';
+    displayName: 'Transfer';
+    pluralName: 'transfers';
+    singularName: 'transfer';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::transfer.transfer'
+    > &
+      Schema.Attribute.Private;
+    product: Schema.Attribute.Relation<'manyToOne', 'api::product.product'>;
+    publishedAt: Schema.Attribute.DateTime;
+    quantity: Schema.Attribute.Integer & Schema.Attribute.Required;
+    receivedDate: Schema.Attribute.DateTime;
+    sentDate: Schema.Attribute.DateTime;
+    type: Schema.Attribute.Enumeration<['EXPORT', 'IMPORT', 'UPDATE']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'UPDATE'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedQuantity: Schema.Attribute.Integer;
+    warehouse: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::warehouse.warehouse'
+    >;
   };
 }
 
@@ -1217,6 +1261,7 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 3;
       }>;
+    vendors: Schema.Attribute.Relation<'oneToMany', 'api::vendor.vendor'>;
   };
 }
 
@@ -1238,6 +1283,7 @@ declare module '@strapi/strapi' {
       'api::product.product': ApiProductProduct;
       'api::provider.provider': ApiProviderProvider;
       'api::tag.tag': ApiTagTag;
+      'api::transfer.transfer': ApiTransferTransfer;
       'api::unit.unit': ApiUnitUnit;
       'api::vendor.vendor': ApiVendorVendor;
       'api::warehouse.warehouse': ApiWarehouseWarehouse;
