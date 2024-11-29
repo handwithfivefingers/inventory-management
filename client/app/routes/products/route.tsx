@@ -41,9 +41,7 @@ export default function Products() {
       );
     }
   }, [warehouse]);
-  useEffect(() => {
-    console.log(fetcher.data);
-  }, [fetcher]);
+
 
   return (
     <div className="w-full flex flex-col p-4 gap-4">

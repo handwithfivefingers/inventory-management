@@ -1,16 +1,16 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "@remix-run/react";
 import type { LinksFunction } from "@remix-run/node";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "@remix-run/react";
 
-import "~/assets/styles/index.scss";
-import { AppLayout } from "./components/layouts";
 import { useFetcher } from "@remix-run/react";
+import "feather-icons/dist/feather";
 import { useEffect } from "react";
 import { AuthService } from "~/action.server/auth.service";
+import "~/assets/styles/index.scss";
 import { useUser } from "~/store/user.store";
 import { useVendor } from "~/store/vendor.store";
 import { useWarehouse } from "~/store/warehouse.store";
 import { IUser } from "~/types/user";
-import "feather-icons/dist/feather";
+import { AppLayout } from "./components/layouts";
 export const links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -53,7 +53,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       }
     }
   }, [vendors, fetcher.data]);
- 
+
   return (
     <html lang="en">
       <head>

@@ -1,9 +1,21 @@
-import React from "react";
+import { useNavigation } from "@remix-run/react";
+import { BaseProps } from "~/types/common";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
-import { BaseProps } from "~/types/common";
+import { useEffect } from "react";
+import Quagga from "quagga"; // ES6
 
 export const AppLayout = ({ children }: BaseProps) => {
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    console.log("function navigationState");
+    if (navigation.state === "loading") {
+      (Quagga as any)?.stop();
+    }
+  }, [navigation]);
+
+  console.log("navigation", navigation);
   return (
     <div className="w-full bg-slate-300 min-h-[100svh] flex flex-col">
       <div className="w-full">

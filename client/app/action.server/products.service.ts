@@ -45,7 +45,6 @@ const productService = {
   getProductById: (documentId: string) => {
     const params = new URLSearchParams({});
     params.append(`populate[0]`, "productDetails");
-    params.append(`populate[1]`, "Inventory");
     return http.get(API_PATH.products + "/" + documentId + "?" + params.toString());
   },
   createProduct: (params: ICreateProductParams, qsParams: ICreateProductQueryParams) => {

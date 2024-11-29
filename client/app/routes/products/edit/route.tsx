@@ -1,14 +1,15 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { productService } from "~/action.server/products.service";
-import { TMTable } from "~/components/tm-table";
-import { dayjs } from "~/libs/date";
 import { NumericFormat } from "react-number-format";
+import { productService } from "~/action.server/products.service";
+import { BarCode } from "~/components/barcode";
+import { dayjs } from "~/libs/date";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   console.log("request", params);
   const { documentId } = params;
   const prods = await productService.getProductById(documentId as string);
+  console.log("prods", prods);
   return prods;
 };
 
@@ -18,7 +19,8 @@ export const meta: MetaFunction = () => {
 
 export default function ProductItem() {
   const { data } = useLoaderData<typeof loader>();
-  const { productDetails, history } = data;
+  const { productDetails } = data;
+  console.log("data", data);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">{data.name}</h2>
@@ -26,8 +28,11 @@ export default function ProductItem() {
         <div className="col-span-5">Chi tiết </div>
 
         <div className="w-full grid grid-cols-5 gap-4">
-          <div className="col-span-2">
+          <div className="col-span-2 flex gap-2 flex-col ">
             <div className="bg-slate-50 w-full h-full p-8 rounded-lg aspect-square" />
+            <div className="w-full bg-neutral-100/80 py-2 rounded-md flex justify-center">
+              <BarCode code={data?.code} />
+            </div>
           </div>
           <div className="col-span-3 px-12">
             <ul className="flex flex-col gap-2">
@@ -45,11 +50,11 @@ export default function ProductItem() {
               </li>
               <li className="flex justify-between">
                 <span>Đã bán: </span>
-                <span>{productDetails.sold} </span>
+                <span>{productDetails?.sold} </span>
               </li>
               <li className="flex justify-between">
                 <span>Tồn kho: </span>
-                <span>{productDetails.inStock} </span>
+                {/* <span>{productDetails?.inStock} </span> */}
               </li>
               <li className="flex justify-between">
                 <span>Đơn vị tính: </span>
@@ -62,25 +67,25 @@ export default function ProductItem() {
               <li className="flex justify-between">
                 <span>Giá bán lẻ: </span>
                 <span>
-                  <NumericFormat value={productDetails.regularPrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={productDetails?.regularPrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
               <li className="flex justify-between">
                 <span>Giá khuyến mại: </span>
                 <span>
-                  <NumericFormat value={productDetails.salePrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={productDetails?.salePrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
               <li className="flex justify-between">
                 <span>Giá bán sỉ: </span>
                 <span>
-                  <NumericFormat value={productDetails.wholesalePrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={productDetails?.wholesalePrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
               <li className="flex justify-between">
                 <span>Giá vốn: </span>
                 <span>
-                  <NumericFormat value={productDetails.costPrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={productDetails?.costPrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
             </ul>
@@ -96,7 +101,7 @@ export default function ProductItem() {
           {/* {history?.map((item: any, i: number) => {
               return <ProductAttributes data={item} key={i} />;
             })} */}
-          <TMTable
+          {/* <TMTable
             data={history}
             columns={[
               {
@@ -134,7 +139,7 @@ export default function ProductItem() {
               },
             ]}
             rowKey="id"
-          />
+          /> */}
         </div>
       </div>
     </div>
