@@ -2,10 +2,14 @@ import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { warehouseService } from "~/action.server/warehouse.service";
 import { TextInput } from "~/components/form/text-input";
+import { getSession } from "~/sessions";
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
-  const { documentId } = params;
-  const warehouses = await warehouseService.getWareHouseById(documentId as string);
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+  const { id } = params;
+  const session = await getSession(request.headers.get("Cookie"));
+
+  const vendor = session.get("vendor");
+  const warehouses = await warehouseService.getWareHouseById({ id, vendor } as any);
   return warehouses;
 };
 
@@ -13,10 +17,8 @@ export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
-export default function ProviderItem() {
+export default function WarehouseItem() {
   const { data } = useLoaderData<typeof loader>();
-  const navigate = useNavigate();
-  console.log("WarehouseItem", data);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">Kho {data?.name}</h2>

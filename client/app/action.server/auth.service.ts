@@ -1,37 +1,30 @@
 import { http } from "~/http";
 
 const API_PATH = {
-  login: "/auth/local",
+  login: "/auth/login",
   register: "/auth/local/register",
-  me: "/users/me",
+  me: "/auth/me",
 };
 
-interface ILoginParams {
+export interface ILoginParams {
   email: string;
   password: string;
 }
 
 interface ILoginResponse {
   jwt: string;
-  user: Record<string, any>;
+  token: string;
+  data: Record<string, any>;
 }
-interface IApiResponse<IData> {
-  data: IData;
-}
-
 export const AuthService = {
   login: async (params: ILoginParams) => {
-    http.removeHeader("Authorization");
     const resp: ILoginResponse = await http.post(API_PATH.login, params);
-    console.log("resp", resp);
     if (resp.jwt) {
       http.setToken(resp.jwt);
     }
     return resp;
   },
-  getMe: async () => {
-    const qs = new URLSearchParams({});
-    qs.append("populate[vendors][populate][warehouses]", "*");
-    return http.get(API_PATH.me + "?" + qs.toString());
+  getMe: async (options?: any) => {
+    return http.get(API_PATH.me, options);
   },
 };

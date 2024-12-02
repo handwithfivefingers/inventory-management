@@ -1,11 +1,12 @@
 const moduleAlias = require("module-alias");
 moduleAlias.addAliases({
-  "@src": __dirname + "/src",
-  "@libs": __dirname + "/src/libs",
-  "@db": __dirname + "/src/database",
-  "@api": __dirname + "/src/api",
+  "@src": __dirname + "/",
+  "@libs": __dirname + "/libs",
+  "@db": __dirname + "/database",
+  "@api": __dirname + "/api",
   "@constant": __dirname + "/constant",
-  "@middleware": __dirname + "/src/middleware",
+  "@middleware": __dirname + "/middleware",
+  "@validator": __dirname + "/validator",
 });
 moduleAlias();
 
@@ -19,11 +20,14 @@ const appRouter = require("@api/routes");
 const app = express();
 app.use(express.json());
 app.use(parser());
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3000"],
+  })
+);
 app.use(morgan("dev"));
 app.use(helmet());
 app.use("/api", appRouter);
-db.sync();
 const errorHandler = async (err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
@@ -37,5 +41,6 @@ const errorHandler = async (err, req, res, next) => {
 app.use(errorHandler);
 
 app.listen(3001, () => {
+  db.sync();
   console.log("Server listen PORT:", 3001);
 });

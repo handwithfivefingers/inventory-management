@@ -34,3 +34,11 @@ _style: [scss] [tailwindcss](https://tailwindcss.com/docs/installation)
 ```
 Not used recently
 ```
+
+
+
+### MYSQL MODE
+```
+SET GLOBAL sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''));
+
+```

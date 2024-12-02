@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@src/*": ["./src/*"],
+      "@db/*": ["./src/database/*"],
+      "@api/*": ["./src/api/*"],
+      "@libs/*": ["./src/libs/*"],
+      "@constant/*": ["./src/constant/*"],
+      "@middleware/*": ["./src/middleware/*"],
+      "@validator/*": ["./src/validator/*"]
+    }
+  }
+}

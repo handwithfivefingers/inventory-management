@@ -1,48 +1,27 @@
-import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, useFetcher, useNavigate } from "@remix-run/react";
-import { useEffect } from "react";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { inventoryService } from "~/action.server/inventory.service";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
-import { useWarehouse } from "~/store/warehouse.store";
+import { getSession } from "~/sessions";
+import { IResponse } from "~/types/common";
+import { IProduct } from "~/types/product";
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const formData = await request.formData();
-  const warehouse = formData.get("warehouse");
-  const prods = await inventoryService.getProducts({ warehouseId: warehouse });
-  return prods;
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const session = await getSession(request.headers.get("Cookie"));
+  const warehouse = session.get("warehouse");
+  const resp = await inventoryService.getProducts({ warehouseId: warehouse });
+  return resp as IResponse<IProduct[]>;
 };
-
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
-interface IProductResponse {
-  data: any[];
-}
 export default function Products() {
   const navigate = useNavigate();
-  const { warehouse } = useWarehouse();
-
-  const fetcher = useFetcher<IProductResponse>({ key: "products" });
-
-  useEffect(() => {
-    if (warehouse?.documentId && fetcher.state === "idle") {
-      fetcher.submit(
-        {
-          warehouse: warehouse?.documentId,
-        },
-        {
-          method: "POST",
-          action: "/products",
-        }
-      );
-    }
-  }, [warehouse]);
-
-
+  const { data } = useLoaderData<typeof loader>();
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">Product</h2>
@@ -68,12 +47,12 @@ export default function Products() {
               {
                 title: "Tên sản phẩm",
                 dataIndex: "name",
-                render: (record) => record["product"]?.["name"],
+                render: (record) => record["name"],
               },
               {
                 title: "Mã sản phẩm",
                 dataIndex: "skuCode",
-                render: (record) => record["product"]?.["skuCode"],
+                render: (record) => record["skuCode"],
               },
               {
                 title: "Tồn kho",
@@ -91,12 +70,12 @@ export default function Products() {
                 render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
               },
             ]}
-            data={fetcher?.data?.data || []}
-            rowKey={"documentId"}
+            data={data || []}
+            rowKey={"id"}
             onRow={{
               onClick: (record) => {
                 console.log("record", record);
-                navigate(`./${record?.product?.documentId}`);
+                navigate(`./${record?.id}`);
               },
             }}
           />

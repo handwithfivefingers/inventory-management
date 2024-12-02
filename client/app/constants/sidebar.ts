@@ -17,7 +17,19 @@ export const SIDE_BAR = [
     label: vi.WareHouse,
   },
   {
-    to: "/providers",
-    label: vi.Provider,
+    to: "/categories",
+    label: vi.Categories,
+  },
+  {
+    to: "/unit",
+    label: vi.Unit,
+  },
+  {
+    to: "/tags",
+    label: vi.Tags,
+  },
+  {
+    to: "/financial",
+    label: vi.Financial,
   },
 ];

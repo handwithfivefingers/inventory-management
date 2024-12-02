@@ -31,16 +31,37 @@ module.exports = class ProductService extends BaseCRUDService {
   }
   async getProduct(params) {
     try {
-      const resp = await this.get({
+      const query = {
         include: { model: this.db.inventory, attributes: [] },
-        where: {
-          "$inventories.id$": params.inventoryId,
+        attributes: {
+          include: [[this.sequelize.col("inventories.quantity"), "quantity"]],
         },
+      };
+      if (params.inventoryId) {
+        query.where = {
+          "$inventories.id$": params.inventoryId,
+        };
+      }
+
+      const resp = await this.get(query);
+      return resp;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getProductById({ params, query }) {
+    try {
+      const resp = await this.product.findOne({
+        where: {
+          id: params.id,
+          "$inventories.warehouseId$": query.warehouse,
+        },
+        include: { model: this.db.inventory, attributes: [] },
         attributes: {
           include: [[this.sequelize.col("inventories.quantity"), "quantity"]],
         },
       });
-      console.log("resp", resp);
       return resp;
     } catch (error) {
       throw error;

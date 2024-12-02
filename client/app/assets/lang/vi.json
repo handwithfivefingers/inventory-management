@@ -3,5 +3,9 @@
   "Product": "Sản phẩm",
   "ImportOrder": "Nhập đơn hàng",
   "WareHouse": "Kho, Bãi",
-  "Provider": "Nhà cung cấp"
+  "Provider": "Nhà cung cấp",
+  "Categories": "Danh mục",
+  "Tags": "Thành phần",
+  "Unit": "Đơn vị",
+  "Financial": "Sổ quỹ tài chính"
 }

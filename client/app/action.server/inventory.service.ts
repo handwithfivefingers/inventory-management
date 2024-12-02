@@ -1,4 +1,6 @@
 import { http } from "~/http";
+import { IResponse } from "~/types/common";
+import { IProduct } from "~/types/product";
 
 interface IProductDetails {
   inStock?: number;
@@ -26,19 +28,20 @@ interface ICreateProductParams {
     history?: IProductDetails[];
   };
 }
-const API_PATH = {
-  inventory: "/inventories",
-};
 
 interface IProductParams {
   [key: string]: any;
 }
+
+const API_PATH = {
+  inventory: "/inventories",
+  products: "/products",
+};
+
 const inventoryService = {
-  getProducts: (params: IProductParams) => {
+  getProducts: (params: IProductParams): Promise<IResponse<IProduct[]>> => {
     const qs = new URLSearchParams({});
-    qs.append(`populate`, "product");
-    qs.append(`filters[warehouse][documentId][$eq]`, params.warehouseId);
-    return http.get(API_PATH.inventory + "?" + qs.toString());
+    return http.get(API_PATH.products + "?" + qs.toString());
   },
 };
 

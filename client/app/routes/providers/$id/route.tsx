@@ -4,8 +4,8 @@ import { warehouseService } from "~/action.server/warehouse.service";
 import { TextInput } from "~/components/form/text-input";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
-  const { documentId } = params;
-  const warehouses = await warehouseService.getWareHouseById(documentId as string);
+  const { id } = params;
+  const warehouses = await warehouseService.getWareHouseById(id as string);
   return warehouses;
 };
 
@@ -13,7 +13,7 @@ export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
-export default function WarehouseItem() {
+export default function ProviderItem() {
   const { data } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   console.log("WarehouseItem", data);

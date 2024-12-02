@@ -1,4 +1,5 @@
 import { http } from "~/http";
+import { IResponse } from "~/types/common";
 import { IProduct, IProductDetails } from "~/types/product";
 
 const API_PATH = {
@@ -28,24 +29,21 @@ interface ICreateProductQueryParams {
   quantity: string;
 }
 
-interface IProductResponse<T> {
-  data: T[];
+interface IGetParamsByID {
+  id: string;
+  warehouse: string;
 }
 const productService = {
-  getProducts: (params?: IProductParams): Promise<IProductResponse<IProduct>> => {
+  getProducts: (params: IProductParams): Promise<IResponse<IProduct[]>> => {
     const qs = new URLSearchParams({});
-    qs.append(`populate[1]`, "inventories");
-    qs.append(`populate[0]`, "productDetails");
-
-    if (params?.warehouse) {
-      qs.append("warehouse", params?.warehouse);
-    }
     return http.get(API_PATH.products + "?" + qs.toString());
   },
-  getProductById: (documentId: string) => {
-    const params = new URLSearchParams({});
-    params.append(`populate[0]`, "productDetails");
-    return http.get(API_PATH.products + "/" + documentId + "?" + params.toString());
+  getProductById: ({ id, warehouse }: IGetParamsByID): Promise<IResponse<IProduct>> => {
+    const params = new URLSearchParams({
+      warehouse: warehouse,
+    });
+    // params.append(`populate[0]`, "productDetails");
+    return http.get(API_PATH.products + "/" + id + "?" + params.toString());
   },
   createProduct: (params: ICreateProductParams, qsParams: ICreateProductQueryParams) => {
     console.log("params", params);

@@ -11,8 +11,18 @@ export interface IProduct {
   name: string;
   publishedAt: string;
   skuCode: string;
+  quantity?: number;
+  salePrice?: number;
+  regularPrice?: number;
+  wholeSalePrice?: number;
+  costPrice?: number;
+  sold?: number;
+  VAT?: number;
+  createdDate?: string;
   updatedAt: string;
-  productDetails: IProductDetails;
+  unit?: string;
+  categories?: string;
+  // productDetails: IProductDetails;
 }
 
 export interface IProductDetails {

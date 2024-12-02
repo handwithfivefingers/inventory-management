@@ -4,8 +4,8 @@ import { warehouseService } from "~/action.server/warehouse.service";
 import { TextInput } from "~/components/form/text-input";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
-  const { documentId } = params;
-  const warehouses = await warehouseService.getWareHouseById(documentId as string);
+  const { id } = params;
+  const warehouses = await warehouseService.getWareHouseById(id as string);
   return warehouses;
 };
 

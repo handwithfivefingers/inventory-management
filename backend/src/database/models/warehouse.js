@@ -14,13 +14,15 @@ const Warehouse = (sequelize) => {
       },
       phone: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       address: {
         type: DataTypes.STRING,
+        allowNull: true,
       },
       email: {
         type: DataTypes.STRING,
+        allowNull: true,
       },
       isMain: {
         type: DataTypes.BOOLEAN,

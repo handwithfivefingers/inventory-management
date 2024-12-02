@@ -1,31 +1,27 @@
 import type { MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { LoaderFunctionArgs } from "react-router";
 import { warehouseService } from "~/action.server/warehouse.service";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
+import { getSession } from "~/sessions";
 
-export const loader = async () => {
-  const warehouses = await warehouseService.getWareHouses();
-  console.log("warehouses", warehouses);
-  const data = await Promise.all(
-    warehouses?.data?.map(({ documentId }: any) =>
-      warehouseService.getInventoryFromWareHouseId(documentId).then((res) => res.data)
-    )
-  );
-
-  return data;
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+  const session = await getSession(request.headers.get("Cookie"));
+  const vendor = session.get("vendor");
+  const resp = await warehouseService.getWareHouses(vendor as string);
+  return resp;
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Warehouse" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
 export default function WareHouses() {
-  const data = useLoaderData<typeof loader>();
+  const { data } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  console.log("data", data);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">WareHouses</h2>
@@ -35,7 +31,7 @@ export default function WareHouses() {
             <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton component={Link} to="/add">
+                <TMButton component={Link} to="/warehouses/add">
                   Thêm
                 </TMButton>
                 <TMButton>Nhập từ Excel</TMButton>
@@ -49,21 +45,20 @@ export default function WareHouses() {
           <TMTable
             columns={[
               {
-                title: "Tên sản phẩm",
+                title: "Kho",
                 dataIndex: "name",
               },
               {
-                title: "Mã sản phẩm",
-                dataIndex: "skuCode",
-              },
-              {
                 title: "Tồn kho",
-                dataIndex: "inStock",
+                dataIndex: "quantity",
               },
               {
-                title: "Đã bán",
-                dataIndex: "sold",
-                render: (record) => record["sold"] || 0,
+                title: "Số điện thoại",
+                dataIndex: "phone",
+              },
+              {
+                title: "Địa chỉ",
+                dataIndex: "address",
               },
               {
                 title: "Ngày tạo",
@@ -75,8 +70,7 @@ export default function WareHouses() {
             rowKey={"documentId"}
             onRow={{
               onClick: (record) => {
-                console.log("record", record);
-                navigate(`./${record.documentId}`);
+                navigate(`./${record.id}`);
               },
             }}
           />

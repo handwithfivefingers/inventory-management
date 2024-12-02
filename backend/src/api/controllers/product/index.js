@@ -21,4 +21,14 @@ module.exports = class ProductController {
       next(error);
     }
   }
+  async getProductById(req, res, next) {
+    try {
+      const resp = await new ProductService().getProductById({ params: req.params, query: req.query });
+      return res.status(200).json({
+        data: resp,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 };

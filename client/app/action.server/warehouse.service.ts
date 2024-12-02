@@ -1,16 +1,13 @@
 import { http } from "~/http";
 
-
-
-
 const API_PATH = {
   warehouse: "/warehouses",
   inventory: "/inventories",
 };
 
 const warehouseService = {
-  getWareHouses: () => {
-    return http.get(API_PATH.warehouse);
+  getWareHouses: (vendorId: string) => {
+    return http.get(API_PATH.warehouse + `?vendorId=${vendorId}`);
   },
 
   getInventoryFromWareHouseId: (documentId: string) => {
@@ -18,9 +15,11 @@ const warehouseService = {
     params.append(`filters[warehouses][documentId][$eq]`, documentId);
     return http.get(API_PATH.inventory + "?" + params.toString());
   },
-  getWareHouseById: (documentId: string) => {
-    const params = new URLSearchParams({});
-    return http.get(API_PATH.warehouse + "/" + documentId + "?" + params.toString());
+  getWareHouseById: ({ id, vendor }: any) => {
+    const params = new URLSearchParams({
+      vendor,
+    });
+    return http.get(API_PATH.warehouse + "/" + id + "?" + params.toString());
   },
 };
 

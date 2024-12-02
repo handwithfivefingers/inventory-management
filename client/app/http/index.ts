@@ -1,25 +1,26 @@
 export interface IGetParams {
   basePath?: string;
   headers: Record<string, any>;
+  credentials?: string;
 }
 export interface IHTTPService {
   basePath: string;
   token?: string;
+  credentials?: string;
 }
 type IData<T> = T;
 
 class HTTPService {
   options = {
     basePath: "",
+    credentials: "same-origin",
   };
   headers = new Headers({
     Accept: "application/json",
   });
 
   constructor(props: IHTTPService) {
-    this.options = {
-      basePath: props?.basePath,
-    };
+    this.options.basePath = props.basePath;
 
     if (props.token) {
       this.headers.set("Authorization", `Bearer ${props.token}`);
@@ -42,8 +43,9 @@ class HTTPService {
     const headers = this.headers;
     const options = {
       headers: paramsOptions?.headers ? paramsOptions?.headers : headers,
+      credentials: this.options.credentials,
     };
-    return fetch(url, { method: "GET", ...options }).then((res) => res.json());
+    return fetch(url, { method: "GET", ...(options as any) }).then((res) => res.json());
   }
   post(path?: string, data: IData<any> = {}, paramsOptions?: IGetParams) {
     const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
@@ -52,12 +54,12 @@ class HTTPService {
       headers: paramsOptions?.headers ? paramsOptions?.headers : headers,
       method: "POST",
       body: JSON.stringify(data),
+      credentials: this.options.credentials,
     };
-    console.log("options", options);
-    return fetch(url, options).then((res) => res.json());
+    return fetch(url, options as any).then((res) => res.json());
   }
 }
 
-const http = new HTTPService({ basePath: "http://localhost:1337/api" });
+const http = new HTTPService({ basePath: "http://localhost:3001/api" });
 
 export { http };

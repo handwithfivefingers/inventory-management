@@ -25,13 +25,15 @@ export default defineConfig(({ command }) => {
           return definedRoutes((route) => {
             route("/orders/add", "routes/orders/add/route.tsx", { id: "Order-Add" });
             route("/products/add", "routes/products/add/route.tsx", { id: "Product-Add" });
-            route("/products/:documentId", "routes/products/edit/route.tsx", { id: "Product-Edit" });
+            route("/products/:id", "routes/products/edit/route.tsx", { id: "Product-Edit" });
             route("/import-order/add", "routes/import-order/add/route.tsx", { id: "ImportOrder-Add" });
-            route("/import-order/:documentId", "routes/warehouses/$documentId/route.tsx", { id: "ImportOrder-Edit" });
+            route("/import-order/:id", "routes/import-order/$id/route.tsx", { id: "ImportOrder-Edit" });
             // route("/products/add", "routes/products/add/route.tsx", { id: "Product-Add" });
             route("/warehouses/add", "routes/warehouses/add/route.tsx", { id: "WareHouses-Add" });
-            route("/warehouses/:documentId", "routes/warehouses/$documentId/route.tsx", { id: "WareHouses-Edit" });
-            route("/providers/:documentId", "routes/providers/$documentId/route.tsx", { id: "Providers-Edit" });
+            route("/warehouses/:id", "routes/warehouses/$id/route.tsx", { id: "WareHouses-Edit" });
+            route("/providers/:id", "routes/providers/$id/route.tsx", { id: "Providers-Edit" });
+
+            route("/api/storage", "routes/api/storage/route.tsx", { id: "Storage-API" });
           });
         },
       }),
@@ -46,7 +48,7 @@ export default defineConfig(({ command }) => {
       },
     },
     server: {
-      port: 3000
-    }
-  }
+      port: 3000,
+    },
+  };
 });

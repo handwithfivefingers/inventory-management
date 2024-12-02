@@ -5,23 +5,22 @@ import { productService } from "~/action.server/products.service";
 import { BarCode } from "~/components/barcode";
 import { CardItem } from "~/components/card-item";
 import { dayjs } from "~/libs/date";
+import { getSession } from "~/sessions";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  console.log("request", params);
-  const { documentId } = params;
-  const prods = await productService.getProductById(documentId as string);
-  console.log("prods", prods);
-  return prods;
+  const session = await getSession(request.headers.get("Cookie"));
+  const warehouse = session.get("warehouse");
+  const { id } = params;
+  const resp = await productService.getProductById({ id, warehouse } as any);
+  return resp;
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Product Item" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
 export default function ProductItem() {
   const { data } = useLoaderData<typeof loader>();
-  const { productDetails } = data;
-  console.log("data", data);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <CardItem title={data.name}>
@@ -48,42 +47,42 @@ export default function ProductItem() {
               </li>
               <li className="flex justify-between">
                 <span>Đã bán: </span>
-                <span>{productDetails?.sold} </span>
+                <span>{data?.sold} </span>
               </li>
               <li className="flex justify-between">
                 <span>Tồn kho: </span>
-                {/* <span>{productDetails?.inStock} </span> */}
+                <span>{data?.quantity} </span>
               </li>
               <li className="flex justify-between">
                 <span>Đơn vị tính: </span>
-                <span>{data.inStock} </span>
+                <span>{data?.unit} </span>
               </li>
               <li className="flex justify-between">
                 <span>Danh mục: </span>
-                <span>{data.inStock} </span>
+                <span>{data?.categories} </span>
               </li>
               <li className="flex justify-between">
                 <span>Giá bán lẻ: </span>
                 <span>
-                  <NumericFormat value={productDetails?.regularPrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={data?.regularPrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
               <li className="flex justify-between">
                 <span>Giá khuyến mại: </span>
                 <span>
-                  <NumericFormat value={productDetails?.salePrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={data?.salePrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
               <li className="flex justify-between">
                 <span>Giá bán sỉ: </span>
                 <span>
-                  <NumericFormat value={productDetails?.wholesalePrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={data?.wholeSalePrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
               <li className="flex justify-between">
                 <span>Giá vốn: </span>
                 <span>
-                  <NumericFormat value={productDetails?.costPrice} displayType="text" thousandSeparator="," />
+                  <NumericFormat value={data?.costPrice} displayType="text" thousandSeparator="," />
                 </span>
               </li>
             </ul>
