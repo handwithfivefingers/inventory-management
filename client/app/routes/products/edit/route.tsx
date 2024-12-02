@@ -3,6 +3,7 @@ import { useLoaderData } from "@remix-run/react";
 import { NumericFormat } from "react-number-format";
 import { productService } from "~/action.server/products.service";
 import { BarCode } from "~/components/barcode";
+import { CardItem } from "~/components/card-item";
 import { dayjs } from "~/libs/date";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -23,14 +24,11 @@ export default function ProductItem() {
   console.log("data", data);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
-      <h2 className="text-2xl">{data.name}</h2>
-      <div className="bg-white rounded-sm shadow-md p-4 flex gap-2 flex-col dark:bg-neutral-900/70 ">
-        <div className="col-span-5">Chi tiết </div>
-
+      <CardItem title={data.name}>
         <div className="w-full grid grid-cols-5 gap-4">
           <div className="col-span-2 flex gap-2 flex-col ">
             <div className="bg-slate-50 w-full h-full p-8 rounded-lg aspect-square" />
-            <div className="w-full bg-neutral-100/80 py-2 rounded-md flex justify-center">
+            <div className="w-full py-2 rounded-md flex justify-center">
               <BarCode code={data?.code} />
             </div>
           </div>
@@ -91,12 +89,8 @@ export default function ProductItem() {
             </ul>
           </div>
         </div>
-
-        {/* <pre>{JSON.stringify(data, null, 4)}</pre> */}
-      </div>
-      <div className="bg-white rounded-sm shadow-md p-4 flex gap-2 flex-col dark:bg-neutral-900/70">
-        <div className="col-span-5">Lịch sử tồn kho </div>
-
+      </CardItem>
+      <CardItem title={`Lịch sử tồn kho`}>
         <div className="w-full ">
           {/* {history?.map((item: any, i: number) => {
               return <ProductAttributes data={item} key={i} />;
@@ -141,42 +135,7 @@ export default function ProductItem() {
             rowKey="id"
           /> */}
         </div>
-      </div>
+      </CardItem>
     </div>
   );
 }
-
-const ProductAttributes = ({ data }: any) => {
-  // return (
-  //   <ul className="flex flex-col gap-2">
-  //     <li className="flex justify-between">
-  //       <span>Đã bán: </span>
-  //       <span>{data.sold} </span>
-  //     </li>
-  //     <li className="flex justify-between">
-  //       <span>Tồn kho: </span>
-  //       <span>{data.inStock} </span>
-  //     </li>
-  //     <li className="flex justify-between">
-  //       <span>Đơn vị tính: </span>
-  //       <span>{data.inStock} </span>
-  //     </li>
-  //     <li className="flex justify-between">
-  //       <span>Giá bán lẻ: </span>
-  //       <span>{data.regularPrice} </span>
-  //     </li>
-  //     <li className="flex justify-between">
-  //       <span>Giá khuyến mại: </span>
-  //       <span>{data.salePrice} </span>
-  //     </li>
-  //     <li className="flex justify-between">
-  //       <span>Giá bán sỉ: </span>
-  //       <span>{data.wholesalePrice} </span>
-  //     </li>
-  //     <li className="flex justify-between">
-  //       <span>Giá vốn: </span>
-  //       <span>{data.costPrice} </span>
-  //     </li>
-  //   </ul>
-  // );
-};

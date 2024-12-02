@@ -5,9 +5,9 @@ export const BarCode = ({ code }: { code: string }) => {
   useEffect(() => {
     if (code) {
       JsBarcode(svgRef.current, code, {
-        width: 1,
-        fontSize: 12,
-        height: 28,
+        width: 2.2,
+        fontSize: 16,
+        height: 40,
         background: "transparent",
       });
     }

@@ -1,0 +1,1 @@
+const { BaseError } = require("sequelize");
