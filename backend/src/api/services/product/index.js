@@ -1,5 +1,6 @@
 const InventoryService = require("../inventory");
 const BaseCRUDService = require("@constant/base");
+const { Op } = require("sequelize");
 
 module.exports = class ProductService extends BaseCRUDService {
   constructor() {
@@ -29,18 +30,22 @@ module.exports = class ProductService extends BaseCRUDService {
       throw error;
     }
   }
-  async getProduct(params) {
+  async getProduct(req) {
     try {
+      const params = req.query;
       const query = {
-        include: { model: this.db.inventory, attributes: [] },
+        where: {
+          "$inventories.warehouseId$": {
+            [Op.in]: req.availableWarehouses,
+          },
+        },
+        include: { model: this.db.inventory },
         attributes: {
           include: [[this.sequelize.col("inventories.quantity"), "quantity"]],
         },
       };
       if (params.inventoryId) {
-        query.where = {
-          "$inventories.id$": params.inventoryId,
-        };
+        query.where["$inventories.id$"] = params.inventoryId;
       }
 
       const resp = await this.get(query);

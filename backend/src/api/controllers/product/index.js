@@ -13,7 +13,7 @@ module.exports = class ProductController {
   }
   async getProduct(req, res, next) {
     try {
-      const resp = await new ProductService().getProduct(req.query);
+      const resp = await new ProductService().getProduct(req);
       return res.status(200).json({
         data: resp,
       });

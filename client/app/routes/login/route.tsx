@@ -1,33 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFetcher, useNavigate } from "@remix-run/react";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
+import { loginSchema } from "~/constants/schema/login";
 import { cn } from "~/libs/utils";
-import { useUser } from "~/store/user.store";
-import { ILoginResponse } from "~/types/user";
 import styles from "./styles.module.scss";
 
-const loginSchema = z.object({
-  email: z.string(),
-  password: z.string(),
-});
-
-// export const action = async ({ request }: ActionFunctionArgs) => {
-//   const formData = await request.formData();
-//   const data = formData.get("data") || "";
-//   if (!data) return null;
-//   const parsed = JSON.parse(data as string);
-//   const resp = await AuthService.login(parsed);
-
-//   const { token } = resp;
-//   return redirect("/", {
-//     headers: {
-//       "Set-Cookie": await session.serialize({ session: token }),
-//     },
-//   });
-// };
 function Login() {
   const formMethods = useForm({
     defaultValues: {
@@ -36,29 +16,18 @@ function Login() {
     },
     resolver: zodResolver(loginSchema),
   });
-
-  const { updateUser, updateToken, user } = useUser();
-  const fetcher = useFetcher<ILoginResponse>({ key: "login-form" });
-  const navigate = useNavigate();
+  const fetcher = useFetcher<{ status: number }>({ key: "login-form" });
   const onSubmit = async (v: any) => {
     fetcher.submit({ ...v }, { method: "POST", action: "/api/storage?/login" });
   };
   const onError = (errors: any) => {
     console.log("errors", errors);
   };
-  // useEffect(() => {
-  //   if (fetcher.data?.user && fetcher.state === "idle") {
-  //     updateUser(fetcher.data.user);
-  //     updateToken(fetcher.data.jwt);
-  //   }
-  // }, [fetcher.data]);
-
-  // useEffect(() => {
-  //   if (user?.id) {
-  //     console.log("loaded");
-  //     navigate("/");
-  //   }
-  // }, [user]);
+  useEffect(() => {
+    if (fetcher.data?.status === 200) {
+      (window as any).location.href = "/";
+    }
+  }, [fetcher.data]);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <div className={cn("p-4 flex-col gap-2", styles.box)}>

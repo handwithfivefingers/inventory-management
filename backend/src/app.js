@@ -32,8 +32,9 @@ const errorHandler = async (err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
-  return res.status(500).send({
-    error: err.stack || err.message || err,
+  return res.status(400).send({
+    error: err.message || err,
+    stack: err.stack,
     message: "Internal Server Error",
   });
 };
@@ -41,6 +42,6 @@ const errorHandler = async (err, req, res, next) => {
 app.use(errorHandler);
 
 app.listen(3001, () => {
-  db.sync();
+  db.connect();
   console.log("Server listen PORT:", 3001);
 });

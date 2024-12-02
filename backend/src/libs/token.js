@@ -7,7 +7,6 @@ const signToken = (payload) => {
 };
 const decodeToken = async (token) => {
   const decoded = await jwt.decode(token, SECRET_KEY);
-  console.log("decoded", decoded);
   if (decoded) {
     let now = new Date().getTime();
     if (now / 1000 > decoded.exp) {

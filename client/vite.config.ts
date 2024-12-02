@@ -33,7 +33,7 @@ export default defineConfig(({ command }) => {
             route("/warehouses/:id", "routes/warehouses/$id/route.tsx", { id: "WareHouses-Edit" });
             route("/providers/:id", "routes/providers/$id/route.tsx", { id: "Providers-Edit" });
 
-            route("/api/storage", "routes/api/storage/route.tsx", { id: "Storage-API" });
+            route("/api/storage", "routes/api/storage/route.ts", { id: "Storage-API" });
           });
         },
       }),

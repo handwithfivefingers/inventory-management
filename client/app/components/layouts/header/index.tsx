@@ -8,7 +8,9 @@ export const Header = () => {
   const { warehouse } = useWarehouse();
   return (
     <div className="flex border-b items-center w-full overflow-hidden">
-      <div className="bg-indigo-200 p-4 min-w-40 text-center max-w-60 font-bold w-full">I-ERP</div>
+      <div className="bg-indigo-200 p-4 min-w-40 text-center max-w-60 font-bold w-full">
+        <Link to="/">I-ERP</Link>
+      </div>
       <nav className=" flex flex-row gap-4 flex-1 px-4 ">
         <div className="flex items-center flex-row gap-2">
           <h2>Site Title</h2>

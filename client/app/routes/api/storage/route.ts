@@ -25,7 +25,6 @@ export async function action({ request }: ActionFunctionArgs) {
       const email = form.get("email");
       const password = form.get("password");
       const params: ILoginParams = { email: `${email}`, password: `${password}` };
-      console.log("params", params);
       const resp = await AuthService.login(params);
       if (!resp.data?.id) {
         session.flash("error", "Invalid username/password");
@@ -36,13 +35,21 @@ export async function action({ request }: ActionFunctionArgs) {
         });
       }
       session.set("token", resp.token);
-
-      console.log("SET TOKEN", resp.token);
-      return redirect("/", {
-        headers: {
-          "Set-Cookie": await commitSession(session),
+      // return redirect("/", {
+      //   headers: {
+      //     "Set-Cookie": await commitSession(session),
+      //   },
+      // });
+      return json(
+        {
+          status: 200,
         },
-      });
+        {
+          headers: {
+            "Set-Cookie": await commitSession(session),
+          },
+        }
+      );
     },
     storageWarehouse: async () => {
       const session = await getSession(request.headers.get("Cookie"));

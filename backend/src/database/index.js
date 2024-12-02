@@ -49,7 +49,7 @@ db.connect = async () => {
 
 db.sync = async () => {
   try {
-    await sequelize.sync({});
+    await sequelize.sync({ alter: true });
     console.log("Connection has been established successfully");
     return true;
   } catch (error) {
