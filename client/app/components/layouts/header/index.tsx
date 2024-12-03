@@ -1,11 +1,21 @@
-import { Link } from "@remix-run/react";
+import { Link, useFetcher } from "@remix-run/react";
 import { TextInput } from "~/components/form/text-input";
+import { TMButton } from "~/components/tm-button";
+import { useUser } from "~/store/user.store";
 import { useVendor } from "~/store/vendor.store";
 import { useWarehouse } from "~/store/warehouse.store";
 
 export const Header = () => {
-  const { defaultActive } = useVendor();
-  const { warehouse } = useWarehouse();
+  const { defaultActive, reset: vendorReset } = useVendor();
+  const { warehouse, reset: warehouseReset } = useWarehouse();
+  const usr = useUser();
+  const fetcher = useFetcher();
+  const handleLogOut = () => {
+    usr.reset();
+    warehouseReset();
+    vendorReset();
+    fetcher.submit({}, { method: "POST", action: "/" });
+  };
   return (
     <div className="flex border-b items-center w-full overflow-hidden">
       <div className="bg-indigo-200 p-4 min-w-40 text-center max-w-60 font-bold w-full">
@@ -21,7 +31,13 @@ export const Header = () => {
         </div>
 
         <div className="ml-auto min-w-12 bg-slate-200 py-2 px-8 text-center rounded-sm">
-          <Link to="/login">Login</Link>
+          {usr?.user?.id ? (
+            <TMButton variant="light" onClick={handleLogOut}>
+              Logout
+            </TMButton>
+          ) : (
+            <Link to="/login">Login</Link>
+          )}
         </div>
       </nav>
     </div>

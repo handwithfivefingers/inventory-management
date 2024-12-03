@@ -1,17 +1,20 @@
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { IUser } from "~/types/user";
-// import type {} from "@redux-devtools/extension"; // required for devtools typing
-
 interface IUserState {
   user: IUser | undefined;
   jwt: string | undefined;
-  // increase: (by: number) => void;
+}
+type Actions = {
   updateUser: (userInfo: IUser) => void;
   updateToken: (token: string) => void;
-}
-
-const useUser = create<IUserState>()(
+  reset: () => void;
+};
+const initialState: IUserState = {
+  user: undefined,
+  jwt: undefined,
+};
+const useUser = create<IUserState & Actions>()(
   devtools(
     persist(
       (set) => ({
@@ -19,6 +22,7 @@ const useUser = create<IUserState>()(
         jwt: undefined,
         updateUser: (userInfo) => set((state) => ({ ...state, user: userInfo })),
         updateToken: (token) => set((state) => ({ ...state, jwt: token })),
+        reset: () => set(initialState),
       }),
       {
         name: "useInformation-storage",

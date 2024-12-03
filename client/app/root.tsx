@@ -1,51 +1,16 @@
 import type { ActionFunctionArgs, LinksFunction } from "@remix-run/node";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from "@remix-run/react";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, json, redirect } from "@remix-run/react";
 import "feather-icons/dist/feather";
-import { AuthService } from "~/action.server/auth.service";
 import "~/assets/styles/index.scss";
-import { warehouseService } from "./action.server/warehouse.service";
-import { AppLayout } from "./components/layouts";
-import { AppProvider } from "./context";
-import { http } from "./http";
-import { getSession } from "./sessions";
-export const loader = async ({ request }: ActionFunctionArgs) => {
-  try {
-    const session = await getSession(request.headers.get("Cookie"));
-    const token = session.get("token");
-    if (!token) {
-      return {
-        isLogin: false,
-      };
-    }
-    http.setHeader("cookie", `session=${session.get("token")}`);
-    const resp = await AuthService.getMe();
-    if (!resp.data) {
-      return {
-        isLogin: false,
-      };
-    }
+import { destroySession, getSession } from "./sessions";
 
-    const vendors = resp.data.vendors;
-    let warehouse;
-    if (vendors.length) {
-      warehouse = await warehouseService.getWareHouses(vendors[0]?.id);
-    }
-    return {
-      isLogin: true,
-      data: resp.data,
-      warehouses: warehouse.data,
-    };
-  } catch (error) {
-    console.log("error", error);
-    return {
-      isLogin: false,
-    };
-  }
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const session = await getSession(request.headers.get("Cookie"));
+  throw redirect("/login", {
+    headers: { "Set-Cookie": await destroySession(session) },
+  });
 };
-
 export function Layout({ children }: { children: React.ReactNode }) {
-  const resp = useLoaderData<typeof loader>();
-  const isLogin = resp?.isLogin || false;
   return (
     <html lang="en">
       <head>
@@ -55,13 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <AppProvider
-          vendors={isLogin ? resp.data.vendors : undefined}
-          warehouses={isLogin ? resp.warehouses : undefined}
-          isLogin={isLogin}
-        >
-          <AppLayout>{children}</AppLayout>
-        </AppProvider>
+        {children}
         <ScrollRestoration />
         <Scripts />
       </body>

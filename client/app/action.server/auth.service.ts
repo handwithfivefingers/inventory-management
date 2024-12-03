@@ -1,4 +1,7 @@
+import { Authenticator } from "remix-auth";
 import { http } from "~/http";
+import { FormStrategy } from "remix-auth-form";
+import { IUser } from "~/types/user";
 
 const API_PATH = {
   login: "/auth/login",
@@ -14,7 +17,7 @@ export interface ILoginParams {
 interface ILoginResponse {
   jwt: string;
   token: string;
-  data: Record<string, any>;
+  data: IUser;
 }
 export const AuthService = {
   login: async (params: ILoginParams) => {
@@ -28,3 +31,13 @@ export const AuthService = {
     return http.get(API_PATH.me, options);
   },
 };
+
+export let authenticator = new Authenticator<ILoginResponse>();
+authenticator.use(
+  new FormStrategy(async ({ form }) => {
+    let email = form.get("email") as string;
+    let password = form.get("password") as string;
+    return await AuthService.login({ email, password });
+  }),
+  "session"
+);

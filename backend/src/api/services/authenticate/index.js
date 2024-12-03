@@ -10,6 +10,9 @@ module.exports = class AuthenticateService {
   async get(id) {
     try {
       const user = await this.user.findOne({
+        where: {
+          id,
+        },
         attributes: { exclude: ["password"] },
         include: [
           {

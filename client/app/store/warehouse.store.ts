@@ -6,15 +6,23 @@ import { IWareHouse } from "~/types/warehouse";
 
 interface IWareHouseState {
   warehouse?: IWareHouse;
-  updateWarehouse: (warehouse: IWareHouse) => void;
 }
 
-export const useWarehouse = create<IWareHouseState>()(
+type Actions = {
+  updateWarehouse: (warehouse: IWareHouse) => void;
+  reset: () => void;
+};
+const initialState: IWareHouseState = {
+  warehouse: undefined,
+};
+
+export const useWarehouse = create<IWareHouseState & Actions>()(
   devtools(
     persist(
       (set) => ({
         warehouse: undefined,
         updateWarehouse: (warehouse) => set((state) => ({ warehouse })),
+        reset: () => set(initialState),
       }),
       {
         name: "warehouses-storage",

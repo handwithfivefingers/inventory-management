@@ -23,17 +23,32 @@ export default defineConfig(({ command }) => {
         },
         routes: async (definedRoutes) => {
           return definedRoutes((route) => {
-            route("/orders/add", "routes/orders/add/route.tsx", { id: "Order-Add" });
-            route("/products/add", "routes/products/add/route.tsx", { id: "Product-Add" });
-            route("/products/:id", "routes/products/edit/route.tsx", { id: "Product-Edit" });
-            route("/import-order/add", "routes/import-order/add/route.tsx", { id: "ImportOrder-Add" });
-            route("/import-order/:id", "routes/import-order/$id/route.tsx", { id: "ImportOrder-Edit" });
-            // route("/products/add", "routes/products/add/route.tsx", { id: "Product-Add" });
-            route("/warehouses/add", "routes/warehouses/add/route.tsx", { id: "WareHouses-Add" });
-            route("/warehouses/:id", "routes/warehouses/$id/route.tsx", { id: "WareHouses-Edit" });
-            route("/providers/:id", "routes/providers/$id/route.tsx", { id: "Providers-Edit" });
+            route("/", "routes/auth/layout.tsx", () => {
+              route("login", "routes/auth/login/route.tsx", { index: true, id: "Login" });
+              route("register", "routes/auth/register/route.tsx", { id: "Register" });
+            });
 
-            route("/api/storage", "routes/api/storage/route.ts", { id: "Storage-API" });
+            route("", "routes/main/layout.tsx", () => {
+              route("", "routes/main/home/route.tsx", { index: true, id: "Home" });
+              route("orders", "routes/main/orders/route.tsx", { id: "Order" });
+              route("orders/add", "routes/main/orders/add/route.tsx", { id: "Order-Add" });
+              route("products/add", "routes/main/products/add/route.tsx", { id: "Product-Add" });
+              route("products/:id", "routes/main/products/edit/route.tsx", { id: "Product-Edit" });
+              route("products", "routes/main/products/route.tsx", { id: "Product" });
+
+              route("import-order/add", "routes/main/import-order/add/route.tsx", { id: "ImportOrder-Add" });
+              route("import-order/:id", "routes/main/import-order/$id/route.tsx", { id: "ImportOrder-Edit" });
+
+              route("import-order", "routes/main/import-order/route.tsx", { id: "ImportOrder" });
+
+              route("warehouses/add", "routes/main/warehouses/add/route.tsx", { id: "WareHouses-Add" });
+              route("warehouses/:id", "routes/main/warehouses/$id/route.tsx", { id: "WareHouses-Edit" });
+              route("warehouses", "routes/main/warehouses/route.tsx", { id: "WareHouses" });
+
+              route("providers/:id", "routes/main/providers/$id/route.tsx", { id: "Providers-Edit" });
+              route("providers", "routes/main/providers/route.tsx", { id: "Providers" });
+            });
+            route("/api/auth", "routes/api/auth/route.ts", { id: "Auth-API" });
           });
         },
       }),

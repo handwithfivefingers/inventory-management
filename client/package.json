@@ -25,6 +25,8 @@
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.53.2",
     "react-number-format": "^5.4.2",
+    "remix-auth": "^4.0.0",
+    "remix-auth-form": "^3.0.0",
     "remix-utils": "^7.7.0",
     "sass": "^1.81.0",
     "zod": "^3.23.8",

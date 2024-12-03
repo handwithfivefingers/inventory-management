@@ -6,18 +6,19 @@ import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
 
-export const loader = async () => {
-  const prods = await orderService.getOrders();
-  return prods;
-};
+// export const loader = async () => {
+//   const prods = await orderService.getOrders();
+//   return prods;
+// };
 
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
 export default function Orders() {
-  const orders = useLoaderData<typeof loader>();
-  console.log("orders", orders);
+  // const orders = useLoaderData<typeof loader>();
+  // console.log("orders", orders);
+  const orders = { data: [] };
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">Product</h2>
