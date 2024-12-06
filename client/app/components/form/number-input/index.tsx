@@ -7,7 +7,7 @@ export interface INumberInput extends ITextInput {
   onValueChange?: (...arg: any) => any;
 }
 export const NumberInput = forwardRef<HTMLInputElement, INumberInput>(
-  ({ thousandSeparator = ",", onValueChange, displayType = "input", prefix, ...rest }, ref) => {
+  ({ thousandSeparator = ",", onValueChange, displayType = "input", prefix, style, ...rest }, ref) => {
     const handleChange = (values: any, sourceInfor: any) => {
       if (onValueChange) onValueChange?.(values, sourceInfor);
     };
@@ -20,7 +20,7 @@ export const NumberInput = forwardRef<HTMLInputElement, INumberInput>(
         prefix={prefix}
         onValueChange={handleChange}
         ref={ref}
-        style={{ textAlign: "right" }}
+        style={{ textAlign: "right", ...style }}
       />
     );
   }

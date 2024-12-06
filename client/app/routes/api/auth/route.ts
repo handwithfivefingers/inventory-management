@@ -9,11 +9,9 @@ import { commitSession, getSession } from "~/sessions";
 export async function loader({ request }: LoaderFunctionArgs) {
   let session = await getSession(request.headers.get("cookie"));
   let token = session.get("token");
-  console.log("token", token);
   if (!token) throw redirect("/login");
   http.setHeader("Cookie", `session=${token}`);
   const { data: me } = await AuthService.getMe();
-  console.log("me", me);
   const { vendors, roles, ...rest } = me;
   session.set("user", rest);
   if (vendors?.length > 0) session.set("vendor", vendors[0].id);
@@ -35,8 +33,9 @@ export async function action({ request }: ActionFunctionArgs) {
       const { data } = await warehouseService.getWareHouses(vendorID);
       const session = await getSession(request.headers.get("Cookie"));
       console.log("data", data);
-      if (data?.length > 1) {
+      if (data.length) {
         session.set("warehouse", data[0].id);
+        console.log('session.get("warehouse")', data);
       }
       return json(data, {
         headers: {

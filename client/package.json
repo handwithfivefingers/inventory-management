@@ -15,6 +15,7 @@
     "@remix-run/node": "^2.15.0",
     "@remix-run/react": "^2.15.0",
     "@remix-run/serve": "^2.15.0",
+    "animate.css": "^4.1.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
     "feather-icons": "^4.29.2",

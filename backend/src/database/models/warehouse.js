@@ -36,6 +36,7 @@ const Warehouse = (sequelize) => {
   );
   Model.associate = (models) => {
     Model.hasMany(models.inventory, { foreignKey: "warehouseId" });
+    Model.hasMany(models.orderDetail, { foreignKey: "warehouseId" });
   };
   return Model;
 };

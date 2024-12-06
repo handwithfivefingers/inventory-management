@@ -33,6 +33,7 @@ module.exports = class VendorService extends BaseCRUDService {
           model: this.db.warehouse,
         },
       });
+      console.log("resp", resp);
       return resp;
     } catch (error) {
       throw error;

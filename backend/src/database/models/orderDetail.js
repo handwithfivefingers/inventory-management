@@ -1,7 +1,7 @@
 const { DataTypes } = require("sequelize");
-const Inventory = (sequelize) => {
+const OrderDetail = (sequelize) => {
   const Model = sequelize.define(
-    "inventory",
+    "orderDetail",
     {
       id: {
         type: DataTypes.INTEGER,
@@ -11,6 +11,15 @@ const Inventory = (sequelize) => {
       quantity: {
         type: DataTypes.INTEGER,
       },
+      price: {
+        type: DataTypes.BIGINT,
+      },
+      buyPrice: {
+        type: DataTypes.BIGINT,
+      },
+      note: {
+        type: DataTypes.STRING,
+      },
     },
     {
       // Other model options go here
@@ -19,9 +28,10 @@ const Inventory = (sequelize) => {
   );
 
   Model.associate = (models) => {
+    Model.belongsTo(models.product, { foreignKey: "productId" });
     Model.belongsTo(models.warehouse, { foreignKey: "warehouseId" });
   };
   return Model;
 };
 
-module.exports = Inventory;
+module.exports = OrderDetail;

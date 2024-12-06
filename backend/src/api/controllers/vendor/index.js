@@ -12,10 +12,8 @@ module.exports = class VendorController {
   }
   async get(req, res, next) {
     try {
-      const resp = await new VendorService().getVendors();
-      return res.status(200).json({
-        data: resp,
-      });
+      const { count, rows } = await new VendorService().getVendors();
+      return res.status(200).json({ total: count, data: rows });
     } catch (error) {
       next(error);
     }

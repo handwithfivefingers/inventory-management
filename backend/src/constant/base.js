@@ -4,7 +4,7 @@ module.exports = class BaseCRUDService {
     this[modelName] = db[modelName];
     this.modelName = modelName;
     this.sequelize = db.sequelize;
-    this.db = db
+    this.db = db;
     console.log("BaseCRUDService coming", modelName);
   }
   createInstance = async (params, options) => {
@@ -14,11 +14,22 @@ module.exports = class BaseCRUDService {
       throw error;
     }
   };
-  edit = async () => {};
+  updateInstance = async (where, params, options) => {
+    try {
+      return this[this.modelName].update(where, params, options);
+    } catch (error) {}
+  };
   delete = async () => {};
   get = async (params) => {
     try {
-      return this[this.modelName].findAll(params);
+      return this[this.modelName].findAndCountAll(params);
+    } catch (error) {
+      throw error;
+    }
+  };
+  findOne = async (params) => {
+    try {
+      return this[this.modelName].findOne(params);
     } catch (error) {
       throw error;
     }

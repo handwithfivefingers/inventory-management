@@ -4,6 +4,7 @@ interface ICol {
   title: string;
   dataIndex: string;
   render?: (record: any, index: number) => React.ReactNode;
+  width?: number | string;
 }
 
 interface IRow {
@@ -52,6 +53,9 @@ TMTable.Header = ({ columns }: { columns: ICol[] }) => {
           <th
             key={`header-${i}`}
             className="border-b dark:border-slate-600 font-medium p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left"
+            style={{
+              width: col.width,
+            }}
           >
             {col.title}
           </th>
@@ -83,7 +87,7 @@ TMTable.Cell = ({ children, className }: any) => {
   return (
     <td
       className={cn(
-        "border-b border-slate-200 dark:border-slate-600 p-4 pl-8 text-slate-500 dark:text-slate-400 group-hover:backdrop-brightness-200",
+        "border-b border-slate-200 dark:border-slate-600 p-4 text-slate-500 dark:text-slate-400 group-hover:backdrop-brightness-200",
         className
       )}
     >

@@ -1,6 +1,6 @@
 const InventoryService = require("../inventory");
 const BaseCRUDService = require("@constant/base");
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 
 module.exports = class ProductService extends BaseCRUDService {
   constructor() {
@@ -33,23 +33,22 @@ module.exports = class ProductService extends BaseCRUDService {
   async getProduct(req) {
     try {
       const params = req.query;
-      const query = {
-        where: {
-          "$inventories.warehouseId$": {
-            [Op.in]: req.availableWarehouses,
-          },
-        },
-        include: { model: this.db.inventory },
-        attributes: {
-          include: [[this.sequelize.col("inventories.quantity"), "quantity"]],
-        },
-      };
-      if (params.inventoryId) {
-        query.where["$inventories.id$"] = params.inventoryId;
+      const page = params.page || 1;
+      const pageSize = params.pageSize || 10;
+      const pagination = `${page * pageSize - pageSize},${pageSize}`;
+      let qsString = ``;
+      if (params.s) {
+        qsString =
+          'WHERE name LIKE "%' + params.s + '%" OR code LIKE "%' + params.s + '%" OR skuCode LIKE "%' + params.s + '%"';
       }
+      const [rows] = await this.sequelize.query(
+        `SELECT *, inventories.quantity as quantity FROM products INNER JOIN inventories ON products.id = inventories.productId AND inventories.warehouseId = ${req.availableWarehouses} ${qsString} LIMIT ${pagination}`
+      );
+      const [[{ count }]] = await this.sequelize.query(
+        `SELECT COUNT(*) as count FROM products INNER JOIN inventories ON products.id = inventories.productId AND inventories.warehouseId = ${req.availableWarehouses} ${qsString} `
+      );
 
-      const resp = await this.get(query);
-      return resp;
+      return { rows, count };
     } catch (error) {
       throw error;
     }

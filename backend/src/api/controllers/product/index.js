@@ -13,10 +13,9 @@ module.exports = class ProductController {
   }
   async getProduct(req, res, next) {
     try {
-      const resp = await new ProductService().getProduct(req);
-      return res.status(200).json({
-        data: resp,
-      });
+      const { count, rows } = await new ProductService().getProduct(req);
+      return res.status(200).json({ total: count, data: rows });
+
     } catch (error) {
       next(error);
     }

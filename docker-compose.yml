@@ -24,6 +24,7 @@ services:
       MYSQL_ROOT_PASSWORD: mysql
     volumes:
       # - ./db/dump:/root/inventory-cms:delegated
+      - ./db/conf-mysql:/etc/mysql/conf.d:delegated
       - sql-modules:/var/lib/mysql:delegated
     networks:
       - tm-network

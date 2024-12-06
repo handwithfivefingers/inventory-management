@@ -18,4 +18,12 @@ module.exports = class InventoryService extends BaseCRUDService {
       throw error;
     }
   }
+  async update(where, params, options) {
+    try {
+      const instance = await this.updateInstance(where, params, options);
+      return instance;
+    } catch (error) {
+      throw error;
+    }
+  }
 };

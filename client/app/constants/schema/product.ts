@@ -8,14 +8,12 @@ const productSchema = z.object({
   tags: z.string().optional(),
   description: z.string().optional(),
   quantity: z.number().or(z.string()).optional(),
-  productDetails: z.object({
-    costPrice: z.number().or(z.string()).optional(),
-    regularPrice: z.number().or(z.string()).optional(),
-    salePrice: z.number().or(z.string()).optional(),
-    wholeSalePrice: z.number().or(z.string()).optional(),
-    VAT: z.number().optional(),
-    expiredAt: z.string().optional(),
-  }),
+  costPrice: z.number().or(z.string()).optional(),
+  regularPrice: z.number().or(z.string()).optional(),
+  salePrice: z.number().or(z.string()).optional(),
+  wholeSalePrice: z.number().or(z.string()).optional(),
+  VAT: z.number().optional(),
+  expiredAt: z.string().optional(),
 });
 
 export { productSchema };

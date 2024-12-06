@@ -3,48 +3,16 @@ import type { MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { MouseEvent } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
-import { productClientService } from "~/action.client/products.service";
 import { productService } from "~/action.server/products.service";
 import { NumberInput } from "~/components/form/number-input";
+import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
-import { http } from "~/http";
-import { useUser } from "~/store/user.store";
-import { useVendor } from "~/store/vendor.store";
-import { useWarehouse } from "~/store/warehouse.store";
+import { productSchema } from "~/constants/schema/product";
+import { getSession } from "~/sessions";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
-
-export const action = async ({ request }: any) => {
-  const formData = await request.formData();
-  const data = await formData.get("data");
-
-  const dataJson = JSON.parse(data);
-  const bodyData = { data: dataJson.data };
-  http.setToken(dataJson.Authorization);
-  const resp = await productService.createProduct(bodyData, dataJson.qs);
-  return resp;
-};
-const productSchema = z.object({
-  name: z.string().min(1),
-  code: z.string().optional(),
-  skuCode: z.string().optional(),
-  unit: z.string().optional(),
-  category: z.string().optional(),
-  tags: z.string().optional(),
-  description: z.string().optional(),
-  quantity: z.number().or(z.string()).optional(),
-  productDetails: z.object({
-    costPrice: z.number().or(z.string()).optional(),
-    regularPrice: z.number().or(z.string()).optional(),
-    salePrice: z.number().or(z.string()).optional(),
-    wholeSalePrice: z.number().or(z.string()).optional(),
-    VAT: z.number().optional(),
-    expiredAt: z.string().optional(),
-  }),
-});
 
 export default function ProductItem() {
   const fetcher = useFetcher();
@@ -58,14 +26,12 @@ export default function ProductItem() {
       category: undefined,
       description: undefined,
       tags: undefined,
-      productDetails: {
-        costPrice: "20000",
-        regularPrice: "50000",
-        salePrice: "45000",
-        wholeSalePrice: "40000",
-        VAT: 5,
-        expiredAt: undefined,
-      },
+      costPrice: "20000",
+      regularPrice: "50000",
+      salePrice: "45000",
+      wholeSalePrice: "40000",
+      VAT: 5,
+      expiredAt: undefined,
     },
     resolver: zodResolver(productSchema),
   });
@@ -73,30 +39,11 @@ export default function ProductItem() {
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
-  const { warehouse } = useWarehouse();
-  const { defaultActive } = useVendor();
-  const { jwt } = useUser();
   const onSubmit = (v: any): void => {
-    const qs = {
-      quantity: v.quantity as string,
-      warehouseId: warehouse?.documentId as string,
-      vendorId: defaultActive?.documentId as string,
-    };
-    const { ...parsed } = v;
-    delete parsed.quantity;
-    delete parsed.warehouseId;
-    delete parsed.vendorId;
-
-    // productClientService.createProduct({ data: parsed }, qs).then((res) => {
-    //   console.log("res", res);
-    // });
-
     fetcher.submit(
       {
         data: JSON.stringify({
-          data: parsed,
-          qs: qs,
-          Authorization: `${jwt}`,
+          data: v,
         }),
       },
       { method: "POST", action: "/products/add" }
@@ -162,7 +109,7 @@ export default function ProductItem() {
           </div>
           <div className="col-span-4">
             <Controller
-              name="productDetails.costPrice"
+              name="costPrice"
               control={formMethods.control}
               render={({ field }) => {
                 return (
@@ -179,7 +126,7 @@ export default function ProductItem() {
           </div>
           <div className="col-span-4">
             <Controller
-              name="productDetails.regularPrice"
+              name="regularPrice"
               control={formMethods.control}
               render={({ field }) => {
                 return (
@@ -196,7 +143,7 @@ export default function ProductItem() {
           </div>
           <div className="col-span-4">
             <Controller
-              name="productDetails.salePrice"
+              name="salePrice"
               control={formMethods.control}
               render={({ field }) => {
                 return (
@@ -213,7 +160,7 @@ export default function ProductItem() {
           </div>
           <div className="col-span-4">
             <Controller
-              name="productDetails.wholeSalePrice"
+              name="wholeSalePrice"
               control={formMethods.control}
               render={({ field }) => {
                 return (
@@ -230,7 +177,7 @@ export default function ProductItem() {
           </div>
           <div className="col-span-6">
             <Controller
-              name="productDetails.expiredAt"
+              name="expiredAt"
               control={formMethods.control}
               render={({ field }) => {
                 return (
@@ -247,7 +194,7 @@ export default function ProductItem() {
           </div>
           <div className="col-span-2">
             <Controller
-              name="productDetails.VAT"
+              name="VAT"
               control={formMethods.control}
               render={({ field }) => {
                 return (
@@ -315,10 +262,11 @@ export default function ProductItem() {
               control={formMethods.control}
               render={({ field }) => {
                 return (
-                  <TextInput
+                  <SelectInput
+                    options={[{ label: 1, value: 1 }, { label: 2, value: 2 }]}
                     label="Thành phần"
                     {...field}
-                    onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                    onSelect={(v) => field.onChange(v)}
                   />
                 );
               }}
@@ -347,3 +295,14 @@ export default function ProductItem() {
     </div>
   );
 }
+
+export const action = async ({ request }: any) => {
+  const session = await getSession(request.headers.get("Cookie"));
+  const warehouse = session.get("warehouse");
+  const formData = await request.formData();
+  const data = await formData.get("data");
+  const dataJson = JSON.parse(data);
+  const bodyData = { ...dataJson.data, warehouseId: warehouse };
+  const resp = await productService.createProduct(bodyData);
+  return resp;
+};

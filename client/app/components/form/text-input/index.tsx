@@ -11,14 +11,18 @@ export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInp
   value?: string;
   type?: string | undefined | any;
   inputClassName?: string;
+  wrapperClassName?: string;
 }
 
 export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
-  ({ label, name, prefix, placeholder, className, style, onChange, inputClassName, suffix, ...rest }, ref) => {
+  (
+    { label, name, prefix, placeholder, className, wrapperClassName, style, onChange, inputClassName, suffix, ...rest },
+    ref
+  ) => {
     const prefixRef = useRef<HTMLSpanElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     return (
-      <div className={styles.inputWrapper}>
+      <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
         {label ? (
           <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900">
             {label}
@@ -26,7 +30,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
         ) : (
           ""
         )}
-        <div className={cn("relative rounded-md flex items-center py-1.5 px-1 pl-2 ")}>
+        <div className={cn("relative rounded-md flex items-center ")}>
           {prefix && (
             <div className="pointer-events-none inset-y-0 left-0 flex items-center pl-1 z-[1]">
               <span className="text-gray-500 sm:text-sm" ref={prefixRef}>
@@ -38,7 +42,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             name={name}
             id={name}
             className={cn(
-              "block w-full bg-transparent rounded-md border-0   text-gray-900  placeholder:text-gray-400  text-base text-sm/6 outline-none px-1",
+              "block w-full bg-transparent rounded-md border-0   text-gray-900  placeholder:text-gray-400  text-base outline-none  py-1.5 px-3",
               styles.input,
               inputClassName
             )}
@@ -61,21 +65,6 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               className
             )}
           />
-
-          {/* <div className="absolute inset-y-0 right-0 flex items-center">
-          <label htmlFor="currency" className="sr-only">
-            Currency
-          </label>
-          <select
-            id="currency"
-            name="currency"
-            className="h-full rounded-md border-0 bg-transparent py-0 pl-2 pr-7 text-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm"
-          >
-            <option>USD</option>
-            <option>CAD</option>
-            <option>EUR</option>
-          </select>
-        </div> */}
         </div>
       </div>
     );

@@ -5,4 +5,11 @@ export interface BaseProps {
 
 export interface IResponse<T> {
   data: T;
+  total?: number;
+}
+
+export interface BaseQueryParams {
+  s?: string;
+  page?: number | string;
+  pageSize?: number | string;
 }

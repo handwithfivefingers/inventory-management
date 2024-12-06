@@ -5,4 +5,5 @@ module.exports = {
   PermissionController: require("./permission"),
   VendorController: require("./vendor"),
   WarehouseController: require("./warehouse"),
+  OrderController: require("./orders"),
 };

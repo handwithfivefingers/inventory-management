@@ -43,6 +43,6 @@ const errorHandler = async (err, req, res, next) => {
 app.use(errorHandler);
 
 app.listen(3001, () => {
-  db.connect();
+  db.sync();
   console.log("Server listen PORT:", 3001);
 });

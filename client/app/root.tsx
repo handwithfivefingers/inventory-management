@@ -3,6 +3,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration, json, redirect } from 
 import "feather-icons/dist/feather";
 import "~/assets/styles/index.scss";
 import { destroySession, getSession } from "./sessions";
+import 'animate.css';
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const session = await getSession(request.headers.get("Cookie"));

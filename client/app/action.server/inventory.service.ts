@@ -1,5 +1,5 @@
 import { http } from "~/http";
-import { IResponse } from "~/types/common";
+import { BaseQueryParams, IResponse } from "~/types/common";
 import { IProduct } from "~/types/product";
 
 interface IProductDetails {
@@ -29,7 +29,7 @@ interface ICreateProductParams {
   };
 }
 
-interface IProductParams {
+interface IProductParams extends BaseQueryParams {
   [key: string]: any;
 }
 
@@ -40,7 +40,7 @@ const API_PATH = {
 
 const inventoryService = {
   getProducts: (params: IProductParams): Promise<IResponse<IProduct[]>> => {
-    const qs = new URLSearchParams({});
+    const qs = new URLSearchParams(params);
     return http.get(API_PATH.products + "?" + qs.toString());
   },
 };
