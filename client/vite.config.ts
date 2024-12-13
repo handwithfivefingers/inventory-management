@@ -31,10 +31,19 @@ export default defineConfig(({ command }) => {
             route("", "routes/main/layout.tsx", () => {
               route("", "routes/main/home/route.tsx", { index: true, id: "Home" });
               route("orders", "routes/main/orders/route.tsx", { id: "Order" });
+
               route("orders/add", "routes/main/orders/add/route.tsx", { id: "Order-Add" });
               route("products/add", "routes/main/products/add/route.tsx", { id: "Product-Add" });
               route("products/:id", "routes/main/products/edit/route.tsx", { id: "Product-Edit" });
               route("products", "routes/main/products/route.tsx", { id: "Product" });
+
+              route("categories/add", "routes/main/categories/add/route.tsx", { id: "Category-Add" });
+              route("categories/:id", "routes/main/categories/edit/route.tsx", { id: "Category-Edit" });
+              route("categories", "routes/main/categories/route.tsx", { id: "Categories" });
+            
+              route("units/add", "routes/main/units/add/route.tsx", { id: "Unit-Add" });
+              route("units/:id", "routes/main/units/edit/route.tsx", { id: "Unit-Edit" });
+              route("units", "routes/main/units/route.tsx", { id: "Unit" });
 
               route("import-order/add", "routes/main/import-order/add/route.tsx", { id: "ImportOrder-Add" });
               route("import-order/:id", "routes/main/import-order/$id/route.tsx", { id: "ImportOrder-Edit" });

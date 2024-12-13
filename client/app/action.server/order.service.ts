@@ -8,6 +8,7 @@ const API_PATH = {
 
 interface IOrderQueryParams extends BaseQueryParams {
   warehouse: string;
+  isProvider?: boolean;
 }
 interface IOrderDetails {
   productId: number | string;
@@ -27,10 +28,8 @@ interface IOrderCreateParams {
 }
 
 const orderService = {
-  getOrders: ({ warehouse }: IOrderQueryParams) => {
-    const qs = new URLSearchParams({
-      warehouse: warehouse,
-    });
+  getOrders: (searchParams: IOrderQueryParams) => {
+    const qs = new URLSearchParams(searchParams as any);
     return http.get(API_PATH.orders + "?" + qs.toString());
   },
   createOrder: (params: IOrderCreateParams) => {

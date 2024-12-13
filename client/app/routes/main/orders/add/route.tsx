@@ -8,6 +8,7 @@ import { orderService } from "~/action.server/order.service";
 import { productService } from "~/action.server/products.service";
 import { BarcodeScanner } from "~/components/barcode-scanner";
 import { CardItem } from "~/components/card-item";
+import { ErrorComponent } from "~/components/error-component";
 import { NumberInput } from "~/components/form/number-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
@@ -400,3 +401,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const resp = await orderService.createOrder(params);
   return resp;
 };
+export function ErrorBoundary() {
+  return <ErrorComponent />;
+}

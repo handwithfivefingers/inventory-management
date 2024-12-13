@@ -52,7 +52,6 @@ export const TMPagination = ({ total, current, pageSize, onPageChange }: IPagina
 
     return pagination;
   }, [current, totalPage]);
-  console.log("function", generatePagination());
   return (
     <div className="flex gap-1">
       {generatePagination().map((paginationItem, index) => (
@@ -62,7 +61,7 @@ export const TMPagination = ({ total, current, pageSize, onPageChange }: IPagina
             size="xs"
             onClick={paginationItem.onClick}
             className={cn({
-              "!bg-indigo-600 text-white": paginationItem.label === current,
+              "  text-white": paginationItem.label === current,
             })}
           >
             {paginationItem.label}

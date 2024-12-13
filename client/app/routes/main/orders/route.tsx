@@ -3,6 +3,7 @@ import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { NumericFormat } from "react-number-format";
 import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
+import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
@@ -11,21 +12,27 @@ import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const session = await getSession(request.headers.get("Cookie"));
-  const warehouse = session.get("warehouse");
-  const url = new URL(request.url);
-  const params = url.searchParams;
-  const page = params.get("page") || 1;
-  const pageSize = params.get("pageSize") || 10;
-  const resp = await orderService.getOrders({ warehouse: warehouse as string, page, pageSize });
-  resp.page = Number(page);
-  resp.pageSize = Number(pageSize);
-
-  return resp;
+  try {
+    const session = await getSession(request.headers.get("Cookie"));
+    const warehouse = session.get("warehouse");
+    const url = new URL(request.url);
+    const params = url.searchParams;
+    const page = params.get("page") || 1;
+    const pageSize = params.get("pageSize") || 10;
+    const resp = await orderService.getOrders({ warehouse: warehouse as string, page, pageSize });
+    resp.page = Number(page);
+    resp.pageSize = Number(pageSize);
+    return resp;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error("Can't fetch orders");
+  }
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Bán hàng" }, { name: "description", content: "Bán hàng" }];
 };
 
 export default function Orders() {
@@ -96,4 +103,7 @@ export default function Orders() {
       </CardItem>
     </div>
   );
+}
+export function ErrorBoundary() {
+  return <ErrorComponent />;
 }

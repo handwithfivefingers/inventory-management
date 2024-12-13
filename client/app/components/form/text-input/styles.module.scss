@@ -2,7 +2,7 @@
   z-index: 1;
   &:focus {
     & ~ .outline {
-      @apply ring-2 ring-inset ring-indigo-600;
+      @apply ring-2 ring-inset ring-indigo-600 dark:ring-indigo-300/50;
     }
   }
 }

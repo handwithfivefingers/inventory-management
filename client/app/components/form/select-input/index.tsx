@@ -1,9 +1,9 @@
-import React, { HTMLInputTypeAttribute, forwardRef, useEffect, useRef, useState } from "react";
+import React, { HTMLInputTypeAttribute, useEffect, useRef, useState } from "react";
+import { Icon } from "~/components/icon";
+import { Portal } from "~/components/portal";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
-import { Icon } from "~/components/icon";
-import { Portal } from "~/components/portal";
 export interface ISelectInput extends BaseProps, React.InputHTMLAttributes<HTMLInputTypeAttribute> {
   label?: string;
   name?: string;
@@ -51,6 +51,21 @@ export const SelectInput = ({
     }
   }, [isFocus]);
 
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (!dropdown.current?.contains(e.target)) {
+        console.log("clicked outside");
+        setIsFocus(false);
+        return;
+      }
+      console.log("clicked inside");
+    };
+    if (isFocus) {
+      document.addEventListener("click", handler, false);
+    }
+    return () => document.removeEventListener("click", handler, false);
+  }, [isFocus]);
+
   const handleBounce = () => {
     const rect = wrapper.current?.getBoundingClientRect();
     dropdown.current?.style.setProperty("top", `${rect?.bottom}px`);
@@ -80,10 +95,12 @@ export const SelectInput = ({
     if (onSelect) {
       onSelect?.(option.value, option);
     }
-    if (closeOnSelect) {
-      setIsFocus(false);
-    }
+    // if (closeOnSelect) {
+    //   setIsFocus(false);
+    // }
   };
+  const selectedOption = options.find((option) => option.value === rest.value);
+
   return (
     <div className={styles.inputWrapper} ref={wrapper}>
       {label ? (
@@ -104,19 +121,19 @@ export const SelectInput = ({
       >
         <input
           className={cn(
-            "block w-full bg-transparent rounded-md border-0   text-gray-900  placeholder:text-gray-400  text-base text-sm/6 outline-none px-1",
+            "block w-full bg-transparent rounded-md border-0   text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none px-1",
             styles.input,
             inputClassName
           )}
           readOnly
           {...(rest as any)}
+          value={selectedOption?.label}
         />
         <div className="absolute right-0 top-1/2 -translate-y-1/2 z-[1] px-1">
           <Icon
             name="chevron-down"
-            className={cn("transition ease-in-out text-indigo-600 transform w-5", {
-              "rotate-180 transition": isFocus,
-              "rotate-0 transition": !isFocus,
+            className={cn(" text-indigo-600 w-5", styles.rotation, {
+              [styles.rotationActive]: isFocus,
             })}
           />
         </div>
@@ -148,7 +165,12 @@ export const SelectInput = ({
                     return (
                       <li
                         value={item.value}
-                        className="py-0.5 px-2 hover:bg-neutral-100 cursor-pointer rounded bg-white transition-all"
+                        className={cn(
+                          " px-2 hover:bg-indigo-200 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1 my-0.5",
+                          {
+                            "bg-indigo-200/60 text-neutral-900": item.value === selectedOption?.value,
+                          }
+                        )}
                         onClick={(e: any) => handleSelect(item)}
                       >
                         {item.label}
@@ -160,7 +182,7 @@ export const SelectInput = ({
             ) : (
               ""
             )}
-            <div className="fixed top-0 left-0 right-0 bottom-0 z-[900]" onClick={() => setIsFocus(false)} />
+            {/* <div className="fixed top-0 left-0 right-0 bottom-0 z-[900]" onClick={() => setIsFocus(false)} /> */}
           </>
         )}
       </Portal>

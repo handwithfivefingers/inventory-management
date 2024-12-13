@@ -1,9 +1,10 @@
-import type { ActionFunctionArgs, LinksFunction } from "@remix-run/node";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, json, redirect } from "@remix-run/react";
+import type { ActionFunctionArgs } from "@remix-run/node";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, redirect, useRouteError } from "@remix-run/react";
+import "animate.css";
 import "feather-icons/dist/feather";
 import "~/assets/styles/index.scss";
+import { NotificationProvider } from "./components/notification";
 import { destroySession, getSession } from "./sessions";
-import 'animate.css';
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const session = await getSession(request.headers.get("Cookie"));
@@ -30,20 +31,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <NotificationProvider>
+      <Outlet />
+    </NotificationProvider>
+  );
 }
 
 export const shouldRevalidate = () => false;
 
-export const links: LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
-];
+export function ErrorBoundary() {
+  const error = useRouteError();
+  // When NODE_ENV=production:
+  // error.message = "Unexpected Server Error"
+  // error.stack = undefined
+  // return <pre>{JSON.stringify(error, null, 4)}</pre>;
+  return <div>Unexpected Server Error</div>;
+}

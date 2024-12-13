@@ -59,6 +59,8 @@ const Product = (sequelize) => {
   Model.associate = (models) => {
     Model.hasMany(models.inventory, { foreignKey: "productId" });
     Model.hasMany(models.orderDetail, { foreignKey: "productId" });
+    Model.hasMany(models.transfer, { foreignKey: "productId" });
+    Model.belongsToMany(models.category, { through: "product_category" });
   };
   return Model;
 };

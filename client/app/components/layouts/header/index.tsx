@@ -18,14 +18,14 @@ export const Header = () => {
   };
   return (
     <div className="flex border-b items-center w-full overflow-hidden">
-      <div className="bg-indigo-200 p-4 min-w-40 text-center max-w-60 font-bold w-full">
-        <Link to="/">I-ERP</Link>
+      <div className=" p-2 min-w-40 text-center max-w-60 font-bold w-full ">
+        <Link to="/">{defaultActive?.name}</Link>
       </div>
-      <nav className=" flex flex-row gap-4 flex-1 px-4 ">
+      <nav className=" flex flex-row gap-4 flex-1 px-4   p-2">
         <div className="flex items-center flex-row gap-2">
           <div className="flex gap-2 items-center">
-            <TextInput value={defaultActive?.name} prefix="Vendor" className="!bg-transparent" readOnly />
-            <TextInput value={warehouse?.name} prefix="Warehouse" className="" readOnly />
+            <div>Warehouse:</div>
+            <TextInput value={warehouse?.name} className="" readOnly />
           </div>
         </div>
 

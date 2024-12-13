@@ -1,6 +1,7 @@
 import type { MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { providerService } from "~/action.server/provider.service";
+import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
@@ -82,4 +83,7 @@ export default function Products() {
       </div>
     </div>
   );
+}
+export function ErrorBoundary() {
+  return <ErrorComponent />;
 }

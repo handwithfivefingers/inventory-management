@@ -1,0 +1,11 @@
+.notification {
+  z-index: 999;
+  padding: 4px;
+  border-radius: 4px;
+  max-width: 400px;
+  min-width: 300px;
+  .notificationInner {
+    height: 100%;
+    @apply relative px-4 pt-0 pb-2;
+  }
+}

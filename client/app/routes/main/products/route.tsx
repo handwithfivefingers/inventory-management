@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
 import { inventoryService } from "~/action.server/inventory.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
@@ -120,3 +120,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const warehouse = session.get("warehouse");
   return productService.getProducts({ s: s as string, warehouseId: warehouse });
 };
+export function ErrorBoundary() {
+  const error: any = useRouteError();
+  // error.message = "Unexpected Server Error"
+  // error.stack = undefined
+  return (
+    <div>
+      <h1>Error</h1>
+      <p>{error?.message}</p>
+      <p>{error?.stack}</p>
+    </div>
+  );
+}

@@ -6,4 +6,5 @@ module.exports = {
   VendorController: require("./vendor"),
   WarehouseController: require("./warehouse"),
   OrderController: require("./orders"),
+  CategoriesController: require("./categories"),
 };

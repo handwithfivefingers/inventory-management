@@ -7,7 +7,7 @@ interface ICardItem extends BaseProps {
 }
 export const CardItem = ({ className, title, children }: ICardItem) => {
   return (
-    <div className={cn("flex flex-col w-full bg-white rounded-md dark:bg-slate-800", className || "")}>
+    <div className={cn("flex flex-col w-full bg-white rounded-md dark:bg-slate-700 shadow-sm", className || "")}>
       <div className="px-4 py-3 border-b-2 border-indigo-600 font-semibold">{title}</div>
       <div className={cn("p-4")}>{children}</div>
     </div>

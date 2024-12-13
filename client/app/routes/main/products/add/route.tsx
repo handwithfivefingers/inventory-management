@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
-import { MouseEvent } from "react";
+import { useFetcher, useRouteError } from "@remix-run/react";
+import { MouseEvent, useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { productService } from "~/action.server/products.service";
 import { NumberInput } from "~/components/form/number-input";
@@ -10,6 +10,7 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
 import { getSession } from "~/sessions";
+import { ICategory } from "~/types/category";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
@@ -23,7 +24,7 @@ export default function ProductItem() {
       skuCode: "ASM-0000001",
       quantity: 10,
       unit: undefined,
-      category: undefined,
+      categories: undefined,
       description: undefined,
       tags: undefined,
       costPrice: "20000",
@@ -35,7 +36,6 @@ export default function ProductItem() {
     },
     resolver: zodResolver(productSchema),
   });
-
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
@@ -50,7 +50,12 @@ export default function ProductItem() {
     );
   };
 
-  console.log("fetcher", fetcher);
+  const { load, data } = useFetcher<{ data: ICategory[] }>({ key: "categories" });
+
+  useEffect(() => {
+    load("/categories");
+  }, []);
+
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">Product</h2>
@@ -243,14 +248,15 @@ export default function ProductItem() {
           </div>
           <div className="col-span-6">
             <Controller
-              name="category"
+              name="categories"
               control={formMethods.control}
               render={({ field }) => {
                 return (
-                  <TextInput
-                    label="Danh Mục"
+                  <SelectInput
+                    options={data?.data?.map((cate) => ({ label: cate.name, value: cate.id })) || []}
+                    label="Danh mục"
                     {...field}
-                    onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                    onSelect={(v) => field.onChange(v)}
                   />
                 );
               }}
@@ -263,7 +269,10 @@ export default function ProductItem() {
               render={({ field }) => {
                 return (
                   <SelectInput
-                    options={[{ label: 1, value: 1 }, { label: 2, value: 2 }]}
+                    options={[
+                      { label: 1, value: 1 },
+                      { label: 2, value: 2 },
+                    ]}
                     label="Thành phần"
                     {...field}
                     onSelect={(v) => field.onChange(v)}
@@ -306,3 +315,13 @@ export const action = async ({ request }: any) => {
   const resp = await productService.createProduct(bodyData);
   return resp;
 };
+export function ErrorBoundary() {
+  const error: any = useRouteError();
+  return (
+    <div>
+      <h1>Error</h1>
+      <p>{error?.message}</p>
+      <p>{error?.stack}</p>
+    </div>
+  );
+}

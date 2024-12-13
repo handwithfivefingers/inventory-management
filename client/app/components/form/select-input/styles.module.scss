@@ -30,6 +30,33 @@
   @apply shadow-xl border border-indigo-200 rounded-md mt-2 fixed bg-white;
   @apply min-w-40;
   li {
-    @apply text-neutral-700 hover:text-neutral-900 py-1;
+    // @apply text-neutral-700 hover:text-neutral-900 py-1;
+  }
+}
+
+.rotation {
+  transform: rotate(0deg);
+}
+
+.rotationActive {
+  -webkit-animation: spin 0.2s linear 1 alternate forwards; 
+  -moz-animation: spin 0.2s linear 1 alternate forwards;
+  animation: spin 0.2s linear 1 alternate forwards;
+}
+
+@-moz-keyframes spin {
+  100% {
+    -moz-transform: rotate(180deg);
+  }
+}
+@-webkit-keyframes spin {
+  100% {
+    -webkit-transform: rotate(180deg);
+  }
+}
+@keyframes spin {
+  100% {
+    -webkit-transform: rotate(180deg);
+    transform: rotate(180deg);
   }
 }

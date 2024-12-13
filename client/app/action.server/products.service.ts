@@ -23,6 +23,9 @@ interface ICreateProductParams {
     history?: IProductDetails[];
   };
 }
+interface IUpdateParams extends ICreateProductParams {
+  id: number;
+}
 interface IGetParamsByID {
   id: string;
   warehouse: string;
@@ -40,6 +43,9 @@ const productService = {
   },
   createProduct: (params: ICreateProductParams) => {
     return http.post(API_PATH.products, params);
+  },
+  updateProduct: ({ id, ...params }: IUpdateParams) => {
+    return http.post(`${API_PATH.products}/${id}`, params);
   },
 };
 

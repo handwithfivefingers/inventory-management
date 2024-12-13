@@ -4,6 +4,8 @@ const VendorService = require("./vendor");
 const WarehouseService = require("./warehouse");
 const OrderService = require("./orders");
 const OrderDetailService = require("./orderDetails");
+const TransferService = require("./transfer");
+const CategoriesService = require("./categories");
 module.exports = {
   AuthenticateService: require("./authenticate"),
   ProductService: require("./product"),
@@ -13,4 +15,6 @@ module.exports = {
   WarehouseService,
   OrderService,
   OrderDetailService,
+  TransferService,
+  CategoriesService,
 };

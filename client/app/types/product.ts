@@ -1,3 +1,4 @@
+import { ICategory } from "./category";
 import { IVendor } from "./vendor";
 
 export interface IProduct {
@@ -21,7 +22,8 @@ export interface IProduct {
   createdDate?: string;
   updatedAt: string;
   unit?: string;
-  categories?: string;
+  categories?: string | ICategory[];
+  tags?: string;
   // productDetails: IProductDetails;
 }
 

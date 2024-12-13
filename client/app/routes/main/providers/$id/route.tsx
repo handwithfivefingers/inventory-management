@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
 import { warehouseService } from "~/action.server/warehouse.service";
+import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
@@ -53,4 +54,7 @@ export default function ProviderItem() {
       </div>
     </div>
   );
+}
+export function ErrorBoundary() {
+  return <ErrorComponent />;
 }

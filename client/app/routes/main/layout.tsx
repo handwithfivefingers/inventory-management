@@ -2,6 +2,7 @@ import { LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Outlet, useFetcher, useLoaderData } from "@remix-run/react";
 import { memo, useEffect, useMemo } from "react";
 import { AppLayout } from "~/components/layouts";
+import { useNotification } from "~/components/notification";
 import { getSession } from "~/sessions";
 import { useUser } from "~/store/user.store";
 import { useVendor } from "~/store/vendor.store";
@@ -16,7 +17,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (!token || !user?.id) throw redirect("/login");
   return user;
 }
-
+let mount = false;
 const LayoutSideEffect = memo(({ user }: { user: IUser }) => {
   const { data, submit } = useFetcher<{ vendors: IVendor[] }>({ key: "vendors" });
   const { data: dataWarehouse, submit: fetchWarehouse } = useFetcher<IWareHouse[]>({
@@ -25,17 +26,22 @@ const LayoutSideEffect = memo(({ user }: { user: IUser }) => {
   const { updateVendor, activeVendor, defaultActive: vendor } = useVendor();
   const { updateWarehouse } = useWarehouse();
   const { updateUser } = useUser();
-
+  const { success } = useNotification();
   useEffect(() => {
     submit(null, { method: "get", action: "/api/auth" });
     updateUser(user);
   }, []);
   useEffect(() => {
+    console.log("data", data);
     if (data) {
       const vendors = data.vendors;
       const [firstVendor] = vendors;
       updateVendor(data.vendors);
       activeVendor(firstVendor);
+      if (!mount) {
+        success?.({ title: "Đăng nhập", message: "Đăng nhập thành công" });
+        mount = true;
+      }
     }
   }, [data]);
   useEffect(() => {

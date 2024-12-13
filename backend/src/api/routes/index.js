@@ -17,4 +17,6 @@ route.use("/warehouses", auth, require("./warehouse"));
 
 route.use("/orders", auth, require("./orders"));
 
+route.use("/categories", auth, require("./categories"));
+
 module.exports = route;

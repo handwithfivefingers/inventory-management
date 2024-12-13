@@ -2,6 +2,8 @@ const BaseCRUDService = require("@constant/base");
 const OrderDetailService = require("../orderDetails");
 const InventoryService = require("../inventory");
 const ProductService = require("../product");
+const { Op } = require("sequelize");
+const TransferService = require("../transfer");
 
 module.exports = class OrderService extends BaseCRUDService {
   constructor() {
@@ -25,38 +27,9 @@ module.exports = class OrderService extends BaseCRUDService {
           transaction: t,
         }
       );
-
-      // await this.db.orderDetail.bulkCreate(
-      //   OrderDetails?.map(({ name, ...item }) => ({ ...item, warehouseId, orderId: p.id })),
-      //   {
-      //     transaction: t,
-      //   }
-      // );
-      const updateInventoryQuan = async (num, pID, wID) => {
-        const inven = await this.db.inventory.findOne({
-          where: {
-            productId: pID,
-            warehouseId: wID,
-          },
-        });
-        inven.quantity = inven.quantity - num;
-        await inven.save({ transaction: t });
-      };
-
-      for (let { name, quantity, productId, ...orderDetail } of OrderDetails) {
-        await this.db.orderDetail.create(
-          { ...orderDetail, quantity, warehouseId, orderId: p.id },
-          {
-            transaction: t,
-          }
-        );
-        await updateInventoryQuan(quantity, productId, warehouseId);
-        const prod = await this.db.product.findByPk(productId);
-        prod.sold = prod.sold + quantity;
-        await prod.save({ transaction: t });
+      for (let item of OrderDetails) {
+        await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, ...item });
       }
-
-      console.log("coming outside loop");
       await t.commit();
       return p;
     } catch (error) {
@@ -65,9 +38,60 @@ module.exports = class OrderService extends BaseCRUDService {
       throw error;
     }
   }
+  async createOrderDetails({ name, quantity, productId, warehouseId, transaction, orderId, ...orderDetail }) {
+    try {
+      const detailItem = this.db.orderDetail.create(
+        { ...orderDetail, quantity, warehouseId, orderId: orderId },
+        {
+          transaction,
+        }
+      );
+      return Promise.all([
+        detailItem,
+        this.updateInventory({ quantity, productId, warehouseId, transaction }),
+        this.updateProductQuantity({ quantity, productId, transaction }),
+        this.createTransfer({ quantity, warehouseId, productId, transaction, type: "1" }),
+      ]);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateInventory({ productId, warehouseId, quantity, transaction }) {
+    try {
+      const inventory = await this.db.inventory.findOne({
+        where: {
+          productId,
+          warehouseId,
+        },
+      });
+      inventory.quantity = inventory.quantity - quantity;
+      await inventory.save({ transaction });
+    } catch (error) {
+      throw error;
+    }
+  }
+  async updateProductQuantity({ productId, quantity, transaction }) {
+    try {
+      const prod = await this.db.product.findByPk(productId);
+      prod.sold = prod.sold + quantity;
+      await prod.save({ transaction });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async createTransfer({ transaction, ...params }) {
+    try {
+      await new TransferService().createInstance(params, { transaction });
+    } catch (error) {
+      throw error;
+    }
+  }
   async getOrders(params) {
     try {
-      console.log("params", params);
+      const offset = params.page * params.pageSize - params.pageSize;
+      const limit = Number(params.pageSize);
       const queryParams = {
         where: {},
         include: [
@@ -76,17 +100,23 @@ module.exports = class OrderService extends BaseCRUDService {
             include: {
               model: this.db.product,
             },
+            where: {
+              warehouseId: params.warehouse,
+            },
           },
         ],
+        offset,
+        limit,
       };
-      if (params.warehouse) {
-        queryParams.where = {
-          "$orderDetails.warehouseId$": params.warehouse,
+      if (params.isProvider) {
+        queryParams.where.provider = {
+          [Op.ne]: null,
         };
       }
       const resp = await this.get(queryParams);
       return resp;
     } catch (error) {
+      console.warn("error", error);
       throw error;
     }
   }
@@ -122,5 +152,10 @@ module.exports = class OrderService extends BaseCRUDService {
     } catch (err) {
       throw err;
     }
+  }
+
+  async importOrder(params) {
+    try {
+    } catch (error) {}
   }
 };
