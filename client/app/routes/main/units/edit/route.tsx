@@ -2,9 +2,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, FormProvider, useForm } from "react-hook-form";
 import { categoriesService } from "~/action.server/categories.service";
 import { productService } from "~/action.server/products.service";
+import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
@@ -18,7 +19,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const session = await getSession(request.headers.get("Cookie"));
   const vendorId = session.get("vendor");
   const { id } = params;
-  const resp = await categoriesService.getById({ id, vendorId } as any);
+  const resp = await unitsService.getById({ id, vendorId } as any);
   return resp;
 };
 
@@ -35,7 +36,7 @@ export default function ProductItem() {
       <CardItem
         title={
           <div className="flex justify-between items-center">
-            <h5>{edit ? "Chỉnh sửa" : data?.name}</h5>
+            <h5>{edit ? "Chỉnh sửa" : "Đơn vị"}</h5>
             <TMButton variant="ghost" size="xs" onClick={() => setEdit(!edit)}>
               {edit ? "Hủy" : "Sửa"}
             </TMButton>
@@ -44,65 +45,27 @@ export default function ProductItem() {
       >
         {!edit ? <Detail /> : null}
 
-        {edit ? <EditForm /> : null}
+        {edit ? <EditForm name={data.name} /> : null}
       </CardItem>
     </div>
   );
 }
 const Detail = () => {
   const { data } = useLoaderData<typeof loader>();
-  const { products } = data;
-  const navigate = useNavigate();
-  if (!products?.length) return "Khong co san pham nao";
   return (
     <div className="w-full grid grid-cols-5 gap-4">
-      <div className="col-span-5">
-        <TMTable
-          columns={[
-            {
-              title: "Tên sản phẩm",
-              dataIndex: "name",
-              render: (record) => record["name"],
-            },
-            {
-              title: "Mã sản phẩm",
-              dataIndex: "skuCode",
-              render: (record) => record["skuCode"],
-            },
-            {
-              title: "Tồn kho",
-              dataIndex: "quantity",
-              render: (record) => record["quantity"] || 0,
-            },
-            {
-              title: "Đã bán",
-              dataIndex: "sold",
-              render: (record) => record["sold"] || 0,
-            },
-            {
-              title: "Ngày tạo",
-              dataIndex: "createdAt",
-              render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
-            },
-          ]}
-          data={products || []}
-          rowKey={"id"}
-          onRow={{
-            onClick: (record) => {
-              console.log("record", record);
-              navigate(`/products/${record?.id}`);
-            },
-          }}
-        />
-      </div>
+      <div className="col-span-5">{data?.name}</div>
     </div>
   );
 };
-const EditForm = () => {
+const EditForm = ({ name }: { name: string}) => {
   const fetcher = useFetcher();
   const formMethods = useForm({
     defaultValues: {
       name: "",
+    },
+    values: {
+      name,
     },
     resolver: zodResolver(productSchema),
   });
@@ -121,34 +84,36 @@ const EditForm = () => {
     );
   };
   return (
-    <form
-      className="py-2 grid grid-cols-12 gap-4"
-      onSubmit={formMethods.handleSubmit(
-        (v) => onSubmit({ ...v }),
-        (error) => handleError(error)
-      )}
-    >
-      <div className="col-span-12">
-        <Controller
-          name="name"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Tên danh mục"
-                value={field.value as any}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="ml-auto col-span-12">
-        <TMButton htmlType="submit" variant="light">
-          Thêm
-        </TMButton>
-      </div>
-    </form>
+    <FormProvider {...formMethods}>
+      <form
+        className="py-2 grid grid-cols-12 gap-4"
+        onSubmit={formMethods.handleSubmit(
+          (v) => onSubmit({ ...v }),
+          (error) => handleError(error)
+        )}
+      >
+        <div className="col-span-12">
+          <Controller
+            name="name"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <TextInput
+                  label="Tên đơn vị"
+                  value={field.value as any}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="ml-auto col-span-12">
+          <TMButton htmlType="submit" variant="light">
+            Lưu
+          </TMButton>
+        </div>
+      </form>
+    </FormProvider>
   );
 };
 

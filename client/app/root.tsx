@@ -25,12 +25,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <NotificationProvider />
       </body>
     </html>
   );
 }
 
 export default function App() {
+  return <Outlet />;
   return (
     <NotificationProvider>
       <Outlet />
@@ -42,9 +44,5 @@ export const shouldRevalidate = () => false;
 
 export function ErrorBoundary() {
   const error = useRouteError();
-  // When NODE_ENV=production:
-  // error.message = "Unexpected Server Error"
-  // error.stack = undefined
-  // return <pre>{JSON.stringify(error, null, 4)}</pre>;
   return <div>Unexpected Server Error</div>;
 }

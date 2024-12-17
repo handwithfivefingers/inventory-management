@@ -22,7 +22,8 @@ module.exports = class CategoriesController {
   }
   async get(req, res, next) {
     try {
-      const { count, rows } = await new CategoriesService().get(req.query);
+      console.log("req.query", req.query);
+      const { count, rows } = await new CategoriesService().getCategories(req.query);
       return res.status(200).json({ total: count, data: rows });
     } catch (error) {
       next(error);

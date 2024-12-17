@@ -1,5 +1,5 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, redirect, useLoaderData, useNavigate } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { categoriesService } from "~/action.server/categories.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
@@ -7,12 +7,8 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { destroySession, getSession } from "~/sessions";
+import { getSession } from "~/sessions";
 
-// interface ResponsePagination extends IResponse<IProduct[]> {
-//   page?: number;
-//   pageSize?: number;
-// }
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const session = await getSession(request.headers.get("Cookie"));
   const url = new URL(request.url);
@@ -25,6 +21,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     page: page,
     pageSize: pageSize,
   });
+  console.log("resp", resp);
   resp.page = Number(page);
   resp.pageSize = Number(pageSize);
   return resp;

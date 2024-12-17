@@ -13,7 +13,7 @@ import { cn } from "~/libs/utils";
 import styles from "./styles.module.scss";
 import { Icon } from "../icon";
 import { INotification, INotificationPlacement, INotificationVariant } from "./notification.d";
-import { useNotification, useNotificationCtx } from ".";
+import { toast } from ".";
 
 const placements: Record<INotificationPlacement, string> = {
   "top-left": "top-2 left-2",
@@ -32,8 +32,6 @@ const variants: Record<INotificationVariant, string> = {
 export type NotificationAction = {};
 
 export const Notification = (props: INotification) => {
-  const { remove } = useNotification();
-  // const queue = useNotificationCtx();
   const divRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,7 +42,7 @@ export const Notification = (props: INotification) => {
       divRef.current?.classList.add("animate__fadeOutUp");
     }, 3500);
     timer = setTimeout(() => {
-      remove(props.id);
+      toast.remove(props.id);
     }, 4000);
     return () => {
       clearTimeout(timer);
@@ -84,7 +82,7 @@ export const Notification = (props: INotification) => {
         <div className="flex gap-2 justify-between">
           <div className="text-base/7 font-medium truncate">{props?.title}</div>
           <Icon
-            onClick={() => remove(props.id)}
+            onClick={() => toast.remove(props.id)}
             name="x"
             className="text-neutral-500 hover:text-neutral-900 rounded-md transition-all flex-1 cursor-pointer absolute right-0 w-5 h-5"
           />

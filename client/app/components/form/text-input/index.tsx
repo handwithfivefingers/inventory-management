@@ -2,6 +2,7 @@ import React, { HTMLInputTypeAttribute, forwardRef, useRef } from "react";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
+import { useFormState } from "react-hook-form";
 export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInputTypeAttribute> {
   label?: string;
   name?: string;
@@ -14,6 +15,12 @@ export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInp
   wrapperClassName?: string;
 }
 
+interface IFieldError {
+  [key: string]: {
+    message: string;
+  };
+}
+
 export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
   (
     { label, name, prefix, placeholder, className, wrapperClassName, style, onChange, inputClassName, suffix, ...rest },
@@ -21,6 +28,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
   ) => {
     const prefixRef = useRef<HTMLSpanElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
     return (
       <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
         {label ? (
@@ -64,6 +72,10 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               className
             )}
           />
+        </div>
+
+        <div className="p-2">
+          <p className="text-red-500">{name && (errors?.[name]?.message as string)}</p>
         </div>
       </div>
     );

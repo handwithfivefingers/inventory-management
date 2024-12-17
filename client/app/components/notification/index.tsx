@@ -1,4 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
+import { ClientOnly } from "remix-utils/client-only";
+import { BaseProps } from "~/types/common";
+import { Portal } from "../portal";
+import { Notification } from "./notification";
 import {
   INotiParams,
   INotificationAPIContext,
@@ -6,10 +10,6 @@ import {
   INotificationContext,
   INotificationQueue,
 } from "./notification.d";
-import { Portal } from "../portal";
-import { Notification } from "./notification";
-import { BaseProps } from "~/types/common";
-import { ClientOnly } from "remix-utils/client-only";
 
 let id = 1;
 const initContext: INotificationContext = {
@@ -41,6 +41,20 @@ const reducer = (state: INotificationContext, action: INotificationAction) => {
 const NotificationContext = createContext(initContext);
 const NotificationActionAPI = createContext({} as INotificationAPIContext);
 
+interface IToastProps {
+  success: (params: INotiParams) => void;
+  danger: (params: INotiParams) => void;
+  warning: (params: INotiParams) => void;
+  info: (params: INotiParams) => void;
+  remove: (id: number) => void;
+}
+export const toast: IToastProps = {
+  success: (params: INotiParams) => {},
+  danger: (params: INotiParams) => {},
+  warning: (params: INotiParams) => {},
+  info: (params: INotiParams) => {},
+  remove: (id: number) => {},
+};
 export const NotificationProvider = ({ children }: BaseProps) => {
   const [state, dispatch] = useReducer(reducer, initContext);
 
@@ -67,6 +81,15 @@ export const NotificationProvider = ({ children }: BaseProps) => {
       },
     };
   }, []);
+
+  useEffect(() => {
+    toast.success = api.success;
+    toast.warning = api.warning;
+    toast.info = api.info;
+    toast.danger = api.info;
+    toast.remove = api.remove;
+  }, []);
+
   return (
     <NotificationActionAPI.Provider value={api as INotificationAPIContext}>
       <NotificationContext.Provider value={state}>

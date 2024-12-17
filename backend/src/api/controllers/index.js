@@ -7,4 +7,6 @@ module.exports = {
   WarehouseController: require("./warehouse"),
   OrderController: require("./orders"),
   CategoriesController: require("./categories"),
+  UnitsController: require("./units"),
+  TagsController: require("./tags"),
 };

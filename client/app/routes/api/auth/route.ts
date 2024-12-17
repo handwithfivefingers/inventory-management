@@ -11,7 +11,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let token = session.get("token");
   if (!token) throw redirect("/login");
   http.setHeader("Cookie", `session=${token}`);
-  const { data: me } = await AuthService.getMe();
+  const resp = await AuthService.getMe();
+  console.log("me", resp);
+  const { data: me } = resp;
   if (!me)
     return redirect("/login", {
       headers: {

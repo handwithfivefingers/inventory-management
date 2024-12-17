@@ -6,6 +6,8 @@ const OrderService = require("./orders");
 const OrderDetailService = require("./orderDetails");
 const TransferService = require("./transfer");
 const CategoriesService = require("./categories");
+const UnitsService = require("./units");
+const TagsService = require("./tags");
 module.exports = {
   AuthenticateService: require("./authenticate"),
   ProductService: require("./product"),
@@ -17,4 +19,6 @@ module.exports = {
   OrderDetailService,
   TransferService,
   CategoriesService,
+  UnitsService,
+  TagsService,
 };

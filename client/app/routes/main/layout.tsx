@@ -2,7 +2,7 @@ import { LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Outlet, useFetcher, useLoaderData } from "@remix-run/react";
 import { memo, useEffect, useMemo } from "react";
 import { AppLayout } from "~/components/layouts";
-import { useNotification } from "~/components/notification";
+import { toast } from "~/components/notification";
 import { getSession } from "~/sessions";
 import { useUser } from "~/store/user.store";
 import { useVendor } from "~/store/vendor.store";
@@ -26,20 +26,18 @@ const LayoutSideEffect = memo(({ user }: { user: IUser }) => {
   const { updateVendor, activeVendor, defaultActive: vendor } = useVendor();
   const { updateWarehouse } = useWarehouse();
   const { updateUser } = useUser();
-  const { success } = useNotification();
   useEffect(() => {
     submit(null, { method: "get", action: "/api/auth" });
     updateUser(user);
   }, []);
   useEffect(() => {
-    console.log("data", data);
-    if (data) {
-      const vendors = data.vendors;
+    if (data?.vendors) {
+      const vendors = data?.vendors;
       const [firstVendor] = vendors;
       updateVendor(data.vendors);
       activeVendor(firstVendor);
       if (!mount) {
-        success?.({ title: "Đăng nhập", message: "Đăng nhập thành công" });
+        toast.success({ title: "Đăng nhập", message: "Đăng nhập thành công" });
         mount = true;
       }
     }
@@ -60,9 +58,8 @@ const LayoutSideEffect = memo(({ user }: { user: IUser }) => {
 
 const MainLayout = () => {
   const user = useLoaderData<typeof loader>();
-
   const StoreMemoiz = useMemo(() => {
-    if (user.id) return <LayoutSideEffect user={user} />;
+    if (user?.id) return <LayoutSideEffect user={user} />;
     return null;
   }, [user.id]);
 

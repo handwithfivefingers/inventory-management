@@ -1,24 +1,16 @@
 import { Authenticator } from "remix-auth";
-import { http } from "~/http";
 import { FormStrategy } from "remix-auth-form";
-import { IUser } from "~/types/user";
+import { ILoginParams } from "~/action.client/auth.service";
+import { http } from "~/http";
+import { ILoginResponse, IRegisterParams, IRegisterResponse } from "~/types/authenticate";
+import { IResponse } from "~/types/common";
 
 const API_PATH = {
   login: "/auth/login",
-  register: "/auth/local/register",
+  register: "/auth/register",
   me: "/auth/me",
 };
 
-export interface ILoginParams {
-  email: string;
-  password: string;
-}
-
-interface ILoginResponse {
-  jwt: string;
-  token: string;
-  data: IUser;
-}
 export const AuthService = {
   login: async (params: ILoginParams) => {
     const resp: ILoginResponse = await http.post(API_PATH.login, params);
@@ -26,6 +18,10 @@ export const AuthService = {
       http.setToken(resp.jwt);
     }
     return resp;
+  },
+
+  register: async (params: IRegisterParams): Promise<IResponse<IRegisterResponse>> => {
+    return http.post(API_PATH.register, params);
   },
   getMe: async (options?: any) => {
     return http.get(API_PATH.me, options);

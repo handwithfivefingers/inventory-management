@@ -8,6 +8,7 @@ export interface IResponse<T> {
   total?: number;
   page?: number;
   pageSize?: number;
+  status: number;
 }
 
 export interface BaseQueryParams {

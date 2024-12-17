@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, FormProvider, useForm } from "react-hook-form";
 import { categoriesService } from "~/action.server/categories.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
@@ -44,7 +44,7 @@ export default function ProductItem() {
       >
         {!edit ? <Detail /> : null}
 
-        {edit ? <EditForm /> : null}
+        {edit ? <EditForm name={data.name} /> : null}
       </CardItem>
     </div>
   );
@@ -98,11 +98,14 @@ const Detail = () => {
     </div>
   );
 };
-const EditForm = () => {
+const EditForm = ({ name }: { name: string }) => {
   const fetcher = useFetcher();
   const formMethods = useForm({
     defaultValues: {
       name: "",
+    },
+    values: {
+      name,
     },
     resolver: zodResolver(productSchema),
   });
@@ -121,34 +124,36 @@ const EditForm = () => {
     );
   };
   return (
-    <form
-      className="py-2 grid grid-cols-12 gap-4"
-      onSubmit={formMethods.handleSubmit(
-        (v) => onSubmit({ ...v }),
-        (error) => handleError(error)
-      )}
-    >
-      <div className="col-span-12">
-        <Controller
-          name="name"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Tên danh mục"
-                value={field.value as any}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="ml-auto col-span-12">
-        <TMButton htmlType="submit" variant="light">
-          Thêm
-        </TMButton>
-      </div>
-    </form>
+    <FormProvider {...formMethods}>
+      <form
+        className="py-2 grid grid-cols-12 gap-4"
+        onSubmit={formMethods.handleSubmit(
+          (v) => onSubmit({ ...v }),
+          (error) => handleError(error)
+        )}
+      >
+        <div className="col-span-12">
+          <Controller
+            name="name"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <TextInput
+                  label="Tên danh mục"
+                  value={field.value as any}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="ml-auto col-span-12">
+          <TMButton htmlType="submit" variant="light">
+            Lưu
+          </TMButton>
+        </div>
+      </form>
+    </FormProvider>
   );
 };
 

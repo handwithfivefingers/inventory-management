@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { MouseEvent } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, FormProvider, useForm } from "react-hook-form";
 import { categoriesService } from "~/action.server/categories.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
@@ -83,34 +83,36 @@ const CategoryForm = () => {
     );
   };
   return (
-    <form
-      className="py-2 grid grid-cols-12 gap-4"
-      onSubmit={formMethods.handleSubmit(
-        (v) => onSubmit({ ...v }),
-        (error) => handleError(error)
-      )}
-    >
-      <div className="col-span-12">
-        <Controller
-          name="name"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Tên danh mục"
-                value={field.value as any}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="ml-auto col-span-12">
-        <TMButton htmlType="submit" variant="light">
-          Thêm
-        </TMButton>
-      </div>
-    </form>
+    <FormProvider {...formMethods}>
+      <form
+        className="py-2 grid grid-cols-12 gap-4"
+        onSubmit={formMethods.handleSubmit(
+          (v) => onSubmit({ ...v }),
+          (error) => handleError(error)
+        )}
+      >
+        <div className="col-span-12">
+          <Controller
+            name="name"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <TextInput
+                  label="Tên danh mục"
+                  value={field.value as any}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="ml-auto col-span-12">
+          <TMButton htmlType="submit" variant="light">
+            Thêm
+          </TMButton>
+        </div>
+      </form>
+    </FormProvider>
   );
 };
 export const action = async ({ request }: any) => {

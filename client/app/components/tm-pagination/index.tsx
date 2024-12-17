@@ -61,7 +61,7 @@ export const TMPagination = ({ total, current, pageSize, onPageChange }: IPagina
             size="xs"
             onClick={paginationItem.onClick}
             className={cn({
-              "  text-white": paginationItem.label === current,
+              "text-white bg-indigo-300 rounded": paginationItem.label === current,
             })}
           >
             {paginationItem.label}

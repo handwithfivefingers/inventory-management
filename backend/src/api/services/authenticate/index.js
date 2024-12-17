@@ -39,8 +39,6 @@ module.exports = class AuthenticateService {
           email,
         },
       });
-      console.log("password", password);
-      console.log("user.password", user);
       const isMatchPassword = await bcrypt.compare(password, user.password);
       if (user && isMatchPassword) {
         delete user.dataValues.password;
@@ -103,7 +101,14 @@ module.exports = class AuthenticateService {
       await t.commit();
       return { user, role, permission, vendor, warehouse };
     } catch (error) {
+      console.log(JSON.stringify(error, null, 2));
       await t.rollback();
+      if (error.name === "SequelizeUniqueConstraintError") {
+        throw {
+          code: error.original.code,
+          fields: error.fields,
+        };
+      }
       throw error;
     }
   }

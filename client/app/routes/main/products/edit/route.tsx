@@ -1,13 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useFetcher, useLoaderData, useRouteError } from "@remix-run/react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, FormProvider, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { productService } from "~/action.server/products.service";
 import { BarCode } from "~/components/barcode";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { MultiSelectInput } from "~/components/form/multi-select-input";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
@@ -93,7 +94,7 @@ const Detail = () => {
           </li>
           <li className="flex justify-between">
             <span>Đơn vị tính: </span>
-            <span>{data?.unit} </span>
+            <span>{data?.unitName} </span>
           </li>
           <li className="flex justify-between">
             <span>Danh mục: </span>
@@ -141,10 +142,10 @@ const EditForm = () => {
       code: "SM-001",
       skuCode: "ASM-0000001",
       quantity: 10,
-      unit: undefined,
-      categories: undefined,
-      description: undefined,
-      tags: undefined,
+      unitId: "",
+      categories: [],
+      tags: [],
+      description: " ",
       costPrice: undefined,
       regularPrice: undefined,
       salePrice: undefined,
@@ -152,9 +153,14 @@ const EditForm = () => {
       VAT: 5,
       expiredAt: undefined,
     },
-    values: data,
+    values: {
+      ...data,
+      categories: (data.categories as ICategory[])?.map((item: ICategory) => item?.id) || [],
+      tags: (data.tags as ICategory[])?.map((item: ICategory) => item?.id) || [],
+    },
     resolver: zodResolver(productSchema),
   });
+  console.log("data", data);
 
   const handleError = (errors: any) => {
     console.log("errors", errors);
@@ -163,259 +169,264 @@ const EditForm = () => {
     fetcher.submit(
       {
         data: JSON.stringify({
-          data: v,
+          data: { ...v, id: data.id },
         }),
       },
-      { method: "POST", action: "/products/add" }
+      { method: "POST", action: "/products/edit" }
     );
   };
 
-  const { load, data: categoriesResp } = useFetcher<{ data: ICategory[] }>({ key: "categories" });
+  const { load, data: categories } = useFetcher<{ data: ICategory[] }>({ key: "categories" });
+  const { load: loadUnits, data: units } = useFetcher<{ data: ICategory[] }>({ key: "units" });
+  const { load: loadTags, data: tags } = useFetcher<{ data: ICategory[] }>({ key: "tags" });
   useEffect(() => {
     load("/categories");
+    loadUnits("/units");
+    loadTags("/tags");
+    (window as any).form = formMethods;
   }, []);
 
   return (
-    <form
-      className="py-2 grid grid-cols-12 gap-4"
-      onSubmit={formMethods.handleSubmit(
-        (v) => onSubmit({ ...v }),
-        (error) => handleError(error)
-      )}
-    >
-      <div className="col-span-12">
-        <Controller
-          name="name"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Tên hàng hóa"
-                value={field.value as any}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-6">
-        <Controller
-          name="code"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Mã code"
-                value={field.value as any}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-6">
-        <Controller
-          name="skuCode"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Mã sku"
-                value={field.value as any}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-4">
-        <Controller
-          name="costPrice"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <NumberInput
-                label="Giá vốn"
-                value={field.value as any}
-                onValueChange={(v, info) => {
-                  field.onChange(v.value);
-                }}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-4">
-        <Controller
-          name="regularPrice"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <NumberInput
-                label="Giá bán lẻ"
-                value={field.value as any}
-                onValueChange={(v, info) => {
-                  field.onChange(v.value);
-                }}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-4">
-        <Controller
-          name="salePrice"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <NumberInput
-                label="Giá khuyến mại"
-                value={field.value as any}
-                onValueChange={(v, info) => {
-                  field.onChange(v.value);
-                }}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-4">
-        <Controller
-          name="wholeSalePrice"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <NumberInput
-                label="Giá bán sỉ"
-                value={field.value as any}
-                onValueChange={(v, info) => {
-                  field.onChange(v.value);
-                }}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-6">
-        <Controller
-          name="expiredAt"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <NumberInput
-                label="Ngày hết hạn"
-                value={field.value as any}
-                onValueChange={(v, info) => {
-                  field.onChange(v.value);
-                }}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-2">
-        <Controller
-          name="VAT"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <NumberInput
-                label="VAT(%)"
-                value={field.value as any}
-                onValueChange={(v, info) => {
-                  field.onChange(v.value);
-                }}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-6">
-        <Controller
-          name="quantity"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <NumberInput
-                label="Tồn kho"
-                value={field.value as any}
-                onValueChange={(v, info) => {
-                  field.onChange(v.value);
-                }}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-6">
-        <Controller
-          name="unit"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Đơn vị tính"
-                {...field}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-6">
-        <Controller
-          name="categories"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <SelectInput
-                options={categoriesResp?.data?.map((cate) => ({ label: cate.name, value: cate.id })) || []}
-                label="Danh Mục"
-                {...field}
-                onSelect={(v) => field.onChange(v)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-6">
-        <Controller
-          name="tags"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <SelectInput
-                options={[
-                  { label: 1, value: 1 },
-                  { label: 2, value: 2 },
-                ]}
-                label="Thành phần"
-                {...field}
-                onSelect={(v) => field.onChange(v)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="col-span-12">
-        <Controller
-          name="description"
-          control={formMethods.control}
-          render={({ field }) => {
-            return (
-              <TextInput
-                label="Ghi chú"
-                {...field}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        />
-      </div>
-      <div className="ml-auto col-span-12">
-        <TMButton htmlType="submit">Submit</TMButton>
-      </div>
-    </form>
+    <FormProvider {...formMethods}>
+      <form
+        className="py-2 grid grid-cols-12 gap-4"
+        onSubmit={formMethods.handleSubmit(
+          (v) => onSubmit({ ...v }),
+          (error) => handleError(error)
+        )}
+      >
+        <div className="col-span-12">
+          <Controller
+            name="name"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <TextInput
+                  label="Tên hàng hóa"
+                  value={field.value as any}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-6">
+          <Controller
+            name="code"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <TextInput
+                  label="Mã code"
+                  value={field.value as any}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-6">
+          <Controller
+            name="skuCode"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <TextInput
+                  label="Mã sku"
+                  value={field.value as any}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-4">
+          <Controller
+            name="costPrice"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <NumberInput
+                  label="Giá vốn"
+                  value={field.value as any}
+                  onValueChange={(v, info) => {
+                    field.onChange(v.value);
+                  }}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-4">
+          <Controller
+            name="regularPrice"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <NumberInput
+                  label="Giá bán lẻ"
+                  value={field.value as any}
+                  onValueChange={(v, info) => {
+                    field.onChange(v.value);
+                  }}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-4">
+          <Controller
+            name="salePrice"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <NumberInput
+                  label="Giá khuyến mại"
+                  value={field.value as any}
+                  onValueChange={(v, info) => {
+                    field.onChange(v.value);
+                  }}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-4">
+          <Controller
+            name="wholeSalePrice"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <NumberInput
+                  label="Giá bán sỉ"
+                  value={field.value as any}
+                  onValueChange={(v, info) => {
+                    field.onChange(v.value);
+                  }}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-6">
+          <Controller
+            name="expiredAt"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <NumberInput
+                  label="Ngày hết hạn"
+                  value={field.value as any}
+                  onValueChange={(v, info) => {
+                    field.onChange(v.value);
+                  }}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-2">
+          <Controller
+            name="VAT"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <NumberInput
+                  label="VAT(%)"
+                  value={field.value as any}
+                  onValueChange={(v, info) => {
+                    field.onChange(v.value);
+                  }}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-6">
+          <Controller
+            name="quantity"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <NumberInput
+                  label="Tồn kho"
+                  value={field.value as any}
+                  onValueChange={(v, info) => {
+                    field.onChange(v.value);
+                  }}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-6">
+          <Controller
+            name="unitId"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <SelectInput
+                  options={units?.data?.map((cate) => ({ label: cate.name, value: cate?.id || undefined })) || []}
+                  label="Đơn vị tính"
+                  {...field}
+                  onSelect={(v) => field.onChange(v)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-6">
+          <Controller
+            name="categories"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <MultiSelectInput
+                  options={categories?.data?.map((cate) => ({ label: cate.name, value: cate?.id || undefined })) || []}
+                  label="Danh Mục"
+                  {...field}
+                  onSelect={(v) => field.onChange(v)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-6">
+          <Controller
+            name="tags"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <MultiSelectInput
+                  options={tags?.data?.map((tag) => ({ label: tag.name, value: tag?.id || undefined })) || []}
+                  label="Thành phần"
+                  {...field}
+                  onSelect={(v) => field.onChange(v)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="col-span-12">
+          <Controller
+            name="description"
+            control={formMethods.control}
+            render={({ field }) => {
+              return (
+                <TextInput
+                  label="Ghi chú"
+                  {...field}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          />
+        </div>
+        <div className="ml-auto col-span-12">
+          <TMButton htmlType="submit">Submit</TMButton>
+        </div>
+      </form>
+    </FormProvider>
   );
 };
 

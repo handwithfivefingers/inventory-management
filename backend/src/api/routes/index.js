@@ -19,4 +19,8 @@ route.use("/orders", auth, require("./orders"));
 
 route.use("/categories", auth, require("./categories"));
 
+route.use("/tags", auth, require("./tags"));
+
+route.use("/units", auth, require("./units"));
+
 module.exports = route;

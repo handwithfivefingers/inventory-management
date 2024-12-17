@@ -16,8 +16,7 @@ export const meta: MetaFunction = () => {
 
 export default function ProviderItem() {
   const { data } = useLoaderData<typeof loader>();
-  const navigate = useNavigate();
-  console.log("WarehouseItem", data);
+  // const navigate = useNavigate();
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">Kho {data?.name}</h2>
@@ -25,7 +24,7 @@ export default function ProviderItem() {
         <div className="flex gap-2 flex-col ">
           <h5>Thông tin kho hàng</h5>
           <div className="bg-neutral-100 px-4">
-            <TextInput
+            {/* <TextInput
               label="Tên kho hàng"
               value={data.name}
               readOnly
@@ -48,7 +47,7 @@ export default function ProviderItem() {
               value={data.email}
               readOnly
               className="border-0 outline-0 ring-0 shadow-none !bg-transparent"
-            />
+            /> */}
           </div>
         </div>
       </div>

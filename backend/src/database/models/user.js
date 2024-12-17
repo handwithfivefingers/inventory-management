@@ -11,7 +11,7 @@ const User = (sequelize) => {
       },
       nickname: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       firstName: {
         type: DataTypes.STRING,
@@ -23,7 +23,10 @@ const User = (sequelize) => {
       email: {
         type: DataTypes.STRING,
         allowNull: false,
-        // unique: true,
+        unique: 'email',
+        validator: {
+          isEmail: true,
+        },
       },
       password: {
         type: DataTypes.STRING,

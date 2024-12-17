@@ -1,18 +1,15 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, redirect, useLoaderData, useNavigate } from "@remix-run/react";
-import { categoriesService } from "~/action.server/categories.service";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { destroySession, getSession } from "~/sessions";
+import { dayjs } from "~/libs/date";
+import { getSession } from "~/sessions";
 
-// interface ResponsePagination extends IResponse<IProduct[]> {
-//   page?: number;
-//   pageSize?: number;
-// }
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const session = await getSession(request.headers.get("Cookie"));
   const url = new URL(request.url);
@@ -20,7 +17,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const page = params.get("page") || 1;
   const pageSize = params.get("pageSize") || 10;
   const vendor = session.get("vendor");
-  const resp = await categoriesService.get({
+  const resp = await unitsService.get({
     vendorId: vendor as string,
     page: page,
     pageSize: pageSize,
@@ -39,7 +36,7 @@ export default function Products() {
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   return (
     <div className=" w-full flex flex-col p-4 gap-4">
-      <CardItem title="Danh mục">
+      <CardItem title="Danh sách đơn vị">
         <div className="py-2">
           <div className="flex gap-2">
             <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
@@ -56,9 +53,14 @@ export default function Products() {
           <TMTable
             columns={[
               {
-                title: "Tên sản phẩm",
+                title: "Đơn vị",
                 dataIndex: "name",
                 render: (record) => record["name"],
+              },
+              {
+                title: "Ngày tạo",
+                dataIndex: "createdAt",
+                render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
               },
             ]}
             data={data || []}

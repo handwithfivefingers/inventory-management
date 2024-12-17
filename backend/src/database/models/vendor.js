@@ -22,6 +22,8 @@ const Vendor = (sequelize) => {
   Models.associate = (model) => {
     Models.hasMany(model.warehouse, { foreignKey: "vendorId" });
     Models.hasMany(model.category, { foreignKey: "vendorId" });
+    Models.hasMany(model.tag, { foreignKey: "vendorId" });
+    Models.hasMany(model.unit, { foreignKey: "vendorId" });
   };
   return Models;
 };

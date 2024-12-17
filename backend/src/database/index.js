@@ -10,8 +10,8 @@ const folderPath = path.join(__dirname, "models");
 const sequelize = new Sequelize("inventory", "root", "mysql", {
   host: "localhost",
   dialect: "mysql",
-  // logging:false,
-  logging: (query, ...msg) => console.log(query),
+  logging:false,
+  // logging: (query, ...msg) => console.log(query),
   define: {
     charset: "utf8",
     collate: "utf8_general_ci",

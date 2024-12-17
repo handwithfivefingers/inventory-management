@@ -27,20 +27,13 @@ module.exports = class CategoriesService extends BaseCRUDService {
     }
   }
 
-  async get(params) {
+  async getCategories(params) {
     try {
+      console.log("params", params);
       const queryParams = {
         where: {
           vendorId: params.vendorId,
         },
-        // include: [
-        //   {
-        //     model: this.db.orderDetail,
-        //     include: {
-        //       model: this.db.product,
-        //     },
-        //   },
-        // ],
       };
       const resp = await this.get(queryParams);
       return resp;

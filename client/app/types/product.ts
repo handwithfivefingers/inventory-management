@@ -21,10 +21,10 @@ export interface IProduct {
   VAT?: number;
   createdDate?: string;
   updatedAt: string;
-  unit?: string;
+  unitName?: string;
+  unitId?: string | number;
   categories?: string | ICategory[];
-  tags?: string;
-  // productDetails: IProductDetails;
+  tags?: string | ICategory[];
 }
 
 export interface IProductDetails {

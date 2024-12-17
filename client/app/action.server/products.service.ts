@@ -25,6 +25,7 @@ interface ICreateProductParams {
 }
 interface IUpdateParams extends ICreateProductParams {
   id: number;
+  warehouseId?: number | string;
 }
 interface IGetParamsByID {
   id: string;
@@ -44,8 +45,8 @@ const productService = {
   createProduct: (params: ICreateProductParams) => {
     return http.post(API_PATH.products, params);
   },
-  updateProduct: ({ id, ...params }: IUpdateParams) => {
-    return http.post(`${API_PATH.products}/${id}`, params);
+  updateProduct: ({ id, warehouseId, ...params }: IUpdateParams) => {
+    return http.post(`${API_PATH.products}/${id}?warehouseId=${warehouseId}`, params);
   },
 };
 

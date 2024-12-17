@@ -56,7 +56,12 @@ class HTTPService {
       body: JSON.stringify(data),
       credentials: this.options.credentials,
     };
-    return fetch(url, options as any).then((res) => res.json());
+    return fetch(url, options as any)
+      .then(async (res) => {
+        const json = await res.json();
+        return { status: res.status, ...json };
+      })
+      .catch((err) => ({ error: err, status: err.status }));
   }
 }
 

@@ -45,6 +45,10 @@ export default defineConfig(({ command }) => {
               route("units/:id", "routes/main/units/edit/route.tsx", { id: "Unit-Edit" });
               route("units", "routes/main/units/route.tsx", { id: "Unit" });
 
+              route("tags/add", "routes/main/tags/add/route.tsx", { id: "Tag-Add" });
+              route("tags/:id", "routes/main/tags/edit/route.tsx", { id: "Tag-Edit" });
+              route("tags", "routes/main/tags/route.tsx", { id: "Tag" });
+
               route("import-order/add", "routes/main/import-order/add/route.tsx", { id: "ImportOrder-Add" });
               route("import-order/:id", "routes/main/import-order/$id/route.tsx", { id: "ImportOrder-Edit" });
 
