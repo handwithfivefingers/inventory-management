@@ -1,15 +1,28 @@
-import type { MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { Link, data, json, useLoaderData, useNavigate } from "@remix-run/react";
 import { providerService } from "~/action.server/provider.service";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
+import { getSession } from "~/sessions";
 
-export const loader = async () => {
-  const prods = await providerService.getProviders();
-  return prods;
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  try {
+    const session = await getSession(request.headers.get("Cookie"));
+    const url = new URL(request.url);
+    const params = url.searchParams;
+    const page = params.get("page") || 1;
+    const pageSize = params.get("pageSize") || 10;
+    const vendor = session.get("vendor");
+
+    const prods = await providerService.getProviders({ page, pageSize, vendor: vendor as string });
+    return prods;
+  } catch (error) {
+    console.log(error instanceof Error);
+    throw data(error, { status: 400 });
+  }
 };
 
 export const meta: MetaFunction = () => {
@@ -18,8 +31,8 @@ export const meta: MetaFunction = () => {
 
 export default function Products() {
   const prods = useLoaderData<typeof loader>();
-  console.log("prods", prods);
   const navigate = useNavigate();
+  console.log("prods", prods);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <h2 className="text-2xl">Product</h2>
@@ -29,7 +42,7 @@ export default function Products() {
             <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton component={Link} to="/add">
+                <TMButton component={Link} to="/providers/add">
                   Thêm
                 </TMButton>
                 <TMButton>Nhập từ Excel</TMButton>
@@ -68,10 +81,7 @@ export default function Products() {
             data={prods.data}
             rowKey={"documentId"}
             onRow={{
-              onClick: (record) => {
-                console.log("record", record);
-                navigate(`./${record.documentId}`);
-              },
+              onClick: (record) => navigate(`./${record.id}`),
             }}
           />
           <div className="flex  gap-2">

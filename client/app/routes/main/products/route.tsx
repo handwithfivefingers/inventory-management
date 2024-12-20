@@ -1,19 +1,22 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
+import { InputUpload } from "~/components/form/input-upload";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
+import { useWarehouse } from "~/store/warehouse.store";
 import { IResponse } from "~/types/common";
 import { IProduct } from "~/types/product";
-
+// import FormData as FData from "form-data";
 interface ResponsePagination extends IResponse<IProduct[]> {
   page?: number;
   pageSize?: number;
+  token?: string;
 }
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const session = await getSession(request.headers.get("Cookie"));
@@ -29,6 +32,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
   resp.page = Number(page);
   resp.pageSize = Number(pageSize);
+  resp.token = session.get("token");
   return resp;
 };
 
@@ -38,7 +42,23 @@ export const meta: MetaFunction = () => {
 
 export default function Products() {
   const navigate = useNavigate();
-  const { data, total, page, pageSize } = useLoaderData<typeof loader>();
+  const { data, total, page, pageSize, token } = useLoaderData<typeof loader>();
+  const { warehouse } = useWarehouse();
+  const handleImportUpload = (file: File) => {
+    const form = new FormData();
+    form.append("products", file);
+    if (warehouse?.id) {
+      form.append("warehouse", warehouse?.id as any);
+    }
+    fetch("http://localhost:3001/api/products/import", {
+      method: "POST",
+      body: form,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
+
   return (
     <div className=" w-full flex flex-col p-4 gap-4">
       <CardItem title="Sản phẩm">
@@ -50,7 +70,9 @@ export default function Products() {
                 <TMButton variant="light" component={Link} to="./add">
                   Thêm
                 </TMButton>
-                <TMButton variant="light">Nhập từ Excel</TMButton>
+                <InputUpload onChange={handleImportUpload} destroyOnUnMount>
+                  Nhập từ Excel
+                </InputUpload>
                 <TMButton variant="light">Xuất Excel</TMButton>
                 <TMButton variant="light">In Mã Vạch</TMButton>
               </div>
@@ -111,18 +133,16 @@ export default function Products() {
     </div>
   );
 }
-
 export const action = async ({ request }: ActionFunctionArgs) => {
   const form = await request.formData();
   const s = form.get("s");
+  console.log("s", s);
   const session = await getSession(request.headers.get("Cookie"));
   const warehouse = session.get("warehouse");
   return productService.getProducts({ s: s as string, warehouseId: warehouse });
 };
 export function ErrorBoundary() {
   const error: any = useRouteError();
-  // error.message = "Unexpected Server Error"
-  // error.stack = undefined
   return (
     <div>
       <h1>Error</h1>

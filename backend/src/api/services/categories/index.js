@@ -18,9 +18,21 @@ module.exports = class CategoriesService extends BaseCRUDService {
       throw error;
     }
   }
-  async update(where, params, options) {
+
+  async update(req) {
     try {
-      const instance = await this.updateInstance(where, params, options);
+      console.log("req.params.id", req.params.id);
+      console.log("req.body", req.body);
+      const instance = await this.category.update(
+        {
+          name: req.body.name,
+        },
+        {
+          where: {
+            id: req.params.id,
+          },
+        },
+      );
       return instance;
     } catch (error) {
       throw error;

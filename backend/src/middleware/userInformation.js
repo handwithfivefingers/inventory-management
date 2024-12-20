@@ -3,7 +3,8 @@ const db = require("@db");
 module.exports = {
   userInfoMiddleware: async (req, res, next) => {
     try {
-      const userId = req.id;
+      console.log("---> userInfoMiddleware ");
+      const userId = req.locals.user.id;
       const resp = await db.user.findOne({
         where: {
           id: userId,
@@ -31,7 +32,7 @@ module.exports = {
       }
       req.availableVendors = availableVendors;
       req.availableWarehouses = availableWarehouses;
-      next()
+      next();
     } catch (error) {
       throw error;
     }

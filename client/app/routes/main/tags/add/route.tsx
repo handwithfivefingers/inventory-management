@@ -3,7 +3,6 @@ import type { MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { MouseEvent, useEffect } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import { categoriesService } from "~/action.server/categories.service";
 import { tagsService } from "~/action.server/tags.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";

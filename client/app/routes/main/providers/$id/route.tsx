@@ -1,59 +1,103 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
-import { warehouseService } from "~/action.server/warehouse.service";
-import { ErrorComponent } from "~/components/error-component";
+import { ActionFunctionArgs, data, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
+import { useLoaderData, useSubmit, redirect, useFetcher } from "@remix-run/react";
+import { Controller, FormProvider, useForm } from "react-hook-form";
+import { providerService } from "~/action.server/provider.service";
+import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
+import { TMButton } from "~/components/tm-button";
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
-  const { id } = params;
-  const warehouses = await warehouseService.getWareHouseById(id as string);
-  return warehouses;
+  try {
+    const { id } = params;
+    return providerService.getProviderById(id as string);
+  } catch (error) {
+    throw data(error, { status: 400 });
+  }
 };
-
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
 export default function ProviderItem() {
   const { data } = useLoaderData<typeof loader>();
-  // const navigate = useNavigate();
+  const formMethods = useForm({
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+    },
+    values: {
+      ...data,
+    },
+  });
+  const { control, handleSubmit } = formMethods;
+  const { submit } = useFetcher();
   return (
     <div className="w-full flex flex-col p-4 gap-4">
-      <h2 className="text-2xl">Kho {data?.name}</h2>
-      <div className="bg-white rounded-sm shadow-md p-4 flex gap-2 flex-col">
-        <div className="flex gap-2 flex-col ">
-          <h5>Thông tin kho hàng</h5>
-          <div className="bg-neutral-100 px-4">
-            {/* <TextInput
-              label="Tên kho hàng"
-              value={data.name}
-              readOnly
-              className="border-0 outline-0 ring-0 shadow-none !bg-transparent"
-            />
-            <TextInput
-              label="Đia chỉ"
-              value={data.address}
-              readOnly
-              className="border-0 outline-0 ring-0 shadow-none !bg-transparent"
-            />
-            <TextInput
-              label="Số điện thoại"
-              value={data.phone}
-              readOnly
-              className="border-0 outline-0 ring-0 shadow-none !bg-transparent"
-            />
-            <TextInput
-              label="Email"
-              value={data.email}
-              readOnly
-              className="border-0 outline-0 ring-0 shadow-none !bg-transparent"
-            /> */}
-          </div>
-        </div>
-      </div>
+      <CardItem title="Chỉnh sửa đơn vị cung cấp">
+        <FormProvider {...formMethods}>
+          <form
+            className="grid grid-cols-2 gap-x-4 gap-2"
+            onSubmit={handleSubmit((v) =>
+              submit({ data: JSON.stringify(v) }, { method: "POST", action: `/providers/${data.id}` })
+            )}
+          >
+            <div className="col-span-2">
+              <Controller
+                control={control}
+                name="name"
+                render={({ field }) => <TextInput label="Tên kho hàng" {...field} />}
+              />
+            </div>
+            <div className="col-span-1">
+              <Controller
+                control={control}
+                name="email"
+                render={({ field }) => <TextInput label="Email" {...field} />}
+              />
+            </div>
+            <div className="col-span-1">
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field }) => <TextInput label="Số điện thoại" {...field} />}
+              />
+            </div>
+            <div className="col-span-2 ">
+              <Controller
+                control={control}
+                name="address"
+                render={({ field }) => <TextInput label="Đia chỉ" {...field} />}
+              />
+            </div>
+
+            <div className="col-span-2 ml-auto">
+              <TMButton variant="light" htmlType="submit">
+                Lưu
+              </TMButton>
+            </div>
+          </form>
+        </FormProvider>
+      </CardItem>
     </div>
   );
 }
-export function ErrorBoundary() {
-  return <ErrorComponent />;
-}
+export const action = async ({ request, params }: ActionFunctionArgs) => {
+  try {
+    const form = await request.formData();
+    const { id } = params;
+    const data = form.get("data") as string;
+    console.log("data", data);
+    const parsed = JSON.parse(data);
+    parsed.id = id;
+    const resp = await providerService.update(parsed);
+    console.log("resp", resp);
+    if (resp.status === 200) {
+      return redirect(`/providers`, 302);
+    }
+    return resp;
+  } catch (error) {
+    throw error;
+  }
+};

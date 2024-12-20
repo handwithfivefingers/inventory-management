@@ -12,7 +12,7 @@ module.exports = class CategoriesController {
   }
   async update(req, res, next) {
     try {
-      const resp = await new CategoriesService().update({ id: req.params.id }, req.body);
+      const resp = await new CategoriesService().update(req);
       return res.status(200).json({
         data: resp,
       });
@@ -22,7 +22,6 @@ module.exports = class CategoriesController {
   }
   async get(req, res, next) {
     try {
-      console.log("req.query", req.query);
       const { count, rows } = await new CategoriesService().getCategories(req.query);
       return res.status(200).json({ total: count, data: rows });
     } catch (error) {

@@ -38,16 +38,15 @@ const SideBarItem = ({ iconName, to, className, label, isActive }: ISidebarItem)
       <div className="flex gap-2 relative py-1 px-4">
         <Icon
           name={iconName}
-          className={cn("min-w-8 px-[5px]  text-indigo-950 dark:text-slate-200", {
+          className={cn("min-w-7  px-[5px]  text-indigo-950 dark:text-slate-200", {
             [" text-indigo-600 dark:text-slate-200"]: isActive,
           })}
         />
         <div
-          className={cn("text-indigo-950   dark:text-slate-200", {
+          className={cn("text-indigo-950   dark:text-slate-200 text-md", {
             [" text-indigo-600 dark:text-slate-200"]: isActive,
           })}
         >
-          {" "}
           {label}
         </div>
         <div

@@ -6,7 +6,7 @@ const API_PATH = {
   categories: "/categories",
 };
 
-const categoriesService = {
+const categoryService = {
   get: (searchParams: ICategoryQueryParams): Promise<IResponse<ICategory[]>> => {
     const qs = new URLSearchParams(searchParams as any);
     return http.get(API_PATH.categories + "?" + qs.toString());
@@ -18,6 +18,9 @@ const categoriesService = {
     const params = new URLSearchParams({});
     return http.get(API_PATH.categories + "/" + id + "?" + params.toString());
   },
+  update: ({ id, ...params }: ICategoryParams): Promise<IResponse<ICategory[]>> => {
+    return http.post(`${API_PATH.categories}/${id}`, params);
+  },
 };
 
-export { categoriesService };
+export { categoryService };

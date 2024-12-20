@@ -8,26 +8,28 @@ import { commitSession, getSession, destroySession } from "~/sessions";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let session = await getSession(request.headers.get("cookie"));
-  let token = session.get("token");
-  if (!token) throw redirect("/login");
-  http.setHeader("Cookie", `session=${token}`);
-  const resp = await AuthService.getMe();
-  console.log("me", resp);
-  const { data: me } = resp;
-  if (!me)
+  try {
+    let token = session.get("token");
+    if (!token) throw redirect("/login");
+    http.setHeader("Cookie", `session=${token}`);
+    const resp = await AuthService.getMe();
+    const { data: me } = resp;
+    if (!me?.id) throw new Error("User not found");
+    const { vendors, roles, ...rest } = me;
+    session.set("user", rest);
+    if (vendors?.length > 0) session.set("vendor", vendors[0].id);
+    return json(me, {
+      headers: {
+        "Set-Cookie": await commitSession(session),
+      },
+    });
+  } catch (error) {
     return redirect("/login", {
       headers: {
         "Set-Cookie": await destroySession(session),
       },
     });
-  const { vendors, roles, ...rest } = me;
-  session.set("user", rest);
-  if (vendors?.length > 0) session.set("vendor", vendors[0].id);
-  return json(me, {
-    headers: {
-      "Set-Cookie": await commitSession(session),
-    },
-  });
+  }
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -40,7 +42,6 @@ export async function action({ request }: ActionFunctionArgs) {
         const session = await getSession(request.headers.get("Cookie"));
         if (data?.length) {
           session.set("warehouse", data[0].id);
-          console.log('session.get("warehouse")', data);
         }
         return json(data, {
           headers: {

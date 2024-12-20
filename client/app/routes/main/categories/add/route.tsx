@@ -3,7 +3,7 @@ import type { MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { MouseEvent } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import { categoriesService } from "~/action.server/categories.service";
+import { categoryService } from "~/action.server/category.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
@@ -122,7 +122,7 @@ export const action = async ({ request }: any) => {
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson.data, vendorId: vendor };
-  const resp = await categoriesService.create(bodyData);
+  const resp = await categoryService.create(bodyData);
   return resp;
 };
 export function ErrorBoundary() {

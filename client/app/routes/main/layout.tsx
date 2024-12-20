@@ -31,7 +31,7 @@ const LayoutSideEffect = memo(({ user }: { user: IUser }) => {
     updateUser(user);
   }, []);
   useEffect(() => {
-    if (data?.vendors) {
+    if (data && data?.vendors) {
       const vendors = data?.vendors;
       const [firstVendor] = vendors;
       updateVendor(data.vendors);

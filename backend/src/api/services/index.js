@@ -8,6 +8,8 @@ const TransferService = require("./transfer");
 const CategoriesService = require("./categories");
 const UnitsService = require("./units");
 const TagsService = require("./tags");
+const ImportOrderService = require("./importOrder");
+const ProviderService = require("./provider");
 module.exports = {
   AuthenticateService: require("./authenticate"),
   ProductService: require("./product"),
@@ -21,4 +23,6 @@ module.exports = {
   CategoriesService,
   UnitsService,
   TagsService,
+  ImportOrderService,
+  ProviderService
 };

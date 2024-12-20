@@ -11,6 +11,16 @@ module.exports = class ProductController {
       next(error);
     }
   }
+  async importProduct(req, res, next) {
+    try {
+      const resp = await new ProductService().importProduct(req);
+      return res.status(200).json({
+        data: resp,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
   async getProduct(req, res, next) {
     try {
       const { count, rows } = await new ProductService().getProduct(req);
@@ -31,7 +41,6 @@ module.exports = class ProductController {
   }
   async updateProduct(req, res, next) {
     try {
-      console.log(req.params.id);
       const resp = await new ProductService().updateProduct({
         id: req.params.id,
         warehouseId: req.query.warehouseId,

@@ -45,6 +45,9 @@ const productService = {
   createProduct: (params: ICreateProductParams) => {
     return http.post(API_PATH.products, params);
   },
+  importProduct: (params: any) => {
+    return http.post(`${API_PATH.products}/import`, params, {} as any, false);
+  },
   updateProduct: ({ id, warehouseId, ...params }: IUpdateParams) => {
     return http.post(`${API_PATH.products}/${id}?warehouseId=${warehouseId}`, params);
   },

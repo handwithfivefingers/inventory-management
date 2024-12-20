@@ -11,15 +11,15 @@ export interface ITMModal extends BaseProps {
   close?: () => void;
   maskOnClose?: boolean;
   width?: number | string;
+  title?: React.ReactNode;
 }
 
-export const TMModal = ({ children, open = false, maskOnClose = true, close, width }: ITMModal) => {
+export const TMModal = ({ children, open = false, maskOnClose = true, close, width, title }: ITMModal) => {
   const onClose = () => {
     close?.();
   };
 
   const onMaskClicked = () => {
-    console.log("close");
     if (maskOnClose) {
       return close?.();
     }
@@ -34,11 +34,16 @@ export const TMModal = ({ children, open = false, maskOnClose = true, close, wid
               width: width,
             }}
           >
-            <div className="flex border-indigo-600 border-b-2  px-4 py-2 items-center">
-              <h2 className="text-lg/4">Title</h2>
-              <div className="ml-auto cursor-pointer hover:bg-neutral-400/20 p-1 rounded-md" onClick={onClose}>
-                <Icon name="x" />
+            {title && (
+              <div className="flex border-indigo-600 border-b-2  px-4 py-3 items-center">
+                <h2 className="text-lg/4">{title}</h2>
               </div>
+            )}{" "}
+            <div
+              className="absolute right-1 top-1 ml-auto cursor-pointer hover:bg-neutral-400/20 p-1 rounded-md"
+              onClick={onClose}
+            >
+              <Icon name="x" />
             </div>
             <div className="p-4 flex">{children}</div>
           </div>

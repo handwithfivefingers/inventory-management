@@ -5,8 +5,8 @@ module.exports = class BaseCRUDService {
     this.modelName = modelName;
     this.sequelize = db.sequelize;
     this.db = db;
-    console.log("BaseCRUDService coming", modelName);
   }
+
   createInstance = async (params, options) => {
     try {
       return this[this.modelName].create(params, options);
@@ -14,12 +14,15 @@ module.exports = class BaseCRUDService {
       throw error;
     }
   };
+
   updateInstance = async (where, params, options) => {
     try {
       return this[this.modelName].update(where, params, options);
     } catch (error) {}
   };
+
   delete = async () => {};
+
   get = async (params) => {
     try {
       return this[this.modelName].findAndCountAll(params);
@@ -27,11 +30,41 @@ module.exports = class BaseCRUDService {
       throw error;
     }
   };
+
   findOne = async (params) => {
     try {
       return this[this.modelName].findOne(params);
     } catch (error) {
       throw error;
     }
+  };
+
+  /**
+   * Extracts pagination parameters from the request object.
+   *
+   * @param {Object} req - The request object containing query parameters.
+   * @param {...string} arg - Additional keys to extract from the request.
+   * @returns {Object} An object containing pagination info and additional data.
+   */
+  getPagination = (req, ...arg) => {
+    const params = req.query;
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 10;
+    const offset = page * pageSize - pageSize;
+    const limit = Number(pageSize);
+    const additionalReturn = {};
+
+    if (arg.length > 0) {
+      for (let key of arg) {
+        additionalReturn[key] = req[key];
+      }
+    }
+
+    return {
+      offset,
+      limit,
+      s: params.s || null,
+      ...additionalReturn,
+    };
   };
 };

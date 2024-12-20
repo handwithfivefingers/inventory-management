@@ -1,113 +1,56 @@
 const BaseCRUDService = require("@constant/base");
 const { Op } = require("sequelize");
 const TransferService = require("../transfer");
+const { OrderService } = require("..");
 
-module.exports = class OrderService extends BaseCRUDService {
+module.exports = class ImportOrderService extends BaseCRUDService {
   constructor() {
     super("order");
-    this.orderDetail;
   }
-  async create({ VAT, surcharge, paymentType, warehouseId, OrderDetails }) {
-    const t = await this.sequelize.transaction({});
+
+  async create({ VAT, surcharge, paymentType, warehouseId, providerId, OrderDetails }) {
     try {
-      const totalPrice = OrderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge);
-      const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT));
-      const p = await this.createInstance(
-        {
-          VAT,
-          surcharge,
-          paid: totalPaid,
-          price: totalPrice,
-          paymentType,
-        },
-        {
-          transaction: t,
-        }
-      );
-      for (let item of OrderDetails) {
-        await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, ...item });
-      }
-      await t.commit();
-      return p;
+      const params = {
+        VAT,
+        surcharge,
+        paymentType,
+        warehouseId,
+        providerId,
+        OrderDetails,
+      };
+      console.log("params", params);
+      const resp = await new OrderService().create({
+        VAT,
+        surcharge,
+        paymentType,
+        warehouseId,
+        providerId,
+        OrderDetails,
+      });
+      console.log("resp", resp);
+      return resp;
     } catch (error) {
       console.log("error", error);
-      await t.rollback();
-      throw error;
-    }
-  }
-  async createOrderDetails({ name, quantity, productId, warehouseId, transaction, orderId, ...orderDetail }) {
-    try {
-      const detailItem = this.db.orderDetail.create(
-        { ...orderDetail, quantity, warehouseId, orderId: orderId },
-        {
-          transaction,
-        }
-      );
-      return Promise.all([
-        detailItem,
-        this.updateInventory({ quantity, productId, warehouseId, transaction }),
-        this.updateProductQuantity({ quantity, productId, transaction }),
-        this.createTransfer({ quantity, warehouseId, productId, transaction, type: "1" }),
-      ]);
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async updateInventory({ productId, warehouseId, quantity, transaction }) {
-    try {
-      const inventory = await this.db.inventory.findOne({
-        where: {
-          productId,
-          warehouseId,
-        },
-      });
-      inventory.quantity = inventory.quantity - quantity;
-      await inventory.save({ transaction });
-    } catch (error) {
-      throw error;
-    }
-  }
-  async updateProductQuantity({ productId, quantity, transaction }) {
-    try {
-      const prod = await this.db.product.findByPk(productId);
-      prod.sold = prod.sold + quantity;
-      await prod.save({ transaction });
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async createTransfer({ transaction, ...params }) {
-    try {
-      await new TransferService().createInstance(params, { transaction });
-    } catch (error) {
       throw error;
     }
   }
   async getOrders(params) {
     try {
       const queryParams = {
-        where: {},
+        where: {
+          providerId: {
+            [Op.ne]: null,
+          },
+        },
         include: [
           {
-            model: this.db.orderDetail,
-            include: {
-              model: this.db.product,
+            model: this.db.provider,
+            where: {
+              vendorId: params.vendor,
             },
           },
         ],
       };
-      if (params.warehouse) {
-        queryParams.where = {
-          "$orderDetails.warehouseId$": params.warehouse,
-        };
-      }
-      if (params.isProvider) {
-        queryParams.where.provider = {
-          [Op.ne]: null,
-        };
-      }
       const resp = await this.get(queryParams);
       return resp;
     } catch (error) {

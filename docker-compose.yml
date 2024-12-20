@@ -28,6 +28,21 @@ services:
       - sql-modules:/var/lib/mysql:delegated
     networks:
       - tm-network
+  redis:
+    mem_limit: 2048m
+    image: redis:7.4.1-alpine
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    # environment:
+    #   MYSQL_HOST: database
+    #   MYSQL_ROOT_PASSWORD: mysql
+    # volumes:
+    #   - ./db/conf-mysql:/etc/mysql/conf.d:delegated
+    #   - sql-modules:/var/lib/mysql:delegated
+    networks:
+      - tm-network
+      
 networks:
   tm-network:
     driver: bridge

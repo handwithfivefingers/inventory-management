@@ -1,18 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { redirect, useFetcher, useLoaderData } from "@remix-run/react";
 import { useState } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import { categoriesService } from "~/action.server/categories.service";
-import { productService } from "~/action.server/products.service";
 import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
-import { TMTable } from "~/components/tm-table";
 import { productSchema } from "~/constants/schema/product";
-import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -45,7 +41,7 @@ export default function ProductItem() {
       >
         {!edit ? <Detail /> : null}
 
-        {edit ? <EditForm name={data.name} /> : null}
+        {edit ? <EditForm {...data} /> : null}
       </CardItem>
     </div>
   );
@@ -58,7 +54,7 @@ const Detail = () => {
     </div>
   );
 };
-const EditForm = ({ name }: { name: string}) => {
+const EditForm = ({ name, id }: { name: string; id?: string | number }) => {
   const fetcher = useFetcher();
   const formMethods = useForm({
     defaultValues: {
@@ -80,7 +76,7 @@ const EditForm = ({ name }: { name: string}) => {
           data: v,
         }),
       },
-      { method: "POST", action: "/categories/add" }
+      { method: "POST", action: `/units/${id}` }
     );
   };
   return (
@@ -117,14 +113,16 @@ const EditForm = ({ name }: { name: string}) => {
   );
 };
 
-export const action = async ({ request }: any) => {
-  const session = await getSession(request.headers.get("Cookie"));
-  const warehouse = session.get("warehouse");
+export const action = async ({ request, params }: any) => {
+  const { id } = params;
   const formData = await request.formData();
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
-  const bodyData = { ...dataJson.data, warehouseId: warehouse };
-  const resp = await productService.updateProduct(bodyData);
+  const bodyData = { ...dataJson.data, id };
+  const resp = await unitsService.update(bodyData);
+  if (resp.status === 200) {
+    return redirect(`/units`, 302);
+  }
   return resp;
 };
 export function ErrorBoundary() {

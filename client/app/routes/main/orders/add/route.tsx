@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { Controller, FormProvider, useFieldArray, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { orderService } from "~/action.server/order.service";
-import { productService } from "~/action.server/products.service";
 import { BarcodeScanner } from "~/components/barcode-scanner";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
@@ -16,7 +15,6 @@ import { TMButton } from "~/components/tm-button";
 import { TMModal } from "~/components/tm-modal";
 import { TMTable } from "~/components/tm-table";
 import { orderSchema } from "~/constants/schema/order";
-import { http } from "~/http";
 import { getSession } from "~/sessions";
 import { IProduct } from "~/types/product";
 

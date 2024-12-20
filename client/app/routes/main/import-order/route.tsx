@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, json, useLoaderData, useNavigate } from "@remix-run/react";
 import { NumericFormat } from "react-number-format";
-import { orderService } from "~/action.server/order.service";
+import { importOrderService } from "~/action.server/importOrder.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
@@ -12,17 +12,21 @@ import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const session = await getSession(request.headers.get("Cookie"));
-  const warehouse = session.get("warehouse");
-  const url = new URL(request.url);
-  const params = url.searchParams;
-  const page = params.get("page") || 1;
-  const pageSize = params.get("pageSize") || 10;
-  const resp = await orderService.getOrders({ warehouse: warehouse as string, page, pageSize, isProvider: true });
-  resp.page = Number(page);
-  resp.pageSize = Number(pageSize);
+  try {
+    const session = await getSession(request.headers.get("Cookie"));
+    const vendor = session.get("vendor");
+    const url = new URL(request.url);
+    const params = url.searchParams;
+    const page = params.get("page") || 1;
+    const pageSize = params.get("pageSize") || 10;
+    const resp = await importOrderService.getOrders({ vendor: vendor as string, page, pageSize });
+    resp.page = Number(page);
+    resp.pageSize = Number(pageSize);
 
-  return resp;
+    return resp;
+  } catch (error) {
+    return json({ message: "error" }, { status: 404 });
+  }
 };
 
 export const meta: MetaFunction = () => {

@@ -2,6 +2,7 @@ export interface IGetParams {
   basePath?: string;
   headers: Record<string, any>;
   credentials?: string;
+  stringable?: boolean;
 }
 export interface IHTTPService {
   basePath: string;
@@ -38,30 +39,53 @@ class HTTPService {
   setToken(token: string) {
     this.headers.set("Authorization", `Bearer ${token}`);
   }
-  get(path?: string, paramsOptions?: IGetParams) {
-    const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
-    const headers = this.headers;
-    const options = {
-      headers: paramsOptions?.headers ? paramsOptions?.headers : headers,
-      credentials: this.options.credentials,
-    };
-    return fetch(url, { method: "GET", ...(options as any) }).then((res) => res.json());
+  async get(path?: string, paramsOptions?: IGetParams) {
+    try {
+      const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
+      const headers = this.headers;
+      const options = {
+        headers: paramsOptions?.headers ? paramsOptions?.headers : headers,
+        credentials: this.options.credentials,
+      };
+      const resp = await fetch(url, { method: "GET", ...(options as any) });
+      console.log(`GET ---> ${url} :::: STATUS:`, resp.status);
+      const data = await resp.json();
+      if (resp.status !== 200) throw data;
+      return data;
+    } catch (error) {
+      throw error;
+    }
   }
-  post(path?: string, data: IData<any> = {}, paramsOptions?: IGetParams) {
-    const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
-    const headers = this.headers;
-    const options = {
-      headers: paramsOptions?.headers ? paramsOptions?.headers : headers,
-      method: "POST",
-      body: JSON.stringify(data),
-      credentials: this.options.credentials,
-    };
-    return fetch(url, options as any)
-      .then(async (res) => {
-        const json = await res.json();
-        return { status: res.status, ...json };
-      })
-      .catch((err) => ({ error: err, status: err.status }));
+  async post(path?: string, data: IData<any> = {}, paramsOptions?: IGetParams, stringable = true) {
+    try {
+      const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
+      const headers = this.headers;
+      const newHeaders = new Headers(headers);
+      if (paramsOptions?.headers) {
+        for (let key in paramsOptions.headers) {
+          newHeaders.set(key, paramsOptions.headers[key]);
+        }
+      }
+      const options = {
+        headers: newHeaders,
+        method: "POST",
+        body: stringable ? JSON.stringify(data) : data,
+        credentials: this.options.credentials,
+      };
+      const resp = await fetch(url, options as any);
+      console.log(`POST ---> ${url} :::: STATUS:`, resp.status);
+      const dataJson = await resp.json();
+      if (resp.status !== 200) throw dataJson;
+      return { status: resp.status, ...dataJson };
+    } catch (error: any) {
+      throw { error: error, status: error?.status || 400 };
+    }
+    // return fetch(url, options as any)
+    //   .then(async (res) => {
+    //     const json = await res.json();
+    //     return { status: res.status, ...json };
+    //   })
+    //   .catch((err) => ({ error: err, status: err.status }));
   }
 }
 

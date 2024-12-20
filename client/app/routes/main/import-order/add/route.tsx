@@ -4,11 +4,11 @@ import { useFetcher } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { Controller, FormProvider, useFieldArray, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
-import { orderService } from "~/action.server/order.service";
-import { BarcodeScanner } from "~/components/barcode-scanner";
+import { importOrderService } from "~/action.server/importOrder.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { NumberInput } from "~/components/form/number-input";
+import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
@@ -17,6 +17,7 @@ import { TMTable } from "~/components/tm-table";
 import { orderSchema } from "~/constants/schema/order";
 import { getSession } from "~/sessions";
 import { IProduct } from "~/types/product";
+import { IProvider } from "~/types/provider";
 
 interface IProductForm extends IProduct {
   price?: number | string;
@@ -42,10 +43,12 @@ export default function OrderItem() {
       surcharge: "0",
       paid: 0,
       paymentType: "cash",
+      providerId: undefined,
     },
     resolver: zodResolver(orderSchema),
   });
   const { control, watch, getValues, setValue } = formMethods;
+  const { load: loadProvider, data: providers } = useFetcher<{ data: IProvider[] }>({ key: "providers" });
   const { fields, append, prepend, remove, swap, move, insert, replace } = useFieldArray<any>({
     control, // control props comes from useForm (optional: if you are using FormProvider)
     name: "OrderDetails", // unique name for your Field Array
@@ -67,7 +70,7 @@ export default function OrderItem() {
     v.price = total;
     v.paid = totalPaid;
     console.log("v", v);
-    fetcher.submit({ data: JSON.stringify(v) }, { method: "POST", action: "/orders/add" });
+    fetcher.submit({ data: JSON.stringify(v) }, { method: "POST", action: "/import-order/add" });
   };
 
   const handleAdd = (item: IProduct) => {
@@ -121,6 +124,7 @@ export default function OrderItem() {
   const totalPaid = Number(combineTotal + (combineTotal / 100) * Number(VAT));
 
   const handleFilterProduct = (e: any) => {
+    console.log("function", e.target.value);
     searchFetcher.submit({ s: e.target.value }, { method: "POST", action: "/products" });
   };
   const onQuantityIncreasement = (field: any, pos: number) => {
@@ -133,10 +137,13 @@ export default function OrderItem() {
     field.onChange(lastQuantity);
   };
   useEffect(() => {
+    loadProvider("/providers");
     (window as any).getValues = getValues;
   }, []);
 
   const data = searchFetcher?.data?.data || [];
+
+  console.log("data", data);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <FormProvider {...formMethods}>
@@ -254,8 +261,25 @@ export default function OrderItem() {
                 );
               })}
             </div>
+
             <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t-2 border-indigo-200">
-              <div className="col-span-12 ml-auto flex flex-col gap-1">
+              <div className="col-span-6 max-w-[200px]">
+                <Controller
+                  control={control}
+                  name="providerId"
+                  render={({ field }) => {
+                    return (
+                      <SelectInput
+                        options={providers?.data?.map((item) => ({ label: item.name, value: item.id })) || []}
+                        {...field}
+                        label="Nhà cung cấp"
+                        onSelect={(v) => field.onChange(v)}
+                      />
+                    );
+                  }}
+                />
+              </div>
+              <div className="col-span-6 ml-auto flex flex-col gap-1">
                 <div className="w-96 flex justify-between ">
                   <span>Tổng tiền</span>
                   <NumberInput value={`${total}`} displayType="text" />
@@ -367,9 +391,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     ...dataJson,
     warehouseId,
   };
-  // console.log("params", params);
-  // return true;
-  const resp = await orderService.createOrder(params);
+  const resp = await importOrderService.createOrder(params);
   return resp;
 };
 export function ErrorBoundary() {

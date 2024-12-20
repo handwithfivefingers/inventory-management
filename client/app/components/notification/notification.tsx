@@ -87,7 +87,7 @@ export const Notification = (props: INotification) => {
             className="text-neutral-500 hover:text-neutral-900 rounded-md transition-all flex-1 cursor-pointer absolute right-0 w-5 h-5"
           />
         </div>
-        <div className="text-sm">{props?.message} </div>
+        <div className="text-sm">{props?.message}</div>
       </div>
     </div>
   );

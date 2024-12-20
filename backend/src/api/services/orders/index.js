@@ -1,7 +1,4 @@
 const BaseCRUDService = require("@constant/base");
-const OrderDetailService = require("../orderDetails");
-const InventoryService = require("../inventory");
-const ProductService = require("../product");
 const { Op } = require("sequelize");
 const TransferService = require("../transfer");
 
@@ -10,7 +7,7 @@ module.exports = class OrderService extends BaseCRUDService {
     super("order");
     this.orderDetail;
   }
-  async create({ VAT, surcharge, paymentType, warehouseId, OrderDetails }) {
+  async create({ VAT, surcharge, paymentType, warehouseId, providerId, OrderDetails }) {
     const t = await this.sequelize.transaction({});
     try {
       const totalPrice = OrderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge);
@@ -22,6 +19,7 @@ module.exports = class OrderService extends BaseCRUDService {
           paid: totalPaid,
           price: totalPrice,
           paymentType,
+          providerId,
         },
         {
           transaction: t,

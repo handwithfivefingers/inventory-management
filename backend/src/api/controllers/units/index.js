@@ -12,7 +12,7 @@ module.exports = class UnitsController {
   }
   async update(req, res, next) {
     try {
-      const resp = await new UnitsService().update({ id: req.params.id }, req.body);
+      const resp = await new UnitsService().update(req);
       return res.status(200).json({
         data: resp,
       });

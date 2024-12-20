@@ -1,17 +1,19 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ActionFunctionArgs, LoaderFunctionArgs, data } from "@remix-run/node";
+import { Link, useFetcher } from "@remix-run/react";
+import { useEffect } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
+import { redirect } from "react-router";
+import { authenticator } from "~/action.server/auth.service";
+import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
+import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { loginSchema } from "~/constants/schema/login";
 import { cn } from "~/libs/utils";
-import styles from "./styles.module.scss";
-import { Link, useSubmit } from "@remix-run/react";
-import { authenticator } from "~/action.server/auth.service";
-import { ActionFunctionArgs, LoaderFunctionArgs, data } from "@remix-run/node";
-import { redirect } from "react-router";
 import { commitSession, getSession } from "~/sessions";
-import { CardItem } from "~/components/card-item";
-import { Icon } from "~/components/icon";
+import styles from "./styles.module.scss";
 export async function loader({ request }: LoaderFunctionArgs) {
   let session = await getSession(request.headers.get("cookie"));
   let token = session.get("token");
@@ -20,17 +22,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 function Login() {
+  const fetcher = useFetcher<{ status: boolean; message?: string; data: any }>({ key: "login" });
   const formMethods = useForm({
     defaultValues: {
-      email: "",
-      password: "",
+      email: "handgod1995@gmail.com",
+      password: "123456",
     },
     resolver: zodResolver(loginSchema),
   });
   const onError = (errors: any) => {
     console.log("errors", errors);
   };
-  const submit = useSubmit();
+  useEffect(() => {
+    if (fetcher.state === "loading" && fetcher.data) {
+      toast.danger({ message: fetcher.data.message });
+      fetcher.data = undefined;
+    }
+  }, [fetcher.data?.message]);
 
   return (
     <div className="w-full flex flex-col p-4 gap-4 items-center justify-center">
@@ -38,7 +46,7 @@ function Login() {
         <FormProvider {...formMethods}>
           <form
             onSubmit={formMethods.handleSubmit(
-              (v) => submit(v, { method: "POST", navigate: false }),
+              (v) => fetcher.submit(v, { method: "POST", action: "/login" }),
               (e) => onError(e)
             )}
             action="/login"
@@ -106,11 +114,16 @@ function Login() {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  let user = await authenticator.authenticate("session", request);
-  console.log("user", user);
+  let resp = await authenticator.authenticate("session", request);
+  if (resp.status === 400) {
+    return {
+      message: resp.error,
+      status: 400,
+    };
+  }
   let session = await getSession(request.headers.get("cookie"));
-  session.set("token", user.token);
-  session.set("user", user.data);
+  session.set("token", resp.token);
+  session.set("user", resp.data);
   return redirect("/", {
     status: 301,
     headers: { "Set-Cookie": await commitSession(session) },

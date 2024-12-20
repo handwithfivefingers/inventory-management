@@ -31,8 +31,8 @@ const Provider = (sequelize) => {
   );
 
   Model.associate = (models) => {
-    // Model.belongsTo(models.warehouse, { foreignKey: "warehouseId" });
-    Model.hasMany(models.order, { foreignKey: "providerId" });
+    // Model.hasMany(models.order, { foreignKey: "providerId" });
+    Model.belongsTo(models.vendor, { foreignKey: "vendorId" });
   };
   return Model;
 };

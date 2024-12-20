@@ -9,6 +9,7 @@ export interface IResponse<T> {
   page?: number;
   pageSize?: number;
   status: number;
+  message?: string;
 }
 
 export interface BaseQueryParams {

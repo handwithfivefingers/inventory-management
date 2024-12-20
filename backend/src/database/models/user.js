@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const bcrypt = require("bcryptjs");
+const { cacheSet, cacheKey } = require("@src/libs/redis");
 const User = (sequelize) => {
   const Models = sequelize.define(
     "user",
@@ -23,7 +24,7 @@ const User = (sequelize) => {
       email: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: 'email',
+        unique: "email",
         validator: {
           isEmail: true,
         },
@@ -38,7 +39,6 @@ const User = (sequelize) => {
       },
     },
     {
-      // Other model options go here
       timestamps: true,
     }
   );

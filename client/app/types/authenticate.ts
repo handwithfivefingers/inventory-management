@@ -9,6 +9,9 @@ export interface ILoginResponse {
   jwt: string;
   token: string;
   data: IUser;
+  message?: string;
+  status?: number;
+  error?: any;
 }
 
 export interface IRegisterParams {

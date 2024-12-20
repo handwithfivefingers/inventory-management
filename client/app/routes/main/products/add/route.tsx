@@ -6,6 +6,7 @@ import { Controller, FormProvider, useForm } from "react-hook-form";
 import { productService } from "~/action.server/products.service";
 import { MultiSelectInput } from "~/components/form/multi-select-input";
 import { NumberInput } from "~/components/form/number-input";
+import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
@@ -52,10 +53,12 @@ export default function ProductItem() {
 
   const { load, data } = useFetcher<{ data: ICategory[] }>({ key: "categories" });
   const { load: loadTags, data: tags } = useFetcher<{ data: ICategory[] }>({ key: "tags" });
+  const { load: loadUnits, data: units } = useFetcher<{ data: ICategory[] }>({ key: "units" });
 
   useEffect(() => {
     load("/categories");
     loadTags("/tags");
+    loadUnits("/units");
     (window as any).form = formMethods;
   }, []);
 
@@ -241,10 +244,11 @@ export default function ProductItem() {
                 control={formMethods.control}
                 render={({ field }) => {
                   return (
-                    <TextInput
+                    <SelectInput
+                      options={units?.data?.map((cate) => ({ label: cate.name, value: cate?.id || undefined })) || []}
                       label="Đơn vị tính"
                       {...field}
-                      onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                      onSelect={(v) => field.onChange(v)}
                     />
                   );
                 }}

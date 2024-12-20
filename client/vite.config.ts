@@ -51,13 +51,13 @@ export default defineConfig(({ command }) => {
 
               route("import-order/add", "routes/main/import-order/add/route.tsx", { id: "ImportOrder-Add" });
               route("import-order/:id", "routes/main/import-order/$id/route.tsx", { id: "ImportOrder-Edit" });
-
               route("import-order", "routes/main/import-order/route.tsx", { id: "ImportOrder" });
 
               route("warehouses/add", "routes/main/warehouses/add/route.tsx", { id: "WareHouses-Add" });
               route("warehouses/:id", "routes/main/warehouses/$id/route.tsx", { id: "WareHouses-Edit" });
               route("warehouses", "routes/main/warehouses/route.tsx", { id: "WareHouses" });
 
+              route("providers/add", "routes/main/providers/add/route.tsx", { id: "Provider-Add" })
               route("providers/:id", "routes/main/providers/$id/route.tsx", { id: "Providers-Edit" });
               route("providers", "routes/main/providers/route.tsx", { id: "Providers" });
             });

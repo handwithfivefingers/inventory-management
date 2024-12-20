@@ -9,13 +9,17 @@ route.use("/permission", require("./permission"));
 
 route.use("/role", require("./role"));
 
-route.use("/products", auth, userInfoMiddleware, require("./product"));
+route.use("/products", require("./product"));
 
 route.use("/vendors", auth, require("./vendor"));
 
 route.use("/warehouses", auth, require("./warehouse"));
 
+route.use("/providers", auth, require("./provider"));
+
 route.use("/orders", auth, require("./orders"));
+
+route.use("/import-order", auth, require("./importOrder"));
 
 route.use("/categories", auth, require("./categories"));
 

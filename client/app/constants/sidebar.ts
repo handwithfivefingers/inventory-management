@@ -36,6 +36,11 @@ export const SIDE_BAR = [
     iconName: "tag",
   },
   {
+    to: "/providers",
+    label: vi.Provider,
+    iconName: "git-pull-request",
+  },
+  {
     to: "/financial",
     label: vi.Financial,
     iconName: "bar-chart-2",

@@ -18,6 +18,7 @@ const orderSchema = z.object({
   surcharge: StrOrNum.default("0"),
   paid: StrOrNum.default("0"),
   paymentType: z.enum(["cash", "transfer"]).default("cash"),
+  providerId:StrOrNum.optional(),
 });
 
 export { orderSchema };

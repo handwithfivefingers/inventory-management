@@ -2,7 +2,10 @@ const InventoryService = require("../inventory");
 const BaseCRUDService = require("@constant/base");
 const TransferService = require("../transfer");
 const { Op } = require("sequelize");
-
+const { cacheGet, cacheKey, cacheSet, cacheDel } = require("@src/libs/redis");
+const { productCacheItem, productCacheList } = require("./cache");
+const fs = require("fs");
+const XLSX = require("xlsx");
 module.exports = class ProductService extends BaseCRUDService {
   constructor() {
     super("product");
@@ -39,6 +42,19 @@ module.exports = class ProductService extends BaseCRUDService {
         },
         { transaction: t }
       );
+
+      const productKeyCaches = await cacheGet(cacheKey("Products", "Key"));
+
+      if (productKeyCaches) {
+        for (let key in productKeyCaches) {
+          cacheDel(productKeyCaches[key]);
+        }
+        cacheSet(cacheKey("Products", "Key"), {});
+      }
+
+      const productKey = cacheKey("Product", newProduct.id, warehouseId);
+      await cacheSet(productKey, newProduct);
+
       await t.commit();
       return {
         inventory: inventoryInstance,
@@ -51,14 +67,35 @@ module.exports = class ProductService extends BaseCRUDService {
       throw error;
     }
   }
+  async importProduct(req) {
+    try {
+      const file = req.file;
+      console.log("file", req.file);
+      const workbook = XLSX.readFile(file.path);
+
+      const sheets = workbook.SheetNames;
+      const data = [];
+
+      for (let sheet of sheets) {
+        data.push(...XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
+      }
+      for (let { id, unit, ...item } of data) {
+        await this.create({ ...item, warehouseId: req.body.warehouse });
+      }
+      fs.unlinkSync(req.file.path);
+      return { message: "Ready", data };
+    } catch (error) {
+      console.log("IMPORt PRODUCT ERROR ", error);
+      fs.unlinkSync(req.file.path);
+      await t.rollback();
+      throw error;
+    }
+  }
 
   async updateProduct({ id, warehouseId, data }) {
     const t = await this.sequelize.transaction();
     try {
       const currentProduct = await this.db.product.findByPk(id);
-      // console.log("query", { where: { id: id } }, data);
-      // const currentProduct = await this.updateInstance({ where: { id: id } }, data, { transaction: t });
-      console.log("currentProduct", currentProduct);
 
       await currentProduct.update(data, { transaction: t });
 
@@ -68,9 +105,6 @@ module.exports = class ProductService extends BaseCRUDService {
       if (data.tags) {
         await currentProduct.setTags(data.tags, { transaction: t });
       }
-      // if (data.unit) {
-      //   await currentProduct.setTags(data.unit, { transaction: t });
-      // }
       const inven = await new InventoryService().findOne({
         where: {
           productId: id,
@@ -93,6 +127,8 @@ module.exports = class ProductService extends BaseCRUDService {
         },
         { transaction: t }
       );
+      const key = cacheKey("Product", currentProduct.id, warehouseId);
+      await cacheDel(key);
       await t.commit();
     } catch (error) {
       console.log("UPDATE PRODUCT ERROR ", error);
@@ -102,18 +138,16 @@ module.exports = class ProductService extends BaseCRUDService {
   }
   async getProduct(req) {
     try {
-      const params = req.query;
-      const page = params.page || 1;
-      const pageSize = params.pageSize || 10;
-      const offset = page * pageSize - pageSize;
-      const limit = Number(pageSize);
+      const { s, offset, limit, availableWarehouses } = this.getPagination(req, "availableWarehouses");
+      const key = cacheKey("Products", "Warehouse", availableWarehouses, "Pagination", `${offset},${limit}`, "s", s);
+      console.log("availableWarehouses", availableWarehouses);
       const queryParams = {
         where: {},
         include: [
           {
             model: this.db.inventory,
             where: {
-              warehouseId: req.availableWarehouses,
+              warehouseId: availableWarehouses,
             },
             attributes: [],
           },
@@ -131,24 +165,25 @@ module.exports = class ProductService extends BaseCRUDService {
         offset,
         limit,
       };
-      if (params.s) {
+      if (s) {
         queryParams.where = {
           [Op.or]: {
             name: {
-              [Op.startsWith]: params.s,
+              [Op.startsWith]: s,
             },
             code: {
-              [Op.startsWith]: params.s,
+              [Op.startsWith]: s,
             },
             skuCode: {
-              [Op.startsWith]: params.s,
+              [Op.startsWith]: s,
             },
           },
         };
       }
-
-      const { rows, count } = await this.get(queryParams);
-
+      const { rows, count } = await productCacheList({
+        key,
+        callback: () => this.get(queryParams),
+      });
       return { rows, count };
     } catch (error) {
       console.log("error", error);
@@ -158,39 +193,47 @@ module.exports = class ProductService extends BaseCRUDService {
 
   async getProductById({ params, query }) {
     try {
-      const resp = await this.product.findOne({
-        where: {
-          id: params.id,
-          "$inventories.warehouseId$": query.warehouse,
-        },
-        include: [
-          { model: this.db.inventory, attributes: [] },
-          {
-            model: this.db.category,
-            attributes: ["id", "name"],
-            through: {
-              attributes: [],
+      const key = cacheKey("Product", params.id, query.warehouse);
+      const response = await productCacheItem({
+        key,
+        callback: () => {
+          return this.product.findOne({
+            where: {
+              id: params.id,
+              "$inventories.warehouseId$": query.warehouse,
             },
-          },
-          {
-            model: this.db.tag,
-            attributes: ["id", "name"],
-            through: {
-              attributes: [],
+            include: [
+              { model: this.db.inventory, attributes: [] },
+              {
+                model: this.db.category,
+                attributes: ["id", "name"],
+                through: {
+                  attributes: [],
+                },
+              },
+              {
+                model: this.db.tag,
+                attributes: ["id", "name"],
+                through: {
+                  attributes: [],
+                },
+              },
+              {
+                model: this.db.unit,
+                attributes: ["id", "name"],
+              },
+            ],
+            attributes: {
+              include: [
+                [this.sequelize.col("inventories.quantity"), "quantity"],
+                [this.sequelize.col("unit.id"), "unitId"],
+                [this.sequelize.col("unit.name"), "unitName"],
+              ],
             },
-          },
-          {
-            model: this.db.unit,
-            attributes: ["id", "name"],
-          },
-        ],
-        attributes: {
-          include: [[this.sequelize.col("inventories.quantity"), "quantity"]],
-          include: [[this.sequelize.col("unit.id"), "unitId"]],
-          include: [[this.sequelize.col("unit.name"), "unitName"]],
+          });
         },
       });
-      return resp;
+      return response;
     } catch (error) {
       throw error;
     }

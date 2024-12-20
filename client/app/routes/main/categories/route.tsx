@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
-import { categoriesService } from "~/action.server/categories.service";
+import { categoryService } from "~/action.server/category.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
@@ -16,12 +16,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const page = params.get("page") || 1;
   const pageSize = params.get("pageSize") || 10;
   const vendor = session.get("vendor");
-  const resp = await categoriesService.get({
+  const resp = await categoryService.get({
     vendorId: vendor as string,
     page: page,
     pageSize: pageSize,
   });
-  console.log("resp", resp);
   resp.page = Number(page);
   resp.pageSize = Number(pageSize);
   return resp;

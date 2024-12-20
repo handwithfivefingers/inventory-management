@@ -9,4 +9,6 @@ module.exports = {
   CategoriesController: require("./categories"),
   UnitsController: require("./units"),
   TagsController: require("./tags"),
+  ImportOrderController: require("./importOrder"),
+  ProviderController: require("./provider"),
 };

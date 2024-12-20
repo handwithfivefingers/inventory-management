@@ -12,7 +12,7 @@ module.exports = class TagsController {
   }
   async update(req, res, next) {
     try {
-      const resp = await new TagsService().update({ id: req.params.id }, req.body);
+      const resp = await new TagsService().update(req);
       return res.status(200).json({
         data: resp,
       });

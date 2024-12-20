@@ -1,6 +1,7 @@
 import { http } from "~/http";
 import { ICategory, ICategoryParams, ICategoryQueryParams } from "~/types/category";
 import { IResponse } from "~/types/common";
+import { IUnit, IUnitParams } from "~/types/unit";
 
 const API_PATH = {
   units: "/units",
@@ -17,6 +18,9 @@ const unitsService = {
   getById: ({ id }: { id: string | number }): Promise<IResponse<ICategory>> => {
     const params = new URLSearchParams({});
     return http.get(API_PATH.units + "/" + id + "?" + params.toString());
+  },
+  update: ({ id, ...params }: IUnitParams): Promise<IResponse<IUnit[]>> => {
+    return http.post(`${API_PATH.units}/${id}`, params);
   },
 };
 

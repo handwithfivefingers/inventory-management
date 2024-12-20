@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useFetcher, useLoaderData } from "@remix-run/react";
+import { data, useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
@@ -26,7 +26,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const resp = await productService.getProductById({ id, warehouse } as any);
     return resp;
   } catch (error) {
-    throw new Error("Can't fetch Product");
+    throw data(error, { status: 400 });
   }
 };
 
@@ -142,7 +142,7 @@ const EditForm = () => {
       code: "SM-001",
       skuCode: "ASM-0000001",
       quantity: 10,
-      unitId: "",
+      unit: undefined,
       categories: [],
       tags: [],
       description: " ",
@@ -157,10 +157,10 @@ const EditForm = () => {
       ...data,
       categories: (data.categories as ICategory[])?.map((item: ICategory) => item?.id) || [],
       tags: (data.tags as ICategory[])?.map((item: ICategory) => item?.id) || [],
+      unit: data.unitId || undefined,
     },
     resolver: zodResolver(productSchema),
   });
-  console.log("data", data);
 
   const handleError = (errors: any) => {
     console.log("errors", errors);
@@ -361,7 +361,7 @@ const EditForm = () => {
         </div>
         <div className="col-span-6">
           <Controller
-            name="unitId"
+            name="unit"
             control={formMethods.control}
             render={({ field }) => {
               return (

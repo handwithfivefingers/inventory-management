@@ -2,6 +2,8 @@ const db = require("@db");
 const VendorService = require("../vendor");
 const WarehouseService = require("../warehouse");
 const bcrypt = require("bcryptjs");
+const { cacheGet, cacheKey, cacheSet } = require("@libs/redis");
+const { cacheItem } = require("./cache");
 module.exports = class AuthenticateService {
   constructor() {
     this.user = db["user"];
@@ -34,17 +36,35 @@ module.exports = class AuthenticateService {
   }
   async login({ email, password }) {
     try {
-      const user = await this.user.findOne({
-        where: {
-          email,
+      const user = await cacheItem({
+        key: cacheKey("User", email),
+        callback: async () => {
+          const usr = await this.user.findOne({
+            where: { email },
+            include: [
+              {
+                model: db.role,
+                include: {
+                  model: db.permission,
+                },
+              },
+              {
+                model: db.vendor,
+              },
+            ],
+          });
+          console.log("usr", usr);
+          return usr;
         },
       });
+      if (!user) throw new Error("User Or Password not match");
+
       const isMatchPassword = await bcrypt.compare(password, user.password);
+
       if (user && isMatchPassword) {
-        delete user.dataValues.password;
+        delete user.password;
         return user;
       }
-      throw new Error("User Not found");
     } catch (error) {
       throw error;
     }
@@ -53,7 +73,6 @@ module.exports = class AuthenticateService {
     const t = await this.sequelize.transaction();
     try {
       const hash_password = await bcrypt.hash(params.password, 10);
-
       const user = await this.user.create(
         {
           ...params,
@@ -99,7 +118,13 @@ module.exports = class AuthenticateService {
       );
       delete user.dataValues.password;
       await t.commit();
-      return { user, role, permission, vendor, warehouse };
+      const usr = user.dataValues;
+      const key = cacheKey("User", user.email);
+      role.dataValues.permissions = [permission.dataValues];
+      usr.roles = [role.dataValues];
+
+      await cacheSet(key, { ...usr, vendor, warehouse: [warehouse] });
+      return { user, vendor, warehouse: [warehouse] };
     } catch (error) {
       console.log(JSON.stringify(error, null, 2));
       await t.rollback();

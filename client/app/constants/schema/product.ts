@@ -4,7 +4,7 @@ const productSchema = z.object({
   name: z.string().min(1),
   code: z.string().optional(),
   skuCode: z.string().optional(),
-  unitId: StrOrNum.optional(),
+  unit: StrOrNum.optional(),
   categories: z.array(StrOrNum).optional(),
   tags: z.array(StrOrNum).optional(),
   description: z.string().or(z.null()).optional(),

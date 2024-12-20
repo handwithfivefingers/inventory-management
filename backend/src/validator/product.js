@@ -9,7 +9,7 @@ const productValidation = [
     if (result.isEmpty()) {
       return next();
     }
-    res.send({ errors: result.array() });
+    return res.status(400).send({ errors: result.array() });
   },
 ];
 

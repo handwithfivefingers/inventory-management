@@ -8,7 +8,8 @@
       "@libs/*": ["./src/libs/*"],
       "@constant/*": ["./src/constant/*"],
       "@middleware/*": ["./src/middleware/*"],
-      "@validator/*": ["./src/validator/*"]
+      "@validator/*": ["./src/validator/*"],
+      "@config/*": ["./src/config/*"]
     }
   }
 }

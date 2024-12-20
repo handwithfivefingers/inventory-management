@@ -1,0 +1,15 @@
+.ct-series-a .ct-line,
+.ct-series-a .ct-point,
+.ct-series-a .ct-bar {
+  @apply stroke-indigo-600/70;
+}
+
+.ct-series-b .ct-line,
+.ct-series-b .ct-point,
+.ct-series-b .ct-bar {
+  @apply stroke-green-600/70;
+}
+.ct-series-a .ct-bar {
+  @apply stroke-indigo-600/70;
+  stroke-width: 12px;
+}

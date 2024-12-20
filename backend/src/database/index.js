@@ -5,13 +5,13 @@ const basename = path.basename(__filename);
 const db = {};
 
 console.log("basename", basename);
+const dbName = "inventory"
 const folderPath = path.join(__dirname, "models");
 
 const sequelize = new Sequelize("inventory", "root", "mysql", {
   host: "localhost",
   dialect: "mysql",
   logging:false,
-  // logging: (query, ...msg) => console.log(query),
   define: {
     charset: "utf8",
     collate: "utf8_general_ci",
@@ -39,7 +39,7 @@ db.sequelize = sequelize;
 db.connect = async () => {
   try {
     await sequelize.authenticate();
-    console.log("Connection has been established successfully");
+    console.log("DB Connection has been established successfully");
     return true;
   } catch (error) {
     console.log("Unable to connect to the database", error);
@@ -50,7 +50,7 @@ db.connect = async () => {
 db.sync = async () => {
   try {
     await sequelize.sync({ alter: true });
-    console.log("Connection has been established successfully");
+    console.log("DB Connection has been established successfully");
     return true;
   } catch (error) {
     console.log("Unable to connect to the database", error);

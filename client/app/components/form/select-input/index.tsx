@@ -10,7 +10,7 @@ export interface ISelectInput extends BaseProps, React.InputHTMLAttributes<HTMLI
   prefix?: string | React.ReactNode | any;
   suffix?: string | React.ReactNode | any;
   placeholder?: string;
-  value?: string;
+  value?: string | number | undefined;
   type?: string | undefined | any;
   inputClassName?: string;
   options: any[];

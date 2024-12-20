@@ -18,10 +18,10 @@ module.exports = class UnitsService extends BaseCRUDService {
       throw error;
     }
   }
-  async update(where, params, options) {
+  async update(req) {
     try {
-      const instance = await this.updateInstance(where, params, options);
-      return instance;
+      const resp = await this.unit.update(req.body, { where: { id: req.params.id } });
+      return resp;
     } catch (error) {
       throw error;
     }
