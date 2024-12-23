@@ -53,12 +53,11 @@ module.exports = class AuthenticateService {
               },
             ],
           });
-          console.log("usr", usr);
           return usr;
         },
       });
       if (!user) throw new Error("User Or Password not match");
-
+      console.log("password, user.password", password, user);
       const isMatchPassword = await bcrypt.compare(password, user.password);
 
       if (user && isMatchPassword) {
@@ -116,7 +115,7 @@ module.exports = class AuthenticateService {
           transaction: t,
         }
       );
-      delete user.dataValues.password;
+      // delete user.dataValues.password;
       await t.commit();
       const usr = user.dataValues;
       const key = cacheKey("User", user.email);

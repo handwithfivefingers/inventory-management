@@ -4,7 +4,7 @@ import { Icon } from "../icon";
 interface ICol {
   title: string;
   dataIndex: string;
-  render?: (record: any, index: number) => React.ReactNode;
+  render?: (record: any, index?: number) => React.ReactNode;
   width?: number | string;
 }
 
@@ -12,6 +12,7 @@ interface IRow {
   columns: ICol[];
   data: any;
   onClick?: (record: any) => void;
+  index?: number;
 }
 interface ITMTable {
   columns: ICol[];
@@ -52,7 +53,13 @@ export const TMTable = ({ columns, data, rowKey, onRow, children }: ITMTable) =>
               {children
                 ? children
                 : data?.map((item, i) => (
-                    <TMTable.Row columns={columns} data={item} key={`row_${rowKey}_${i}`} onClick={onRow?.onClick} />
+                    <TMTable.Row
+                      columns={columns}
+                      data={item}
+                      key={`row_${rowKey}_${i}`}
+                      onClick={onRow?.onClick}
+                      index={i}
+                    />
                   ))}
             </tbody>
           </table>
@@ -80,7 +87,7 @@ TMTable.Header = ({ columns }: { columns: ICol[] }) => {
     </thead>
   );
 };
-TMTable.Row = ({ columns, data, onClick }: IRow) => {
+TMTable.Row = ({ columns, data, onClick, index }: IRow) => {
   const handleCellClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
     if (onClick) {
       return onClick?.(data);
@@ -91,7 +98,7 @@ TMTable.Row = ({ columns, data, onClick }: IRow) => {
       {columns.map((item, i) => {
         return (
           <TMTable.Cell className={styles.cell} key={`cell_${i}`}>
-            {item?.render ? item?.render(data, i) : data?.[item?.dataIndex]}
+            {item?.render ? item?.render(data, index) : data?.[item?.dataIndex]}
           </TMTable.Cell>
         );
       })}

@@ -1,13 +1,14 @@
 const BaseCRUDService = require("@constant/base");
 const { Op } = require("sequelize");
 const TransferService = require("../transfer");
+const { cacheDel, cacheKey } = require("@src/libs/redis");
 
 module.exports = class OrderService extends BaseCRUDService {
   constructor() {
     super("order");
     this.orderDetail;
   }
-  async create({ VAT, surcharge, paymentType, warehouseId, providerId, OrderDetails }) {
+  async create({ VAT, surcharge, paymentType, warehouseId, providerId, OrderDetails, type = "1" }) {
     const t = await this.sequelize.transaction({});
     try {
       const totalPrice = OrderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge);
@@ -26,7 +27,7 @@ module.exports = class OrderService extends BaseCRUDService {
         }
       );
       for (let item of OrderDetails) {
-        await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, ...item });
+        await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item });
       }
       await t.commit();
       return p;
@@ -36,7 +37,7 @@ module.exports = class OrderService extends BaseCRUDService {
       throw error;
     }
   }
-  async createOrderDetails({ name, quantity, productId, warehouseId, transaction, orderId, ...orderDetail }) {
+  async createOrderDetails({ name, quantity, productId, warehouseId, transaction, orderId, type, ...orderDetail }) {
     try {
       const detailItem = this.db.orderDetail.create(
         { ...orderDetail, quantity, warehouseId, orderId: orderId },
@@ -44,11 +45,12 @@ module.exports = class OrderService extends BaseCRUDService {
           transaction,
         }
       );
+      await cacheDel(cacheKey("Product", productId, warehouseId));
       return Promise.all([
         detailItem,
         this.updateInventory({ quantity, productId, warehouseId, transaction }),
         this.updateProductQuantity({ quantity, productId, transaction }),
-        this.createTransfer({ quantity, warehouseId, productId, transaction, type: "1" }),
+        this.createTransfer({ quantity, warehouseId, productId, transaction, type }),
       ]);
     } catch (error) {
       throw error;

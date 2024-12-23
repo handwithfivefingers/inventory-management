@@ -1,14 +1,22 @@
 const BaseCRUDService = require("@constant/base");
 const { Op } = require("sequelize");
-const OrderService = require("../orders");
+const { OrderService } = require("..");
 
-module.exports = class ImportOrderService extends BaseCRUDService {
+module.exports = class FinancialService extends BaseCRUDService {
   constructor() {
-    super("order");
+    super("transfer");
   }
 
   async create({ VAT, surcharge, paymentType, warehouseId, providerId, OrderDetails }) {
     try {
+      const params = {
+        VAT,
+        surcharge,
+        paymentType,
+        warehouseId,
+        providerId,
+        OrderDetails,
+      };
       const resp = await new OrderService().create({
         VAT,
         surcharge,
@@ -16,7 +24,6 @@ module.exports = class ImportOrderService extends BaseCRUDService {
         warehouseId,
         providerId,
         OrderDetails,
-        type: "0",
       });
       return resp;
     } catch (error) {
@@ -24,26 +31,33 @@ module.exports = class ImportOrderService extends BaseCRUDService {
       throw error;
     }
   }
-  async getOrders(params) {
+  async getFinancial(req) {
     try {
+      const { s, offset, limit } = this.getPagination(req);
       const queryParams = {
         where: {
-          providerId: {
-            [Op.ne]: null,
-          },
+          warehouseId: req.query.warehouse,
         },
+        offset,
+        limit,
         include: [
           {
-            model: this.db.provider,
-            where: {
-              vendorId: params.vendor,
-            },
+            model: this.db.product,
+            required: false,
           },
         ],
+        attributes: [
+          "updatedAt",
+          "type",
+          [this.sequelize.literal("SUM(product.regularPrice * transfer.quantity)"), "totalPrice"],
+        ],
+        group: ["updatedAt", "type"],
+        raw: true,
       };
       const resp = await this.get(queryParams);
       return resp;
     } catch (error) {
+      console.log("error", error);
       throw error;
     }
   }

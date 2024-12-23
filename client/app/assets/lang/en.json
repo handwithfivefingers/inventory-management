@@ -1,5 +1,12 @@
 {
-  "Order": "Order",
-  "Product": "Product",
-  "ImportOrder": "ImportOrder"
+  "Order": "Đơn hàng",
+  "Product": "Sản phẩm",
+  "ImportOrder": "Nhập đơn hàng",
+  "WareHouse": "Kho, Bãi",
+  "Provider": "Nhà cung cấp",
+  "Categories": "Danh mục",
+  "Tags": "Thành phần",
+  "Unit": "Đơn vị",
+  "Financial": "Sổ quỹ tài chính",
+  "Setting": "Cài đặt"
 }

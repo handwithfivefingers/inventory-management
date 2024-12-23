@@ -17,7 +17,8 @@ const Transfer = (sequelize) => {
         comment: "0: IN, 1: OUT",
         allowNull: false,
         get(v) {
-          return v == "0" ? "Input" : "Output";
+          const val = this.getDataValue("type");
+          return val == "0" ? "Thu" : "Chi";
         },
       },
     },
@@ -29,6 +30,7 @@ const Transfer = (sequelize) => {
 
   Model.associate = (models) => {
     // Model.belongsTo(models.warehouse, { foreignKey: "warehouseId" });
+    Model.belongsTo(models.product, { foreignKey: "productId" });
   };
   return Model;
 };

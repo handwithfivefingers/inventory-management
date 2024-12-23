@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
+import { redirect, useFetcher } from "@remix-run/react";
 import { MouseEvent, useEffect } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { unitsService } from "~/action.server/units.service";
@@ -96,7 +96,10 @@ export const action = async ({ request }: any) => {
     const dataJson = JSON.parse(data);
     const bodyData = { ...dataJson.data, vendorId: vendor };
     const resp = await unitsService.create(bodyData);
-    return { status: true, ...resp };
+    if (resp.status === 200) {
+      return redirect(`/units`, 302);
+    }
+    return resp;
   } catch (error) {
     console.log("error", error);
     return { status: false };

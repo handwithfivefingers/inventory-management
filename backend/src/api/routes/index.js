@@ -27,4 +27,6 @@ route.use("/tags", auth, require("./tags"));
 
 route.use("/units", auth, require("./units"));
 
+route.use("/financial", auth, require("./financial"));
+
 module.exports = route;

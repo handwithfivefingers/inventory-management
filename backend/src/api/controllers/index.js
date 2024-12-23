@@ -11,4 +11,5 @@ module.exports = {
   TagsController: require("./tags"),
   ImportOrderController: require("./importOrder"),
   ProviderController: require("./provider"),
+  FinancialController: require("./financial"),
 };

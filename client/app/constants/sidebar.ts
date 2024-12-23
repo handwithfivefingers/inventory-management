@@ -1,6 +1,12 @@
 import vi from "~/assets/lang/vi.json";
 export const SIDE_BAR = [
   {
+    to: "/",
+    index:true,
+    label: "Doanh thu",
+    iconName: "home",
+  },
+  {
     to: "/orders",
     label: vi.Order,
     iconName: "package",
@@ -11,9 +17,10 @@ export const SIDE_BAR = [
     iconName: "shopping-bag",
   },
   {
-    to: "/import-order",
-    label: vi.ImportOrder,
-    iconName: "upload",
+    to: "/providers",
+    label: vi.Provider,
+    iconName: "git-pull-request",
+    // divider: "Kho hàng",
   },
   {
     to: "/warehouses",
@@ -21,6 +28,12 @@ export const SIDE_BAR = [
     iconName: "layers",
   },
   {
+    to: "/import-order",
+    label: vi.ImportOrder,
+    iconName: "upload",
+  },
+  {
+    divider: "Danh mục",
     to: "/categories",
     label: vi.Categories,
     iconName: "archive",
@@ -36,13 +49,27 @@ export const SIDE_BAR = [
     iconName: "tag",
   },
   {
-    to: "/providers",
-    label: vi.Provider,
-    iconName: "git-pull-request",
-  },
-  {
+    divider: "Thống kê",
     to: "/financial",
     label: vi.Financial,
     iconName: "bar-chart-2",
+  },
+
+  {
+    to: "/staff",
+    label: vi.Staff,
+    iconName: "users",
+    divider: "Quản lý",
+  },
+  {
+    to: "/shilf",
+    label: vi.Shift,
+    iconName: "layers",
+  },
+  {
+    to: "/setting",
+    label: vi.Setting,
+    iconName: "settings",
+    divider: "Khác",
   },
 ];

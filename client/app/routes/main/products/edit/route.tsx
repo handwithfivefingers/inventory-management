@@ -61,7 +61,7 @@ export default function ProductItem() {
 }
 const Detail = () => {
   const { data } = useLoaderData<typeof loader>();
-
+  console.log("data", data);
   return (
     <div className="w-full grid grid-cols-5 gap-4">
       <div className="col-span-2 flex gap-2 flex-col ">
@@ -186,14 +186,15 @@ const EditForm = () => {
     (window as any).form = formMethods;
   }, []);
 
+  const submit = (v: any) => {
+    console.log("v", v);
+    onSubmit({ ...v });
+  };
   return (
     <FormProvider {...formMethods}>
       <form
         className="py-2 grid grid-cols-12 gap-4"
-        onSubmit={formMethods.handleSubmit(
-          (v) => onSubmit({ ...v }),
-          (error) => handleError(error)
-        )}
+        onSubmit={formMethods.handleSubmit(submit, (error) => handleError(error))}
       >
         <div className="col-span-12">
           <Controller

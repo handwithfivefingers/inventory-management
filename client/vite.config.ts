@@ -60,6 +60,12 @@ export default defineConfig(({ command }) => {
               route("providers/add", "routes/main/providers/add/route.tsx", { id: "Provider-Add" })
               route("providers/:id", "routes/main/providers/$id/route.tsx", { id: "Providers-Edit" });
               route("providers", "routes/main/providers/route.tsx", { id: "Providers" });
+              
+              route("financial/add", "routes/main/financial/add/route.tsx", { id: "financial-Add" })
+              route("financial/:id", "routes/main/financial/$id/route.tsx", { id: "financial-Edit" });
+              route("financial", "routes/main/financial/route.tsx", { id: "financial" });
+
+              route("setting", "routes/main/setting/route.tsx", { id: "setting" });
             });
             route("/api/auth", "routes/api/auth/route.ts", { id: "Auth-API" });
           });

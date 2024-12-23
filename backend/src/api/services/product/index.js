@@ -70,7 +70,6 @@ module.exports = class ProductService extends BaseCRUDService {
   async importProduct(req) {
     try {
       const file = req.file;
-      console.log("file", req.file);
       const workbook = XLSX.readFile(file.path);
 
       const sheets = workbook.SheetNames;
@@ -105,28 +104,35 @@ module.exports = class ProductService extends BaseCRUDService {
       if (data.tags) {
         await currentProduct.setTags(data.tags, { transaction: t });
       }
+      if (data.unit) {
+        await currentProduct.setUnit(data.unit, { transaction: t });
+      }
+
       const inven = await new InventoryService().findOne({
         where: {
           productId: id,
           warehouseId: warehouseId,
         },
       });
+      const nextQuantity = inven.quantity - data.quantity;
 
       // Store - current -> store have 200 , update current quan is 190 -> sold 10
       // if > 0 -> SELLING / EXPORT
       // if < 0 -> IMPORT
-      const nextQuantity = inven.quantity - data.quantity;
-      inven.quantity = data.quantity;
-      await inven.save({ transaction: t });
-      await new TransferService().createInstance(
-        {
-          warehouseId: warehouseId,
-          productId: id,
-          quantity: nextQuantity,
-          type: nextQuantity > 0 ? "1" : "0",
-        },
-        { transaction: t }
-      );
+      if (nextQuantity !== 0) {
+        inven.quantity = data.quantity;
+        await inven.save({ transaction: t });
+        await new TransferService().createInstance(
+          {
+            warehouseId: warehouseId,
+            productId: id,
+            quantity: nextQuantity,
+            type: nextQuantity > 0 ? "1" : "0",
+          },
+          { transaction: t }
+        );
+      }
+
       const key = cacheKey("Product", currentProduct.id, warehouseId);
       await cacheDel(key);
       await t.commit();

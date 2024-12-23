@@ -12,7 +12,6 @@ const cacheItem = async ({ key, callback }) => {
     const data = await cacheGet(key);
     if (!data) {
       const result = await callback();
-      console.log("result", result);
       await cacheSet(key, result);
       return result;
     }
