@@ -4,6 +4,7 @@ import { data, useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
+import { historyService } from "~/action.server/history.service";
 import { productService } from "~/action.server/products.service";
 import { BarCode } from "~/components/barcode";
 import { CardItem } from "~/components/card-item";
@@ -12,9 +13,11 @@ import { MultiSelectInput } from "~/components/form/multi-select-input";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
 import { dayjs } from "~/libs/date";
+import { cn } from "~/libs/utils";
 import { getSession } from "~/sessions";
 import { ICategory } from "~/types/category";
 
@@ -24,7 +27,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const warehouse = session.get("warehouse");
     const { id } = params;
     const resp = await productService.getProductById({ id, warehouse } as any);
-    return resp;
+    const history = await historyService.getProductHistory(id as string);
+    return { ...resp, history };
   } catch (error) {
     throw data(error, { status: 400 });
   }
@@ -35,7 +39,7 @@ export const meta: MetaFunction = () => {
 };
 
 export default function ProductItem() {
-  const { data } = useLoaderData<typeof loader>();
+  const { data, history } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
@@ -54,7 +58,31 @@ export default function ProductItem() {
         {edit ? <EditForm /> : null}
       </CardItem>
       <CardItem title={`Lịch sử tồn kho`}>
-        <div className="w-full "></div>
+        <div className="w-full flex flex-col gap-2">
+          {history.data?.map((item: any) => {
+            return (
+              <div className={"border py-2 px-4 rounded flex justify-between"}>
+                <div className="flex gap-2 items-center">
+                  <Icon name="arrow-up" className="text-green-600 w-4" />
+                  <h5
+                    className={cn("text-xl font-semibold", {
+                      ["text-green-600"]: item.type == "Thu",
+                      ["text-red-500"]: item.type !== "Thu",
+                    })}
+                  >
+                    {item?.type as string}
+                  </h5>
+                  <span className="px-2 text-gray-400 font-light text-sm">
+                    {dayjs(item.createdAt).format("DD/MM/YYYY")}
+                  </span>
+                </div>
+                <p className="text-gray-500 font-light text-sm">
+                  Số lượng: <span className="text-black font-bold">{item.quantity || 0}</span>
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </CardItem>
     </div>
   );

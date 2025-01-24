@@ -3,6 +3,9 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "workspaces": [
+    "./app/packages/*"
+  ],
   "scripts": {
     "build": "remix vite:build",
     "dev": "remix vite:dev",
@@ -21,7 +24,6 @@
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
     "dompurify": "^3.2.3",
-    "feather-icons": "^4.29.2",
     "form-data": "^4.0.1",
     "isbot": "^4.1.0",
     "jsbarcode": "^3.11.6",

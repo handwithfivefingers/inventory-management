@@ -12,7 +12,7 @@ const cacheItem = async ({ key, callback }) => {
     const data = await cacheGet(key);
     if (!data) {
       const result = await callback();
-      await cacheSet(key, result);
+      await cacheSet(key, result, 3600 * 24);
       return result;
     }
     console.log(`Hit cache: ${key}`);

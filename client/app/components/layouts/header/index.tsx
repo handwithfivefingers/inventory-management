@@ -1,7 +1,6 @@
 import { Link, useFetcher } from "@remix-run/react";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
-import { TMButton } from "~/components/tm-button";
 import { TMDropdown } from "~/components/tm-dropdown";
 import { useUser } from "~/store/user.store";
 import { useVendor } from "~/store/vendor.store";
@@ -18,7 +17,6 @@ export const Header = () => {
     vendorReset();
     fetcher.submit({}, { method: "POST", action: "/" });
   };
-  const handleNotification = () => {};
   return (
     <div className="flex border-b items-center w-full overflow-hidden">
       <div className=" p-2 min-w-40 text-center max-w-60 font-bold w-full ">

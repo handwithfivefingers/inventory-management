@@ -24,7 +24,24 @@ const auth = async (req, res, next) => {
           },
         ],
       });
-      await cacheSet(cacheKey("User", payload.email), user);
+
+      const vendors = await db.vendor.findAll({
+        where: {
+          userId: user.id,
+        },
+        include: db.warehouse,
+      });
+
+      const userCache = user.dataValues;
+      const listVendors = [];
+      const listWarehouse = [];
+      for (let vendor of vendors.dataValues) {
+        listVendors.push({ id: vendor.id, name: vendor.name });
+        listWarehouse.push(...vendor.warehouse);
+      }
+      userCache.vendors = listVendors;
+      userCache.warehouses = listWarehouse;
+      await cacheSet(cacheKey("User", payload.email), userCache);
     }
     if (payload) {
       req.locals = { user };

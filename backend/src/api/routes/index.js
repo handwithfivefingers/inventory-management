@@ -29,4 +29,8 @@ route.use("/units", auth, require("./units"));
 
 route.use("/financial", auth, require("./financial"));
 
+route.use("/history", auth, require("./history"));
+
+route.use("/qr", require("./vietqr"));
+
 module.exports = route;

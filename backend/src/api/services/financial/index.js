@@ -1,5 +1,4 @@
 const BaseCRUDService = require("@constant/base");
-const { Op } = require("sequelize");
 const { OrderService } = require("..");
 
 module.exports = class FinancialService extends BaseCRUDService {

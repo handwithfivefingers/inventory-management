@@ -1,6 +1,4 @@
 const { DataTypes } = require("sequelize");
-const bcrypt = require("bcryptjs");
-const { cacheSet, cacheKey } = require("@src/libs/redis");
 const User = (sequelize) => {
   const Models = sequelize.define(
     "user",
@@ -36,6 +34,9 @@ const User = (sequelize) => {
         type: DataTypes.ENUM,
         values: ["free", "paid"],
         defaultValue: "free",
+      },
+      secret: {
+        type: DataTypes.STRING,
       },
     },
     {

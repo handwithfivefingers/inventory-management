@@ -1,4 +1,4 @@
-const { OrderService, CategoriesService } = require("@src/api/services");
+const { CategoriesService } = require("@src/api/services");
 module.exports = class CategoriesController {
   async create(req, res, next) {
     try {

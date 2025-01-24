@@ -2,7 +2,7 @@ const db = require("@db");
 const VendorService = require("../vendor");
 const WarehouseService = require("../warehouse");
 const bcrypt = require("bcryptjs");
-const { cacheGet, cacheKey, cacheSet } = require("@libs/redis");
+const { cacheKey, cacheSet } = require("@libs/redis");
 const { cacheItem } = require("./cache");
 module.exports = class AuthenticateService {
   constructor() {
@@ -53,13 +53,27 @@ module.exports = class AuthenticateService {
               },
             ],
           });
-          return usr;
+          const usrCache = usr.dataValues;
+          const vendors = await db.vendor.findAll({
+            where: {
+              userId: usrCache.id,
+            },
+            include: db.warehouse,
+          });
+
+          const listVendors = [];
+          const listWarehouse = [];
+          for (let vendor of vendors) {
+            listVendors.push({ id: vendor.dataValues.id, name: vendor.dataValues.name });
+            listWarehouse.push(...vendor.dataValues.warehouses?.map((item) => item.dataValues));
+          }
+          usrCache.vendors = listVendors;
+          usrCache.warehouses = listWarehouse;
+          return usrCache;
         },
       });
       if (!user) throw new Error("User Or Password not match");
-      console.log("password, user.password", password, user);
       const isMatchPassword = await bcrypt.compare(password, user.password);
-
       if (user && isMatchPassword) {
         delete user.password;
         return user;

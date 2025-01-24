@@ -18,7 +18,6 @@ const db = require("@db");
 const morgan = require("morgan");
 const helmet = require("helmet");
 const appRouter = require("@api/routes");
-const redisClient = require("./config/redis"); // Auto register redis
 const app = express();
 const Sentry = require("@sentry/node");
 
@@ -45,11 +44,6 @@ const errorHandler = async (err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
-  // return res.status(400).send({
-  //   error: err.message || err,
-  //   stack: err.stack,
-  //   message: "Internal Server Error",
-  // });
   res.statusCode = 400;
   res.end(res.sentry + "\n");
 };
@@ -59,6 +53,7 @@ app.get("/debug-sentry", function mainHandler(req, res) {
   throw new Error("My first Sentry error!");
 });
 app.listen(3001, () => {
+  require("./config/redis"); // Auto register redis
   db.sync();
   console.log("Server listen PORT:", 3001);
 });
