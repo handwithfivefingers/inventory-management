@@ -40,12 +40,13 @@ app.use("/api", appRouter);
 Sentry.setupExpressErrorHandler(app);
 
 const errorHandler = async (err, req, res, next) => {
-  console.log("err", err);
+  console.log("errorHandler ---------------", err);
   if (res.headersSent) {
     return next(err);
   }
   res.statusCode = 400;
-  res.end(res.sentry + "\n");
+  res.json({ message: err.message });
+  // res.end(res.sentry + "\n");
 };
 
 app.use(errorHandler);

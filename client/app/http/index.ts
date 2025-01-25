@@ -41,7 +41,7 @@ class HTTPService {
   }
   async get(path?: string, paramsOptions?: IGetParams) {
     try {
-      const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
+      const url = this.parseURL(path, paramsOptions?.basePath);
       const headers = this.headers;
       const options = {
         headers: paramsOptions?.headers ? paramsOptions?.headers : headers,
@@ -58,9 +58,8 @@ class HTTPService {
   }
   async post(path?: string, data: IData<any> = {}, paramsOptions?: IGetParams, stringable = true) {
     try {
-      const url = paramsOptions?.basePath ? paramsOptions?.basePath : this.options.basePath + path;
-      const headers = this.headers;
-      const newHeaders = new Headers(headers);
+      const url = this.parseURL(path, paramsOptions?.basePath);
+      const newHeaders = this.headers;
       if (paramsOptions?.headers) {
         for (let key in paramsOptions.headers) {
           newHeaders.set(key, paramsOptions.headers[key]);
@@ -78,15 +77,14 @@ class HTTPService {
       if (resp.status !== 200) throw dataJson;
       return { status: resp.status, ...dataJson };
     } catch (error: any) {
+      console.log("error", error);
       throw { error: error, status: error?.status || 400 };
     }
-    // return fetch(url, options as any)
-    //   .then(async (res) => {
-    //     const json = await res.json();
-    //     return { status: res.status, ...json };
-    //   })
-    //   .catch((err) => ({ error: err, status: err.status }));
   }
+
+  parseURL = (url?: string, basePath?: string) => {
+    return basePath ? basePath : this.options.basePath + url;
+  };
 }
 
 const http = new HTTPService({ basePath: "http://localhost:3001/api" });

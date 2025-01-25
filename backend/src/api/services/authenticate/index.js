@@ -53,7 +53,9 @@ module.exports = class AuthenticateService {
               },
             ],
           });
-          const usrCache = usr.dataValues;
+          // console.log("usr", usr);
+          if (!usr) throw { message: "User not found" };
+          const usrCache = usr?.dataValues;
           const vendors = await db.vendor.findAll({
             where: {
               userId: usrCache.id,

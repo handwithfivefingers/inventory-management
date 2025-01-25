@@ -18,8 +18,7 @@ const cacheItem = async ({ key, callback }) => {
     console.log(`Hit cache: ${key}`);
     return data;
   } catch (error) {
-    console.log("error", error);
-    throw new Error("Caching error");
+    throw error
   }
 };
 

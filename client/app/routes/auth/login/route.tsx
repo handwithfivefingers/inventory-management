@@ -3,7 +3,7 @@ import { ActionFunctionArgs, LoaderFunctionArgs, data } from "@remix-run/node";
 import { Link, useFetcher } from "@remix-run/react";
 import { useEffect } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import { redirect } from "react-router";
+import { json, redirect, useRouteError } from "react-router";
 import { authenticator } from "~/action.server/auth.service";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
@@ -21,7 +21,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return data(null);
 }
 
-function Login() {
+function Login({ children }: { children: React.ReactNode }) {
   const fetcher = useFetcher<{ status: boolean; message?: string; data: any }>({ key: "login" });
   const formMethods = useForm({
     defaultValues: {
@@ -39,7 +39,6 @@ function Login() {
       fetcher.data = undefined;
     }
   }, [fetcher.data?.message]);
-
   return (
     <div className="w-full flex flex-col p-4 gap-4 items-center justify-center">
       <CardItem title="Đăng nhập" className={cn("p-4 flex-col gap-2 shadow-xl", styles.box)}>
@@ -72,6 +71,9 @@ function Login() {
                 />
               )}
             />
+
+            {children}
+
             <div>
               <div className="text-sm text-right">
                 <Link to="/register" className="text-indigo-600">
@@ -113,20 +115,51 @@ function Login() {
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  let resp = await authenticator.authenticate("session", request);
-  if (resp.status === 400) {
-    return {
-      message: resp.error,
-      status: 400,
-    };
+export function ErrorBoundary() {
+  const error: any = useRouteError();
+  console.log("error", error);
+
+  if (!import.meta.env.PROD) {
+    console.log("error", error);
   }
-  let session = await getSession(request.headers.get("cookie"));
-  session.set("token", resp.token);
-  session.set("user", resp.data);
-  return redirect("/", {
-    status: 301,
-    headers: { "Set-Cookie": await commitSession(session) },
-  });
+  return (
+    <>
+      <Login>
+        <div style={{ color: "red" }}>
+          <span>{error?.data?.error?.message}</span>
+        </div>
+      </Login>
+    </>
+  );
+}
+export const action = async ({ request }: ActionFunctionArgs) => {
+  try {
+    let resp = await authenticator.authenticate("session", request);
+    if (resp.status === 400) {
+      return {
+        message: resp.error,
+        status: 400,
+      };
+    }
+    let session = await getSession(request.headers.get("cookie"));
+    session.set("token", resp.token);
+    session.set("user", resp.data);
+    return redirect("/", {
+      status: 301,
+      headers: { "Set-Cookie": await commitSession(session) },
+    });
+  } catch (error) {
+    console.log("action error", error);
+    throw error;
+    return json(
+      {
+        errors: {
+          message: "Please enter a message",
+        },
+      },
+      { status: 500 }
+    );
+  }
 };
+
 export default Login;

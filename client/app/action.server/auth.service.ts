@@ -13,6 +13,7 @@ const API_PATH = {
 
 export const AuthService = {
   login: async (params: ILoginParams) => {
+    console.log("params", params);
     const resp: ILoginResponse = await http.post(API_PATH.login, params);
     if (resp.jwt) {
       http.setToken(resp.jwt);
