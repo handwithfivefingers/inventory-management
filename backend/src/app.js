@@ -1,4 +1,5 @@
 const moduleAlias = require("module-alias");
+const env = require("dotenv");
 moduleAlias.addAliases({
   "@src": __dirname + "/",
   "@libs": __dirname + "/libs",
@@ -10,6 +11,7 @@ moduleAlias.addAliases({
   "@config": __dirname + "/config",
 });
 moduleAlias();
+env.config();
 require("@config/sentry");
 const express = require("express");
 const cors = require("cors");
@@ -40,13 +42,14 @@ app.use("/api", appRouter);
 Sentry.setupExpressErrorHandler(app);
 
 const errorHandler = async (err, req, res, next) => {
-  console.log("errorHandler ---------------", err);
   if (res.headersSent) {
     return next(err);
   }
-  res.statusCode = 400;
-  res.json({ message: err.message });
-  // res.end(res.sentry + "\n");
+  Sentry.captureException(err);
+  return res.status(500).json({
+    error: err.message,
+    status: 400,
+  });
 };
 
 app.use(errorHandler);

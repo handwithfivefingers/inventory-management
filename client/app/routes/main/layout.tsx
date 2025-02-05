@@ -66,7 +66,7 @@ const MainLayout = () => {
   return (
     <AppLayout>
       {StoreMemoiz}
-      <Outlet />
+      {user?.id && <Outlet />}
     </AppLayout>
   );
 };

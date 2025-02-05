@@ -100,7 +100,6 @@ export const SelectInput = ({
     // }
   };
   const selectedOption = options.find((option) => option.value === rest.value);
-
   return (
     <div className={styles.inputWrapper} ref={wrapper}>
       {label ? (
@@ -119,15 +118,24 @@ export const SelectInput = ({
           }
         }}
       >
+        <div
+          className="z-[1] absolute w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none px-1 "
+          style={{
+            width: "calc(100% - 28px)",
+            maxHeight: "30px",
+            overflow: "hidden",
+          }}
+        >
+          {selectedOption?.label}
+        </div>
         <input
           className={cn(
-            "block w-full bg-transparent rounded-md border-0   text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none px-1",
+            "block w-full bg-transparent rounded-md border-0  text-transparent placeholder:text-gray-400  text-sm/6 outline-none px-1",
             styles.input,
             inputClassName
           )}
           readOnly
           {...(rest as any)}
-          value={selectedOption?.label}
         />
         <div className="absolute right-0 top-1/2 -translate-y-1/2 z-[1] px-1">
           <Icon

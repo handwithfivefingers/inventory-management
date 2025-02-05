@@ -18,7 +18,8 @@ const cacheItem = async ({ key, callback }) => {
     console.log(`Hit cache: ${key}`);
     return data;
   } catch (error) {
-    throw error
+    console.log("Auth Caching Error", error);
+    throw error;
   }
 };
 

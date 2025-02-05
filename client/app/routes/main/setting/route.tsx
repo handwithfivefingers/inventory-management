@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, json, useLoaderData, useNavigate } from "@remix-run/react";
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { NumericFormat } from "react-number-format";
 import { financialService } from "~/action.server/financial.service";
 import { CardItem } from "~/components/card-item";
@@ -9,10 +9,13 @@ import { CheckboxInput } from "~/components/form/checkbox-input";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
+import { TMTab } from "~/components/tm-tab";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
 import { cn } from "~/libs/utils";
 import { getSession } from "~/sessions";
+// import { Payment } from "./_component/payment";
+const Payment = lazy(() => import("./_component/payment"));
 
 // export const loader = async ({ request }: LoaderFunctionArgs) => {
 //   try {
@@ -43,8 +46,7 @@ export default function ImportOrder() {
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <CardItem title="Cài đặt">
-        {/* <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn"> */}
-        <div className="flex">
+        {/* <div className="flex">
           <div
             className="px-4 py-1.5 bg-white border rounded-l-md rounded-b-none border-b-0"
             onClick={() => setTab("general")}
@@ -53,9 +55,9 @@ export default function ImportOrder() {
           </div>
           <div
             className="px-4 py-1.5 bg-white border border-l-0 border-r-0 border-b-0"
-            onClick={() => setTab("display")}
+            onClick={() => setTab("payment")}
           >
-            Display
+            Thanh Toán
           </div>
           <div
             className="px-4 py-1.5 bg-white border rounded-r-md rounded-b-none border-b-0"
@@ -64,8 +66,6 @@ export default function ImportOrder() {
             Role
           </div>
         </div>
-        {/* </div> */}
-
         <div className="px-2 py-2.5 border">
           <div
             className={cn("animate__animated animate__faster", {
@@ -187,7 +187,31 @@ export default function ImportOrder() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
+        <TMTab
+          active="general"
+          items={[
+            {
+              label: "General",
+              value: "general",
+              content: <div>Content 1</div>,
+            },
+            {
+              label: "Payment",
+              value: "payment",
+              content: (
+                <Suspense fallback={<div>Loading...</div>}>
+                  <Payment />
+                </Suspense>
+              ),
+            },
+            {
+              label: "Role",
+              value: "role",
+              content: <div>Content 3</div>,
+            },
+          ]}
+        />
       </CardItem>
     </div>
   );

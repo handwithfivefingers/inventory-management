@@ -378,10 +378,5 @@ class VIETQRService {
   }
 }
 
-//Create VIETQR object for export
-// module.exports = {
-//   VIETQR,
-//   SERVICE_CODE,
-//   CURRENCY,
-// };
+
 module.exports = VIETQRService;

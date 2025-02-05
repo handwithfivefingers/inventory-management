@@ -4,6 +4,7 @@ const WarehouseService = require("../warehouse");
 const bcrypt = require("bcryptjs");
 const { cacheKey, cacheSet } = require("@libs/redis");
 const { cacheItem } = require("./cache");
+const { ERROR } = require("@constant/message");
 module.exports = class AuthenticateService {
   constructor() {
     this.user = db["user"];
@@ -30,7 +31,6 @@ module.exports = class AuthenticateService {
       });
       return user;
     } catch (err) {
-      // next(err);
       throw err;
     }
   }
@@ -53,16 +53,14 @@ module.exports = class AuthenticateService {
               },
             ],
           });
-          // console.log("usr", usr);
-          if (!usr) throw { message: "User not found" };
           const usrCache = usr?.dataValues;
+          if (!usrCache) throw new Error(ERROR.USR_NOT_VALID);
           const vendors = await db.vendor.findAll({
             where: {
-              userId: usrCache.id,
+              userId: usrCache?.id,
             },
             include: db.warehouse,
           });
-
           const listVendors = [];
           const listWarehouse = [];
           for (let vendor of vendors) {
@@ -74,13 +72,14 @@ module.exports = class AuthenticateService {
           return usrCache;
         },
       });
-      if (!user) throw new Error("User Or Password not match");
+      if (!user) throw new Error(ERROR.USR_NOT_VALID);
       const isMatchPassword = await bcrypt.compare(password, user.password);
       if (user && isMatchPassword) {
         delete user.password;
         return user;
       }
     } catch (error) {
+      console.log('LOGIN ERROR >> error', error);
       throw error;
     }
   }
@@ -141,7 +140,6 @@ module.exports = class AuthenticateService {
       await cacheSet(key, { ...usr, vendor, warehouse: [warehouse] });
       return { user, vendor, warehouse: [warehouse] };
     } catch (error) {
-      console.log(JSON.stringify(error, null, 2));
       await t.rollback();
       if (error.name === "SequelizeUniqueConstraintError") {
         throw {

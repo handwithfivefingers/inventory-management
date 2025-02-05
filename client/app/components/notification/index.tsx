@@ -64,7 +64,7 @@ export const NotificationProvider = ({ children }: BaseProps) => {
         id++; // console.log("count", id);
         dispatch({ type: "success", payload: { title, message, id } });
       },
-      error: ({ title, message }: INotiParams) => {
+      danger: ({ title, message }: INotiParams) => {
         id++;
         dispatch({ type: "error", payload: { title, message, id } });
       },
@@ -86,7 +86,7 @@ export const NotificationProvider = ({ children }: BaseProps) => {
     toast.success = api.success;
     toast.warning = api.warning;
     toast.info = api.info;
-    toast.danger = api.info;
+    toast.danger = api.danger;
     toast.remove = api.remove;
   }, []);
 

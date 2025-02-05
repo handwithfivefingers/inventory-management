@@ -2,7 +2,7 @@ import vi from "~/assets/lang/vi.json";
 export const SIDE_BAR = [
   {
     to: "/",
-    index:true,
+    index: true,
     label: "Doanh thu",
     iconName: "home",
   },
@@ -20,7 +20,6 @@ export const SIDE_BAR = [
     to: "/providers",
     label: vi.Provider,
     iconName: "git-pull-request",
-    // divider: "Kho hàng",
   },
   {
     to: "/warehouses",
@@ -33,39 +32,59 @@ export const SIDE_BAR = [
     iconName: "upload",
   },
   {
-    divider: "Danh mục",
-    to: "/categories",
+    to: "#",
     label: vi.Categories,
     iconName: "archive",
-  },
-  {
-    to: "/units",
-    label: vi.Unit,
-    iconName: "dollar-sign",
-  },
-  {
-    to: "/tags",
-    label: vi.Tags,
-    iconName: "tag",
-  },
-  {
-    divider: "Thống kê",
-    to: "/financial",
-    label: vi.Financial,
-    iconName: "bar-chart-2",
+    items: [
+      {
+        divider: "Danh mục",
+        to: "/categories",
+        label: vi.Categories,
+        iconName: "archive",
+      },
+      {
+        to: "/units",
+        label: vi.Unit,
+        iconName: "dollar-sign",
+      },
+      {
+        to: "/tags",
+        label: vi.Tags,
+        iconName: "tag",
+      },
+    ],
   },
 
   {
-    to: "/staff",
-    label: vi.Staff,
-    iconName: "users",
-    divider: "Quản lý",
+    to: "/financial",
+    label: "Thống kê",
+    iconName: "bar-chart-2",
+    items: [
+      {
+        to: "/financial",
+        label: vi.Financial,
+        iconName: "bar-chart-2",
+      },
+    ],
   },
+
   {
-    to: "/shilf",
-    label: vi.Shift,
-    iconName: "layers",
+    label: "Quản lý",
+    iconName: "triangle",
+    items: [
+      {
+        to: "/staff",
+        label: vi.Staff,
+        iconName: "users",
+      },
+      {
+        to: "/shilf",
+        label: vi.Shift,
+        iconName: "layers",
+      },
+    ],
   },
+
   {
     to: "/setting",
     label: vi.Setting,

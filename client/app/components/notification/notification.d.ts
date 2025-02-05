@@ -47,7 +47,7 @@ export interface INotification {
 
 interface INotificationAPIContext {
   success: (data?: INotiParams) => void;
-  error: (data?: INotiParams) => void;
+  danger: (data?: INotiParams) => void;
   warning: (data?: INotiParams) => void;
   info: (data?: INotiParams) => void;
   remove: (pos?: number) => void;

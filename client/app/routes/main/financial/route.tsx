@@ -33,10 +33,9 @@ export const meta: MetaFunction = () => {
   return [{ title: "Nhập hàng" }, { name: "description", content: "Nhập hàng" }];
 };
 
-export default function ImportOrder() {
+export default function Financial() {
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  console.log("data", data);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <CardItem title="Product">

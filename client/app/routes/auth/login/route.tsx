@@ -25,7 +25,7 @@ function Login({ children }: { children: React.ReactNode }) {
   const fetcher = useFetcher<{ status: boolean; message?: string; data: any }>({ key: "login" });
   const formMethods = useForm({
     defaultValues: {
-      email: "handgod1995@gmail.com",
+      email: "handgod1996@gmail.com",
       password: "123456",
     },
     resolver: zodResolver(loginSchema),
@@ -39,6 +39,7 @@ function Login({ children }: { children: React.ReactNode }) {
       fetcher.data = undefined;
     }
   }, [fetcher.data?.message]);
+
   return (
     <div className="w-full flex flex-col p-4 gap-4 items-center justify-center">
       <CardItem title="Đăng nhập" className={cn("p-4 flex-col gap-2 shadow-xl", styles.box)}>
@@ -149,16 +150,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       headers: { "Set-Cookie": await commitSession(session) },
     });
   } catch (error) {
-    console.log("action error", error);
-    throw error;
-    return json(
-      {
-        errors: {
-          message: "Please enter a message",
-        },
-      },
-      { status: 500 }
-    );
+    console.log("error", error);
+    return {
+      message: ((error as any)?.error as any)?.error as string,
+    };
   }
 };
 

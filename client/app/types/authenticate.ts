@@ -32,3 +32,10 @@ export interface IRegisterResponse {
   vendor: Record<string, string>;
   warehouse: Record<string, string>;
 }
+
+export interface IAuthenticateError extends Error {
+  error: {
+    error: string;
+  };
+  status: number;
+}
