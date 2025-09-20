@@ -2,11 +2,13 @@ const { decodeToken } = require("@src/libs/token");
 const Sentry = require("@sentry/node");
 const { cacheGet, cacheKey, cacheSet } = require("@src/libs/redis");
 const db = require("@db");
+const { ERROR } = require("@src/constant/message");
 const auth = async (req, res, next) => {
   try {
     const cookie = req.cookies;
+    console.log("cookie", req.cookies);
     const session = cookie["session"];
-    if (!session) throw new Error("unauthorized");
+    if (!session) throw new Error(ERROR.UNAUTHORIZED);
     const payload = await decodeToken(session);
     const user = await cacheGet(cacheKey("User", payload.email));
     if (!user) {
@@ -49,7 +51,7 @@ const auth = async (req, res, next) => {
     next();
   } catch (error) {
     Sentry.captureException(error);
-    return res.status(403).json({ message: "unauthorized" });
+    return res.status(403).json({ message: ERROR.UNAUTHORIZED });
   }
 };
 
@@ -68,6 +70,19 @@ const authUpload = async (req, res, next) => {
     return res.status(403).json({ message: "unauthorized" });
   }
 };
+
+const retrieveUser = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization.split(" ")[1];
+    if (!token) throw new Error(ERROR.UNAUTHORIZED);
+    const payload = await decodeToken(token);
+    const user = await cacheGet(cacheKey("User", payload.email));
+    return user;
+  } catch (error) {
+    throw error;
+  }
+};
+
 module.exports = {
   auth,
   authUpload,

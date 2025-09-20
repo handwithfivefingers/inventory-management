@@ -1,6 +1,6 @@
-import React, { useCallback } from "react";
-import { TMButton } from "../tm-button";
+import { useCallback } from "react";
 import { cn } from "~/libs/utils";
+import { TMButton } from "../tm-button";
 
 interface IPagination {
   total: number | string;

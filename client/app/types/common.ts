@@ -16,4 +16,5 @@ export interface BaseQueryParams {
   s?: string;
   page?: number | string;
   pageSize?: number | string;
+  cookie: string;
 }

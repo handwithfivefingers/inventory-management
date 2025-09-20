@@ -1,4 +1,5 @@
 const db = require("@db");
+const { retrieveUser } = require("@src/libs/utils");
 module.exports = class BaseCRUDService {
   constructor(modelName) {
     this[modelName] = db[modelName];
@@ -21,7 +22,13 @@ module.exports = class BaseCRUDService {
     } catch (error) {}
   };
 
-  delete = async () => {};
+  delete = async (params, options) => {
+    try {
+      return this[this.modelName].destroy(params, options);
+    } catch (error) {
+      throw error;
+    }
+  };
 
   get = async (params) => {
     try {
@@ -65,6 +72,14 @@ module.exports = class BaseCRUDService {
       limit,
       s: params.s || null,
       ...additionalReturn,
+    };
+  };
+
+  getActiveWarehouseAndVendor = (req) => {
+    const user = retrieveUser(req);
+    return {
+      vendor: user.vendor,
+      warehouse: user.activeWarehouse,
     };
   };
 };

@@ -1,7 +1,7 @@
 import { Authenticator } from "remix-auth";
 import { FormStrategy } from "remix-auth-form";
 import { ILoginParams } from "~/action.client/auth.service";
-import { http } from "~/http";
+import { HTTPService } from "~/http";
 import { IAuthenticateError, ILoginResponse, IRegisterParams, IRegisterResponse } from "~/types/authenticate";
 import { IResponse } from "~/types/common";
 
@@ -13,26 +13,14 @@ const API_PATH = {
 
 export const AuthService = {
   login: async (params: ILoginParams) => {
-    try {
-      const resp: ILoginResponse = await http.post(API_PATH.login, params);
-      if (resp.jwt) {
-        http.setToken(resp.jwt);
-      }
-      return resp;
-    } catch (error) {
-      if (error as IAuthenticateError) {
-        throw error;
-      } else {
-        throw new Error("An unexpected error occurred");
-      }
-    }
+    return HTTPService.getInstance().post<ILoginResponse, ILoginParams>(API_PATH.login, params);
   },
 
   register: async (params: IRegisterParams): Promise<IResponse<IRegisterResponse>> => {
     return http.post(API_PATH.register, params);
   },
-  getMe: async (options?: any) => {
-    return http.get(API_PATH.me, options);
+  getMe: async ({ cookie }: { cookie: string }) => {
+    return HTTPService.getInstance().get(API_PATH.me, { cookie });
   },
 };
 

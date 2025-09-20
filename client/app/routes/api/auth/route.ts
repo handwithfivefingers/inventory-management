@@ -4,18 +4,19 @@ import { namedAction } from "remix-utils/named-action";
 import { AuthService } from "~/action.server/auth.service";
 import { warehouseService } from "~/action.server/warehouse.service";
 import { http } from "~/http";
-import { commitSession, getSession, destroySession } from "~/sessions";
+import { commitSession, getSession } from "~/sessions";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  let session = await getSession(request.headers.get("cookie"));
+  const session = await getSession(request.headers.get("cookie"));
   try {
-    let token = session.get("token");
+    console.log("coming",session);
+    const token = session.get("token");
     if (!token) throw redirect("/login");
     http.setHeader("Cookie", `session=${token}`);
     const resp = await AuthService.getMe();
     const { data: me } = resp;
     if (!me?.id) throw new Error("User not found");
-    const { vendors, roles, ...rest } = me;
+    const { vendors, ...rest } = me;
     session.set("user", rest);
     if (vendors?.length > 0) session.set("vendor", vendors[0].id);
     return json(me, {
@@ -24,11 +25,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     });
   } catch (error) {
-    return redirect("/login", {
-      headers: {
-        "Set-Cookie": await destroySession(session),
-      },
-    });
+    // throw redirect("/login", {
+    //   headers: {
+    //     "Set-Cookie": await destroySession(session),
+    //   },
+    // });
+    return error;
   }
 }
 

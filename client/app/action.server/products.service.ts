@@ -1,4 +1,4 @@
-import { http } from "~/http";
+import { HTTPService } from "~/http";
 import { BaseQueryParams, IResponse } from "~/types/common";
 import { IProduct, IProductDetails } from "~/types/product";
 
@@ -29,24 +29,27 @@ interface IUpdateParams extends ICreateProductParams {
 }
 interface IGetParamsByID {
   id: string;
-  warehouse: string;
+  cookie: string;
+  // warehouse: string;
 }
+
+const http = HTTPService.getInstance();
 const productService = {
-  getProducts: (params?: IProductParams): Promise<IResponse<IProduct[]>> => {
+  getProducts: ({ cookie, ...params }: IProductParams) => {
     const qs = new URLSearchParams(params);
-    return http.get(API_PATH.products + "?" + qs.toString());
+    return http.get(API_PATH.products + "?" + qs.toString(), { Cookie: cookie });
   },
-  getProductById: ({ id, warehouse }: IGetParamsByID): Promise<IResponse<IProduct>> => {
+  getProductById: ({ id, cookie }: IGetParamsByID) => {
     const params = new URLSearchParams({
-      warehouse: warehouse,
+      // warehouse: warehouse,
     });
-    return http.get(API_PATH.products + "/" + id + "?" + params.toString());
+    return http.get(API_PATH.products + "/" + id + "?" + params.toString(), { Cookie: cookie });
   },
   createProduct: (params: ICreateProductParams) => {
     return http.post(API_PATH.products, params);
   },
   importProduct: (params: any) => {
-    return http.post(`${API_PATH.products}/import`, params, {} as any, false);
+    return http.post(`${API_PATH.products}/import`, params);
   },
   updateProduct: ({ id, warehouseId, ...params }: IUpdateParams) => {
     return http.post(`${API_PATH.products}/${id}?warehouseId=${warehouseId}`, params);

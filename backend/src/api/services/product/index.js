@@ -3,16 +3,32 @@ const BaseCRUDService = require("@constant/base");
 const TransferService = require("../transfer");
 const { Op } = require("sequelize");
 const { cacheGet, cacheKey, cacheSet, cacheDel } = require("@src/libs/redis");
-const { productCacheItem, productCacheList } = require("./cache");
+const { productCacheItem, productCacheList, CACHE_KEY } = require("./cache");
 const fs = require("fs");
 const XLSX = require("xlsx");
 module.exports = class ProductService extends BaseCRUDService {
   constructor() {
     super("product");
   }
-  async create({ warehouseId, quantity, categories, tags, ...params }) {
+  async create(req) {
     const t = await this.sequelize.transaction();
     try {
+      const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req);
+      if (!warehouse?.id) throw new Error("Invalid warehouse context");
+
+      const { quantity, categories, tags, ...params } = req.body;
+
+      // Validate required fields
+      if (!quantity || isNaN(quantity)) throw new Error("Invalid quantity");
+      if (!params.code) throw new Error("Product code is required");
+
+      // Check for existing product
+      const existing = await this.db.product.findOne({
+        where: { code: params.code },
+        transaction: t,
+      });
+      if (existing) throw new Error(`Product with code ${params.code} already exists`);
+
       const newProduct = await this.createInstance(params, {
         transaction: t,
         include: [this.db.category, this.db.tag, this.db.unit],
@@ -25,7 +41,7 @@ module.exports = class ProductService extends BaseCRUDService {
       }
       const inventoryInstance = await new InventoryService().createInstance(
         {
-          warehouseId,
+          warehouseId: warehouse.id,
           quantity,
           productId: newProduct.id,
         },
@@ -35,7 +51,7 @@ module.exports = class ProductService extends BaseCRUDService {
       );
       const transfer = await new TransferService().createInstance(
         {
-          warehouseId,
+          warehouseId: warehouse.id,
           productId: newProduct.id,
           quantity,
           type: "0",
@@ -52,7 +68,7 @@ module.exports = class ProductService extends BaseCRUDService {
         cacheSet(cacheKey("Products", "Key"), {});
       }
 
-      const productKey = cacheKey("Product", newProduct.id, warehouseId);
+      const productKey = cacheKey("Product", newProduct.id, warehouse.id);
       await cacheSet(productKey, newProduct);
 
       await t.commit();
@@ -62,9 +78,13 @@ module.exports = class ProductService extends BaseCRUDService {
         transfer: transfer,
       };
     } catch (error) {
-      console.log("CREATE PRODUCT ERROR ", error);
+      console.error(`Product creation failed: ${error.message}`, {
+        code: req.body.code,
+        warehouseId: warehouse?.id,
+        error: error.stack,
+      });
       await t.rollback();
-      throw error;
+      throw new Error(`Product creation failed: ${error.message}`);
     }
   }
   async importProduct(req) {
@@ -91,40 +111,63 @@ module.exports = class ProductService extends BaseCRUDService {
     }
   }
 
-  async updateProduct({ id, warehouseId, data }) {
+  /**
+   * @description Update a product in a warehouse
+   * @param {Object} params - contains update product information
+   * @param {number} params.id - product ID
+   * @param {number} params.warehouseId - warehouse ID
+   * @param {Object} params.data - contains product data to update
+   * @returns {Promise<void>} - a Promise that resolves when product is updated
+   */
+  async updateProduct(req) {
     const t = await this.sequelize.transaction();
     try {
+      const id = req.params.id;
+      const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req);
+      const data = req.body;
+      // Find the product by ID
       const currentProduct = await this.db.product.findByPk(id);
 
+      // Update the product
       await currentProduct.update(data, { transaction: t });
 
+      // Update categories
       if (data.categories) {
         await currentProduct.setCategories(data.categories, { transaction: t });
       }
+
+      // Update tags
       if (data.tags) {
         await currentProduct.setTags(data.tags, { transaction: t });
       }
+
+      // Update unit
       if (data.unit) {
         await currentProduct.setUnit(data.unit, { transaction: t });
       }
 
+      // Find the inventory of the product in the warehouse
       const inven = await new InventoryService().findOne({
         where: {
           productId: id,
-          warehouseId: warehouseId,
+          warehouseId: warehouse.id,
         },
       });
+
+      // Calculate the next quantity
       const nextQuantity = inven.quantity - data.quantity;
 
       // Store - current -> store have 200 , update current quan is 190 -> sold 10
       // if > 0 -> SELLING / EXPORT
       // if < 0 -> IMPORT
       if (nextQuantity !== 0) {
+        // Update the inventory quantity
         inven.quantity = data.quantity;
         await inven.save({ transaction: t });
+        // Create a new transfer
         await new TransferService().createInstance(
           {
-            warehouseId: warehouseId,
+            warehouseId: warehouse.id,
             productId: id,
             quantity: nextQuantity,
             type: nextQuantity > 0 ? "1" : "0",
@@ -133,9 +176,11 @@ module.exports = class ProductService extends BaseCRUDService {
         );
       }
 
-      const key = cacheKey("Product", currentProduct.id, warehouseId);
+      // Delete the product from the Redis cache
+      const key = cacheKey("Product", id);
       await cacheDel(key);
       await t.commit();
+      return true;
     } catch (error) {
       console.log("UPDATE PRODUCT ERROR ", error);
       await t.rollback();
@@ -144,16 +189,19 @@ module.exports = class ProductService extends BaseCRUDService {
   }
   async getProduct(req) {
     try {
-      const { s, offset, limit, availableWarehouses } = this.getPagination(req, "availableWarehouses");
-      const key = cacheKey("Products", "Warehouse", availableWarehouses, "Pagination", `${offset},${limit}`, "s", s);
-      console.log("availableWarehouses", availableWarehouses);
+      console.log(req.locals);
+      const { s, offset, limit } = this.getPagination(req);
+      const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req);
+      const key = CACHE_KEY.getProduct({ warehouse: warehouse.id, limit, offset, s });
+
+      console.log('warehouse',warehouse)
       const queryParams = {
         where: {},
         include: [
           {
             model: this.db.inventory,
             where: {
-              warehouseId: availableWarehouses,
+              warehouseId: warehouse.id,
             },
             attributes: [],
           },
@@ -197,16 +245,18 @@ module.exports = class ProductService extends BaseCRUDService {
     }
   }
 
-  async getProductById({ params, query }) {
+  async getProductById(req) {
     try {
-      const key = cacheKey("Product", params.id, query.warehouse);
+      const { params } = req;
+      const key = cacheKey("Product", params.id);
+      const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req);
       const response = await productCacheItem({
         key,
         callback: () => {
           return this.product.findOne({
             where: {
               id: params.id,
-              "$inventories.warehouseId$": query.warehouse,
+              "$inventories.warehouseId$": warehouse.id,
             },
             include: [
               { model: this.db.inventory, attributes: [] },

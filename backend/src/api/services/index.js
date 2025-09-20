@@ -11,6 +11,7 @@ const TagsService = require("./tags");
 const ImportOrderService = require("./importOrder");
 const ProviderService = require("./provider");
 const FinancialService = require("./financial");
+const SettingService = require("./setting");
 module.exports = {
   AuthenticateService: require("./authenticate"),
   ProductService: require("./product"),
@@ -26,5 +27,6 @@ module.exports = {
   TagsService,
   ImportOrderService,
   ProviderService,
-  FinancialService
+  FinancialService,
+  SettingService,
 };

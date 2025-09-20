@@ -3,11 +3,11 @@
  * Current CSS Module not working on Library mode
  */
 import React, { useEffect, useRef, useState } from "react";
-// import * as styles from "./styles.css";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import { ITMButton, TMButton } from "../tm-button";
 import { Portal } from "../portal";
+import "./tm-dropdown.scss";
 
 interface IDropdownItem {
   label: React.ReactNode;
@@ -24,13 +24,14 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
   useEffect(() => {
     const handler = (e: any) => {
       if (!dropdown.current?.contains(e.target)) {
-        // setIsFocus(false);
         setShow(false);
         return;
       }
     };
     if (show) {
-      document.addEventListener("click", handler, false);
+      setTimeout(() => {
+        document.addEventListener("click", handler, false);
+      }, 0);
     }
     return () => document.removeEventListener("click", handler, false);
   }, [show]);
@@ -53,19 +54,14 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
     dropdown.current?.style.setProperty("top", `${rect?.bottom}px`);
     dropdown.current?.style.setProperty("height", "auto");
     dropdown.current?.style.setProperty("z-index", "999");
-    console.log("dropdown", dropdown.current);
   };
 
   const handleToggle = () => {
     setShow(!show);
   };
-  // useEffect(() => {
-  //   document.adoptedStyleSheets = [styles];
-  // }, []);
-  console.log("styles", styles);
 
   return (
-    <div ref={wrapper} className={styles.wrapper}>
+    <div ref={wrapper} className={"tm-dropdown-wrapper"}>
       <TMButton variant={variant} onClick={handleToggle} size="xs" className="h-full">
         {children}
       </TMButton>
@@ -73,8 +69,7 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
         {show && (
           <div
             className={cn(
-              "animate__animated animate__faster animate__fadeInUp shadow-xl rounded-sm mt-2 fixed bg-white",
-              styles.dropdown
+              "animate__animated animate__faster animate__fadeInUp shadow-xl rounded-sm mt-2 fixed bg-white tm-dropdown"
             )}
             ref={dropdown}
             style={

@@ -23,7 +23,6 @@ module.exports = {
 
   // Base config
   extends: ["eslint:recommended"],
-
   overrides: [
     // React
     {
@@ -36,6 +35,7 @@ module.exports = {
         "plugin:jsx-a11y/recommended",
       ],
       settings: {
+        "import/internal-regex": "^~/",
         react: {
           version: "detect",
         },
@@ -66,11 +66,7 @@ module.exports = {
           },
         },
       },
-      extends: [
-        "plugin:@typescript-eslint/recommended",
-        "plugin:import/recommended",
-        "plugin:import/typescript",
-      ],
+      extends: ["plugin:@typescript-eslint/recommended", "plugin:import/recommended", "plugin:import/typescript"],
     },
 
     // Node
@@ -78,6 +74,11 @@ module.exports = {
       files: [".eslintrc.cjs"],
       env: {
         node: true,
+      },
+    },
+    {
+      rules: {
+        "import/no-unresolved": "off",
       },
     },
   ],

@@ -31,6 +31,10 @@ export const Header = () => {
         </div>
 
         <div className="ml-auto min-w-12  py-2 text-center rounded-sm flex gap-4">
+          <div className="flex gap-2 items-center text-sm relative px-2 cursor-pointer hover:text-indigo-300">
+            <Icon name="package" className="w-4 h-4" />
+            <span>Bán hàng</span>
+          </div>
           <div className="flex gap-2 items-center text-sm relative px-2">
             <div className="flex relative">
               <Icon name="bell" className="w-4 h-4" />

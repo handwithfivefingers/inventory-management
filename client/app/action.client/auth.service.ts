@@ -1,8 +1,9 @@
-import { http } from "~/http";
+import { HTTPService } from "~/http";
+import { ILoginResponse, IRegisterParams } from "~/types/authenticate";
 
 const API_PATH = {
   login: "/auth/login",
-  register: "/auth/local/register",
+  register: "/auth/register",
   me: "/auth/me",
 };
 
@@ -11,17 +12,14 @@ export interface ILoginParams {
   password: string;
 }
 
-interface ILoginResponse {
-  jwt: string;
-  token: string;
-  data: Record<string, any>;
-}
-export const AuthClientService = {
-  login: async (params: ILoginParams) => {
-    const resp: ILoginResponse = await http.post(API_PATH.login, params);
-    return resp;
+export const AuthService = {
+  login: (params: ILoginParams) => {
+    return HTTPService.getInstance().post<ILoginResponse, ILoginParams>(API_PATH.login, params);
   },
-  getMe: async (options?: any) => {
-    return http.get(API_PATH.me, options);
+  register: (params: IRegisterParams) => {
+    return HTTPService.getInstance().post(API_PATH.register, params);
+  },
+  getMe: (options?: any) => {
+    return HTTPService.getInstance().get(API_PATH.me, options);
   },
 };

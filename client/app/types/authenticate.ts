@@ -6,12 +6,14 @@ export interface ILoginParams {
 }
 
 export interface ILoginResponse {
-  jwt: string;
+  data: {
+    jwt: string;
+    data: IUser;
+    message?: string;
+    status?: number;
+    error?: any;
+  };
   token: string;
-  data: IUser;
-  message?: string;
-  status?: number;
-  error?: any;
 }
 
 export interface IRegisterParams {

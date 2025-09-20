@@ -61,7 +61,9 @@ export const SelectInput = ({
       console.log("clicked inside");
     };
     if (isFocus) {
-      document.addEventListener("click", handler, false);
+      setTimeout(() => {
+        document.addEventListener("click", handler, false);
+      }, 0);
     }
     return () => document.removeEventListener("click", handler, false);
   }, [isFocus]);

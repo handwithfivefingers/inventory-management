@@ -11,6 +11,7 @@ const Provider = (sequelize) => {
       name: {
         type: DataTypes.STRING,
         required: true,
+        allowNull: false,
       },
       phone: {
         type: DataTypes.STRING,

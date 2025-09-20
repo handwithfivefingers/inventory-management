@@ -13,4 +13,5 @@ module.exports = {
   ProviderController: require("./provider"),
   FinancialController: require("./financial"),
   HistoryController: require("./history"),
-};
+  SettingController: require("./setting"),
+}

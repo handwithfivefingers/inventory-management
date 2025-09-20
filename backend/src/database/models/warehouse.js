@@ -38,6 +38,7 @@ const Warehouse = (sequelize) => {
     Model.hasMany(models.inventory, { foreignKey: "warehouseId" });
     Model.hasMany(models.orderDetail, { foreignKey: "warehouseId" });
     Model.hasMany(models.transfer, { foreignKey: "warehouseId" });
+    Model.hasMany(models.order, { foreignKey: "warehouseId" });
   };
   return Model;
 };

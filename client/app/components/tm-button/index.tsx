@@ -16,8 +16,9 @@ enum ISizes {
 }
 
 const variants: IButtonVariants = {
-  primary:
-    "bg-main-700 dark:bg-main-300/20 outline outline-transparent  focus:outline-main-300 active:outline-main-300 text-white dark:text-slate-200",
+  // primary:
+  //   "bg-main-700 dark:bg-main-300/20 outline outline-transparent  focus:outline-main-300 active:outline-main-300 text-white dark:text-slate-200",
+  primary: "bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors",
   secondary: "bg-slate-300 outline outline-transparent  active:outline-indigo-200 text-indigo-950 dark:text-slate-200",
   light:
     "bg-indigo-100 outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:bg-slate-700",

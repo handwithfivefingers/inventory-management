@@ -26,7 +26,9 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
       }
     };
     if (show) {
-      document.addEventListener("click", handler, false);
+      setTimeout(() => {
+        document.addEventListener("click", handler, false);
+      }, 0);
     }
     return () => document.removeEventListener("click", handler, false);
   }, [show]);

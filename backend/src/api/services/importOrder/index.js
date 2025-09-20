@@ -7,6 +7,17 @@ module.exports = class ImportOrderService extends BaseCRUDService {
     super("order");
   }
 
+  /**
+   * @description Create a new order
+   * @param {Object} params - contains order creation information
+   * @param {number} params.VAT - VAT value
+   * @param {number} params.surcharge - surcharge value
+   * @param {string} params.paymentType - payment type, can be "cash" or "transfer"
+   * @param {number} params.warehouseId - warehouse ID
+   * @param {number} params.providerId - provider ID
+   * @param {Array<Object>} params.OrderDetails - an array of objects containing order details information
+   * @returns {Promise<Object>} - a Promise that resolves to a newly created order
+   */
   async create({ VAT, surcharge, paymentType, warehouseId, providerId, OrderDetails }) {
     try {
       const resp = await new OrderService().create({
@@ -24,6 +35,11 @@ module.exports = class ImportOrderService extends BaseCRUDService {
       throw error;
     }
   }
+  /**
+   * @description Get orders with pagination
+   * @param {{ vendor }} params - pagination params, vendorId
+   * @return {Promise<Object>} - result of query
+   */
   async getOrders(params) {
     try {
       const queryParams = {
@@ -47,6 +63,18 @@ module.exports = class ImportOrderService extends BaseCRUDService {
       throw error;
     }
   }
+  /**
+   * Retrieves an order by its ID and vendor ID.
+   *
+   * @param {{ id }} params - The parameters containing the order ID.
+   * @param {string} params.id - The unique identifier of the order.
+   * @param {{ vendor }} query - The query parameters containing the vendor ID.
+   * @param {string} query.vendor - The unique identifier of the vendor.
+   *
+   * @returns {Promise<Object|null>} The order details including inventory quantity if found, otherwise null.
+   *
+   * @throws Will throw an error if retrieving the order fails.
+   */
   async getOrderById({ params, query }) {
     try {
       const resp = await this.warehouse.findOne({

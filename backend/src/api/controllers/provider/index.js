@@ -13,7 +13,7 @@ module.exports = class ProviderController {
   }
   async getProvider(req, res, next) {
     try {
-      const { count, rows } = await new ProviderService().getProvider(req.query);
+      const { count, rows } = await new ProviderService().getProvider(req);
       return res.status(200).json({ total: count, data: rows });
     } catch (error) {
       next(error);

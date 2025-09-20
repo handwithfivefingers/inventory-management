@@ -1,4 +1,7 @@
 const BaseCRUDService = require("@constant/base");
+const redisClient = require("@src/config/redis");
+const { cacheGet, cacheKey, cacheSet } = require("@src/libs/redis");
+const { retrieveUser } = require("@src/libs/utils");
 
 module.exports = class WarehouseService extends BaseCRUDService {
   constructor() {
@@ -31,11 +34,13 @@ module.exports = class WarehouseService extends BaseCRUDService {
       throw error;
     }
   }
-  async getWarehouse(params) {
+  async getWarehouse(req) {
     try {
+      const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req);
+      const { offset, limit } = this.getPagination(req);
       const resp = await this.get({
         where: {
-          vendorId: params.vendorId,
+          vendorId: vendor.id,
         },
         include: [
           {
@@ -46,7 +51,13 @@ module.exports = class WarehouseService extends BaseCRUDService {
         attributes: {
           include: [[this.sequelize.fn("sum", this.sequelize.col("inventories.quantity")), "quantity"]],
         },
+        offset,
+        limit,
+        subQuery: false, // Unknown column "inventories.quantity" in field list
+        distinct: true,
+        logging: (sql) => console.log(sql),
       });
+      console.log("resp", resp.rows[0]);
       return resp;
     } catch (error) {
       throw error;
@@ -66,6 +77,25 @@ module.exports = class WarehouseService extends BaseCRUDService {
       });
       return resp;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  async activeWarehouse(req) {
+    try {
+      const { warehouse } = req.body;
+      const user = retrieveUser(req);
+      const _user = await cacheGet(cacheKey("User", user.email));
+      const _nextUser = { ..._user };
+      const warehouses = _user.warehouses;
+      const filter = warehouses.filter((w) => w.id === warehouse);
+      if (req.body.warehouse && filter.length) {
+        _nextUser.activeWarehouse = filter[0];
+        await cacheSet(cacheKey("User", user.email), _nextUser);
+      }
+      return _nextUser.activeWarehouse;
+    } catch (error) {
+      console.log("error", error);
       throw error;
     }
   }

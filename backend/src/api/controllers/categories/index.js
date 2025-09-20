@@ -20,9 +20,19 @@ module.exports = class CategoriesController {
       next(error);
     }
   }
+  async delete(req, res, next) {
+    try {
+      const resp = await new CategoriesService().deleteById(req);
+      return res.status(200).json({
+        data: resp,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
   async get(req, res, next) {
     try {
-      const { count, rows } = await new CategoriesService().getCategories(req.query);
+      const { count, rows } = await new CategoriesService().getCategories(req);
       return res.status(200).json({ total: count, data: rows });
     } catch (error) {
       next(error);

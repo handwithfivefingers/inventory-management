@@ -21,8 +21,6 @@ module.exports = class CategoriesService extends BaseCRUDService {
 
   async update(req) {
     try {
-      console.log("req.params.id", req.params.id);
-      console.log("req.body", req.body);
       const instance = await this.category.update(
         {
           name: req.body.name,
@@ -31,7 +29,7 @@ module.exports = class CategoriesService extends BaseCRUDService {
           where: {
             id: req.params.id,
           },
-        },
+        }
       );
       return instance;
     } catch (error) {
@@ -39,13 +37,25 @@ module.exports = class CategoriesService extends BaseCRUDService {
     }
   }
 
-  async getCategories(params) {
+  /**
+   * Retrieve all categories by vendorId
+   *
+   * @param {{ vendorId: string }} params - The parameters containing the vendorId.
+   * @returns {Promise<Object[]>} - The categories.
+   *
+   * @throws Will throw an error if retrieving the categories fails.
+   */
+  async getCategories(req) {
     try {
-      console.log("params", params);
+      const { offset, limit } = this.getPagination(req);
+      const { vendor } = this.getActiveWarehouseAndVendor(req);
+
       const queryParams = {
         where: {
-          vendorId: params.vendorId,
+          vendorId: vendor.id,
         },
+        offset,
+        limit,
       };
       const resp = await this.get(queryParams);
       return resp;
@@ -54,7 +64,15 @@ module.exports = class CategoriesService extends BaseCRUDService {
     }
   }
 
-  async getById({ params, query }) {
+  /**
+   * Retrieves a category by its ID.
+   *
+   * @param {{ id: string|number }} params - The parameters containing the category ID.
+   * @returns {Promise<Object|null>} The category if found, otherwise null.
+   *
+   * @throws Will throw an error if retrieving the category fails.
+   */
+  async getById({ params }) {
     try {
       const resp = await this.category.findOne({
         where: {
@@ -64,6 +82,20 @@ module.exports = class CategoriesService extends BaseCRUDService {
       });
       return resp;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteById(req) {
+    const t = await this.sequelize.transaction();
+    try {
+      const { vendor } = this.getActiveWarehouseAndVendor(req);
+      const { id } = req.params;
+      const resp = await this.delete({ where: { id: id, vendorId: vendor.id } }, { transaction: t });
+      await t.commit();
+      return resp;
+    } catch (error) {
+      await t.rollback();
       throw error;
     }
   }

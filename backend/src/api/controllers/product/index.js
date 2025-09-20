@@ -3,7 +3,7 @@ const { ProductService } = require("../../services");
 module.exports = class ProductController {
   async create(req, res, next) {
     try {
-      const resp = await new ProductService().create(req.body);
+      const resp = await new ProductService().create(req);
       return res.status(200).json({
         data: resp,
       });
@@ -31,7 +31,7 @@ module.exports = class ProductController {
   }
   async getProductById(req, res, next) {
     try {
-      const resp = await new ProductService().getProductById({ params: req.params, query: req.query });
+      const resp = await new ProductService().getProductById(req);
       return res.status(200).json({
         data: resp,
       });
@@ -41,11 +41,7 @@ module.exports = class ProductController {
   }
   async updateProduct(req, res, next) {
     try {
-      const resp = await new ProductService().updateProduct({
-        id: req.params.id,
-        warehouseId: req.query.warehouseId,
-        data: req.body,
-      });
+      const resp = await new ProductService().updateProduct(req);
       return res.status(200).json({
         data: resp,
       });

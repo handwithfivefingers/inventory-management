@@ -25,6 +25,7 @@ export default defineConfig({
         replacement: resolve(__dirname, "./src") + "/",
       },
     ],
+    extensions: [".mdx", ".mjs", ".js", ".ts", ".tsx", ".jsx"],
   },
   css: {
     preprocessorOptions: {

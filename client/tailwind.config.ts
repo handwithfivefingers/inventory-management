@@ -18,7 +18,8 @@ export default {
       },
       colors: {
         main: {
-          700: "#008DDA",
+          800: "#008DDA",
+          700: "#CDF5FD",
           600: "#00A9FF",
           500: "#89CFF3",
           400: "#1da1f2",

@@ -2,7 +2,7 @@ import React, { HTMLInputTypeAttribute, forwardRef, useRef } from "react";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
-import { useFormState } from "react-hook-form";
+import { useFormContext, useFormState } from "react-hook-form";
 export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInputTypeAttribute> {
   label?: string;
   name?: string;
@@ -27,8 +27,8 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     ref
   ) => {
     const prefixRef = useRef<HTMLSpanElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
     const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
+    const { clearErrors } = name ? useFormContext() : { clearErrors: (arg: string) => {} };
     return (
       <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
         {label ? (
@@ -52,12 +52,18 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             className={cn(
               "block w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-base outline-none  py-1.5 px-3",
               styles.input,
-              inputClassName
+              inputClassName,
+              {
+                ["!ring-1 !ring-red-600 !ring-inset "]: name && errors?.[name]?.message,
+              }
             )}
             placeholder={placeholder}
             {...(rest as React.InputHTMLAttributes<HTMLInputElement>)}
             ref={ref}
-            onChange={(e) => onChange?.(e as any)}
+            onChange={(e) => {
+              clearErrors(name as string);
+              onChange?.(e as any);
+            }}
             style={style}
           />
           {suffix && (

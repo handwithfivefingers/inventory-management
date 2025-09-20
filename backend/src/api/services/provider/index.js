@@ -40,18 +40,24 @@ module.exports = class ProviderService extends BaseCRUDService {
       await entry.save({ transaction: t });
       await t.commit();
       await cacheSet(cacheKey("Provider", req.params.id, vendor.id), entry);
-      return entry
+      return entry;
     } catch (error) {
       await t.rollback();
       throw error;
     }
   }
-  async getProvider(params) {
+  async getProvider(req) {
     try {
+      // const { vendor } = req.params;
+      const { vendor } = this.getActiveWarehouseAndVendor(req);
+      const { limit, offset } = this.getPagination(req);
       const resp = await this.get({
         where: {
-          vendorId: params.vendor,
+          vendorId: vendor.id,
         },
+        limit,
+        offset,
+        distinct: true,
       });
       return resp;
     } catch (error) {

@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
 import { TMModal } from ".";
+import { TMButton } from "~/components";
+import { useState } from "react";
 
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories#default-export
 const meta = {
@@ -37,8 +39,18 @@ export const Primary: Story = {
     open: true,
     close: () => {},
     maskOnClose: true,
-    width: 200,
+    width: 400,
     title: "Sample Title",
     children: <SampleChildren />,
+  },
+
+  render: (props) => {
+    const [isShow, setIsShow] = useState(false);
+    return (
+      <div>
+        <TMButton onClick={() => setIsShow(!isShow)}>Open Modal</TMButton>
+        <TMModal {...props} open={isShow} close={() => setIsShow(false)} />
+      </div>
+    );
   },
 };
