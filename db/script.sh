@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Configuration
-CONTAINER_NAME="gamein-wiki-database-1"
+CONTAINER_NAME="inventory-management_database_1"
 DB_USER="root"
 DB_PASS="mysql"
-BACKUP_DIR="./dump"
+BACKUP_DIR="$(pwd)/dump"
 DATE=$(date +"%Y%m%d%H%M%S")
 
 # Function to display usage
@@ -20,6 +20,7 @@ usage() {
 # Function to perform backup
 backup() {
     DB_NAME=$1
+    mkdir -p "$BACKUP_DIR"
     BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_backup_$DATE.sql"
     docker exec $CONTAINER_NAME mysqldump -u $DB_USER -p$DB_PASS $DB_NAME > $BACKUP_FILE
     if [ $? -eq 0 ]; then

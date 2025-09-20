@@ -249,7 +249,6 @@ export class ProductService {
 
   async getProductById(req: IRequestLocal) {
     try {
-      // const { params } = req
       // const key = cacheKey('Product', params.id)
       // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
       // const response = await productCacheItem({
@@ -295,7 +294,7 @@ export class ProductService {
       const params = req.params
       return this.product.findOne({
         where: {
-          id: params.id,
+          id: params.id
           // '$inventories.warehouseId$': warehouse.id
         },
         include: [

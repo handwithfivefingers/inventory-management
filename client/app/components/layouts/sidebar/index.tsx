@@ -60,7 +60,7 @@ const SideBarItem = (props: ISidebarItem) => {
     return (
       <div className="flex gap-0.5 flex-col relative">
         <div
-          className="absolute w-[1px] from-transparent via-indigo-600 to-transparent from-[5px] to-[calc(100%-5px)] bg-gradient-to-b rounded-full left-7"
+          className="absolute w-[1px]  from-[5px] to-[calc(100%-5px)] mask-linear-[180deg,transparent_10%,black,transparent_80%]  bg-indigo-600 dark:bg-slate-200  rounded-full left-7"
           style={{ height: isExpand ? items.length * 40 + "px" : "0px", transition: "all 0.15s ease-in" }}
         />
         <div
@@ -95,9 +95,9 @@ const SideBarItem = (props: ISidebarItem) => {
       {items?.length && (
         <div
           className={cn(
-            "py-1 transition-all rounded-md flex gap-2 justify-between pl-2 cursor-pointer text-indigo-950 hover:text-indigo-600",
+            "py-1 transition-all rounded-md flex gap-2 justify-between pl-2 cursor-pointer text-indigo-950 hover:text-indigo-600 dark:hover:text-slate-800/80 dark:text-slate-200",
             {
-              ["text-indigo-600"]: isContainActiveMenu,
+              ["text-indigo-600 dark:text-slate-200"]: isContainActiveMenu,
             }
           )}
           onClick={() => setIsExpand(!isExpand)}

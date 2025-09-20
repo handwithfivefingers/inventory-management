@@ -9,7 +9,6 @@ import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { ILoginForm, loginSchema } from "~/constants/schema/login";
-import { useSubmitPromise } from "~/hooks";
 import { cn } from "~/libs/utils";
 import styles from "./styles.module.scss";
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -17,10 +16,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 function Login({ children }: { children: React.ReactNode }) {
-  const { submit } = useSubmitPromise();
   const formMethods = useForm({
     defaultValues: {
-      email: "Harry.Ankunding50@gmail.com",
+      email: "Michael_Okuneva@hotmail.com",
       password: "123456",
     },
     resolver: zodResolver(loginSchema),
@@ -39,7 +37,7 @@ function Login({ children }: { children: React.ReactNode }) {
     }
   };
   return (
-    <div className="w-full flex flex-col p-4 gap-4 items-center justify-center">
+    <div className="w-full flex flex-col p-4 gap-4 items-center justify-center h-screen">
       <CardItem title="Đăng nhập" className={cn("p-4 flex-col gap-2 shadow-xl", styles.box)}>
         <FormProvider {...formMethods}>
           <form onSubmit={formMethods.handleSubmit(handleSubmit, (e) => onError(e))} className="flex flex-col gap-2">
@@ -67,7 +65,7 @@ function Login({ children }: { children: React.ReactNode }) {
 
             <div>
               <div className="text-sm text-right">
-                <Link to="/register" className="text-indigo-600">
+                <Link to="/register" className="text-indigo-600 dark:text-white underline underline-offset-2">
                   Quên mật khẩu?
                 </Link>
               </div>
@@ -78,26 +76,26 @@ function Login({ children }: { children: React.ReactNode }) {
             <div>
               <div className="text-sm text-center py-2">
                 <span>Bạn chưa có tài khoản? </span>
-                <Link to="/register" className="text-indigo-600">
+                <Link to="/register" className="text-indigo-600 dark:text-white underline underline-offset-2">
                   Đăng kí ngay
                 </Link>
               </div>
             </div>
             <div className="flex items-center flex-row">
-              <div className="bg-indigo-600 h-0.5 w-full" />
+              <div className="bg-indigo-600 h-[1px] w-full dark:bg-slate-500" />
               <span className="text-center text-sm flex-shrink-0 px-4">Đăng nhập với</span>
-              <div className="bg-indigo-600 h-0.5 w-full" />
+              <div className="bg-indigo-600 h-[1px] w-full dark:bg-slate-500" />
             </div>
             <div className="flex flex-row justify-center gap-8">
-              <div className="p-2 rounded-md bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition-all">
-                <Icon name="facebook" className="text-indigo-600" />
-              </div>
-              <div className="p-2 rounded-md bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition-all">
-                <Icon name="instagram" className="text-indigo-600" />
-              </div>
-              <div className="p-2 rounded-md bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition-all">
-                <Icon name="mail" className="text-indigo-600 " />
-              </div>
+              <TMButton className="px-2">
+                <Icon name="facebook" />
+              </TMButton>
+              <TMButton className="px-2">
+                <Icon name="instagram" />
+              </TMButton>
+              <TMButton className="px-2">
+                <Icon name="mail" />
+              </TMButton>
             </div>
           </form>
         </FormProvider>

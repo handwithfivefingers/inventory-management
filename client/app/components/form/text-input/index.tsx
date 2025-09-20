@@ -32,7 +32,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     return (
       <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
         {label ? (
-          <label htmlFor={name} className="block text-sm/6 font-medium text-indigo-950 dark:text-slate-200">
+          <label htmlFor={name} className="block text-sm mb-2 font-medium text-indigo-950 dark:text-white">
             {label}
           </label>
         ) : (
