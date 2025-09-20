@@ -1,11 +1,10 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, redirect } from "@remix-run/react";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "@remix-run/react";
+import "~/assets/styles/tailwind.css";
+import "~/assets/styles/index.scss";
 import "animate.css";
 import "feather-icons/dist/feather";
-import "~/assets/styles/index.scss";
 import { ErrorComponent } from "./components/error-component";
 import { NotificationProvider } from "./components/notification";
-import { destroySession, getSession } from "./sessions";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,7 +15,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="bg-white dark:bg-slate-700">
         {children}
         <ScrollRestoration />
         <Scripts />

@@ -29,17 +29,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const params = url.searchParams;
   const page = params.get("page") || 1;
   const pageSize = params.get("pageSize") || 10;
+  const s = params.get("s") || "";
   // const warehouse = session.get("warehouse");
   const resp = await productService.getProducts({
     // warehouseId: warehouse,
-    page: page,
-    pageSize: pageSize,
+    page,
+    pageSize,
+    s,
     cookie,
   });
-  resp.page = Number(page);
-  resp.pageSize = Number(pageSize);
+
   // resp.token = session.get("token");
-  return resp;
+  return {
+    ...resp,
+    s,
+    page: Number(page),
+    pageSize: Number(pageSize),
+  };
 };
 
 export const meta: MetaFunction = () => {
@@ -48,42 +54,43 @@ export const meta: MetaFunction = () => {
 
 export default function Products() {
   const navigate = useNavigate();
-  const { data, total, page, pageSize, token } = useLoaderData<typeof loader>();
+  const { data, total, page, pageSize, s } = useLoaderData<typeof loader>();
+  console.log("data", data);
   const { warehouse } = useWarehouse();
-  const [filter, setFilter] = useState<IFilter>({});
-
+  const [filter, setFilter] = useState<IFilter>({ s });
+  useEffect(() => {
+    let timeout: any;
+    timeout = setTimeout(() => {
+      navigate(`?s=${filter.s}`);
+    }, 500);
+    return () => timeout && clearTimeout(timeout);
+  }, [filter]);
   const handleImportUpload = (file: File) => {
-    const form = new FormData();
-    form.append("products", file);
-    if (warehouse?.id) {
-      form.append("warehouse", warehouse?.id as any);
-    }
-    fetch("http://localhost:3001/api/products/import", {
-      method: "POST",
-      body: form,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    alert("Function not build yet");
+    // const form = new FormData();
+    // form.append("products", file);
+    // if (warehouse?.id) {
+    //   form.append("warehouse", warehouse?.id as any);
+    // }
+    // fetch("http://localhost:3001/api/products/import", {
+    //   method: "POST",
+    //   body: form,
+    // });
   };
-
-  useEffect(() => {}, []);
-
+  console.log("render");
   return (
-    <div className=" w-full flex flex-col p-4 gap-4">
-      <CardItem title="Sản phẩm">
-        <div className="py-2">
-          <div className="flex gap-2">
+    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <CardItem title="Sản phẩm" className="p-4 h-full">
+        <div className="flex gap-2 flex-col h-full overflow-hidden">
+          <div className="flex gap-2 shrink-0">
             <TextInput
-              label="Name"
               placeholder="Lọc theo mã, tên hàng hóa"
               value={filter.s}
               onChange={(v: any) => {
-                console.log("v", v);
                 const value = v.target.value;
-                setFilter((prev) => {
-                  prev.s = value;
-                  return prev;
+                setFilter({
+                  ...filter,
+                  s: value,
                 });
               }}
             />
@@ -100,46 +107,44 @@ export default function Products() {
               </div>
             </div>
           </div>
-        </div>
-        <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
-          <TMTable
-            columns={[
-              {
-                title: "Tên sản phẩm",
-                dataIndex: "name",
-                render: (record) => record["name"],
-              },
-              {
-                title: "Mã sản phẩm",
-                dataIndex: "skuCode",
-                render: (record) => record["skuCode"],
-              },
-              {
-                title: "Tồn kho",
-                dataIndex: "quantity",
-                render: (record) => record["quantity"] || 0,
-              },
-              {
-                title: "Đã bán",
-                dataIndex: "sold",
-                render: (record) => record["sold"] || 0,
-              },
-              {
-                title: "Ngày tạo",
-                dataIndex: "createdAt",
-                render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
-              },
-            ]}
-            data={data || []}
-            rowKey={"id"}
-            onRow={{
-              onClick: (record) => {
-                console.log("record", record);
-                navigate(`./${record?.id}`);
-              },
-            }}
-          />
-          <div className="flex  gap-2">
+          <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn flex-1 overflow-auto">
+            <TMTable
+              scrollable
+              columns={[
+                {
+                  title: "Tên sản phẩm",
+                  dataIndex: "name",
+                  render: (record) => record["name"],
+                },
+                {
+                  title: "Mã sản phẩm",
+                  dataIndex: "skuCode",
+                  render: (record) => record["skuCode"],
+                },
+                {
+                  title: "Tồn kho",
+                  dataIndex: "quantity",
+                  render: (record) => record["quantity"] || 0,
+                },
+                {
+                  title: "Đã bán",
+                  dataIndex: "sold",
+                  render: (record) => record["sold"] || 0,
+                },
+                {
+                  title: "Ngày tạo",
+                  dataIndex: "createdAt",
+                  render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
+                },
+              ]}
+              data={data || []}
+              rowKey={"id"}
+              onRow={{
+                onClick: (record) => navigate(`./${record?.id}`),
+              }}
+            />
+          </div>
+          <div className="flex  gap-2 shrink-0">
             <TMPagination
               total={total || 0}
               current={page as number}

@@ -3,6 +3,7 @@ import path from "node:path";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { flatRoutes } from "remix-flat-routes";
+import tailwindcss from "@tailwindcss/vite";
 
 declare module "@remix-run/node" {
   interface Future {
@@ -10,11 +11,10 @@ declare module "@remix-run/node" {
   }
 }
 
-export default defineConfig(({ command }) => {
-  process.env["VITE_WARE_HOUSE"] = "Warehouse 1";
-  process.env["VITE_VENDOR"] = "Finger Group";
+export default defineConfig(({}) => {
   return {
     plugins: [
+      tailwindcss(),
       remix({
         future: {
           v3_fetcherPersist: true,
@@ -29,8 +29,8 @@ export default defineConfig(({ command }) => {
             //appDir: 'app',
             //routeDir: 'routes',
             //basePath: '/',
-            paramPrefixChar: '$',
-            nestedDirectoryChar: '+',
+            paramPrefixChar: "$",
+            nestedDirectoryChar: "+",
             // routeRegex: /((\${nestedDirectoryChar}[\/\\][^\/\\:?*]+)|[\/\\]((index|route|layout|page)|(_[^\/\\:?*]+)|([^\/\\:?*]+\.route)))\.(ts|tsx|js|jsx|md|mdx)$$/,
           });
         },

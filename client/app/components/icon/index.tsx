@@ -1,5 +1,4 @@
 import feather from "feather-icons";
-import { sanitize } from "~/libs/utils";
 
 export interface IIcon {
   name: string;
@@ -8,6 +7,6 @@ export interface IIcon {
   [key: string]: any;
 }
 export const Icon = ({ name, options, className, ...rest }: IIcon) => {
-  const icon = (feather as any).icons[name].toSvg({ class: className, ...options });
+  const icon = (feather as any).icons[name].toSvg({ class: className, style: { strokeWidth: 1 }, ...options });
   return <div dangerouslySetInnerHTML={{ __html: icon }} {...rest} />;
 };

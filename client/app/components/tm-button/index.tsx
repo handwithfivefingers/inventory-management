@@ -19,7 +19,7 @@ const variants: IButtonVariants = {
   // primary:
   //   "bg-main-700 dark:bg-main-300/20 outline outline-transparent  focus:outline-main-300 active:outline-main-300 text-white dark:text-slate-200",
   primary:
-    "bg-indigo-50 dark:bg-slate-500 dark:text-white dark:hover:bg-slate-100 dark:hover:text-indigo-600 text-indigo-600 hover:bg-indigo-100 transition-colors",
+    "bg-indigo-50 dark:bg-slate-400 dark:text-white dark:hover:bg-slate-100 dark:hover:text-indigo-600 text-indigo-600 hover:bg-indigo-100 transition-colors ",
   secondary: "bg-slate-300 outline outline-transparent  active:outline-indigo-200 text-indigo-950 dark:text-slate-200",
   light:
     "bg-indigo-100 outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:bg-slate-700",
@@ -57,7 +57,7 @@ export const TMButton = ({
   ...rest
 }: ITMButton) => {
   const Element: any = component || "button";
-  const classCn = cn("active:translate-y-[1px]", sizes[size as ISizes], variants[variant as IVariants], className);
+  const classCn = cn("cursor-pointer active:translate-y-[1px]", sizes[size as ISizes], variants[variant as IVariants], className);
   return (
     <Element className={classCn} type={htmlType || "button"} onClick={onClick} {...rest}>
       {children}

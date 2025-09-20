@@ -43,9 +43,8 @@ export const meta: MetaFunction = () => {
 export default function ProductItem() {
   const { data } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
-  console.log("data", data);
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
+    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem
         title={
           <div className="flex justify-between items-center">
@@ -55,10 +54,12 @@ export default function ProductItem() {
             </TMButton>
           </div>
         }
+        className="p-4 h-full"
       >
-        {!edit ? <Detail /> : null}
-
-        {edit ? <EditForm /> : null}
+        <div className="flex gap-2 flex-col h-full overflow-hidden">
+          {!edit ? <Detail /> : null}
+          {edit ? <EditForm /> : null}
+        </div>
       </CardItem>
       {/* <CardItem title={`Lịch sử tồn kho`}>
         <div className="w-full flex flex-col gap-2">
@@ -184,12 +185,12 @@ const EditForm = () => {
       VAT: 5,
       expiredAt: undefined,
     },
-    values: {
-      ...data,
-      categories: (data.categories as ICategory[])?.map((item: ICategory) => item?.id) || [],
-      tags: (data.tags as ICategory[])?.map((item: ICategory) => item?.id) || [],
-      unit: data.unitId || undefined,
-    },
+    // values: {
+    //   ...data,
+    //   categories: (data.categories as ICategory[])?.map((item: ICategory) => item?.id) || [],
+    //   tags: (data.tags as ICategory[])?.map((item: ICategory) => item?.id) || [],
+    //   unit: data.unitId || undefined,
+    // },
     resolver: zodResolver(productSchema),
   });
 
@@ -197,14 +198,14 @@ const EditForm = () => {
     console.log("errors", errors);
   };
   const onSubmit = (v: any): void => {
-    fetcher.submit(
-      {
-        data: JSON.stringify({
-          data: { ...v, id: data.id },
-        }),
-      },
-      { method: "POST", action: "/products/edit" }
-    );
+    // fetcher.submit(
+    //   {
+    //     data: JSON.stringify({
+    //       data: { ...v, id: data.id },
+    //     }),
+    //   },
+    //   { method: "POST", action: "/products/edit" }
+    // );
   };
 
   const { load, data: categories } = useFetcher<{ data: ICategory[] }>({ key: "categories" });
@@ -463,16 +464,16 @@ const EditForm = () => {
   );
 };
 
-export const action = async ({ request }: any) => {
-  const session = await getSession(request.headers.get("Cookie"));
-  const warehouse = session.get("warehouse");
-  const formData = await request.formData();
-  const data = await formData.get("data");
-  const dataJson = JSON.parse(data);
-  const bodyData = { ...dataJson.data, warehouseId: warehouse };
-  const resp = await productService.updateProduct(bodyData);
-  return resp;
-};
+// export const action = async ({ request }: any) => {
+//   const session = await getSession(request.headers.get("Cookie"));
+//   const warehouse = session.get("warehouse");
+//   const formData = await request.formData();
+//   const data = await formData.get("data");
+//   const dataJson = JSON.parse(data);
+//   const bodyData = { ...dataJson.data, warehouseId: warehouse };
+//   const resp = await productService.updateProduct(bodyData);
+//   return resp;
+// };
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

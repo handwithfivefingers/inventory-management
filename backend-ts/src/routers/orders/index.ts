@@ -11,11 +11,9 @@
 // module.exports = route
 
 import OrderController from '#/controllers/order'
-import Router from '#/core/router'
-
+import express from 'express'
+const Router = express.Router()
 // Router.get('/', new VendorController().get)
 Router.get('/', new OrderController().getOrders)
 
-const OrderRouter = Router
-
-export default OrderRouter
+export default Router

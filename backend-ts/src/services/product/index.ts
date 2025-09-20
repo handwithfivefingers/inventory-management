@@ -194,7 +194,10 @@ export class ProductService {
   async getProducts(req: IRequestLocal) {
     try {
       // const { s, offset, limit } = this.getPagination(req)
-      const { s, offset = 0, limit = 10 } = req.query
+      const { s, page = 1, pageSize = 10 } = req.query
+
+      const limit = Number(pageSize)
+      const offset = Number(+page - 1) * Number(pageSize)
       // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
       // const key = CACHE_KEY.getProduct({ warehouse: warehouse.id, limit, offset, s })
       // console.log('warehouse', warehouse)
@@ -217,8 +220,8 @@ export class ProductService {
         //     ]
         //   ]
         // },
-        offset: Number(offset),
-        limit: Number(limit)
+        offset,
+        limit
       }
       if (s) {
         queryParams.where = {
@@ -235,10 +238,7 @@ export class ProductService {
           }
         }
       }
-      // const { rows, count } = await productCacheList({
-      //   key,
-      //   callback: () => this.get(queryParams)
-      // })
+      console.log('s', s)
       const { rows, count } = await this.product.findAndCountAll(queryParams)
       return { rows, count }
     } catch (error) {

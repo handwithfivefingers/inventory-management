@@ -22,23 +22,39 @@ interface ITMTable {
     onClick?: (record: IRow["data"]) => void;
   };
   children?: React.ReactNode;
+  scrollable?: boolean;
 }
 
-export const TMTable = ({ columns, data, rowKey, onRow, children }: ITMTable) => {
+export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable }: ITMTable) => {
   const isEmpty = !children && !data?.length;
-
   return (
-    <div className="not-prose relative bg-slate-100 rounded-md overflow-hidden dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600">
+    <div
+      className={cn(
+        "not-prose relative bg-slate-100 h-full rounded-md overflow-hidden dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600"
+      )}
+    >
       <div
         className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]"
         style={{
           backgroundPosition: "10px 10px",
         }}
       />
-      <div className="relative rounded-md overflow-auto">
-        <div className="shadow-sm overflow-hidden mt-4 ">
+      <div className="relative rounded-md h-full flex flex-col">
+        {/* <div className="pr-2.5 border-b border-slate-500 "> */}
+        <table className="table-fixed w-full text-sm ">
+          <TMTable.Header columns={columns} />
+        </table>
+        {/* </div> */}
+        <div
+          className={cn("shadow-sm", {
+            ["overflow-auto"]: scrollable,
+            ["overflow-hidden"]: !scrollable,
+          })}
+          style={{
+            scrollbarWidth: "thin",
+          }}
+        >
           <table className="border-collapse table-fixed w-full text-sm">
-            <TMTable.Header columns={columns} />
             <tbody className="bg-white dark:bg-slate-800">
               {isEmpty && (
                 <tr>
@@ -75,7 +91,9 @@ TMTable.Header = ({ columns }: { columns: ICol[] }) => {
         {columns?.map((col, i) => (
           <th
             key={`header-${i}`}
-            className="border-b dark:border-slate-600 font-medium p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left"
+            className={cn(
+              "border-b dark:border-slate-600 font-medium p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left py-3"
+            )}
             style={{
               width: col.width,
             }}

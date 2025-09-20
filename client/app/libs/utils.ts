@@ -8,4 +8,6 @@ export const cn = (...args: IClassProps[]) => {
   return twMerge(clsx(args));
 };
 
-export const sanitize = (str: string) => DOMPurify.sanitize(str);
+export const sanitize = (str: string) => {
+  return DOMPurify.sanitize(str);
+};

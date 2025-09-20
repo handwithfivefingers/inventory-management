@@ -22,12 +22,9 @@
 // module.exports = route
 
 import { ProductController } from '#/controllers/product'
-import Router from '#/core/router'
-
-// Router.get('/', new VendorController().get)
+import express from 'express'
+const Router = express.Router()
 Router.get('/', new ProductController().getProducts)
 Router.get('/:id', new ProductController().getProductById)
 
-const ProductRouter = Router
-
-export default ProductRouter
+export default Router

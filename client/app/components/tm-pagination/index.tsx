@@ -57,7 +57,7 @@ export const TMPagination = ({ total, current, pageSize, onPageChange }: IPagina
       {generatePagination().map((paginationItem, index) => (
         <div key={index}>
           <TMButton
-            variant="ghost"
+            // variant="ghost"
             size="xs"
             onClick={paginationItem.onClick}
             className={cn({

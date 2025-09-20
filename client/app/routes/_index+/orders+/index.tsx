@@ -9,7 +9,6 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -21,9 +20,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const page = params.get("page") || 1;
     const pageSize = params.get("pageSize") || 10;
     const resp = await orderService.getOrders({ page, pageSize, cookie });
-    resp.page = Number(page);
-    resp.pageSize = Number(pageSize);
-    return resp;
+
+    return { ...resp, page, pageSize };
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(error.message);
@@ -40,10 +38,10 @@ export default function Orders() {
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
-      <CardItem title="Product">
-        <div className="py-2">
-          <div className="flex gap-2">
+    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <CardItem title="Product" className="p-4 h-full">
+        <div className="flex gap-2 flex-col h-full overflow-hidden">
+          <div className="flex shrink-0 gap-2">
             <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
@@ -54,42 +52,42 @@ export default function Orders() {
               </div>
             </div>
           </div>
-        </div>
-        <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
-          <TMTable
-            columns={[
-              {
-                title: "STT",
-                dataIndex: "id",
-                width: 80,
-              },
-              {
-                title: "Tên khách hàng",
-                dataIndex: "customerName",
-                render: (record) => record.customerName || "Khách lẻ",
-              },
-              {
-                title: "Tổng tiền",
-                dataIndex: "price",
-                render: (record, i) => (
-                  <NumericFormat value={record.price} displayType={"text"} thousandSeparator="," />
-                ),
-              },
-              {
-                title: "Nhân viên",
-                dataIndex: "staffName",
-                render: (record) => record["staffName"] || "Nhân viên",
-              },
-              {
-                title: "Ngày tạo",
-                dataIndex: "createdAt",
-                render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
-              },
-            ]}
-            data={data}
-            rowKey={"documentId"}
-          />
-          <div className="flex  gap-2">
+          <div className="flex flex-1 gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
+            <TMTable
+              columns={[
+                {
+                  title: "STT",
+                  dataIndex: "id",
+                  width: 80,
+                },
+                {
+                  title: "Tên khách hàng",
+                  dataIndex: "customerName",
+                  render: (record) => record.customerName || "Khách lẻ",
+                },
+                {
+                  title: "Tổng tiền",
+                  dataIndex: "price",
+                  render: (record, i) => (
+                    <NumericFormat value={record.price} displayType={"text"} thousandSeparator="," />
+                  ),
+                },
+                {
+                  title: "Nhân viên",
+                  dataIndex: "staffName",
+                  render: (record) => record["staffName"] || "Nhân viên",
+                },
+                {
+                  title: "Ngày tạo",
+                  dataIndex: "createdAt",
+                  render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
+                },
+              ]}
+              data={data}
+              rowKey={"documentId"}
+            />
+          </div>
+          <div className="flex shrink-0 gap-2">
             <TMPagination
               total={total || 0}
               current={page as number}
@@ -100,7 +98,6 @@ export default function Orders() {
             />
           </div>
         </div>
-        {/* </div> */}
       </CardItem>
     </div>
   );

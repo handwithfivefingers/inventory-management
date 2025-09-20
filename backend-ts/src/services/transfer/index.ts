@@ -46,7 +46,7 @@ export class TransferService {
       //     }
       //   }
       // })
-      const resp = await this.transfer.findAll({
+      const resp = await this.transfer.findAndCountAll({
         where: {
           productId: id,
           warehouseId: {

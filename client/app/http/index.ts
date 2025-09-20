@@ -1,6 +1,6 @@
 export interface IResponse<T> {
   data?: T;
-  count?: number;
+  total?: number;
   error?: string;
   status: number;
 }
@@ -38,7 +38,7 @@ class HTTPService {
       const resp = await response?.json();
       if (response.status !== 200) throw { message: resp.error, status: response.status };
       if (!resp) return { data: undefined } as IResponse<undefined>;
-      return { data: resp?.data || resp, status: response.status, count: resp?.count };
+      return { data: resp?.data || resp, status: response.status, total: resp?.total };
     } catch (error) {
       throw {
         message:

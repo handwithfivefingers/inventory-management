@@ -1,4 +1,4 @@
-import { http } from "~/http";
+import { HTTPService } from "~/http";
 import { BaseQueryParams } from "~/types/common";
 import { IWareHouse } from "~/types/warehouse";
 
@@ -11,23 +11,22 @@ interface IProviderBaseQueryParams extends BaseQueryParams {
 }
 interface IProviderParams extends IWareHouse {}
 const providerService = {
-  getProviders: (params: IProviderBaseQueryParams) => {
+  getProviders: ({ cookie, ...params }: IProviderBaseQueryParams) => {
     try {
       const qs = new URLSearchParams(params as any);
-      const path = API_PATH.provider + "?" + qs.toString();
-      return http.get(API_PATH.provider + "?" + qs.toString());
+      return HTTPService.getInstance().get(API_PATH.provider + "?" + qs.toString(), { Cookie: cookie });
     } catch (error) {
       throw error;
     }
   },
   getProviderById: (id: string | number) => {
-    return http.get(API_PATH.provider + "/" + id);
+    return HTTPService.getInstance().get(API_PATH.provider + "/" + id);
   },
   update: ({ id, ...params }: IProviderParams) => {
-    return http.post(API_PATH.provider + "/" + id, params);
+    return HTTPService.getInstance().post(API_PATH.provider + "/" + id, params);
   },
   create: (params: any) => {
-    return http.post(API_PATH.provider, params);
+    return HTTPService.getInstance().post(API_PATH.provider, params);
   },
 };
 

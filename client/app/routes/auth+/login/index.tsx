@@ -37,8 +37,11 @@ function Login({ children }: { children: React.ReactNode }) {
     }
   };
   return (
-    <div className="w-full flex flex-col p-4 gap-4 items-center justify-center h-screen">
-      <CardItem title="Đăng nhập" className={cn("p-4 flex-col gap-2 shadow-xl", styles.box)}>
+    <div className="w-full flex flex-col p-4 gap-4 items-center justify-center h-screen ">
+      <CardItem
+        title="Đăng nhập"
+        className={cn("p-4 flex-col gap-2 shadow-xl mx-auto max-w-[400px] w-full flex ", styles.box)}
+      >
         <FormProvider {...formMethods}>
           <form onSubmit={formMethods.handleSubmit(handleSubmit, (e) => onError(e))} className="flex flex-col gap-2">
             <Controller
@@ -82,9 +85,9 @@ function Login({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="flex items-center flex-row">
-              <div className="bg-indigo-600 h-[1px] w-full dark:bg-slate-500" />
+              <div className="bg-indigo-600 h-[1px] w-full dark:bg-slate-400" />
               <span className="text-center text-sm flex-shrink-0 px-4">Đăng nhập với</span>
-              <div className="bg-indigo-600 h-[1px] w-full dark:bg-slate-500" />
+              <div className="bg-indigo-600 h-[1px] w-full dark:bg-slate-400" />
             </div>
             <div className="flex flex-row justify-center gap-8">
               <TMButton className="px-2">

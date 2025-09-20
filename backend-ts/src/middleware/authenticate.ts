@@ -25,10 +25,8 @@ const auth: any = async (req: IRequest, res: Response, next: NextFunction) => {
   try {
     const cookie = req.cookies
     const session = cookie['session']
-    console.log('session', session)
     if (!session) throw new Error(ERROR.UNAUTHORIZED)
     const payload = verifyToken<ITokenPayload>(session)
-    console.log('payload', payload)
     if (!payload) throw new Error(ERROR.UNAUTHORIZED)
     const user = await database.user.findOne({ where: { id: payload.id } })
     if (!user) throw new Error(ERROR.UNAUTHORIZED)

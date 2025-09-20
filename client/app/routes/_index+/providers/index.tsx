@@ -5,20 +5,20 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
+import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const session = await getSession(request.headers.get("Cookie"));
+    const cookie = request.headers.get("cookie") as string;
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || 1;
     const pageSize = params.get("pageSize") || 10;
-    const vendor = session.get("vendor");
 
-    const prods = await providerService.getProviders({ page, pageSize, vendor: vendor as string });
+    const prods = await providerService.getProviders({ page, pageSize, cookie });
     return prods;
   } catch (error) {
     console.log(error instanceof Error);
@@ -84,11 +84,12 @@ export default function Products() {
               onClick: (record) => navigate(`./${record.id}`),
             }}
           />
-          <div className="flex  gap-2">
+          {/* <div className="flex  gap-2">
             <TMButton>1</TMButton>
             <TMButton>2</TMButton>
             <TMButton>3</TMButton>
-          </div>
+          </div> */}
+          <TMPagination total={20} current={1} pageSize={10} onPageChange={(page) => console.log(page)} />
         </div>
       </CardItem>
     </div>

@@ -27,6 +27,7 @@ export class ProductController {
   async getProducts(req: Request, res: Response, next: NextFunction) {
     try {
       const { count, rows } = await new ProductService().getProducts(req as IRequestLocal)
+      console.log('rows', count)
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {

@@ -1,15 +1,19 @@
-const express = require("express");
-const { CategoriesController } = require("../controllers");
-const route = express.Router();
+// const express = require('express')
+// const { CategoriesController } = require('../controllers')
+// const route = express.Router()
 
-route.get("/", new CategoriesController().get);
+import { CategoriesController } from '#/controllers/categories'
+import express from 'express'
+const route = express.Router()
 
-route.get("/:id", new CategoriesController().getById);
+route.get('/', new CategoriesController().get)
 
-route.post("/", new CategoriesController().create);
+route.get('/:id', new CategoriesController().getById)
 
-route.post("/:id", new CategoriesController().update);
+route.post('/', new CategoriesController().create)
 
-route.delete("/:id", new CategoriesController().delete);
+route.post('/:id', new CategoriesController().update)
 
-module.exports = route;
+route.delete('/:id', new CategoriesController().delete)
+
+export default route

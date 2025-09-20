@@ -1,10 +1,9 @@
-const express = require("express");
-const route = express.Router();
-const { WarehouseController } = require("../controllers");
+import { WarehouseController } from '#/controllers/warehouse'
+import express from 'express'
+const route = express.Router()
 
-route.get("/", new WarehouseController().get);
-route.get("/:id", new WarehouseController().getWarehouseById);
-route.post("/create", new WarehouseController().create);
-route.post("/active", new WarehouseController().activeWarehouse);
+route.get('/', new WarehouseController().get)
+route.get('/:id', new WarehouseController().getWarehouseById)
+route.post('/create', new WarehouseController().create)
 
-module.exports = route;
+export default route

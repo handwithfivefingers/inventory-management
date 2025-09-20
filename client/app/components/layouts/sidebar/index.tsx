@@ -30,7 +30,7 @@ export const Sidebar = () => {
       {SIDE_BAR?.map((sideItem, index) => (
         <SideBarItem
           to={sideItem.to}
-          key={sideItem.to}
+          key={[sideItem.to, index].join("-")}
           label={sideItem.label}
           iconName={sideItem?.iconName}
           isActive={
@@ -60,11 +60,11 @@ const SideBarItem = (props: ISidebarItem) => {
     return (
       <div className="flex gap-0.5 flex-col relative">
         <div
-          className="absolute w-[1px]  from-[5px] to-[calc(100%-5px)] mask-linear-[180deg,transparent_10%,black,transparent_80%]  bg-indigo-600 dark:bg-slate-200  rounded-full left-7"
-          style={{ height: isExpand ? items.length * 40 + "px" : "0px", transition: "all 0.15s ease-in" }}
+          className="absolute w-[1px] mask-linear-[180deg,transparent_5%,black,transparent_95%]  bg-indigo-600 dark:bg-slate-200  rounded-full left-7"
+          style={{ height: isExpand ? items.length * 40 + 8 + "px" : "0px", transition: "all 0.15s ease-in" }}
         />
         <div
-          className={cn("w-full pl-10 gap-1 flex-col flex", {})}
+          className={cn("w-full pl-10 gap-1 flex-col flex")}
           style={{
             height: isExpand ? items.length * 44 + "px" : "0px",
             transition: "all 0.1s ease-in",
@@ -81,7 +81,7 @@ const SideBarItem = (props: ISidebarItem) => {
                 iconName={item.iconName}
                 className={className}
                 isChildren={items.length > 0}
-                key={`${item.label + item.to + index + i}`}
+                key={`${item.to + index + i}`}
               />
             );
           })}
@@ -130,7 +130,15 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: ILin
       })}
     >
       {isChildren && (
-        <div className="w-1 h-1 ring-[2px] ring-indigo-600 rounded-full absolute -left-[11px] top-1/2 -translate-x-1/2 -translate-y-1/2 bg-indigo-50" />
+        <div
+          className={cn(
+            "w-1 h-1 ring-[2px] ring-indigo-600 dark:ring-slate-200 rounded-full absolute -left-[11px] top-1/2 -translate-x-1/2 -translate-y-1/2 ",
+            {
+              ["bg-indigo-600"]: isActive,
+              ["bg-slate-200"]: !isActive,
+            }
+          )}
+        />
       )}
       <div className="flex gap-2 relative py-1 px-4">
         {iconName && (
