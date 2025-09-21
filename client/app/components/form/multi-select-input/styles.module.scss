@@ -1,3 +1,5 @@
+@reference "tailwindcss";
+
 .input {
   z-index: 1;
   & ~ .chevron {
@@ -8,7 +10,6 @@
       @apply ring-2 ring-inset ring-indigo-600;
     }
     & ~ .chevron {
-      // @apply rotate-90;
       transform: rotate(90deg);
     }
   }
@@ -30,7 +31,6 @@
   @apply shadow-xl border border-indigo-200 rounded-md mt-2 fixed bg-white;
   @apply min-w-40;
   li {
-    // @apply text-neutral-700 hover:text-neutral-900 py-1;
   }
 }
 
@@ -39,7 +39,7 @@
 }
 
 .rotationActive {
-  -webkit-animation: spin 0.2s linear 1 alternate forwards; 
+  -webkit-animation: spin 0.2s linear 1 alternate forwards;
   -moz-animation: spin 0.2s linear 1 alternate forwards;
   animation: spin 0.2s linear 1 alternate forwards;
 }

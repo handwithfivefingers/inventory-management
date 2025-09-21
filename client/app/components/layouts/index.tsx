@@ -12,9 +12,9 @@ export const AppLayout = ({ children }: BaseProps) => {
       <div className="w-full border-b border-indigo-600">
         <Header />
       </div>
-      <div className="flex flex-row flex-1 h-[calc(100svh-59px)]">
+      <div className="flex flex-row flex-1 h-[calc(100svh-62px)]">
         {isLoading && <Loading />}
-        <div className="w-full max-w-60 h-[calc(100svh-59px)]  shrink-0">
+        <div className="w-full max-w-60 h-[calc(100svh-62px)]  shrink-0">
           <Sidebar />
         </div>
         <div className="container-lg mx-auto  h-full w-full rounded-sm overflow-y-auto">{children}</div>

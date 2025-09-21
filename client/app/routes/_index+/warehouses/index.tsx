@@ -36,18 +36,16 @@ export default function WareHouses() {
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem title="Kho bãi" className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
-          <div className="py-2">
-            <div className="flex gap-2">
-              <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
-              <div className="ml-auto block my-auto">
-                <div className="flex gap-2 flex-wrap flex-row">
-                  <TMButton component={Link} to="/warehouses/add">
-                    Thêm
-                  </TMButton>
-                  <TMButton>Nhập từ Excel</TMButton>
-                  <TMButton>Xuất Excel</TMButton>
-                  <TMButton>In Mã Vạch</TMButton>
-                </div>
+          <div className="flex gap-2">
+            <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
+            <div className="ml-auto block my-auto">
+              <div className="flex gap-2 flex-wrap flex-row">
+                <TMButton component={Link} to="/warehouses/add">
+                  Thêm
+                </TMButton>
+                <TMButton>Nhập từ Excel</TMButton>
+                <TMButton>Xuất Excel</TMButton>
+                <TMButton>In Mã Vạch</TMButton>
               </div>
             </div>
           </div>

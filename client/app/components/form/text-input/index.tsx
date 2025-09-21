@@ -38,7 +38,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
         ) : (
           ""
         )}
-        <div className={cn("relative rounded-md flex items-center ")}>
+        <div className={cn("relative rounded-md flex items-center w-full")}>
           {prefix && (
             <div className="pointer-events-none inset-y-0 left-0 flex items-center pl-1 z-[1]">
               <span className="text-indigo-950 sm:text-sm" ref={prefixRef}>
@@ -53,6 +53,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               "block w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-base outline-none  py-1.5 px-3",
               styles.input,
               inputClassName,
+              className,
               {
                 ["!ring-1 !ring-red-600 !ring-inset "]: name && errors?.[name]?.message,
               }

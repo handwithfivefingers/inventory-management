@@ -27,25 +27,25 @@ export class UnitsService {
     }
   }
 
-  async getUnits(params) {
+  async getUnits(vendorId: string) {
     try {
       const queryParams = {
         where: {
-          vendorId: params.vendorId
+          vendorId: vendorId
         }
       }
-      const resp = await this.get(queryParams)
+      const resp = await this.unit.findAndCountAll(queryParams)
       return resp
     } catch (error) {
       throw error
     }
   }
 
-  async getById({ params, query }) {
+  async getById(id: string) {
     try {
       const resp = await this.unit.findOne({
         where: {
-          id: params.id
+          id: id
         }
       })
       return resp

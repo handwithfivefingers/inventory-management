@@ -1,21 +1,3 @@
-import { BaseQueryParams } from "./common";
-
-export interface IProvider {
-  id: number;
-  name: string;
-  description: string;
-  phone: string;
-  email: string;
-  address: string;
-  vendorId: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface IOrderQueryParams extends BaseQueryParams {
-  vendor: string;
-  isProvider?: boolean;
-}
 export interface IOrderDetails {
   productId: number | string;
   quantity: number | string;
@@ -23,7 +5,7 @@ export interface IOrderDetails {
   buyPrice: number | string;
   note?: string;
 }
-export interface IOrderCreateParams {
+export interface IOrder {
   OrderDetails: IOrderDetails[];
   price?: number | string;
   VAT?: number | string;
@@ -32,4 +14,6 @@ export interface IOrderCreateParams {
   paymentType: "cash" | "transfer";
   warehouseId: number | string;
   providerId: number | string;
+  createdAt: string;
+  updatedAt: string;
 }

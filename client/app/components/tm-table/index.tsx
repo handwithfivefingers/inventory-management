@@ -58,10 +58,10 @@ export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable }: 
             <tbody className="bg-white dark:bg-slate-800">
               {isEmpty && (
                 <tr>
-                  <td colSpan={columns?.length || 1}>
+                  <td colSpan={columns?.length || 1} className="h-full">
                     <div className="flex flex-col items-center justify-center py-8 ">
-                      <Icon name="server" className="text-indigo-900" />
-                      <p className="text-indigo-900">Chưa có data</p>
+                      <Icon name="server" className="text-indigo-900 dark:text-slate-200" />
+                      <p className="text-indigo-900 dark:text-slate-200">Chưa có data</p>
                     </div>
                   </td>
                 </tr>

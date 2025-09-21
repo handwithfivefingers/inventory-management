@@ -1,5 +1,6 @@
 import { HTTPService } from "~/http";
 import { BaseQueryParams } from "~/types/common";
+import { IOrder } from "~/types/order";
 
 const API_PATH = {
   orders: "/orders",
@@ -7,8 +8,8 @@ const API_PATH = {
 };
 
 interface IOrderQueryParams extends BaseQueryParams {
-  // warehouse: string;
-  isProvider?: boolean;
+  warehouseId: string;
+  // isProvider?: boolean;
 }
 interface IOrderDetails {
   productId: number | string;
@@ -29,8 +30,10 @@ interface IOrderCreateParams {
 
 const orderService = {
   getOrders: ({ cookie, ...searchParams }: IOrderQueryParams) => {
-    const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get(API_PATH.orders + "?" + qs.toString(), { Cookie: cookie });
+    const qs = new URLSearchParams(searchParams);
+    return HTTPService.getInstance().get<IOrder[]>(API_PATH.orders + "?" + qs.toString(), {
+      Cookie: cookie,
+    });
   },
   createOrder: (params: IOrderCreateParams) => {
     return HTTPService.getInstance().post(API_PATH.orderCreate, params);

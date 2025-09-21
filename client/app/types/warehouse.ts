@@ -1,6 +1,5 @@
 export interface IWareHouse {
   id: number;
-  documentId: string;
   name: string;
   phone: string;
   email: string;
@@ -8,5 +7,4 @@ export interface IWareHouse {
   isMain: boolean;
   createdAt: string;
   updatedAt: string;
-  publishedAt: string;
 }

@@ -37,11 +37,11 @@ export default function ImportOrder() {
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
-      <CardItem title="Product">
-        <div className="py-2">
+    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <CardItem title="Nhập đơn hàng" className="p-4 h-full">
+        <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2">
-            <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
+            <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <TMButton component={Link} to={"./add"}>
@@ -51,50 +51,50 @@ export default function ImportOrder() {
               </div>
             </div>
           </div>
-        </div>
-        <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
-          <TMTable
-            columns={[
-              {
-                title: "STT",
-                dataIndex: "id",
-                width: 80,
-              },
-              {
-                title: "Tên khách hàng",
-                dataIndex: "customerName",
-                render: (record) => record.customerName || "Khách lẻ",
-              },
-              {
-                title: "Tổng tiền",
-                dataIndex: "price",
-                render: (record, i) => (
-                  <NumericFormat value={record.price} displayType={"text"} thousandSeparator="," />
-                ),
-              },
-              {
-                title: "Nhân viên",
-                dataIndex: "staffName",
-                render: (record) => record["staffName"] || "Nhân viên",
-              },
-              {
-                title: "Ngày tạo",
-                dataIndex: "createdAt",
-                render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
-              },
-            ]}
-            data={data}
-            rowKey={"documentId"}
-          />
-          <div className="flex  gap-2">
-            <TMPagination
-              total={total || 0}
-              current={page as number}
-              pageSize={pageSize as number}
-              onPageChange={(page: number) => {
-                navigate(`?page=${page}&pageSize=${pageSize}`);
-              }}
+          <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn flex-1">
+            <TMTable
+              columns={[
+                {
+                  title: "STT",
+                  dataIndex: "id",
+                  width: 80,
+                },
+                {
+                  title: "Tên khách hàng",
+                  dataIndex: "customerName",
+                  render: (record) => record.customerName || "Khách lẻ",
+                },
+                {
+                  title: "Tổng tiền",
+                  dataIndex: "price",
+                  render: (record, i) => (
+                    <NumericFormat value={record.price} displayType={"text"} thousandSeparator="," />
+                  ),
+                },
+                {
+                  title: "Nhân viên",
+                  dataIndex: "staffName",
+                  render: (record) => record["staffName"] || "Nhân viên",
+                },
+                {
+                  title: "Ngày tạo",
+                  dataIndex: "createdAt",
+                  render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
+                },
+              ]}
+              data={data}
+              rowKey={"documentId"}
             />
+            <div className="flex  gap-2">
+              <TMPagination
+                total={total || 0}
+                current={page as number}
+                pageSize={pageSize as number}
+                onPageChange={(page: number) => {
+                  navigate(`?page=${page}&pageSize=${pageSize}`);
+                }}
+              />
+            </div>
           </div>
         </div>
         {/* </div> */}

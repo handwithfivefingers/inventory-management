@@ -1,8 +1,10 @@
-// app/sessions.ts
 import { createCookieSessionStorage } from "@remix-run/node"; // or cloudflare/deno
-// import { IUser } from "./types/user";
 
-type SessionData = string;
+type SessionData = {
+  userId?: string | number;
+  vendorId: string | number;
+  warehouseId: string | number;
+};
 
 type SessionFlashData = {
   error: string;
@@ -11,8 +13,8 @@ type SessionFlashData = {
 const { getSession, commitSession, destroySession } = createCookieSessionStorage<SessionData, SessionFlashData>({
   // a Cookie from `createCookie` or the CookieOptions to create one
   cookie: {
-    name: "session",
-    secrets: [""],
+    name: "ss_storage",
+    secrets: ["s3cret1"],
     sameSite: "lax",
     encode: (v) => {
       console.log("Encode", v);

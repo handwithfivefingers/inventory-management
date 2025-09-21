@@ -1,0 +1,22 @@
+import React from "react";
+import { Controller, useFormContext } from "react-hook-form";
+
+export const FormInput = ({ children, name }: { children: React.ReactElement; name: string }) => {
+  const ctx = useFormContext();
+  const { control, formState } = ctx;
+  const errors = formState.errors;
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => {
+        return (
+          <div>
+            {React.cloneElement(children, { ...field, ...children?.props })}
+            <div>{errors[name] ? <p className="text-red-500 p-2">{errors?.[name]?.message as string}</p> : ""}</div>
+          </div>
+        );
+      }}
+    />
+  );
+};

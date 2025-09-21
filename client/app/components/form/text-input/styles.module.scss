@@ -1,3 +1,5 @@
+@reference "tailwindcss";
+
 .input {
   z-index: 1;
   &:focus {
@@ -13,4 +15,5 @@
 
 .inputWrapper {
   // margin-bottom: 0.5rem;
+  width: auto;
 }

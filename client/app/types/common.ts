@@ -14,7 +14,7 @@ export interface IResponse<T> {
 
 export interface BaseQueryParams {
   s?: string;
-  page?: number | string;
-  pageSize?: number | string;
+  page?: string;
+  pageSize?: string;
   cookie: string;
 }

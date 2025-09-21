@@ -45,7 +45,7 @@ import warehouse from './warehouse'
 import categories from './categories'
 import tags from './tags'
 import units from './units'
-// import financial from './financial'
+import financial from './financial'
 // import history from './history'
 // import qr from './qr'
 import { auth } from '#/middleware/authenticate'
@@ -60,7 +60,7 @@ router.use('/warehouses', auth, warehouse)
 router.use('/categories', auth, categories)
 router.use('/tags', auth, tags)
 router.use('/units', auth, units)
-// router.use('/financial', auth, financial)
+router.use('/financial', auth, financial)
 // router.use('/history', auth, history)
 // router.use('/qr', auth, qr)
 export default router

@@ -9,7 +9,6 @@ const warehouseService = {
   getWareHouses: ({ vendor, cookie }: any) => {
     return HTTPService.getInstance().get(API_PATH.warehouse + `?vendorId=${vendor}`, { Cookie: cookie });
   },
-
   getInventoryFromWareHouseId: (documentId: string) => {
     const params = new URLSearchParams({});
     params.append(`filters[warehouses][documentId][$eq]`, documentId);

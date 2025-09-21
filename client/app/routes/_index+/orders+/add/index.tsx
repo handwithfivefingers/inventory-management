@@ -166,7 +166,7 @@ export default function OrderItem() {
 
   const data = searchFetcher?.data?.data || [];
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
+    <div className="w-full flex flex-col p-2 gap-4">
       <BarcodeScanner onScan={handleRetrieveData} start={canScan}>
         <FormProvider {...formMethods}>
           <form className="flex gap-4 flex-col" onSubmit={formMethods.handleSubmit(onSubmit, handleError)}>
@@ -174,14 +174,17 @@ export default function OrderItem() {
               title={
                 <div className="flex justify-between items-center">
                   <label className="text-lg">Hóa đơn</label>
-                  <TMButton className="font-normal" onClick={() => setShow(true)}>
-                    Chọn sản phẩm
+                  <TMButton className="font-normal text-sm py-2" onClick={() => setShow(true)} size="xs">
+                    <div className="flex gap-0.5 items-center">
+                      <Icon name="plus" />
+                      <span>Thêm sản phẩm</span>
+                    </div>
                   </TMButton>
                 </div>
               }
-              className="min-h-80"
+              className="min-h-80 p-4"
             >
-              <div className="col-span-12 grid grid-cols-12 gap-2 py-2 mb-4 border-b-2 border-indigo-200">
+              <div className="col-span-12 grid grid-cols-12 gap-2 py-2 mb-4 border-b border-indigo-600 dark:border-slate-400">
                 <div className="col-span-1 ">STT</div>
                 <div className="col-span-4">Tên sản phẩm</div>
                 <div className="col-span-2 ">Số lượng</div>
@@ -283,7 +286,7 @@ export default function OrderItem() {
                   );
                 })}
               </div>
-              <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t-2 border-indigo-200">
+              <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t border-indigo-200 dark:border-slate-400">
                 <div className="col-span-12 ml-auto flex flex-col gap-1">
                   <div className="w-96 flex justify-between ">
                     <span>Tổng tiền</span>
@@ -323,7 +326,7 @@ export default function OrderItem() {
                     <span>Tổng tiền đơn hàng </span>
                     <NumberInput value={`${totalPaid}`} displayType="text" />
                   </div>
-                  <div className="h-[2px] bg-indigo-600 my-2" />
+                  <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
                   <div className="w-96 flex justify-between font-bold">
                     <span>Tổng phải thu</span> <NumberInput value={`${totalPaid}`} displayType="text" />
                   </div>
@@ -331,7 +334,7 @@ export default function OrderItem() {
                     <span>Đã thanh toán</span> <NumberInput value={`${totalPaid}`} displayType="text" />
                   </div>
 
-                  <div className="h-[2px] bg-indigo-600 my-2" />
+                  <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
 
                   <div className="w-96 flex justify-end">
                     <TMButton htmlType="submit" size="md" variant="light">
@@ -391,7 +394,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
   const session = await getSession(request.headers.get("Cookie"));
-  const warehouseId = session.get("warehouse");
+  const warehouseId = session.get("warehouseId");
   const params = {
     ...dataJson,
     warehouseId,

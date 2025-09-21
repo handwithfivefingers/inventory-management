@@ -10,41 +10,30 @@ import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
-import { useWarehouse } from "~/store/warehouse.store";
-import { IResponse } from "~/types/common";
-import { IProduct } from "~/types/product";
-// import FormData as FData from "form-data";
-interface ResponsePagination extends IResponse<IProduct[]> {
-  page?: number;
-  pageSize?: number;
-  token?: string;
-}
-
 interface IFilter {
   s?: string;
 }
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const cookie = request.headers.get("cookie") as string;
+  const session = await getSession(cookie);
+  const warehouseId = session.get("warehouseId");
   const url = new URL(request.url);
   const params = url.searchParams;
-  const page = params.get("page") || 1;
-  const pageSize = params.get("pageSize") || 10;
+  const page = params.get("page") || "1";
+  const pageSize = params.get("pageSize") || "10";
   const s = params.get("s") || "";
-  // const warehouse = session.get("warehouse");
   const resp = await productService.getProducts({
-    // warehouseId: warehouse,
+    warehouseId,
     page,
     pageSize,
-    s,
     cookie,
+    s,
   });
-
-  // resp.token = session.get("token");
   return {
     ...resp,
     s,
-    page: Number(page),
-    pageSize: Number(pageSize),
+    page,
+    pageSize,
   };
 };
 
@@ -56,7 +45,6 @@ export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize, s } = useLoaderData<typeof loader>();
   console.log("data", data);
-  const { warehouse } = useWarehouse();
   const [filter, setFilter] = useState<IFilter>({ s });
   useEffect(() => {
     let timeout: any;
@@ -147,11 +135,10 @@ export default function Products() {
           <div className="flex  gap-2 shrink-0">
             <TMPagination
               total={total || 0}
-              current={page as number}
-              pageSize={pageSize as number}
+              current={page}
+              pageSize={pageSize}
               onPageChange={(page: number) => {
-                // console.log("page", page);
-                navigate(`?page=${page}&pageSize=${pageSize}`);
+                navigate(`?page=${page}&pageSize=${pageSize}&s=${s}`);
               }}
             />
           </div>
@@ -161,11 +148,12 @@ export default function Products() {
   );
 }
 export const action = async ({ request }: ActionFunctionArgs) => {
+  const cookie = request.headers.get("Cookie") as string;
   const form = await request.formData();
-  const s = form.get("s");
-  const session = await getSession(request.headers.get("Cookie"));
-  const warehouse = session.get("warehouse");
-  return productService.getProducts({ s: s as string, warehouseId: warehouse });
+  const s = form.get("s") || "";
+  const session = await getSession(cookie);
+  const warehouseId = session.get("warehouseId") as string;
+  return productService.getProducts({ s: s as string, warehouseId, page: "1", pageSize: "10", cookie });
 };
 
 export function ErrorBoundary() {

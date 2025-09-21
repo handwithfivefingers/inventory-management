@@ -1,5 +1,6 @@
 import { HTTPService } from "~/http";
 import { BaseQueryParams } from "~/types/common";
+import { IProvider } from "~/types/provider";
 import { IWareHouse } from "~/types/warehouse";
 
 const API_PATH = {
@@ -14,13 +15,13 @@ const providerService = {
   getProviders: ({ cookie, ...params }: IProviderBaseQueryParams) => {
     try {
       const qs = new URLSearchParams(params as any);
-      return HTTPService.getInstance().get(API_PATH.provider + "?" + qs.toString(), { Cookie: cookie });
+      return HTTPService.getInstance().get<IProvider[]>(API_PATH.provider + "?" + qs.toString(), { Cookie: cookie });
     } catch (error) {
       throw error;
     }
   },
-  getProviderById: (id: string | number) => {
-    return HTTPService.getInstance().get(API_PATH.provider + "/" + id);
+  getProviderById: ({ id, cookie }: { id: string } & { cookie: string }) => {
+    return HTTPService.getInstance().get<IProvider>(API_PATH.provider + "/" + id, { Cookie: cookie });
   },
   update: ({ id, ...params }: IProviderParams) => {
     return HTTPService.getInstance().post(API_PATH.provider + "/" + id, params);

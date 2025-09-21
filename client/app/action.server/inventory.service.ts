@@ -1,4 +1,4 @@
-import { http } from "~/http";
+import { HTTPService } from "~/http";
 import { BaseQueryParams, IResponse } from "~/types/common";
 import { IProduct } from "~/types/product";
 
@@ -13,22 +13,6 @@ interface IProductDetails {
   createdDate?: string;
 }
 
-interface ICreateProductParams {
-  data: {
-    name: string;
-    skuCode?: string;
-    code?: string;
-    expiredAt?: string;
-    description?: string;
-    category?: string;
-    unit?: string;
-    tags?: string;
-    images?: string;
-    productDetails?: IProductDetails;
-    history?: IProductDetails[];
-  };
-}
-
 interface IProductParams extends BaseQueryParams {
   [key: string]: any;
 }
@@ -39,9 +23,9 @@ const API_PATH = {
 };
 
 const inventoryService = {
-  getProducts: (params: IProductParams): Promise<IResponse<IProduct[]>> => {
+  getProducts: (params: IProductParams) => {
     const qs = new URLSearchParams(params);
-    return http.get(API_PATH.products + "?" + qs.toString());
+    return HTTPService.getInstance().get<IProduct[]>(API_PATH.products + "?" + qs.toString());
   },
 };
 

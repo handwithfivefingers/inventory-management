@@ -9,18 +9,19 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
+import { getSession } from "~/sessions";
+import { IOrder } from "~/types/order";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    // const session = await getSession(request.headers.get("Cookie"));
-    // const warehouse = session.get("warehouse");
     const cookie = request.headers.get("cookie") as string;
+    const session = await getSession(cookie);
+    const warehouseId = session.get("warehouseId") as string;
     const url = new URL(request.url);
     const params = url.searchParams;
-    const page = params.get("page") || 1;
-    const pageSize = params.get("pageSize") || 10;
-    const resp = await orderService.getOrders({ page, pageSize, cookie });
-
+    const page = params.get("page") || "1";
+    const pageSize = params.get("pageSize") || "10";
+    const resp = await orderService.getOrders({ page, pageSize, cookie, warehouseId });
     return { ...resp, page, pageSize };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -42,7 +43,7 @@ export default function Orders() {
       <CardItem title="Product" className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex shrink-0 gap-2">
-            <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
+            <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <TMButton component={Link} to={"./add"}>
@@ -83,15 +84,15 @@ export default function Orders() {
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
               ]}
-              data={data}
-              rowKey={"documentId"}
+              data={data as IOrder[]}
+              rowKey={"id"}
             />
           </div>
           <div className="flex shrink-0 gap-2">
             <TMPagination
               total={total || 0}
-              current={page as number}
-              pageSize={pageSize as number}
+              current={page}
+              pageSize={pageSize}
               onPageChange={(page: number) => {
                 navigate(`?page=${page}&pageSize=${pageSize}`);
               }}

@@ -102,17 +102,12 @@ export const SelectInput = ({
     // }
   };
   const selectedOption = options.find((option) => option.value === rest.value);
+  console.log("isFocus", isFocus);
   return (
     <div className={styles.inputWrapper} ref={wrapper}>
-      {label ? (
-        <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900">
-          {label}
-        </label>
-      ) : (
-        ""
-      )}
+      <InputLabel label={label} name={name} />
       <div
-        className={cn("relative rounded-md flex items-center py-1.5 px-1 pl-2 ")}
+        className={cn("relative rounded-md flex items-center py-1.5 px-1 pl-2 w-full", className)}
         onClick={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsFocus(true);
           if (onClick) {
@@ -121,7 +116,7 @@ export const SelectInput = ({
         }}
       >
         <div
-          className="z-[1] absolute w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none px-1 "
+          className="z-[1] absolute pt-0.5 w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none px-1 "
           style={{
             width: "calc(100% - 28px)",
             maxHeight: "30px",
@@ -139,11 +134,11 @@ export const SelectInput = ({
           readOnly
           {...(rest as any)}
         />
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 z-[1] px-1">
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 z-[1] px-1 ">
           <Icon
             name="chevron-down"
-            className={cn(" text-indigo-600 w-5", styles.rotation, {
-              [styles.rotationActive]: isFocus,
+            className={cn(" text-indigo-600 w-5 transition-transform rotate-0", {
+              ["rotate-180"]: isFocus,
             })}
           />
         </div>
@@ -166,7 +161,7 @@ export const SelectInput = ({
                 ref={dropdown}
                 style={
                   {
-                    "--animate-duration": "0.3s",
+                    "--animate-duration": "0.1s",
                   } as React.CSSProperties
                 }
               >
@@ -197,5 +192,14 @@ export const SelectInput = ({
         )}
       </Portal>
     </div>
+  );
+};
+
+const InputLabel = ({ label, name }: { label?: string; name?: string }) => {
+  if (!label) return;
+  return (
+    <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900">
+      {label}
+    </label>
   );
 };

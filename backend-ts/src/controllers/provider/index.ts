@@ -27,7 +27,7 @@ export class ProviderController {
   async getId(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new ProviderService().getProviderById(req as IRequestLocal)
+      const resp = await new ProviderService().getProviderById({ id: req.params.id })
       res.status(200).json({
         data: resp
       })

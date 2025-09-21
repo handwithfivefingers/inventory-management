@@ -1,7 +1,7 @@
 import database from '#/database'
 import { IRequestLocal } from '#/types/common'
 import { IProductStatic } from '#/types/product'
-import { Op } from 'sequelize'
+import { FindAttributeOptions, Op } from 'sequelize'
 
 // const InventoryService = require('../inventory')
 // const BaseCRUDService = require('@constant/base')
@@ -194,32 +194,31 @@ export class ProductService {
   async getProducts(req: IRequestLocal) {
     try {
       // const { s, offset, limit } = this.getPagination(req)
-      const { s, page = 1, pageSize = 10 } = req.query
-
+      const { s, page = 1, pageSize = 10, warehouseId } = req.query
+      if (!warehouseId) throw new Error('warehouseId is required')
       const limit = Number(pageSize)
       const offset = Number(+page - 1) * Number(pageSize)
-      // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
-      // const key = CACHE_KEY.getProduct({ warehouse: warehouse.id, limit, offset, s })
-      // console.log('warehouse', warehouse)
       const queryParams = {
         where: {},
-        // include: [
-        //   {
-        //     model: database.inventory,
-        //     // where: {},
-        //     attributes: []
-        //   }
-        // ],
-        // attributes: {
-        //   include: [
-        //     [
-        //       database.sequelize.literal(
-        //         '(SELECT sum(inventories.quantity) FROM inventories WHERE product.id = inventories.productId)'
-        //       ),
-        //       'quantity'
-        //     ]
-        //   ]
-        // },
+        include: [
+          {
+            model: database.inventory,
+            attributes: [],
+            where: {
+              warehouseId
+            }
+          }
+        ],
+        attributes: {
+          include: [
+            [
+              database.sequelize.literal(
+                '(SELECT sum(inventories.quantity) FROM inventories WHERE product.id = inventories.productId)'
+              ),
+              'quantity'
+            ]
+          ]
+        } as FindAttributeOptions,
         offset,
         limit
       }
@@ -235,7 +234,8 @@ export class ProductService {
             skuCode: {
               [Op.startsWith]: s
             }
-          }
+          },
+          ...queryParams.where
         }
       }
       console.log('s', s)

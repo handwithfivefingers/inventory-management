@@ -6,28 +6,16 @@ import { Request } from 'express'
 import { Sequelize } from 'sequelize'
 
 export default class VendorService {
-  model: IVendorStatic
-  sequelize: Sequelize
-  constructor() {
-    this.model = database.vendor
-    this.sequelize = database.sequelize
-  }
+  vendor: IVendorStatic = database.vendor
+  sequelize: Sequelize = database.sequelize
   async create(req: Request) {
     const { name, description, userId } = req.body
     const t = await this.sequelize.transaction()
     try {
       const user = await getCtxUser(req as any)
-      console.log('user', this.model)
+      console.log('user', this.vendor)
       if (!user) throw new Error(ERROR.UNAUTHORIZED)
-      // console.log('database', database)
-      // const _user = await database.user.findOne({ where: { id: user.id } })
-      // const _p = await database.user.findByPk(user.id).then((user: IUserStatic) => {
-      //   return user.createVendor({
-      //     name
-      //   })
-      // })
-
-      const _vendor = await this.model.create(
+      const _vendor = await this.vendor.create(
         {
           name,
           userId: user.id
@@ -46,9 +34,12 @@ export default class VendorService {
       throw error
     }
   }
-  async getVendors() {
+  async getVendorByUserId(userId: string) {
     try {
-      const resp = await this.model.findAll({
+      const resp = await this.vendor.findAndCountAll({
+        where: {
+          userId
+        },
         include: {
           model: database.warehouse
         }

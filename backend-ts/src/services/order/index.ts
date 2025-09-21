@@ -225,45 +225,24 @@ export default class OrderService {
       console.log('getOrders coming')
       const params = req.query
       // const { offset, limit } = this.getPagination(req)
-      const { offset = 0, limit = 10 } = params
+      const { offset = 0, limit = 10, warehouseId, isProvider } = params
+      if (!warehouseId) throw new Error('warehouseId is required')
       // const { warehouse, vendor } = this.getActiveWarehouseAndVendor(req)
       // console.log('warehouse', warehouse)
       const queryParams = {
         where: {
-          // warehouseId: warehouse.id
+          warehouseId: warehouseId as string,
+          providerId: isProvider ? { [Op.ne]: null } : { [Op.eq]: null }
         },
         include: [
           {
             model: database.orderDetail
-            // include: {
-            //   model: database.product
-            // }
           }
         ],
         offset: Number(offset),
         limit: Number(limit),
         distinct: true // Prevents duplicate rows when using JOIN
       }
-      // const resp = await this.get(queryParams)
-      // return resp
-
-      // providerId: params?.isProvider ? PROVIDER[1] : null
-      if (params?.isProvider) {
-        queryParams.where = {
-          ...queryParams.where,
-          providerId: {
-            [Op.ne]: null
-          }
-        }
-      } else {
-        queryParams.where = {
-          ...queryParams.where,
-          providerId: {
-            [Op.eq]: null
-          }
-        }
-      }
-      console.log('pre-query', queryParams)
       const resp = await this.order.findAndCountAll(queryParams)
       console.log('resp', resp)
       return resp

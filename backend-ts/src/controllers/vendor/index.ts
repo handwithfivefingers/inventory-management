@@ -1,5 +1,5 @@
 import VendorService from '#/services/vendor'
-import { IRequestHandler } from '#/types/common'
+import { IRequestHandler, IRequestLocal } from '#/types/common'
 
 // const { VendorService } = require('@api/services')
 export default class VendorController {
@@ -14,13 +14,14 @@ export default class VendorController {
       next(error)
     }
   }
-  // async get(...[req, res, next]: IRequestHandler) {
-  //   try {
-  //     const { count, rows } = await new VendorService().getVendors()
-  //     res.status(200).json({ total: count, data: rows })
-  //     return
-  //   } catch (error) {
-  //     next(error)
-  //   }
-  // }
+  async getVendorByUserId(...[req, res, next]: IRequestHandler) {
+    try {
+      const userId = (req as IRequestLocal).locals.id
+      const { count, rows } = await new VendorService().getVendorByUserId(userId)
+      res.status(200).json({ total: count, data: rows })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
 }

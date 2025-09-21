@@ -70,12 +70,12 @@ export class ProviderService {
       throw error
     }
   }
-  async getProviderById(req: IRequestLocal) {
+  async getProviderById({ id }: { id: string }) {
     try {
       // const vendor = retrieveFirstVendor(req)
       const resp = await this.provider.findOne({
         where: {
-          id: req.params.id
+          id
           // vendorId: vendor.id
         }
       })

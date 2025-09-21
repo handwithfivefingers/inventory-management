@@ -1,25 +1,26 @@
-import { http } from "~/http";
+import { HTTPService } from "~/http";
 import { ICategory, ICategoryParams, ICategoryQueryParams } from "~/types/category";
-import { IResponse } from "~/types/common";
 
 const API_PATH = {
   categories: "/categories",
 };
 
 const categoryService = {
-  get: (searchParams: ICategoryQueryParams): Promise<IResponse<ICategory[]>> => {
+  get: ({ cookie, ...searchParams }: ICategoryQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return http.get(API_PATH.categories + "?" + qs.toString());
+    return HTTPService.getInstance().get<ICategory[]>(API_PATH.categories + "?" + qs.toString(), { Cookie: cookie });
   },
-  create: (params: ICategoryParams) => {
-    return http.post(API_PATH.categories, params);
+  create: ({ cookie, ...params }: ICategoryParams & { cookie: string }) => {
+    return HTTPService.getInstance().post(API_PATH.categories, params);
   },
-  getById: ({ id }: { id: string | number }): Promise<IResponse<ICategory>> => {
+  getById: ({ id, cookie }: { id: string | number } & { cookie: string }) => {
     const params = new URLSearchParams({});
-    return http.get(API_PATH.categories + "/" + id + "?" + params.toString());
+    return HTTPService.getInstance().get<ICategory>(API_PATH.categories + "/" + id + "?" + params.toString(), {
+      Cookie: cookie,
+    });
   },
-  update: ({ id, ...params }: ICategoryParams): Promise<IResponse<ICategory[]>> => {
-    return http.post(`${API_PATH.categories}/${id}`, params);
+  update: ({ id, cookie, ...params }: ICategoryParams & { cookie: string }) => {
+    return HTTPService.getInstance().post(`${API_PATH.categories}/${id}`, params, { Cookie: cookie });
   },
 };
 
