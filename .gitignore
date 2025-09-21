@@ -1,2 +1,5 @@
 db/mysql/*
 db/dump/*
+
+yarn.lock
+pack-lock.json

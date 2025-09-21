@@ -43,8 +43,8 @@ import orders from './orders'
 import provider from './provider'
 import warehouse from './warehouse'
 import categories from './categories'
-// import tags from './tags'
-// import units from './units'
+import tags from './tags'
+import units from './units'
 // import financial from './financial'
 // import history from './history'
 // import qr from './qr'
@@ -58,8 +58,8 @@ router.use('/products', auth, product)
 router.use('/providers', auth, provider)
 router.use('/warehouses', auth, warehouse)
 router.use('/categories', auth, categories)
-// router.use('/tags', auth, tags)
-// router.use('/units', auth, units)
+router.use('/tags', auth, tags)
+router.use('/units', auth, units)
 // router.use('/financial', auth, financial)
 // router.use('/history', auth, history)
 // router.use('/qr', auth, qr)
