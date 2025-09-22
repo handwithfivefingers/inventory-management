@@ -11,26 +11,26 @@ import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { productSchema } from "~/constants/schema/product";
 import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
+import { getSessionValues } from "~/sessions";
+import { ICategory } from "~/types/category";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const session = await getSession(request.headers.get("Cookie"));
-  const vendorId = session.get("vendor");
+  const cookie = request.headers.get("Cookie") as string;
+  const { vendorId } = await getSessionValues(cookie);
   const { id } = params;
-  const resp = await categoryService.getById({ id, vendorId } as any);
+  const resp = await categoryService.getById({ id, vendorId, cookie } as any);
   return resp;
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Product Item" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Category Detail" }];
 };
 
 export default function ProductItem() {
   const { data } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
-  console.log("data", data);
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
+    <div className="w-full flex flex-col p-2 gap-4">
       <CardItem
         title={
           <div className="flex justify-between items-center">
@@ -40,6 +40,7 @@ export default function ProductItem() {
             </TMButton>
           </div>
         }
+        className="p-4"
       >
         {!edit ? <Detail /> : null}
 
@@ -50,9 +51,9 @@ export default function ProductItem() {
 }
 const Detail = () => {
   const { data } = useLoaderData<typeof loader>();
-  const { products } = data;
+  const { products } = data || { products: [] };
   const navigate = useNavigate();
-  if (!products?.length) return "Khong co san pham nao";
+  // if (!products?.length) return "Khong co san pham nao";
   return (
     <div className="w-full grid grid-cols-5 gap-4">
       <div className="col-span-5">
@@ -97,7 +98,7 @@ const Detail = () => {
     </div>
   );
 };
-const EditForm = ({ name, id }: { name: string; id?: number }) => {
+const EditForm = ({ name, id }: Partial<ICategory>) => {
   const fetcher = useFetcher();
   const formMethods = useForm({
     defaultValues: {

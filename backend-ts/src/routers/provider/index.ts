@@ -9,5 +9,4 @@ const Router = express.Router()
 Router.get('/', new ProviderController().getProvider)
 Router.get('/:id', new ProviderController().getId)
 Router.post('/', providerCreateValidation, new ProviderController().create)
-// Router.post('/:id', new ProviderController().update)
 export default Router

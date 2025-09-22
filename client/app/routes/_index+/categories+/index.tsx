@@ -7,20 +7,21 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { getSession } from "~/sessions";
+import { getSession, getSessionValues } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // const session = await getSession(request.headers.get("Cookie"));
   const cookie = request.headers.get("cookie") as string;
+  const { vendorId } = await getSessionValues(cookie);
   const url = new URL(request.url);
   const params = url.searchParams;
-  const page = params.get("page") || 1;
-  const pageSize = params.get("pageSize") || 10;
+  const page = params.get("page") || "1";
+  const pageSize = params.get("pageSize") || "10";
   // const vendor = session.get("vendor");
   const resp = await categoryService.get({
-    // vendorId: vendor as string,
-    page: page,
-    pageSize: pageSize,
+    vendor: vendorId as string,
+    page,
+    pageSize,
     cookie,
   });
 

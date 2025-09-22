@@ -9,6 +9,7 @@ const API_PATH = {
 
 interface IProviderBaseQueryParams extends BaseQueryParams {
   vendor: string | number;
+  isProvider: boolean;
 }
 interface IProviderParams extends IWareHouse {}
 const providerService = {

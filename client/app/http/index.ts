@@ -1,8 +1,6 @@
-export interface IResponse<T> {
+export interface IResponse<T> extends IResponseError {
   data?: T;
   total?: number;
-  error?: string;
-  status: number;
 }
 
 export type IGetParams = string;
@@ -16,6 +14,19 @@ export interface IHTTPService {
   cookie?: string;
 }
 
+export interface IResponseError {
+  error?: string;
+  status: number;
+}
+
+export class ResponseError extends Error {
+  status: number;
+  constructor(error: { error: string; status: number } | Error) {
+    const { error: message, status } = error as { error: string; status: number };
+    super(message);
+    this.status = status;
+  }
+}
 class HTTPService {
   private static instance: HTTPService;
   public headers: Record<string, string> = {
@@ -40,13 +51,7 @@ class HTTPService {
       if (!resp) return { data: undefined } as IResponse<undefined>;
       return { data: resp?.data || resp, status: response.status, total: resp?.total };
     } catch (error) {
-      throw {
-        message:
-          "message" in (error as Record<string, string>)
-            ? (error as Record<string, string>).message
-            : error?.toString(),
-        status: 400,
-      };
+      throw error;
     }
   };
 
@@ -60,10 +65,11 @@ class HTTPService {
         body: JSON.stringify(params),
       });
       const data = await response.json();
-      if (response.status !== 200) throw data.message;
+      if (response.status !== 200) throw data;
       return { data: data, status: response.status };
     } catch (error) {
-      throw { error: error, message: error?.toString(), status: 400 };
+      console.log("error", error);
+      throw new ResponseError(error as Error);
     }
   };
   postUpload = async <R>(apiPath: string, params: IPostParams<FormData>): Promise<IResponse<R>> => {

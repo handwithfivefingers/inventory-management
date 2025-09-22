@@ -74,6 +74,7 @@ export const SelectInput = ({
     dropdown.current?.style.setProperty("left", `${rect?.left}px`);
     dropdown.current?.style.setProperty("height", "auto");
     dropdown.current?.style.setProperty("z-index", "999");
+    dropdown.current?.style.setProperty("width", `${rect?.width}px`);
     console.log("dropdown", dropdown.current);
   };
 
@@ -107,7 +108,7 @@ export const SelectInput = ({
     <div className={styles.inputWrapper} ref={wrapper}>
       <InputLabel label={label} name={name} />
       <div
-        className={cn("relative rounded-md flex items-center py-1.5 px-1 pl-2 w-full", className)}
+        className={cn("relative rounded-md flex items-center py-1 px-1 pl-2 w-full", className)}
         onClick={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsFocus(true);
           if (onClick) {
@@ -144,7 +145,7 @@ export const SelectInput = ({
         </div>
         <div
           className={cn(
-            "absolute rounded-md left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] shadow-sm bg-white",
+            "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] shadow-sm bg-white",
             styles.outline,
             className
           )}
@@ -165,20 +166,27 @@ export const SelectInput = ({
                   } as React.CSSProperties
                 }
               >
-                <ul className="max-h-[400px] overflow-y-auto py-2 px-1">
+                <ul className="max-h-[400px] overflow-y-auto p-1">
                   {options?.map((item) => {
                     return (
                       <li
                         value={item.value}
                         className={cn(
-                          " px-2 hover:bg-indigo-200 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1 my-0.5",
-                          {
-                            "bg-indigo-200/60 text-neutral-900": item.value === selectedOption?.value,
-                          }
+                          " px-2 hover:bg-indigo-200 cursor-pointer rounded-xs bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1 mb-1"
                         )}
                         onClick={(e: any) => handleSelect(item)}
                       >
-                        {item.label}
+                        <div className="flex gap-2 items-center">
+                          <div
+                            className={cn({
+                              "opacity-100": item.value === selectedOption?.value,
+                              "opacity-0": item.value !== selectedOption?.value,
+                            })}
+                          >
+                            <Icon name="check" fontSize={16} />
+                          </div>
+                          <span>{item.label}</span>
+                        </div>
                       </li>
                     );
                   })}

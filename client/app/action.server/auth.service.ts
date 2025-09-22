@@ -8,6 +8,7 @@ const API_PATH = {
   login: "/auth/login",
   register: "/auth/register",
   me: "/auth/me",
+  logout: "/auth/logout",
 };
 
 export const AuthService = {
@@ -20,5 +21,8 @@ export const AuthService = {
   },
   getMe: async ({ cookie }: { cookie: string }) => {
     return HTTPService.getInstance().get<IUser>(API_PATH.me, { cookie });
+  },
+  logout: () => {
+    return HTTPService.getInstance().post(API_PATH.logout);
   },
 };

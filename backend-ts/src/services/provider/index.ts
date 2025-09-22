@@ -53,10 +53,9 @@ export class ProviderService {
   // }
   async getProvider(req: IRequestLocal) {
     try {
-      const { vendor } = req.params
       // const { vendor } = this.getActiveWarehouseAndVendor(req)
       // const { limit, offset } = this.getPagination(req)
-      const { limit = 10, offset = 0 } = req.query
+      const { limit = 10, offset = 0, vendor } = req.query
       const queryParams = {
         where: {},
         limit: Number(limit),

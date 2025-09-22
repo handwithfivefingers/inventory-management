@@ -11,6 +11,8 @@ import { TMButton } from "~/components/tm-button";
 import { ILoginForm, loginSchema } from "~/constants/schema/login";
 import { cn } from "~/libs/utils";
 import styles from "./styles.module.scss";
+import { IResponseError, ResponseError } from "~/http";
+import { toast } from "~/components/notification";
 export async function loader({ request }: LoaderFunctionArgs) {
   return {};
 }
@@ -18,7 +20,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 function Login({ children }: { children: React.ReactNode }) {
   const formMethods = useForm({
     defaultValues: {
-      email: "Michael_Okuneva@hotmail.com",
+      email: "Harry.Ankunding50@gmail.com",
       password: "123456",
     },
     resolver: zodResolver(loginSchema),
@@ -34,6 +36,8 @@ function Login({ children }: { children: React.ReactNode }) {
       window.location.href = "/";
     } catch (error) {
       console.log("error", error);
+      const err = error as ResponseError;
+      toast.danger({ title: "Login Error", message: err?.message });
     }
   };
   return (

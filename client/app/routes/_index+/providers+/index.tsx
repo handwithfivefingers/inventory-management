@@ -8,16 +8,25 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
+import { getSessionValues } from "~/sessions";
+import { IProvider } from "~/types/provider";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const cookie = request.headers.get("cookie") as string;
+    const { vendorId } = await getSessionValues(cookie);
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || "1";
     const pageSize = params.get("pageSize") || "10";
-    const prods = await providerService.getProviders({ page, pageSize, cookie });
-    return prods;
+    const response = await providerService.getProviders({
+      page,
+      pageSize,
+      cookie,
+      vendor: vendorId as string,
+      isProvider: true,
+    });
+    return response;
   } catch (error) {
     console.log(error instanceof Error);
     throw data(error, { status: 400 });
@@ -29,7 +38,7 @@ export const meta: MetaFunction = () => {
 };
 
 export default function Products() {
-  const prods = useLoaderData<typeof loader>();
+  const { data, ...prods } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   console.log("prods", prods);
   return (
@@ -75,7 +84,7 @@ export default function Products() {
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
               ]}
-              data={prods.data}
+              data={data as IProvider[]}
               rowKey={"documentId"}
               onRow={{
                 onClick: (record) => navigate(`./${record.id}`),

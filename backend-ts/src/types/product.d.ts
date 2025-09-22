@@ -5,10 +5,10 @@ import {
   CreationOptional,
   InferAttributes,
   InferCreationAttributes,
-  BuildOptions
+  BuildOptions,
+  FindOrCreateOptions
 } from 'sequelize'
-export interface IProductModel
-  extends Model<InferAttributes<IProductModel>, InferCreationAttributes<IProductModel>> {
+export interface IProductModel extends Model<InferAttributes<IProductModel>, InferCreationAttributes<IProductModel>> {
   id: CreationOptional<number>
   name: string
   code: string
@@ -19,6 +19,10 @@ export interface IProductModel
   wholeSalePrice: number
   costPrice: number
   sold: number
+
+  setCategories(categories: number[], options?: FindOrCreateOptions): Promise<void>
+  setTags(tags: number[], options?: FindOrCreateOptions): Promise<void>
+  setUnits(units: number[], options?: FindOrCreateOptions): Promise<void>
 }
 
 export type IProductStatic = typeof Model & { associate: (models: any) => void } & {

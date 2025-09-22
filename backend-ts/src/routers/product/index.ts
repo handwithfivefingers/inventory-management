@@ -25,6 +25,7 @@ import { ProductController } from '#/controllers/product'
 import express from 'express'
 const Router = express.Router()
 Router.get('/', new ProductController().getProducts)
+Router.post('/', new ProductController().create)
 Router.get('/:id', new ProductController().getProductById)
 
 export default Router

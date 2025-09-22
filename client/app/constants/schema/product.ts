@@ -16,5 +16,5 @@ const productSchema = z.object({
   VAT: z.number().optional(),
   expiredAt: z.string().optional(),
 });
-
-export { productSchema };
+export type ProductSchemaType = z.infer<typeof productSchema>;
+export { productSchema,  };

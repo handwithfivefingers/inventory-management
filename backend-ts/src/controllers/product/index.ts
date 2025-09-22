@@ -4,16 +4,17 @@ import { ProductService } from '#/services/product'
 import { IRequestLocal } from '#/types/common'
 import { Request, Response, NextFunction } from 'express'
 export class ProductController {
-  // async create(req: Request, res: Response, next: NextFunction) {
-  //   try {
-  //     const resp = await new ProductService().create(req)
-  //     return res.status(200).json({
-  //       data: resp
-  //     })
-  //   } catch (error) {
-  //     next(error)
-  //   }
-  // }
+  async create(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().create(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
   // async importProduct(req: Request, res: Response, next: NextFunction) {
   //   try {
   //     const resp = await new ProductService().importProduct(req)

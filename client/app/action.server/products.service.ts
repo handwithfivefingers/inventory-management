@@ -9,19 +9,18 @@ interface IProductParams extends BaseQueryParams {
   [key: string]: any;
 }
 interface ICreateProductParams {
-  data: {
-    name: string;
-    skuCode?: string;
-    code?: string;
-    expiredAt?: string;
-    description?: string;
-    category?: string;
-    unit?: string;
-    tags?: string;
-    images?: string;
-    productDetails?: IProductDetails;
-    history?: IProductDetails[];
-  };
+  cookie: string;
+  name: string;
+  skuCode?: string;
+  code?: string;
+  expiredAt?: string;
+  description?: string;
+  category?: string;
+  unit?: string;
+  tags?: string;
+  images?: string;
+  productDetails?: IProductDetails;
+  history?: IProductDetails[];
 }
 interface IUpdateParams extends ICreateProductParams {
   id: number;
@@ -45,11 +44,11 @@ const productService = {
     });
     return http.get(API_PATH.products + "/" + id + "?" + params.toString(), { Cookie: cookie });
   },
-  createProduct: (params: ICreateProductParams) => {
-    return http.post(API_PATH.products, params);
+  createProduct: ({ cookie, ...params }: ICreateProductParams) => {
+    return http.post(API_PATH.products, params, { Cookie: cookie });
   },
-  importProduct: (params: any) => {
-    return http.post(`${API_PATH.products}/import`, params);
+  importProduct: ({ cookie, ...params }: any) => {
+    return http.post(`${API_PATH.products}/import`, params, { Cookie: cookie });
   },
   updateProduct: ({ id, warehouseId, ...params }: IUpdateParams) => {
     return http.post(`${API_PATH.products}/${id}?warehouseId=${warehouseId}`, params);

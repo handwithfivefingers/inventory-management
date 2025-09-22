@@ -5,6 +5,7 @@ const API_PATH = {
   login: "/auth/login",
   register: "/auth/register",
   me: "/auth/me",
+  logout: "/auth/logout",
 };
 
 export interface ILoginParams {
@@ -21,5 +22,8 @@ export const AuthService = {
   },
   getMe: (options?: any) => {
     return HTTPService.getInstance().get(API_PATH.me, options);
+  },
+  logout: () => {
+    return HTTPService.getInstance().post(API_PATH.logout);
   },
 };

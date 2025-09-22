@@ -1,7 +1,10 @@
 import database from '#/database'
 import { IRequestLocal } from '#/types/common'
+import { IInventoryStatic } from '#/types/inventory'
 import { IProductStatic } from '#/types/product'
-import { FindAttributeOptions, Op } from 'sequelize'
+import { ITransferStatic } from '#/types/transfer'
+import { getPagination } from '#/utils'
+import { FindAttributeOptions, Op, Sequelize } from 'sequelize'
 
 // const InventoryService = require('../inventory')
 // const BaseCRUDService = require('@constant/base')
@@ -14,83 +17,78 @@ import { FindAttributeOptions, Op } from 'sequelize'
 
 export class ProductService {
   product: IProductStatic = database.product
-  // async create(req) {
-  //   const t = await this.sequelize.transaction()
-  //   try {
-  //     const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
-  //     if (!warehouse?.id) throw new Error('Invalid warehouse context')
+  inventory: IInventoryStatic = database.inventory
+  transfer: ITransferStatic = database.transfer
+  sequelize: Sequelize = database.sequelize
+  async create(req: IRequestLocal) {
+    const t = await this.sequelize.transaction()
+    try {
+      // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
+      // if (!warehouse?.id) throw new Error('Invalid warehouse context')
+      // const { warehouse } = getPagination(req.query)
+      const { warehouseId, quantity, categories, tags, ...params } = req.body
+      // Validate required fields
+      if (!warehouseId) throw new Error('warehouseId is required')
+      if (!quantity || isNaN(quantity)) throw new Error('Invalid quantity')
+      if (!params.code) throw new Error('Product code is required')
+      // Check for existing product
+      const existing = await this.product.findOne({
+        where: { code: params.code }
+      })
 
-  //     const { quantity, categories, tags, ...params } = req.body
+      if (existing) throw new Error(`Product with code ${params.code} already exists`)
 
-  //     // Validate required fields
-  //     if (!quantity || isNaN(quantity)) throw new Error('Invalid quantity')
-  //     if (!params.code) throw new Error('Product code is required')
+      // const newProduct = await this.createInstance(params, {
+      //   transaction: t,
+      //   include: [this.db.category, this.db.tag, this.db.unit]
+      // })
+      const _prod = await this.product.build(params)
+      await _prod.save({ transaction: t })
 
-  //     // Check for existing product
-  //     const existing = await this.db.product.findOne({
-  //       where: { code: params.code },
-  //       transaction: t
-  //     })
-  //     if (existing) throw new Error(`Product with code ${params.code} already exists`)
+      console.log('_prod', _prod, categories)
+      if (categories) {
+        await _prod.setCategories(categories, { transaction: t })
+      }
+      if (tags) {
+        await _prod.setTags(tags, { transaction: t })
+      }
+      // const inventoryInstance = await new InventoryService().createInstance(
+      //   {
+      //     warehouseId: warehouse.id,
+      //     quantity,
+      //     productId: newProduct.id
+      //   },
+      //   {
+      //     transaction: t
+      //   }
+      // )
+      const _inv = this.inventory.build({
+        warehouseId,
+        quantity,
+        productId: _prod.id
+      })
 
-  //     const newProduct = await this.createInstance(params, {
-  //       transaction: t,
-  //       include: [this.db.category, this.db.tag, this.db.unit]
-  //     })
-  //     if (categories) {
-  //       await newProduct.setCategories(categories, { transaction: t })
-  //     }
-  //     if (tags) {
-  //       await newProduct.setTags(tags, { transaction: t })
-  //     }
-  //     const inventoryInstance = await new InventoryService().createInstance(
-  //       {
-  //         warehouseId: warehouse.id,
-  //         quantity,
-  //         productId: newProduct.id
-  //       },
-  //       {
-  //         transaction: t
-  //       }
-  //     )
-  //     const transfer = await new TransferService().createInstance(
-  //       {
-  //         warehouseId: warehouse.id,
-  //         productId: newProduct.id,
-  //         quantity,
-  //         type: '0'
-  //       },
-  //       { transaction: t }
-  //     )
+      const _trans = this.transfer.build({
+        warehouseId,
+        productId: _prod.id,
+        quantity,
+        type: '0'
+      })
 
-  //     const productKeyCaches = await cacheGet(cacheKey('Products', 'Key'))
+      await _inv.save({ transaction: t })
+      await _trans.save({ transaction: t })
 
-  //     if (productKeyCaches) {
-  //       for (let key in productKeyCaches) {
-  //         cacheDel(productKeyCaches[key])
-  //       }
-  //       cacheSet(cacheKey('Products', 'Key'), {})
-  //     }
-
-  //     const productKey = cacheKey('Product', newProduct.id, warehouse.id)
-  //     await cacheSet(productKey, newProduct)
-
-  //     await t.commit()
-  //     return {
-  //       inventory: inventoryInstance,
-  //       product: newProduct,
-  //       transfer: transfer
-  //     }
-  //   } catch (error) {
-  //     console.error(`Product creation failed: ${error.message}`, {
-  //       code: req.body.code,
-  //       warehouseId: warehouse?.id,
-  //       error: error.stack
-  //     })
-  //     await t.rollback()
-  //     throw new Error(`Product creation failed: ${error.message}`)
-  //   }
-  // }
+      await t.commit()
+      return {
+        inventory: _inv.dataValues,
+        product: _prod.dataValues,
+        transfer: _trans.dataValues
+      }
+    } catch (error) {
+      await t.rollback()
+      throw new Error(`Product creation failed: ${error}`)
+    }
+  }
   // async importProduct(req) {
   //   try {
   //     const file = req.file

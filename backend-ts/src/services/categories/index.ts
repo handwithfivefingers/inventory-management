@@ -14,8 +14,9 @@ export class CategoriesService {
   sequelize: Sequelize = database.sequelize
   async create(params: Optional<ICategoryModel, 'id'>) {
     try {
+      if (!params.name) throw new Error('Category name is required')
+      if (!params.vendorId) throw new Error('Vendor is required')
       const builder = this.category.build(params)
-      // const instance = await this.createInstance(params)
       const instance = await builder.save()
       return instance
     } catch (error) {
@@ -43,17 +44,19 @@ export class CategoriesService {
 
   async getCategories(req: IRequestLocal) {
     try {
-      const { offset, limit } = getPagination(req.query)
-      // const { vendor } = this.getActiveWarehouseAndVendor(req)
+      const { offset, limit, vendor } = getPagination(req.query)
+      console.log('offset, limit, ', offset, limit)
+      if (!vendor) throw new Error('Vendor is required')
       const queryParams = {
-        where: {},
+        where: {
+          vendorId: vendor
+        },
         offset,
-        limit
+        limit,
+        raw: true
       }
-      // Apply vendorId filter
-      // vendorId: vendor.id
-
       const resp = await this.category.findAndCountAll(queryParams)
+      console.log('resp', resp)
       return resp
     } catch (error) {
       throw error

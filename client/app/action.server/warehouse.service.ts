@@ -1,4 +1,5 @@
 import { HTTPService } from "~/http";
+import { IWareHouse } from "~/types/warehouse";
 
 const API_PATH = {
   warehouse: "/warehouses",
@@ -7,7 +8,7 @@ const API_PATH = {
 
 const warehouseService = {
   getWareHouses: ({ vendor, cookie }: any) => {
-    return HTTPService.getInstance().get(API_PATH.warehouse + `?vendorId=${vendor}`, { Cookie: cookie });
+    return HTTPService.getInstance().get<IWareHouse[]>(API_PATH.warehouse + `?vendor=${vendor}`, { Cookie: cookie });
   },
   getInventoryFromWareHouseId: (documentId: string) => {
     const params = new URLSearchParams({});
@@ -18,7 +19,7 @@ const warehouseService = {
     const params = new URLSearchParams({
       vendor,
     });
-    return HTTPService.getInstance().get(API_PATH.warehouse + "/" + id + "?" + params.toString());
+    return HTTPService.getInstance().get<IWareHouse>(API_PATH.warehouse + "/" + id + "?" + params.toString());
   },
 };
 

@@ -23,4 +23,12 @@ const { getSession, commitSession, destroySession } = createCookieSessionStorage
   },
 });
 
-export { getSession, commitSession, destroySession };
+const getSessionValues = async (cookie: string) => {
+  const session = await getSession(cookie);
+  return {
+    userId: session.get("userId"),
+    vendorId: session.get("vendorId"),
+    warehouseId: session.get("warehouseId"),
+  };
+};
+export { getSession, commitSession, destroySession, getSessionValues };

@@ -11,7 +11,8 @@ const categoryService = {
     return HTTPService.getInstance().get<ICategory[]>(API_PATH.categories + "?" + qs.toString(), { Cookie: cookie });
   },
   create: ({ cookie, ...params }: ICategoryParams & { cookie: string }) => {
-    return HTTPService.getInstance().post(API_PATH.categories, params);
+    console.log("cookie, ...params", cookie, params);
+    return HTTPService.getInstance().post(API_PATH.categories, params, { Cookie: cookie });
   },
   getById: ({ id, cookie }: { id: string | number } & { cookie: string }) => {
     const params = new URLSearchParams({});

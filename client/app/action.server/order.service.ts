@@ -8,7 +8,7 @@ const API_PATH = {
 };
 
 interface IOrderQueryParams extends BaseQueryParams {
-  warehouseId: string;
+  warehouseId?: string;
   // isProvider?: boolean;
 }
 interface IOrderDetails {

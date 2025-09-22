@@ -17,12 +17,12 @@ const Transfer = (sequelize: Sequelize) => {
         type: DataTypes.ENUM,
         values: ['0', '1'],
         comment: '0: IN, 1: OUT',
-        allowNull: false,
-        // get() {
-        //   const val = this.getDataValue('type')
-        //   return val == '0' ? 'Thu' : 'Chi'
-        // }
-      }
+        allowNull: false
+      },
+      warehouseId: DataTypes.INTEGER,
+      productId: DataTypes.INTEGER,
+      createdAt: DataTypes.DATE,
+      updatedAt: DataTypes.DATE
     },
     {
       timestamps: true

@@ -1,6 +1,7 @@
 import React from "react";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
+import { Icon } from "../icon";
 enum IVariants {
   primary = "primary",
   secondary = "secondary",
@@ -40,6 +41,7 @@ export interface ITMButton extends BaseProps, React.ButtonHTMLAttributes<HTMLBut
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   component?: React.FC<any>;
   htmlType?: string;
+  loading?: boolean;
   [key: string]: any;
 }
 
@@ -54,13 +56,28 @@ export const TMButton = ({
   component,
   onClick,
   htmlType,
+  loading,
   ...rest
 }: ITMButton) => {
   const Element: any = component || "button";
-  const classCn = cn("cursor-pointer active:translate-y-[1px]", sizes[size as ISizes], variants[variant as IVariants], className);
+  const classCn = cn(
+    "cursor-pointer active:translate-y-[1px]",
+    sizes[size as ISizes],
+    variants[variant as IVariants],
+    className
+  );
   return (
-    <Element className={classCn} type={htmlType || "button"} onClick={onClick} {...rest}>
-      {children}
+    <Element
+      className={classCn}
+      type={htmlType || "button"}
+      onClick={onClick}
+      {...rest}
+      disabled={loading || rest.disabled}
+    >
+      <div className="flex gap-1">
+        {children}
+        {loading && <Icon name="loader" className="animate-spin" />}
+      </div>
     </Element>
   );
 };

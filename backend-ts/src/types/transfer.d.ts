@@ -7,7 +7,8 @@ import {
   InferCreationAttributes,
   BuildOptions
 } from 'sequelize'
-export interface ITransferModel extends Model<InferAttributes<ITransferModel>, InferCreationAttributes<ITransferModel>> {
+export interface ITransferModel
+  extends Model<InferAttributes<ITransferModel>, InferCreationAttributes<ITransferModel>> {
   id: CreationOptional<number>
   quantity: number
   type: string

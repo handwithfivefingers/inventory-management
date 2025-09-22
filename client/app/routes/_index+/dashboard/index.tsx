@@ -7,13 +7,17 @@ import { orderService } from "~/action.server/order.service";
 import { ErrorComponent } from "~/components/error-component";
 import { dayjs } from "~/libs/date";
 import "./styles.scss";
+import { getSession } from "~/sessions";
 // const chartOptions = {
 //   layout: { textColor: "black", background: { type: "solid", color: "white" } },
 //   waterMark: { visible: false },
 // };
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const cookie = request.headers.get("cookie") as string;
-  const resp = await orderService.getOrders({ page: 1, pageSize: 10, cookie });
+  const session = await getSession(cookie);
+  const warehouseId = session.get("warehouseId") as string;
+  console.log("warehouseId", warehouseId);
+  const resp = await orderService.getOrders({ page: "1", pageSize: "10", cookie, warehouseId });
   console.log("resp", resp);
   return resp;
 };

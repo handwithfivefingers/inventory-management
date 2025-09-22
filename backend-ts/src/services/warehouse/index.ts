@@ -2,7 +2,7 @@ import database from '#/database'
 import { IRequestLocal } from '#/types/common'
 import { IWarehouseModel, IWarehouseStatic } from '#/types/warehouse'
 import { getPagination } from '#/utils'
-import { Optional, Sequelize } from 'sequelize'
+import { FindAttributeOptions, Optional, Sequelize } from 'sequelize'
 
 // const BaseCRUDService = require('@constant/base')
 // const redisClient = require('@src/config/redis')
@@ -50,12 +50,9 @@ export class WarehouseService {
   }
   async getWarehouse(req: IRequestLocal) {
     try {
-      // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
-      const { offset, limit } = getPagination(req.query)
-      const resp = await this.warehouse.findAndCountAll({
-        where: {
-          // vendorId: vendor.id
-        },
+      const { offset, limit, vendor } = getPagination(req.query)
+      const queryParams = {
+        where: {},
         include: [
           {
             model: database.inventory,
@@ -64,12 +61,14 @@ export class WarehouseService {
         ],
         attributes: {
           include: [[this.sequelize.fn('sum', this.sequelize.col('inventories.quantity')), 'quantity']]
-        },
+        } as FindAttributeOptions,
         offset,
         limit,
         subQuery: false, // Unknown column "inventories.quantity" in field list
         distinct: true
-      })
+      }
+      if (vendor) queryParams.where = { ...queryParams.where, vendorId: vendor }
+      const resp = await this.warehouse.findAndCountAll(queryParams)
       console.log('resp', resp.rows[0])
       return resp
     } catch (error) {

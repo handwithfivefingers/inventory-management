@@ -5,11 +5,14 @@ import {
   CreationOptional,
   InferAttributes,
   InferCreationAttributes,
-  BuildOptions
+  BuildOptions,
+  ForeignKey
 } from 'sequelize'
-export interface ICategoryModel extends Model<InferAttributes<ICategoryModel>, InferCreationAttributes<ICategoryModel>> {
+export interface ICategoryModel
+  extends Model<InferAttributes<ICategoryModel>, InferCreationAttributes<ICategoryModel>> {
   id: CreationOptional<number>
   name: string
+  vendorId: ForeignKey<number>
 }
 
 export type ICategoryStatic = typeof Model & { associate: (models: any) => void } & {

@@ -1,24 +1,16 @@
 import { Link, useFetcher } from "@remix-run/react";
-import { V } from "node_modules/tailwindcss/dist/resolve-config-QUZ9b-Gn.mjs";
+import { AuthService } from "~/action.client/auth.service";
 import { SelectInput } from "~/components/form/select-input";
-import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { TMDropdown } from "~/components/tm-dropdown";
-import { useUser } from "~/store/user.store";
 import { useVendor } from "~/store/vendor.store";
-import { useWarehouse } from "~/store/warehouse.store";
-import { IWareHouse } from "~/types/warehouse";
 
 export const Header = () => {
-  const { vendors, activeVendor, activeWarehouse } = useVendor();
-  // const { warehouse, reset: warehouseReset } = useWarehouse();
-  const usr = useUser();
+  const { activeVendor, activeWarehouse } = useVendor();
   const fetcher = useFetcher();
-  const handleLogOut = () => {
-    // usr.reset();
-    // warehouseReset();
-    // vendorReset();
-    // fetcher.submit({}, { method: "POST", action: "/" });
+  const handleLogOut = async () => {
+    await AuthService.logout();
+    fetcher.submit({}, { method: "POST", action: "/api/auth" });
   };
   return (
     <div className="flex border-b items-center w-full overflow-hidden">
