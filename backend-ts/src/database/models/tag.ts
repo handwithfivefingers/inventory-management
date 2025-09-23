@@ -13,7 +13,8 @@ const Tag = (sequelize: Sequelize) => {
       name: {
         type: DataTypes.STRING,
         allowNull: false
-      }
+      },
+      vendorId: DataTypes.INTEGER
     },
     {
       timestamps: true

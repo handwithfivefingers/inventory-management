@@ -1,6 +1,34 @@
 import { UnitsService } from '#/services/units'
 import { IRequestHandler } from '#/types/common'
 export class UnitsController {
+  async get(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      const vendorId = req.query.vendorId
+      const { count, rows } = await new UnitsService().getUnits(vendorId as string)
+      res.status(200).json({ total: count, data: rows })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+  async getById(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      if (!req.params.id) throw new Error('id is required')
+      const { id } = req.params
+      const { vendor } = req.query
+      console.log('req.params', req.params)
+      const resp = await new UnitsService().getById({ vendor: vendor as string, id })
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      console.warn('error', error)
+      next(error)
+    }
+  }
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
@@ -23,31 +51,6 @@ export class UnitsController {
       })
       return
     } catch (error) {
-      next(error)
-    }
-  }
-  async get(...arg: IRequestHandler) {
-    const [req, res, next] = arg
-    try {
-      const vendorId = req.query.vendorId
-      const { count, rows } = await new UnitsService().getUnits(vendorId as string)
-      res.status(200).json({ total: count, data: rows })
-      return
-    } catch (error) {
-      next(error)
-    }
-  }
-  async getById(...arg: IRequestHandler) {
-    const [req, res, next] = arg
-    try {
-      if(!req.params.id) throw new Error('id is required')
-      const resp = await new UnitsService().getById(req.params.id)
-      res.status(200).json({
-        data: resp
-      })
-      return
-    } catch (error) {
-      console.warn('error', error)
       next(error)
     }
   }

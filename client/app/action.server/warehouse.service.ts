@@ -6,20 +6,36 @@ const API_PATH = {
   inventory: "/inventories",
 };
 
+interface IWarehouseById {
+  id: string | number;
+  vendorId: string;
+  cookie: string;
+}
+
+interface IWarehouseParams extends Omit<IWarehouseById, "id"> {
+  page: string;
+  pageSize: string;
+}
+
 const warehouseService = {
-  getWareHouses: ({ vendor, cookie }: any) => {
-    return HTTPService.getInstance().get<IWareHouse[]>(API_PATH.warehouse + `?vendor=${vendor}`, { Cookie: cookie });
+  getWareHouses: ({ cookie, ...restParams }: IWarehouseParams) => {
+    const params = new URLSearchParams(restParams);
+    return HTTPService.getInstance().get<IWareHouse[]>(API_PATH.warehouse + `?${params.toString()}`, {
+      Cookie: cookie,
+    });
   },
   getInventoryFromWareHouseId: (documentId: string) => {
     const params = new URLSearchParams({});
     params.append(`filters[warehouses][documentId][$eq]`, documentId);
     return HTTPService.getInstance().get(API_PATH.inventory + "?" + params.toString());
   },
-  getWareHouseById: ({ id, vendor }: any) => {
+  getWareHouseById: ({ id, vendorId, cookie: Cookie }: IWarehouseById) => {
     const params = new URLSearchParams({
-      vendor,
+      vendorId,
     });
-    return HTTPService.getInstance().get<IWareHouse>(API_PATH.warehouse + "/" + id + "?" + params.toString());
+    return HTTPService.getInstance().get<IWareHouse>(API_PATH.warehouse + "/" + id + "?" + params.toString(), {
+      Cookie,
+    });
   },
 };
 

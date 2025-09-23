@@ -4,13 +4,13 @@ import { useEffect } from "react";
 import { vendorService } from "~/action.server/vendor.service";
 import { ErrorComponent } from "~/components/error-component";
 import { AppLayout } from "~/components/layouts";
-import { commitSession, destroySession, getSession } from "~/sessions";
+import { commitSession, destroySession, getSession, parseCookieFromRequest } from "~/sessions";
 import { useVendor } from "~/store/vendor.store";
 export async function loader({ request }: LoaderFunctionArgs) {
+  const { cookie, userId, session } = await parseCookieFromRequest(request);
   try {
-    const cookie = request.headers.get("cookie") as string;
-    const session = await getSession(cookie);
-    const userId = session.get("userId");
+    // const cookie = request.headers.get("cookie") as string;
+    // const userId = session.get("userId");
     if (!userId) {
       return redirect("/auth/login", {
         headers: {
@@ -28,7 +28,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         session.set("warehouseId", vendor[0].warehouses[0].id);
       }
     }
-    
+
     console.log("session", session);
     return Response.json(
       { ...resp },
@@ -39,7 +39,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     );
   } catch (error) {
-    throw new Error("Can't fetch vendor");
+    throw redirect("/auth/login", {
+      headers: {
+        "Set-Cookie": await destroySession(session),
+      },
+    });
   }
 }
 

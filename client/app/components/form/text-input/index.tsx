@@ -38,7 +38,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             name={name}
             id={name}
             className={cn(
-              "block w-full bg-transparent rounded-md border-0 text-gray-900  placeholder:text-gray-400  text-base outline-none  py-1.5 px-3 text-sm",
+              "block w-full bg-transparent rounded-md border-0 text-gray-900  placeholder:text-gray-400 outline-none  py-1.5 px-3 text-sm",
               styles.input,
               inputClassName,
               className,
@@ -62,7 +62,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
           )}
           <div
             className={cn(
-              "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] bg-white dark:bg-slate-100",
+              "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] bg-white",
               styles.outline,
               className
             )}
@@ -77,7 +77,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
 const InputLabel = ({ label, name }: { label?: string; name?: string }) => {
   if (!label) return;
   return (
-    <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900">
+    <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900 dark:text-slate-200">
       {label}
     </label>
   );
@@ -87,7 +87,7 @@ const InputPrefix = ({ prefix, prefixRef }: { prefix: string; prefixRef: React.R
   if (!prefix) return "";
   return (
     <div className="pointer-events-none inset-y-0 left-0 flex items-center pl-1 z-[1]">
-      <span className="text-indigo-950 sm:text-sm" ref={prefixRef}>
+      <span className="text-indigo-950  sm:text-sm" ref={prefixRef}>
         {prefix}
       </span>
     </div>

@@ -30,7 +30,7 @@ const Transfer = (sequelize: Sequelize) => {
   )
 
   Model.associate = (models) => {
-    // Model.belongsTo(models.warehouse, { foreignKey: "warehouseId" });
+    Model.belongsTo(models.warehouse, { foreignKey: "warehouseId" });
     Model.belongsTo(models.product, { foreignKey: 'productId' })
   }
   return Model

@@ -48,9 +48,8 @@ export class WarehouseService {
       throw error
     }
   }
-  async getWarehouse(req: IRequestLocal) {
+  async getWarehouse({ offset, limit, vendorId }: { offset?: number; limit?: number; vendorId?: string }) {
     try {
-      const { offset, limit, vendor } = getPagination(req.query)
       const queryParams = {
         where: {},
         include: [
@@ -65,22 +64,24 @@ export class WarehouseService {
         offset,
         limit,
         subQuery: false, // Unknown column "inventories.quantity" in field list
-        distinct: true
+        distinct: true,
+        group: ['id'],
+        // logging: (sql: string) => console.log(sql)
       }
-      if (vendor) queryParams.where = { ...queryParams.where, vendorId: vendor }
+      if (vendorId) queryParams.where = { ...queryParams.where, vendorId: vendorId }
       const resp = await this.warehouse.findAndCountAll(queryParams)
-      console.log('resp', resp.rows[0])
+      console.log('resp', resp, offset, limit)
       return resp
     } catch (error) {
       throw error
     }
   }
-  async getWarehouseById({ params, query }: any) {
+  async getWarehouseById({ id, vendorId }: Partial<IWarehouseModel>) {
     try {
       const resp = await this.warehouse.findOne({
         where: {
-          id: params.id,
-          vendorId: query.vendor
+          id,
+          vendorId
         },
         include: { model: database.inventory, attributes: [] },
         attributes: {

@@ -1,13 +1,13 @@
 import database from '#/database'
 import { IInventoryStatic } from '#/types/inventory'
-import { IOrderStatic } from '#/types/order'
+import { IOrderModel, IOrderStatic } from '#/types/order'
 import { IOrderDetailStatic } from '#/types/orderDetail'
 import { IProductStatic } from '#/types/product'
-import { Op, Transaction } from 'sequelize'
+import { Op, Optional, Transaction } from 'sequelize'
 import { TransferService } from '../transfer'
 import { Request } from 'express'
 interface IOrderCreateParams {
-  OrderDetails: any[]
+  orderDetails: any[]
   price?: number | string
   VAT?: number | string
   surcharge?: number | string
@@ -59,41 +59,35 @@ export default class OrderService {
   inventory: IInventoryStatic = database.inventory
   product: IProductStatic = database.product
   sequelize = database.sequelize
-  /**
-   * @description Create a new order
-   * @param {Object} params - contains order creation information
-   * @param {number} params.VAT - VAT value
-   * @param {number} params.surcharge - surcharge value
-   * @param {string} params.paymentType - payment type, can be "cash" or "transfer"
-   * @param {number} params.warehouseId - warehouse ID
-   * @param {number} params.providerId - provider ID
-   * @param {Array<Object>} params.OrderDetails - an array of objects containing order details information
-   * @param {string} params.type - order type, can be "1" or "0", default is "1"
-   * @returns {Promise<Object>} - a Promise that resolves to a newly created order
-   */
-  async create({ VAT, surcharge, paymentType, warehouseId, providerId, OrderDetails, type = '1' }: IOrderCreateParams) {
+
+  async create({ VAT, surcharge, paymentType, warehouseId, providerId, orderDetails, type = '1' }: IOrderCreateParams) {
     // Start a new transaction
-    const t = await this.sequelize.transaction({})
+    const t = await this.sequelize.transaction()
     try {
       // Calculate the total price of the order details and add the surcharge
-      const totalPrice = OrderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
+      const totalPrice = orderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
 
       // Calculate the total amount to be paid including VAT
       const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
-      const orderBuilder = this.order.build({
+
+      const orderParams: Partial<Omit<IOrderModel, 'id'>> = {
         VAT: Number(VAT),
         surcharge: Number(surcharge),
         paid: totalPaid,
         price: totalPrice,
         paymentType,
-        providerId: Number(providerId),
         warehouseId: Number(warehouseId)
-      })
+      }
+      if (providerId) {
+        orderParams.providerId = Number(providerId)
+      }
+
+      const orderBuilder = this.order.build(orderParams as Optional<IOrderModel, 'id'>)
 
       const p = await orderBuilder.save({ transaction: t })
 
       // Create order details for each item
-      for (let item of OrderDetails) {
+      for (let item of orderDetails) {
         await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
       }
 

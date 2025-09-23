@@ -15,5 +15,6 @@ import express from 'express'
 const Router = express.Router()
 // Router.get('/', new VendorController().get)
 Router.get('/', new OrderController().getOrders)
+Router.post('/create', new OrderController().create)
 
 export default Router

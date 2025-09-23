@@ -27,7 +27,7 @@ const VendorModel = (sequelize: Sequelize) => {
     M.hasMany(models.category, { foreignKey: 'vendorId' })
     M.hasMany(models.tag, { foreignKey: 'vendorId' })
     M.hasMany(models.unit, { foreignKey: 'vendorId' })
-    // M.belongsTo(models.user, { foreignKey: 'userId' })
+    M.belongsTo(models.user, { foreignKey: 'userId' })
   }
   return M
 }

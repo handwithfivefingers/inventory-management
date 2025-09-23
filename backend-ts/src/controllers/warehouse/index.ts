@@ -1,5 +1,6 @@
 import { WarehouseService } from '#/services/warehouse'
 import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { getPagination } from '#/utils'
 export class WarehouseController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
@@ -16,7 +17,8 @@ export class WarehouseController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const { count, rows } = await new WarehouseService().getWarehouse(req as IRequestLocal)
+      const { offset, limit, vendorId } = getPagination(req.query)
+      const { count, rows } = await new WarehouseService().getWarehouse({ offset, limit, vendorId })
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {
@@ -26,7 +28,11 @@ export class WarehouseController {
   async getWarehouseById(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new WarehouseService().getWarehouseById({ params: req.params, query: req.query })
+      const { vendorId } = req.query
+      const id = req.params.id as string
+      if (!id) throw new Error('id is required')
+      console.log('vendorId', vendorId)
+      const resp = await new WarehouseService().getWarehouseById({ vendorId, id: +id })
       res.status(200).json({
         data: resp
       })

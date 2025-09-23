@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { StrOrNum } from "./common";
 const unitSchema = z.object({
+  id: z.number().optional(),
   name: z.string().min(1),
 });
+export type IUnitSchema = z.infer<typeof unitSchema>;
 
 export { unitSchema };

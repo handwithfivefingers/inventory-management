@@ -7,6 +7,7 @@ export interface ITagParams {
   id?: number | string;
   name: string;
   vendorId: string | number;
+  cookie: string;
 }
 
 export interface ITag {

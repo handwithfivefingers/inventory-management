@@ -1,5 +1,4 @@
 @reference "tailwindcss";
-
 .input {
   z-index: 1;
   & ~ .chevron {
@@ -7,7 +6,7 @@
   }
   &:focus {
     & ~ .outline {
-      @apply ring-2 ring-indigo-600 ring-offset-3;
+      @apply ring-2 ring-inset ring-indigo-600 dark:ring-indigo-300/50;
     }
     & ~ .chevron {
       transform: rotate(90deg);
@@ -28,10 +27,8 @@
 }
 
 .dropdown {
-  @apply shadow-xl border border-indigo-200 rounded-md mt-2 fixed bg-white;
-  @apply min-w-40;
-  li {
-  }
+  @apply rounded-sm mt-2 fixed bg-white;
+  border: 1px solid #eee;
 }
 
 .rotation {

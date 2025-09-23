@@ -115,7 +115,7 @@ TMTable.Row = ({ columns, data, onClick, index }: IRow) => {
     <tr onClick={handleCellClick} className={cn("cursor-pointer group", styles.row)}>
       {columns.map((item, i) => {
         return (
-          <TMTable.Cell className={styles.cell} key={`cell_${i}`}>
+          <TMTable.Cell className={styles.cell} key={`cell_${i}`} style={{ width: item.width }}>
             {item?.render ? item?.render(data, index) : data?.[item?.dataIndex]}
           </TMTable.Cell>
         );
@@ -124,13 +124,14 @@ TMTable.Row = ({ columns, data, onClick, index }: IRow) => {
   );
 };
 
-TMTable.Cell = ({ children, className }: any) => {
+TMTable.Cell = ({ children, className, style }: any) => {
   return (
     <td
       className={cn(
         " dark:border-slate-600 p-4 text-slate-500 dark:text-slate-400 group-hover:bg-slate-100 transition-all",
         className
       )}
+      style={style}
     >
       {children}
     </td>

@@ -1,12 +1,13 @@
 import { BaseQueryParams } from "./common";
 import { IProduct } from "./product";
 export interface ICategoryQueryParams extends BaseQueryParams {
-  vendor: string;
+  vendorId: string;
 }
 export interface ICategoryParams {
   id?: number | string;
   name: string;
-  vendor: string | number;
+  vendorId: string | number;
+  cookie: string;
 }
 
 export interface ICategory {

@@ -9,18 +9,14 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
+import { getLoaderRequestQuery } from "~/libs/utils";
+import { parseCookieFromRequest } from "~/sessions";
 import { IOrder } from "~/types/order";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const cookie = request.headers.get("cookie") as string;
-    const session = await getSession(cookie);
-    const warehouseId = session.get("warehouseId") as string;
-    const url = new URL(request.url);
-    const params = url.searchParams;
-    const page = params.get("page") || "1";
-    const pageSize = params.get("pageSize") || "10";
+    const { warehouseId, cookie } = await parseCookieFromRequest(request);
+    const { page, pageSize } = getLoaderRequestQuery(request);
     const resp = await orderService.getOrders({ page, pageSize, cookie, warehouseId });
     return { ...resp, page, pageSize };
   } catch (error: unknown) {
@@ -40,7 +36,7 @@ export default function Orders() {
   const navigate = useNavigate();
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Product" className="p-4 h-full">
+      <CardItem title="Đơn hàng" className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex shrink-0 gap-2">
             <TextInput placeholder="Lọc theo mã, tên hàng hóa" />

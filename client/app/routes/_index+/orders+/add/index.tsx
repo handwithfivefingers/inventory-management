@@ -1,44 +1,40 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Controller, FormProvider, useFieldArray, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { orderService } from "~/action.server/order.service";
 import { BarcodeScanner } from "~/components/barcode-scanner";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { FormInput } from "~/components/form/formInput";
 import { NumberInput } from "~/components/form/number-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
+import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { TMModal } from "~/components/tm-modal";
 import { TMTable } from "~/components/tm-table";
-import { orderSchema } from "~/constants/schema/order";
-import { getSession } from "~/sessions";
+import { IOrderDetailType, IOrderType, orderSchema } from "~/constants/schema/order";
+import { useSubmitPromise } from "~/hooks";
+import { parseCookieFromRequest } from "~/sessions";
 import { IProduct } from "~/types/product";
 
-interface IProductForm extends IProduct {
-  price?: number | string;
-  buyPrice?: number | string;
-  productId: number | string;
-}
-
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "New Remix App" }];
 };
 
 export default function OrderItem() {
   const fetcher = useFetcher();
   const [show, setShow] = useState(false);
   const searchFetcher = useFetcher<{ data: IProduct[] }>({ key: "Products-Search" });
-  const formMethods = useForm({
+  const formMethods = useForm<IOrderType>({
     defaultValues: {
       customer: undefined,
-      OrderDetails: [],
+      orderDetails: [],
       price: 0,
       VAT: "5",
-      warehouse: undefined,
       surcharge: "0",
       paid: 0,
       paymentType: "cash",
@@ -46,11 +42,12 @@ export default function OrderItem() {
     resolver: zodResolver(orderSchema),
   });
   const { control, watch, getValues, setValue } = formMethods;
-  const { fields, append, prepend, remove, swap, move, insert, replace } = useFieldArray<any>({
+  const { fields, append, replace } = useFieldArray<any>({
     control, // control props comes from useForm (optional: if you are using FormProvider)
-    name: "OrderDetails", // unique name for your Field Array
+    name: "orderDetails", // unique name for your Field Array
   });
-  const orderDetails = watch("OrderDetails");
+  const { submit, isLoading } = useSubmitPromise();
+  const orderDetails = watch("orderDetails") as IOrderDetailType[];
   const surcharge = watch("surcharge");
   const VAT = watch("VAT");
   const [canScan, setCanScan] = useState(true);
@@ -58,39 +55,53 @@ export default function OrderItem() {
   const controlledFields = fields.map((field, index) => {
     return {
       ...field,
-      ...(orderDetails[index] as any),
+      ...(orderDetails?.[index] as any),
     };
   });
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
-  const onSubmit = (v: any): void => {
-    // const qs = {
-    //   quantity: v.quantity as string,
-    //   warehouseId: warehouse?.documentId as string,
-    //   vendorId: defaultActive?.documentId as string,
-    // };
-    // const { ...parsed } = v;
-    // delete parsed.quantity;
-    // delete parsed.warehouseId;
-    // delete parsed.vendorId;
-    // fetcher.submit(
-    //   {
-    //     data: JSON.stringify({
-    //       data: parsed,
-    //       qs: qs,
-    //     }),
-    //   },
-    //   { method: "POST", action: "/products/add" }
-    // );
-    v.price = total;
-    v.paid = totalPaid;
-    console.log("v", v);
-    fetcher.submit({ data: JSON.stringify(v) }, { method: "POST", action: "/orders/add" });
+
+  const onQuantityChange = ({ value, float }: any, field: any, pos: number) => {
+    field.onChange(value);
+    const price = getValues(`orderDetails.${pos}.price` as any);
+    const v = Number(value) * Number(price);
+    setValue(`orderDetails.${pos}.buyPrice` as any, v);
+  };
+  const onChangePrice = ({ value, float }: any, field: any, pos: number) => {
+    field.onChange(value);
+    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
+    const v = Number(value) * Number(quantity);
+    setValue(`orderDetails.${pos}.buyPrice` as any, v);
+  };
+  const total = orderDetails?.reduce((total, item: IOrderDetailType) => total + Number(item?.buyPrice), 0);
+  let combineTotal = total + Number(surcharge);
+  const totalPaid = Number(combineTotal + (combineTotal / 100) * Number(VAT));
+  const handleRetrieveData = async (barcode: any) => {
+    setCanScan(false);
+    const item = data?.find((item: IProduct) => item.code == barcode);
+    if (item) {
+      handleAdd(item);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setCanScan(true);
+  };
+
+  const handleFilterProduct = (e: any) => {
+    searchFetcher.submit({ s: e.target.value }, { method: "POST", action: "/products" });
+  };
+  const onQuantityIncreasement = (field: any, pos: number) => {
+    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
+    field.onChange(Number(quantity) + 1);
+  };
+  const onQuantityDecreasement = (field: any, pos: number) => {
+    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
+    const lastQuantity = Number(quantity) > 0 ? Number(quantity) - 1 : 0;
+    field.onChange(lastQuantity);
   };
 
   const handleAdd = (item: IProduct) => {
-    const currentValue: IProductForm[] = getValues("OrderDetails");
+    const currentValue: IOrderDetailType[] = getValues("orderDetails") || [];
     if (!currentValue.length) {
       const result = {
         productId: item.id,
@@ -123,46 +134,26 @@ export default function OrderItem() {
       }
     }
   };
-  const onQuantityChange = ({ value, float }: any, field: any, pos: number) => {
-    field.onChange(value);
-    const price = getValues(`OrderDetails.${pos}.price` as any);
-    const v = Number(value) * Number(price);
-    setValue(`OrderDetails.${pos}.buyPrice` as any, v);
-  };
-  const onChangePrice = ({ value, float }: any, field: any, pos: number) => {
-    field.onChange(value);
-    const quantity = getValues(`OrderDetails.${pos}.quantity` as any);
-    const v = Number(value) * Number(quantity);
-    setValue(`OrderDetails.${pos}.buyPrice` as any, v);
-  };
-  const total = orderDetails?.reduce((total, item: IProductForm) => total + Number(item?.buyPrice), 0);
-  let combineTotal = total + Number(surcharge);
-  const totalPaid = Number(combineTotal + (combineTotal / 100) * Number(VAT));
-  const handleRetrieveData = async (barcode: any) => {
-    setCanScan(false);
-    const item = data?.find((item: IProduct) => item.code == barcode);
-    if (item) {
-      handleAdd(item);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setCanScan(true);
-  };
 
-  const handleFilterProduct = (e: any) => {
-    searchFetcher.submit({ s: e.target.value }, { method: "POST", action: "/products" });
+  const onSubmit = async (v: IOrderType) => {
+    try {
+      const params = {
+        ...v,
+        price: total,
+        paid: totalPaid,
+      };
+      const resp = await submit({ data: JSON.stringify(params) }, { method: "POST" });
+      console.log("resp", resp);
+      toast.success({ title: "Created", message: "Tạo đơn hàng thành công" });
+    } catch (err) {
+      console.log("error", err);
+      toast.danger({ title: "Error", message: "Tạo đơn hàng thất bại" });
+    }
+    // v.price = total;
+    // v.paid = totalPaid;
+    // console.log("v", v);
+    // fetcher.submit({ data: JSON.stringify(v) }, { method: "POST", action: "/orders/add" });
   };
-  const onQuantityIncreasement = (field: any, pos: number) => {
-    const quantity = getValues(`OrderDetails.${pos}.quantity` as any);
-    field.onChange(Number(quantity) + 1);
-  };
-  const onQuantityDecreasement = (field: any, pos: number) => {
-    const quantity = getValues(`OrderDetails.${pos}.quantity` as any);
-    const lastQuantity = Number(quantity) > 0 ? Number(quantity) - 1 : 0;
-    field.onChange(lastQuantity);
-  };
-  useEffect(() => {
-    (window as any).getValues = getValues;
-  }, []);
 
   const data = searchFetcher?.data?.data || [];
   return (
@@ -173,7 +164,7 @@ export default function OrderItem() {
             <CardItem
               title={
                 <div className="flex justify-between items-center">
-                  <label className="text-lg">Hóa đơn</label>
+                  <label className="text-lg">Tạo đơn hàng</label>
                   <TMButton className="font-normal text-sm py-2" onClick={() => setShow(true)} size="xs">
                     <div className="flex gap-0.5 items-center">
                       <Icon name="plus" />
@@ -197,63 +188,49 @@ export default function OrderItem() {
                     <div className="grid grid-cols-12">
                       <div className="col-span-12 grid grid-cols-12 gap-2 items-center" key={field.id}>
                         <div className="hidden">
-                          <Controller
-                            control={control}
-                            name={`OrderDetails.${i}.productId` as any}
-                            render={({ field }) => {
-                              return <TextInput {...field} readOnly />;
-                            }}
-                          />
+                          <FormInput name={`orderDetails.${i}.productId`}>
+                            <TextInput readOnly />
+                          </FormInput>
                         </div>
                         <div className="col-span-1 px-2">
                           <div className="px-2">{i + 1}</div>
                         </div>
                         <div className="col-span-4 ">
-                          <Controller
-                            control={control}
-                            name={`OrderDetails.${i}.name` as any}
-                            render={({ field }) => {
-                              return <TextInput {...field} readOnly />;
-                            }}
-                          />
+                          <FormInput name={`orderDetails.${i}.name`}>
+                            <TextInput readOnly />
+                          </FormInput>
+                        </div>
+                        <div className="col-span-2">
+                          <FormInput name={`orderDetails.${i}.quantity` as any}>
+                            {(field) => (
+                              <div className="flex gap-1">
+                                <TMButton
+                                  size="xs"
+                                  className="w-9 flex-shrink-0 !rounded-md"
+                                  onClick={() => onQuantityDecreasement(field, i)}
+                                >
+                                  <Icon name="minus" />
+                                </TMButton>
+                                <NumberInput
+                                  value={field.value as any}
+                                  onValueChange={(v) => onQuantityChange(v, field, i)}
+                                  style={{ margin: 0 }}
+                                />
+                                <TMButton
+                                  size="xs"
+                                  className="w-9 flex-shrink-0 !rounded-md"
+                                  onClick={() => onQuantityIncreasement(field, i)}
+                                >
+                                  <Icon name="plus" />
+                                </TMButton>
+                              </div>
+                            )}
+                          </FormInput>
                         </div>
                         <div className="col-span-2">
                           <Controller
                             control={control}
-                            name={`OrderDetails.${i}.quantity` as any}
-                            render={({ field }) => {
-                              return (
-                                <div className="flex gap-1">
-                                  <TMButton
-                                    size="xs"
-                                    variant="light"
-                                    className="w-9 flex-shrink-0 !rounded-md"
-                                    onClick={() => onQuantityDecreasement(field, i)}
-                                  >
-                                    -
-                                  </TMButton>
-                                  <NumberInput
-                                    value={field.value as any}
-                                    onValueChange={(v) => onQuantityChange(v, field, i)}
-                                    style={{ margin: 0 }}
-                                  />
-                                  <TMButton
-                                    size="xs"
-                                    variant="light"
-                                    className="w-9 flex-shrink-0 !rounded-md"
-                                    onClick={() => onQuantityIncreasement(field, i)}
-                                  >
-                                    +
-                                  </TMButton>
-                                </div>
-                              );
-                            }}
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Controller
-                            control={control}
-                            name={`OrderDetails.${i}.price` as any}
+                            name={`orderDetails.${i}.price` as any}
                             render={({ field }) => {
                               return (
                                 <NumberInput
@@ -265,21 +242,9 @@ export default function OrderItem() {
                           />
                         </div>
                         <div className="col-span-3 px-2 text-right">
-                          <Controller
-                            control={control}
-                            name={`OrderDetails.${i}.buyPrice` as any}
-                            render={({ field }) => {
-                              return (
-                                <NumberInput
-                                  value={field.value as any}
-                                  // onValueChange={(v, info) => {
-                                  //   field.onChange(v.value);
-                                  // }}
-                                  displayType="text"
-                                />
-                              );
-                            }}
-                          />
+                          <FormInput name={`orderDetails.${i}.buyPrice` as any}>
+                            <NumberInput displayType="text" />
+                          </FormInput>
                         </div>
                       </div>
                     </div>
@@ -295,13 +260,9 @@ export default function OrderItem() {
                   <div className="w-96 flex justify-between">
                     <span>Phụ phí</span>{" "}
                     <div className="w-40">
-                      <Controller
-                        control={control}
-                        name="surcharge"
-                        render={({ field }) => (
-                          <NumberInput value={`${field.value}`} onValueChange={(v) => field.onChange(v.value)} />
-                        )}
-                      />
+                      <FormInput name="surcharge">
+                        {(field) => <NumberInput onValueChange={(v) => field.onChange(v.value)} />}
+                      </FormInput>
                     </div>
                   </div>
                   <div className="w-96 flex justify-between">
@@ -337,8 +298,8 @@ export default function OrderItem() {
                   <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
 
                   <div className="w-96 flex justify-end">
-                    <TMButton htmlType="submit" size="md" variant="light">
-                      Thêm
+                    <TMButton htmlType="submit" size="md" variant="light" loading={isLoading}>
+                      Tạo đơn hàng
                     </TMButton>
                   </div>
                 </div>
@@ -393,14 +354,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
-  const session = await getSession(request.headers.get("Cookie"));
-  const warehouseId = session.get("warehouseId");
+  const { warehouseId, cookie } = await parseCookieFromRequest(request);
   const params = {
     ...dataJson,
     warehouseId,
+    cookie,
   };
-  // console.log("params", params);
-  // return true;
   const resp = await orderService.createOrder(params);
   return resp;
 };

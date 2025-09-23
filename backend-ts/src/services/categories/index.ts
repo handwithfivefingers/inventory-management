@@ -42,14 +42,13 @@ export class CategoriesService {
     }
   }
 
-  async getCategories(req: IRequestLocal) {
+  async getCategories({ limit, offset, vendorId }: { limit?: number; offset?: number; vendorId?: string }) {
     try {
-      const { offset, limit, vendor } = getPagination(req.query)
       console.log('offset, limit, ', offset, limit)
-      if (!vendor) throw new Error('Vendor is required')
+      if (!vendorId) throw new Error('Vendor is required')
       const queryParams = {
         where: {
-          vendorId: vendor
+          vendorId
         },
         offset,
         limit,

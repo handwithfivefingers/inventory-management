@@ -198,7 +198,7 @@ export const MultiSelectInput = ({
           <>
             {options?.length ? (
               <div
-                className={cn("animate__animated animate__faster animate__fadeInUp", styles.dropdown)}
+                className={cn("animate__animated", styles.dropdown)}
                 ref={dropdown}
                 style={
                   {
@@ -206,13 +206,13 @@ export const MultiSelectInput = ({
                   } as React.CSSProperties
                 }
               >
-                <ul className="max-h-[400px] overflow-y-auto p-1 pt-2 px-2">
+                <ul className="max-h-[400px] overflow-y-auto p-1 flex flex-col gap-1">
                   {options?.map((item) => {
                     return (
                       <li
                         value={item.value}
                         className={cn(
-                          " px-2 hover:bg-indigo-200 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1 mb-1"
+                          " px-2 hover:bg-slate-100 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1"
                         )}
                         onClick={(e: any) => handleSelect(item)}
                       >

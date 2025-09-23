@@ -128,7 +128,7 @@ export const SelectInput = ({
         </div>
         <input
           className={cn(
-            "block w-full bg-transparent rounded-md border-0  text-transparent placeholder:text-gray-400  text-sm/6 outline-none px-1",
+            "block w-full bg-transparent cursor-pointer rounded-md border-0  text-transparent placeholder:text-gray-400  text-sm/6 outline-none px-1",
             styles.input,
             inputClassName
           )}
@@ -145,7 +145,7 @@ export const SelectInput = ({
         </div>
         <div
           className={cn(
-            "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] shadow-sm bg-white",
+            "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300 -z-[1] bg-white",
             styles.outline,
             className
           )}
@@ -158,7 +158,7 @@ export const SelectInput = ({
           <>
             {options?.length ? (
               <div
-                className={cn("animate__animated animate__faster animate__fadeInUp", styles.dropdown)}
+                className={cn("animate__animated", styles.dropdown)}
                 ref={dropdown}
                 style={
                   {
@@ -166,13 +166,13 @@ export const SelectInput = ({
                   } as React.CSSProperties
                 }
               >
-                <ul className="max-h-[400px] overflow-y-auto p-1">
+                <ul className="max-h-[400px] overflow-y-auto p-1 flex flex-col gap-1">
                   {options?.map((item) => {
                     return (
                       <li
                         value={item.value}
                         className={cn(
-                          " px-2 hover:bg-indigo-200 cursor-pointer rounded-xs bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1 mb-1"
+                          " px-2 hover:bg-slate-100 cursor-pointer rounded-xs bg-white text-neutral-700/90 hover:text-neutral-900 py-1"
                         )}
                         onClick={(e: any) => handleSelect(item)}
                       >
@@ -195,7 +195,6 @@ export const SelectInput = ({
             ) : (
               ""
             )}
-            {/* <div className="fixed top-0 left-0 right-0 bottom-0 z-[900]" onClick={() => setIsFocus(false)} /> */}
           </>
         )}
       </Portal>

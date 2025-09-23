@@ -1,4 +1,4 @@
-import { http } from "~/http";
+import { HTTPService } from "~/http";
 import { ICategoryParams } from "~/types/category";
 import { IResponse } from "~/types/common";
 import { ITag, ITagParams, ITagQueryParams } from "~/types/tag";
@@ -8,19 +8,26 @@ const API_PATH = {
 };
 
 const tagsService = {
-  get: (searchParams: ITagQueryParams): Promise<IResponse<ITag[]>> => {
+  get: ({ cookie: Cookie, ...searchParams }: ITagQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return http.get(API_PATH.tags + "?" + qs.toString());
+    return HTTPService.getInstance().get<ITag[]>(API_PATH.tags + "?" + qs.toString(), { Cookie });
   },
-  update: ({ id, ...params }: ITagParams): Promise<IResponse<ITag[]>> => {
-    return http.post(`${API_PATH.tags}/${id}`, params);
+  update: ({ id, cookie: Cookie, ...params }: ITagParams) => {
+    return HTTPService.getInstance().post(`${API_PATH.tags}/${id}`, params, { Cookie });
   },
-  create: (params: ICategoryParams) => {
-    return http.post(API_PATH.tags, params);
+  create: ({ cookie: Cookie, ...params }: ITagParams) => {
+    return HTTPService.getInstance().post(API_PATH.tags, params, { Cookie });
   },
-  getById: ({ id }: { id: string | number }): Promise<IResponse<ITag>> => {
+  getById: ({
+    id,
+    cookie: Cookie,
+  }: {
+    id: Partial<string | number>;
+    vendorId: Partial<string | number>;
+    cookie: string;
+  }) => {
     const params = new URLSearchParams({});
-    return http.get(API_PATH.tags + "/" + id + "?" + params.toString());
+    return HTTPService.getInstance().get<ITag>(API_PATH.tags + "/" + id + "?" + params.toString(), { Cookie });
   },
 };
 

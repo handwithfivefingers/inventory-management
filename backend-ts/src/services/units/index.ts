@@ -11,6 +11,7 @@ export class UnitsService {
   unit: IUnitStatic = database.unit
   async create(params: Optional<IUnitModel, 'id'>) {
     try {
+      console.log('params', params)
       const builder = this.unit.build(params)
       const instance = await builder.save()
       return instance
@@ -29,9 +30,10 @@ export class UnitsService {
 
   async getUnits(vendorId: string) {
     try {
+      // Retrieve all units
       const queryParams = {
         where: {
-          vendorId: vendorId
+          vendorId
         }
       }
       const resp = await this.unit.findAndCountAll(queryParams)
@@ -41,11 +43,12 @@ export class UnitsService {
     }
   }
 
-  async getById(id: string) {
+  async getById({ id, vendor }: { id: string; vendor: string }) {
     try {
       const resp = await this.unit.findOne({
         where: {
-          id: id
+          id: id,
+          vendorId: vendor
         }
       })
       return resp

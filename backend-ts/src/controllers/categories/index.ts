@@ -1,5 +1,6 @@
 import { CategoriesService } from '#/services/categories'
 import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { getPagination } from '#/utils'
 
 export class CategoriesController {
   async create(...arg: IRequestHandler) {
@@ -42,7 +43,8 @@ export class CategoriesController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const { count, rows } = await new CategoriesService().getCategories(req as IRequestLocal)
+      const { limit, offset, vendorId } = getPagination(req.query)
+      const { count, rows } = await new CategoriesService().getCategories({ limit, offset, vendorId })
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {

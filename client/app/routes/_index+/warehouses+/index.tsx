@@ -8,19 +8,14 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
-import { getSessionValues } from "~/sessions";
+import { getLoaderRequestQuery } from "~/libs/utils";
+import { parseCookieFromRequest } from "~/sessions";
 import { IWareHouse } from "~/types/warehouse";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  // const session = await getSession(request.headers.get("Cookie"));
-  // const vendor = session.get("vendor");
-  const cookie = request.headers.get("cookie") as string;
-  const { vendorId } = await getSessionValues(cookie);
-  const url = new URL(request.url);
-  const sParams = url.searchParams;
-  const page = sParams.get("page") || 1;
-  const pageSize = sParams.get("pageSize") || 10;
-  const resp = await warehouseService.getWareHouses({ cookie, vendor: vendorId } as any);
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
+  const { page, pageSize } = getLoaderRequestQuery(request);
+  const resp = await warehouseService.getWareHouses({ cookie, vendorId: vendorId, page, pageSize } as any);
   return {
     ...resp,
     page,
@@ -89,10 +84,9 @@ export default function WareHouses() {
           <div className="flex  gap-2 shrink-0">
             <TMPagination
               total={total || 0}
-              current={page as number}
-              pageSize={pageSize as number}
+              current={page}
+              pageSize={pageSize}
               onPageChange={(page: number) => {
-                // console.log("page", page);
                 navigate(`?page=${page}&pageSize=${pageSize}`);
               }}
             />

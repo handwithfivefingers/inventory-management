@@ -10,15 +10,17 @@ import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
-import { getSession } from "~/sessions";
+import { useSubmitPromise } from "~/hooks";
+import { ResponseError } from "~/http";
+import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
-  return [{ title: "Unit - Đơn vị" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Unit - Đơn vị" }];
 };
 
 export default function UnitItem() {
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
-      <CardItem title="Đơn vị">
+    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <CardItem title="Đơn vị" className="p-4 h-full">
         <UnitForm />
       </CardItem>
     </div>
@@ -27,6 +29,7 @@ export default function UnitItem() {
 
 const UnitForm = () => {
   const fetcher = useFetcher<{ status: boolean; data: any }>({ key: "units-add" });
+  const { submit, isLoading } = useSubmitPromise();
   const formMethods = useForm({
     defaultValues: {
       name: "",
@@ -37,15 +40,18 @@ const UnitForm = () => {
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
-  const onSubmit = (v: any): void => {
-    fetcher.submit(
-      {
-        data: JSON.stringify({
-          data: v,
-        }),
-      },
-      { method: "POST", action: "/units/add" }
-    );
+  const onSubmit = async (v: any) => {
+    try {
+      const resp = await submit({ data: JSON.stringify(v) }, { method: "POST" });
+      console.log("resp", resp);
+      toast.success({ title: "Created", message: "Tạo đơn vị thành công" });
+    } catch (error) {
+      if (error instanceof ResponseError) {
+        toast.danger({ title: "Error", message: error.message });
+      } else {
+        console.log("onSubmit Error", error);
+      }
+    }
   };
 
   useEffect(() => {
@@ -89,12 +95,11 @@ const UnitForm = () => {
 };
 export const action = async ({ request }: any) => {
   try {
-    const session = await getSession(request.headers.get("Cookie"));
-    const vendor = session.get("vendor");
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
-    const data = await formData.get("data");
-    const dataJson = JSON.parse(data);
-    const bodyData = { ...dataJson.data, vendorId: vendor };
+    const data = (await formData.get("data")) as `${string}`;
+    const dataJson: { name: string } = JSON.parse(data);
+    const bodyData = { ...dataJson, vendorId: vendorId, cookie };
     const resp = await unitsService.create(bodyData);
     if (resp.status === 200) {
       return redirect(`/units`, 302);

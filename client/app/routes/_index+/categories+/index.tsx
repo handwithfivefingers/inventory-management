@@ -7,19 +7,17 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { getSession, getSessionValues } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // const session = await getSession(request.headers.get("Cookie"));
-  const cookie = request.headers.get("cookie") as string;
-  const { vendorId } = await getSessionValues(cookie);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
   const pageSize = params.get("pageSize") || "10";
   // const vendor = session.get("vendor");
   const resp = await categoryService.get({
-    vendor: vendorId as string,
+    vendorId: vendorId as string,
     page,
     pageSize,
     cookie,
@@ -55,7 +53,7 @@ export default function Products() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
+          <div className="flex flex-1 gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
             <TMTable
               columns={[
                 {

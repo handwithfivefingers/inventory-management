@@ -1,6 +1,6 @@
 import database from '#/database'
 import { ITransferStatic } from '#/types/transfer'
-import { Sequelize } from 'sequelize'
+import { Sequelize, Op } from 'sequelize'
 import { Request } from 'express'
 // const BaseCRUDService = require('@constant/base')
 // const { Op } = require('sequelize')
@@ -19,8 +19,6 @@ interface ICreateParams {
 export class TransferService {
   sequelize: Sequelize = database.sequelize
   transfer: ITransferStatic = database.transfer
-  Op = database.Sequelize.Op
-
   // async create(params: ICreateParams, options?: any) {
   //   const t = await this.sequelize.transaction()
   //   try {

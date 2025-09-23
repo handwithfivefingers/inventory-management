@@ -5,11 +5,14 @@ import {
   CreationOptional,
   InferAttributes,
   InferCreationAttributes,
-  BuildOptions
+  BuildOptions,
+  ForeignKey
 } from 'sequelize'
+import { IVendorModel } from './vendor'
 export interface ITagModel extends Model<InferAttributes<ITagModel>, InferCreationAttributes<ITagModel>> {
   id: CreationOptional<number>
   name: string
+  vendorId: ForeignKey<IVendorModel['id']>
 }
 
 export type ITagStatic = typeof Model & { associate: (models: any) => void } & {

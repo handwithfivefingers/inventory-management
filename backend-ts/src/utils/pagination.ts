@@ -1,15 +1,15 @@
 export const getPagination = ({
   page,
   pageSize,
-  vendor,
-  warehouse
+  vendorId,
+  warehouseId
 }: {
   page?: number | string
   pageSize?: number | string
-  warehouse?: string
-  vendor?: string
+  warehouseId?: string
+  vendorId?: string
 }) => {
   const limit = pageSize ? +pageSize : 10
-  const offset = page ? ((+page - 1) * limit) : 0
-  return { limit, offset, vendor, warehouse }
+  const offset = page ? (+page - 1) * limit : 0
+  return { limit, offset, vendorId, warehouseId }
 }

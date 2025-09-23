@@ -13,7 +13,7 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
-import { getSession, getSessionValues } from "~/sessions";
+import { getSession, getSessionValues, parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
@@ -45,14 +45,6 @@ export default function ProductItem() {
     console.log("errors", errors);
   };
   const onSubmit = async (v: ProductSchemaType) => {
-    // fetcher.submit(
-    //   {
-    //     data: JSON.stringify({
-    //       data: v,
-    //     }),
-    //   },
-    //   { method: "POST", action: "/products/add" }
-    // );
     const response = await submit(
       {
         data: JSON.stringify(v),
@@ -69,13 +61,13 @@ export default function ProductItem() {
   useEffect(() => {
     load("/categories");
     // loadTags("/tags");
-    // loadUnits("/units");
+    loadUnits("/units");
     (window as any).form = formMethods;
   }, []);
 
   return (
     <div className="w-full flex flex-col p-2 gap-4">
-      <CardItem title="Product" className="p-4">
+      <CardItem title="Sản phẩm" className="p-4">
         <div className="bg-white rounded-sm shadow-md p-4 flex gap-2 flex-col">
           <FormProvider {...formMethods}>
             <form
@@ -316,25 +308,11 @@ export default function ProductItem() {
 }
 
 export const action = async ({ request }: any) => {
-  // const session = await getSession(request.headers.get("Cookie"));
-  // const warehouse = session.get("warehouse");
-  const cookie = request.headers.get("Cookie") as string;
-  const { warehouseId } = await getSessionValues(cookie);
+  const { warehouseId, cookie } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson, warehouseId, cookie };
-  console.log("bodyData", bodyData);
   const resp = await productService.createProduct(bodyData);
   return resp;
 };
-export function ErrorBoundary() {
-  const error: any = useRouteError();
-  return (
-    <div>
-      <h1>Error</h1>
-      <p>{error?.message}</p>
-      <p>{error?.stack}</p>
-    </div>
-  );
-}

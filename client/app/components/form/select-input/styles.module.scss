@@ -6,7 +6,7 @@
   }
   &:focus {
     & ~ .outline {
-      @apply ring-2 ring-inset ring-indigo-600;
+      @apply ring-2 ring-inset ring-indigo-600 dark:ring-indigo-300/50;
     }
     & ~ .chevron {
       // @apply rotate-90;
@@ -28,36 +28,6 @@
 }
 
 .dropdown {
-  @apply shadow-xl border rounded-sm mt-2 fixed bg-white;
-  @apply min-w-40;
-  li {
-    // @apply text-neutral-700 hover:text-neutral-900 py-1;
-  }
+  @apply rounded-sm mt-2 fixed bg-white;
+  border: 1px solid #eee;
 }
-
-// .rotation {
-//   transform: rotate(0deg);
-// }
-
-// .rotationActive {
-//   -webkit-animation: spin 0.2s linear 1 alternate forwards;
-//   -moz-animation: spin 0.2s linear 1 alternate forwards;
-//   animation: spin 0.2s linear 1 alternate forwards;
-// }
-
-// @-moz-keyframes spin {
-//   100% {
-//     -moz-transform: rotate(180deg);
-//   }
-// }
-// @-webkit-keyframes spin {
-//   100% {
-//     -webkit-transform: rotate(180deg);
-//   }
-// }
-// @keyframes spin {
-//   100% {
-//     -webkit-transform: rotate(180deg);
-//     transform: rotate(180deg);
-//   }
-// }

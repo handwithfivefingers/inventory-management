@@ -1,25 +1,25 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { LineChart } from "chartist";
+import { BarChart, LineChart } from "chartist";
 import "chartist/dist/index.css";
 import { useEffect, useRef } from "react";
 import { orderService } from "~/action.server/order.service";
 import { ErrorComponent } from "~/components/error-component";
 import { dayjs } from "~/libs/date";
+import { parseCookieFromRequest } from "~/sessions";
 import "./styles.scss";
-import { getSession } from "~/sessions";
 // const chartOptions = {
 //   layout: { textColor: "black", background: { type: "solid", color: "white" } },
 //   waterMark: { visible: false },
 // };
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
-  const session = await getSession(cookie);
-  const warehouseId = session.get("warehouseId") as string;
-  console.log("warehouseId", warehouseId);
+  const { cookie, warehouseId } = await parseCookieFromRequest(request);
   const resp = await orderService.getOrders({ page: "1", pageSize: "10", cookie, warehouseId });
-  console.log("resp", resp);
-  return resp;
+  return {
+    ...resp,
+    page: "1",
+    pageSize: "10",
+  };
 };
 export const meta: MetaFunction = () => {
   return [{ title: "Trang chủ" }, { name: "description", content: "Welcome to Remix!" }];
@@ -38,6 +38,7 @@ export default function Home() {
       for (const day of lastSevenDay) {
         orderCurrentWeek.set(day, 0);
       }
+      if (!data?.length) return;
       for (let i = 0; i < data.length; i++) {
         const orderDate = dayjs(data[i].updatedAt).format("DD");
         const paid = data[i].paid;
@@ -60,9 +61,9 @@ export default function Home() {
         plugins: [hoverTooltips({ prefix: "Đơn hàng: ", suffix: " $" })],
       };
       // chartJS.current = new BarChart(chartRef.current, chartData, configs as any);
-      // new BarChart(chartRef1.current, chartData, configs as any);
-      // new BarChart(chartRef2.current, chartData, configs as any);
-      // new BarChart(chartRef3.current, chartData, configs as any);
+      new BarChart(chartRef1.current, chartData, configs as any);
+      new BarChart(chartRef2.current, chartData, configs as any);
+      new BarChart(chartRef3.current, chartData, configs as any);
       new LineChart(chartRef4.current, chartData, configs as any);
     }
   }, []);
@@ -73,7 +74,7 @@ export default function Home() {
       const tooltipDiv = document.createElement("div");
       tooltipDiv.setAttribute(
         "class",
-        "ct-tooltip animate__animated animate__faster animate__fadeOut absolute bg-white px-4 py-2 rounded shadow"
+        "ct-tooltip animate__animated animate__faster animate__fadeOut absolute bg-white px-4 py-2 rounded shadow text-slate-600 text-sm"
       );
       container.appendChild(tooltipDiv);
       const cleanObs = (obs: any) => {
@@ -87,7 +88,7 @@ export default function Home() {
             const value = target.getAttribute("ct:value");
             let html = "";
             if (options.prefix) html += options.prefix;
-            if (value) html += value;
+            if (value) html += Intl.NumberFormat("vi-VI").format(value);
             if (options.suffix) html += options.suffix;
             tooltipDiv.innerHTML = html;
             tooltipDiv.classList.remove("animate__fadeOut");

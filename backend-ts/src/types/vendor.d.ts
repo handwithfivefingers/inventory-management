@@ -8,10 +8,11 @@ import {
   BuildOptions,
   ForeignKey
 } from 'sequelize'
+import { IUserModel } from './user'
 export interface IVendorModel extends Model<InferAttributes<IVendorModel>, InferCreationAttributes<IVendorModel>> {
   id: CreationOptional<number>
   name: string
-  userId: ForeignKey<number>
+  userId: ForeignKey<IUserModel['id']>
 }
 
 export type IVendorStatic = typeof Model & { associate: (models: any) => void } & {

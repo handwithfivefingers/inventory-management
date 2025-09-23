@@ -8,8 +8,8 @@ const API_PATH = {
 };
 
 interface IOrderQueryParams extends BaseQueryParams {
-  warehouseId?: string;
-  // isProvider?: boolean;
+  warehouseId: string;
+  isProvider?: boolean;
 }
 interface IOrderDetails {
   productId: number | string;
@@ -19,24 +19,25 @@ interface IOrderDetails {
   note?: string;
 }
 interface IOrderCreateParams {
-  OrderDetails: IOrderDetails[];
+  orderDetails: IOrderDetails[];
   price?: number | string;
   VAT?: number | string;
   surcharge?: number | string;
   paid: number | string;
   paymentType: "cash" | "transfer";
   warehouseId: number | string;
+  cookie: string;
 }
 
 const orderService = {
   getOrders: ({ cookie, ...searchParams }: IOrderQueryParams) => {
-    const qs = new URLSearchParams(searchParams);
+    const qs = new URLSearchParams(searchParams as any);
     return HTTPService.getInstance().get<IOrder[]>(API_PATH.orders + "?" + qs.toString(), {
       Cookie: cookie,
     });
   },
-  createOrder: (params: IOrderCreateParams) => {
-    return HTTPService.getInstance().post(API_PATH.orderCreate, params);
+  createOrder: ({ cookie, ...params }: IOrderCreateParams) => {
+    return HTTPService.getInstance().post(API_PATH.orderCreate, params, { Cookie: cookie });
   },
 };
 

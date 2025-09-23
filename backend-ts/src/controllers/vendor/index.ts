@@ -16,6 +16,7 @@ export default class VendorController {
   }
   async getVendorByUserId(...[req, res, next]: IRequestHandler) {
     try {
+      console.log('getVendorByUserId')
       const userId = (req as IRequestLocal).locals.id
       const { count, rows } = await new VendorService().getVendorByUserId(userId)
       res.status(200).json({ total: count, data: rows })
