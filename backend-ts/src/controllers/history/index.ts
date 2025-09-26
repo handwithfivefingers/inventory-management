@@ -1,11 +1,18 @@
 import { TransferService } from '#/services/transfer'
-import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { IRequestHandler } from '#/types/common'
 export class HistoryController {
   async getHistoryByProductId(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const { count, rows } = await new TransferService().getHistoryByProductId(req as IRequestLocal)
-      return res.status(200).json({ total: count, data: rows })
+      const { id } = req.params
+      const { warehouseId } = req.query
+      if (!warehouseId) throw new Error('warehouseId is required')
+      const { count, rows } = await new TransferService().getHistoryByProductId({
+        id,
+        warehouseId: warehouseId as string | string[]
+      })
+      res.status(200).json({ total: count, data: rows })
+      return
     } catch (error) {
       next(error)
     }

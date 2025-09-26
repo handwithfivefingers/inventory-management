@@ -25,6 +25,9 @@ const OrderDetailModel = (sequelize: Sequelize) => {
       warehouseId: {
         type: DataTypes.INTEGER
       },
+      productId: {
+        type: DataTypes.INTEGER
+      },
       orderId: {
         type: DataTypes.INTEGER
       }

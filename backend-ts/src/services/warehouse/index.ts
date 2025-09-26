@@ -15,20 +15,6 @@ export class WarehouseService {
   async create({ name, isMain, email, address, phone, vendorId }: Optional<IWarehouseModel, 'id'>) {
     const t = await this.sequelize.transaction()
     try {
-      // const p = await this.createInstance(
-      //   {
-      //     name,
-      //     name,
-      //     isMain,
-      //     email,
-      //     address,
-      //     phone,
-      //     vendorId
-      //   },
-      //   {
-      //     transaction: t
-      //   }
-      // )
       const builder = this.warehouse.build({
         name,
         isMain,
@@ -65,7 +51,7 @@ export class WarehouseService {
         limit,
         subQuery: false, // Unknown column "inventories.quantity" in field list
         distinct: true,
-        group: ['id'],
+        group: ['id']
         // logging: (sql: string) => console.log(sql)
       }
       if (vendorId) queryParams.where = { ...queryParams.where, vendorId: vendorId }

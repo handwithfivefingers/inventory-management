@@ -1,7 +1,5 @@
-const express = require("express");
-const { HistoryController } = require("../controllers");
-const route = express.Router();
-
-route.get("/:id", new HistoryController().getHistoryByProductId);
-
-module.exports = route;
+import { HistoryController } from '#/controllers/history'
+import express from 'express'
+const Router = express.Router()
+Router.get('/:id', new HistoryController().getHistoryByProductId)
+export default Router

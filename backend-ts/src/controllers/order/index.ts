@@ -22,14 +22,17 @@ export default class OrderController {
       next(error)
     }
   }
-  // async getOrderById(req, res, next) {
-  //   try {
-  //     const resp = await new OrderService().getOrderById({ params: req.params, query: req.query })
-  //     return res.status(200).json({
-  //       data: resp
-  //     })
-  //   } catch (error) {
-  //     next(error)
-  //   }
-  // }
+  async getOrderById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params
+      const { warehouseId } = req.query
+      const resp = await new OrderService().getOrderById({ warehouseId: warehouseId as string, id })
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
 }

@@ -29,20 +29,20 @@ interface IUpdateParams extends ICreateProductParams {
 interface IGetParamsByID {
   id: string;
   cookie: string;
-  // warehouse: string;
+  warehouseId: string;
 }
 
 const http = HTTPService.getInstance();
 const productService = {
   getProducts: ({ cookie, ...params }: IProductParams) => {
     const qs = new URLSearchParams(params);
-    return http.get(API_PATH.products + "?" + qs.toString(), { Cookie: cookie });
+    return http.get<IProduct[]>(API_PATH.products + "?" + qs.toString(), { Cookie: cookie });
   },
-  getProductById: ({ id, cookie }: IGetParamsByID) => {
+  getProductById: ({ id, warehouseId, cookie }: IGetParamsByID) => {
     const params = new URLSearchParams({
-      // warehouse: warehouse,
+      warehouseId,
     });
-    return http.get(API_PATH.products + "/" + id + "?" + params.toString(), { Cookie: cookie });
+    return http.get<IProduct>(API_PATH.products + "/" + id + "?" + params.toString(), { Cookie: cookie });
   },
   createProduct: ({ cookie, ...params }: ICreateProductParams) => {
     return http.post(API_PATH.products, params, { Cookie: cookie });
@@ -50,8 +50,8 @@ const productService = {
   importProduct: ({ cookie, ...params }: any) => {
     return http.post(`${API_PATH.products}/import`, params, { Cookie: cookie });
   },
-  updateProduct: ({ id, warehouseId, ...params }: IUpdateParams) => {
-    return http.post(`${API_PATH.products}/${id}?warehouseId=${warehouseId}`, params);
+  updateProduct: ({ id, warehouseId, cookie, ...params }: IUpdateParams) => {
+    return http.post(`${API_PATH.products}/${id}?warehouseId=${warehouseId}`, params, { Cookie: cookie });
   },
 };
 

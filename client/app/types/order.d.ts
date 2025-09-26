@@ -6,7 +6,7 @@ export interface IOrderDetails {
   note?: string;
 }
 export interface IOrder {
-  OrderDetails: IOrderDetails[];
+  orderDetails: IOrderDetails[];
   price?: number | string;
   VAT?: number | string;
   surcharge?: number | string;

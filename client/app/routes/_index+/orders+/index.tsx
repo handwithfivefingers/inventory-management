@@ -82,6 +82,9 @@ export default function Orders() {
               ]}
               data={data as IOrder[]}
               rowKey={"id"}
+              onRow={{
+                onClick: (record) => navigate(`./${record.id}`),
+              }}
             />
           </div>
           <div className="flex shrink-0 gap-2">

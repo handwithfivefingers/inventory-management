@@ -36,6 +36,12 @@ const orderService = {
       Cookie: cookie,
     });
   },
+  getOrderById: ({ id, cookie, ...searchParams }: IOrderQueryParams & { id: string }) => {
+    const qs = new URLSearchParams(searchParams as any);
+    return HTTPService.getInstance().get<IOrder>(`${API_PATH.orders}/${id}?${qs.toString()}`, {
+      Cookie: cookie,
+    });
+  },
   createOrder: ({ cookie, ...params }: IOrderCreateParams) => {
     return HTTPService.getInstance().post(API_PATH.orderCreate, params, { Cookie: cookie });
   },

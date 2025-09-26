@@ -68,7 +68,6 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             )}
           />
         </div>
-        {/* {name && errors?.[name]?.message && <p className="text-red-500 p-2">{errors?.[name]?.message as string}</p>} */}
       </div>
     );
   }

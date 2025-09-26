@@ -37,6 +37,9 @@ const warehouseService = {
       Cookie,
     });
   },
+  createWarehouse: ({ cookie, ...params }: Partial<IWareHouse> & { cookie: string }) => {
+    return HTTPService.getInstance().post(API_PATH.warehouse, params, { Cookie: cookie });
+  },
 };
 
 export { warehouseService };

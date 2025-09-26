@@ -20,7 +20,7 @@ export const FormInput = ({
           <div>
             {React.isValidElement(children) && React.cloneElement(children, { ...field, ...(children?.props as {}) })}
             {typeof children === "function" && children(field)}
-            <div>{errors[name] ? <p className="text-red-500 p-2">{errors?.[name]?.message as string}</p> : ""}</div>
+            <div>{errors[name] ? <p className="text-red-500 py-1 text-sm">{errors?.[name]?.message as string}</p> : ""}</div>
           </div>
         );
       }}

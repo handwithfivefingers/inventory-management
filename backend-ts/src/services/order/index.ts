@@ -3,7 +3,7 @@ import { IInventoryStatic } from '#/types/inventory'
 import { IOrderModel, IOrderStatic } from '#/types/order'
 import { IOrderDetailStatic } from '#/types/orderDetail'
 import { IProductStatic } from '#/types/product'
-import { Op, Optional, Transaction } from 'sequelize'
+import { FindAttributeOptions, IncludeOptions, Op, Optional, Transaction } from 'sequelize'
 import { TransferService } from '../transfer'
 import { Request } from 'express'
 interface IOrderCreateParams {
@@ -133,6 +133,7 @@ export default class OrderService {
         warehouseId,
         orderId,
         note,
+        productId,
         ...orderDetail
       })
       // Delete the product from the Redis cache
@@ -259,25 +260,33 @@ export default class OrderService {
    * @throws Will throw an error if retrieving the order fails.
    */
 
-  // async getOrderById({ params, query }) {
-  //   try {
-  //     console.log('getOrders')
-
-  //     const resp = await this.warehouse.findOne({
-  //       where: {
-  //         id: params.id,
-  //         vendorId: query.vendor
-  //       },
-  //       include: { model: this.db.inventory, attributes: [] },
-  //       attributes: {
-  //         include: [[this.sequelize.col('inventories.quantity'), 'quantity']]
-  //       }
-  //     })
-  //     return resp
-  //   } catch (error) {
-  //     throw error
-  //   }
-  // }
+  async getOrderById({ id, warehouseId }: { id: string; warehouseId: string }) {
+    try {
+      console.log('getOrders')
+      const resp = await this.order.findOne({
+        where: {
+          id: id,
+          warehouseId: warehouseId
+        },
+        include: [
+          {
+            model: database.orderDetail,
+            include: {
+              model: database.product,
+              attributes: []
+            }
+          }
+        ] as IncludeOptions,
+        attributes: {
+          include: [[this.sequelize.col('orderDetails.product.name'), 'orderDetails.name']]
+        }
+      })
+      console.log('resp', resp)
+      return resp
+    } catch (error) {
+      throw error
+    }
+  }
 
   // /**
   //  * Create a new order detail.

@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
+import { LoaderFunctionArgs } from "@remix-run/node";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useState } from "react";
 import { Controller, FormProvider, useFieldArray, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
@@ -24,20 +25,30 @@ import { IProduct } from "~/types/product";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }];
 };
-
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+  const { id } = params;
+  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+  if (!id) throw new Error("Không tìm thấy sản phẩm");
+  const response = await orderService.getOrderById({
+    id,
+    cookie,
+    warehouseId,
+  });
+  return response;
+};
 export default function OrderItem() {
-  const fetcher = useFetcher();
+  const orderData = useLoaderData<typeof loader>();
   const [show, setShow] = useState(false);
   const searchFetcher = useFetcher<{ data: IProduct[] }>({ key: "Products-Search" });
   const formMethods = useForm<IOrderType>({
     defaultValues: {
       customer: undefined,
-      orderDetails: [],
-      price: 0,
-      VAT: "5",
-      surcharge: "0",
+      orderDetails: orderData.data?.orderDetails,
+      price: orderData.data?.price || 0,
+      VAT: orderData.data?.VAT || "5",
+      surcharge: orderData.data?.surcharge || "0",
       paid: 0,
-      paymentType: "cash",
+      paymentType: orderData.data?.paymentType || "cash",
     },
     resolver: zodResolver(orderSchema),
   });
@@ -51,7 +62,8 @@ export default function OrderItem() {
   const surcharge = watch("surcharge");
   const VAT = watch("VAT");
   const [canScan, setCanScan] = useState(true);
-
+  console.log("data", orderData);
+  console.log("watch", orderDetails);
   const controlledFields = fields.map((field, index) => {
     return {
       ...field,
@@ -142,7 +154,6 @@ export default function OrderItem() {
         price: total,
         paid: totalPaid,
       };
-      console.log("params", params);
       const resp = await submit({ data: JSON.stringify(params) }, { method: "POST" });
       console.log("resp", resp);
       toast.success({ title: "Created", message: "Tạo đơn hàng thành công" });
@@ -150,6 +161,10 @@ export default function OrderItem() {
       console.log("error", err);
       toast.danger({ title: "Error", message: "Tạo đơn hàng thất bại" });
     }
+    // v.price = total;
+    // v.paid = totalPaid;
+    // console.log("v", v);
+    // fetcher.submit({ data: JSON.stringify(v) }, { method: "POST", action: "/orders/add" });
   };
 
   const data = searchFetcher?.data?.data || [];

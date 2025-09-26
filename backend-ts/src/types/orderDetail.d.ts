@@ -17,6 +17,7 @@ export interface IOrderDetailModel
   note: string
   warehouseId: ForeignKey<number>
   orderId: ForeignKey<number>
+  productId: ForeignKey<number>
 }
 
 export type IOrderDetailStatic = typeof Model & { associate: (models: any) => void } & {

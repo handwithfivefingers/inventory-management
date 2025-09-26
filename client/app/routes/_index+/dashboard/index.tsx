@@ -22,10 +22,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 export const meta: MetaFunction = () => {
-  return [{ title: "Trang chủ" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Trang chủ" }];
 };
 export default function Home() {
   const { data } = useLoaderData<typeof loader>();
+  console.log("data", data);
   const chartRef = useRef<HTMLDivElement>(null);
   const chartRef1 = useRef<HTMLDivElement>(null);
   const chartRef2 = useRef<HTMLDivElement>(null);
@@ -40,7 +41,7 @@ export default function Home() {
       }
       if (!data?.length) return;
       for (let i = 0; i < data.length; i++) {
-        const orderDate = dayjs(data[i].updatedAt).format("DD");
+        const orderDate = dayjs(data[i].updatedAt).format("MM/DD");
         const paid = data[i].paid;
         if (orderCurrentWeek.has(orderDate)) {
           orderCurrentWeek.set(orderDate, (orderCurrentWeek.get(orderDate) || 0) + paid);
@@ -74,7 +75,7 @@ export default function Home() {
       const tooltipDiv = document.createElement("div");
       tooltipDiv.setAttribute(
         "class",
-        "ct-tooltip animate__animated animate__faster animate__fadeOut absolute bg-white px-4 py-2 rounded shadow text-slate-600 text-sm"
+        "ct-tooltip animate__animated animate__faster animate__fadeOut absolute bg-white px-4 py-2 rounded shadow text-slate-600 text-sm transition-all"
       );
       container.appendChild(tooltipDiv);
       const cleanObs = (obs: any) => {
@@ -84,6 +85,7 @@ export default function Home() {
         const lines = container.querySelectorAll("line.ct-point");
         lines.forEach((item: any) => {
           item.addEventListener("mouseenter", (event: any) => {
+            console.log("mouse enter");
             const target = event.target;
             const value = target.getAttribute("ct:value");
             let html = "";
@@ -95,6 +97,10 @@ export default function Home() {
             tooltipDiv.classList.add("animate__fadeIn");
             tooltipDiv.style.left = `${event.offsetX}px`;
             tooltipDiv.style.top = `${event.offsetY}px`;
+            // tooltipDiv.addEventListener("mouseleave", (event: any) => {
+            //   tooltipDiv.classList.remove("animate__fadeIn");
+            //   tooltipDiv.classList.add("animate__fadeOut");
+            // });
           });
         });
         cleanObs(observer);
@@ -105,6 +111,7 @@ export default function Home() {
       container.addEventListener("mouseleave", (event: any) => {
         tooltipDiv.classList.remove("animate__fadeIn");
         tooltipDiv.classList.add("animate__fadeOut");
+        tooltipDiv.style.pointerEvents = "none";
       });
     };
   };
@@ -113,7 +120,7 @@ export default function Home() {
     let last7day = dayjs().subtract(6, "day");
     let result = [];
     for (let i = 0; i < 7; i++) {
-      result.push(last7day.add(i, "day").format("DD"));
+      result.push(last7day.add(i, "day").format("MM/DD"));
     }
     return result;
   };

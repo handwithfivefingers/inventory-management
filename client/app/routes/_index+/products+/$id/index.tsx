@@ -19,18 +19,18 @@ import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
 import { dayjs } from "~/libs/date";
 import { cn } from "~/libs/utils";
-import { getSession } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
+import { IProduct } from "~/types/product";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   try {
-    // const session = await getSession(request.headers.get("Cookie"));
-    const cookie = request.headers.get("cookie") as string;
-    // const warehouse = session.get("warehouse");
+    const { warehouseId, cookie } = await parseCookieFromRequest(request);
     const { id } = params;
-    const resp = await productService.getProductById({ id, cookie } as any);
-    // const history = await historyService.getProductHistory(id as string);
-    return { ...resp };
+    if (!id || !warehouseId) throw new Error("Không tìm thấy sản phẩm");
+    const resp = await productService.getProductById({ id, cookie, warehouseId });
+    const history = await historyService.getProductHistory({ id: id as string, warehouseId: [warehouseId], cookie });
+    return { ...resp, history };
   } catch (error) {
     throw data(error, { status: 400 });
   }
@@ -41,14 +41,15 @@ export const meta: MetaFunction = () => {
 };
 
 export default function ProductItem() {
-  const { data } = useLoaderData<typeof loader>();
+  const { data, history } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
+  console.log("history", history);
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem
         title={
           <div className="flex justify-between items-center">
-            <h5>{edit ? "Chỉnh sửa" : data.name}</h5>
+            <h5>{edit ? "Chỉnh sửa" : data?.name}</h5>
             <TMButton variant="ghost" size="xs" onClick={() => setEdit(!edit)}>
               {edit ? "Hủy" : "Sửa"}
             </TMButton>
@@ -61,33 +62,7 @@ export default function ProductItem() {
           {edit ? <EditForm /> : null}
         </div>
       </CardItem>
-      {/* <CardItem title={`Lịch sử tồn kho`}>
-        <div className="w-full flex flex-col gap-2">
-          {history.data?.map((item: any) => {
-            return (
-              <div className={"border py-2 px-4 rounded flex justify-between"}>
-                <div className="flex gap-2 items-center">
-                  <Icon name="arrow-up" className="text-green-600 w-4" />
-                  <h5
-                    className={cn("text-xl font-semibold", {
-                      ["text-green-600"]: item.type == "Thu",
-                      ["text-red-500"]: item.type !== "Thu",
-                    })}
-                  >
-                    {item?.type as string}
-                  </h5>
-                  <span className="px-2 text-gray-400 font-light text-sm">
-                    {dayjs(item.createdAt).format("DD/MM/YYYY")}
-                  </span>
-                </div>
-                <p className="text-gray-500 font-light text-sm">
-                  Số lượng: <span className="text-black font-bold">{item.quantity || 0}</span>
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </CardItem> */}
+      <HistoryList history={history?.data || []} />
     </div>
   );
 }
@@ -99,22 +74,22 @@ const Detail = () => {
       <div className="col-span-2 flex gap-2 flex-col ">
         <div className="bg-slate-50 w-full h-full p-8 rounded-lg aspect-square" />
         <div className="w-full py-2 rounded-md flex justify-center">
-          <BarCode code={data?.code} />
+          <BarCode code={data?.code || ""} />
         </div>
       </div>
       <div className="col-span-3 px-12">
         <ul className="flex flex-col gap-2">
           <li className="flex justify-between">
             <span>Ngày tạo: </span>
-            <span>{dayjs(data.createdAt).format("DD/MM/YYYY")}</span>
+            <span>{dayjs(data?.createdAt).format("DD/MM/YYYY")}</span>
           </li>
           <li className="flex justify-between">
             <span>Mã hàng hóa: </span>
-            <span>{data.code} </span>
+            <span>{data?.code} </span>
           </li>
           <li className="flex justify-between">
             <span>Mã sku: </span>
-            <span>{data.skuCode} </span>
+            <span>{data?.skuCode} </span>
           </li>
           <li className="flex justify-between">
             <span>Đã bán: </span>
@@ -464,6 +439,47 @@ const EditForm = () => {
   );
 };
 
+const HistoryList = ({ history }: { history: IProduct[] }) => {
+  return (
+    <CardItem title={`Lịch sử tồn kho`} className="p-4">
+      <div className="w-full flex flex-col gap-2">
+        {history?.map((item: any) => {
+          return (
+            <div className={"py-2 px-4 rounded flex justify-between bg-slate-300"}>
+              <div className="flex gap-2 items-start w-full ">
+                <div className="flex gap-2 items-start flex-1">
+                  <Icon
+                    name={item.type == 0 ? "arrow-down" : "arrow-up"}
+                    className={cn("w-6 shrink-0 mt-1", {
+                      ["text-green-600"]: item.type == 0,
+                      ["text-red-500"]: item.type == 1,
+                    })}
+                  />
+                  <div className="flex flex-col gap-1 flex-1">
+                    <h5
+                      className={cn("text-xl font-semibold", {
+                        ["text-green-600"]: item.type == 0,
+                        ["text-red-500"]: item.type == 1,
+                      })}
+                    >
+                      {item?.type == 0 ? "Nhập Kho" : "Xuất kho"}
+                    </h5>
+                    <p className="text-gray-500 font-normal text-base">
+                      Số lượng: <span className="text-black font-bold">{item.quantity || 0}</span>
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2 text-slate-700 text-sm">
+                  {dayjs(item.createdAt).format("DD/MM/YYYY")}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </CardItem>
+  );
+};
 // export const action = async ({ request }: any) => {
 //   const session = await getSession(request.headers.get("Cookie"));
 //   const warehouse = session.get("warehouse");

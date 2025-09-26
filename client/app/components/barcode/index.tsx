@@ -1,6 +1,6 @@
 import JsBarcode from "jsbarcode";
 import { useEffect, useRef } from "react";
-export const BarCode = ({ code }: { code: string }) => {
+export const BarCode = ({ code }: { code?: string }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   useEffect(() => {
     if (code) {
