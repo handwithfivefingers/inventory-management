@@ -15,6 +15,7 @@ export interface IProviderModel
   phone: string
   address: string
   email: string
+  vendorId?: number | null
 }
 
 export type IProviderStatic = typeof Model & { associate: (models: any) => void } & {

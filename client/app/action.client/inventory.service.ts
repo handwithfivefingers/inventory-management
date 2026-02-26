@@ -23,7 +23,7 @@ const API_PATH = {
 };
 
 const inventoryService = {
-  getProducts: (params: IProductParams): Promise<IResponse<IProduct[]>> => {
+  getProducts: (params: IProductParams): Promise<IResponse<IProduct[] | undefined>> => {
     const qs = new URLSearchParams(params);
     return http.get(API_PATH.products + "?" + qs.toString());
   },

@@ -1,7 +1,7 @@
 import database from '#/database'
 import { RoleStatic } from '#/types/role'
 import { NextFunction, Request, Response } from 'express'
-import { Sequelize } from 'sequelize'
+import { Sequelize, Op } from 'sequelize'
 
 interface IPermissionInput {
   id?: number
@@ -15,6 +15,8 @@ interface IPermissionInput {
 interface IRoleInput {
   name: string
   description?: string
+  vendorId?: number | null
+  isGlobal?: boolean
   permissions?: IPermissionInput[]
 }
 
@@ -27,11 +29,22 @@ export class RoleService {
   }
 
   /**
-   * Get all roles with permissions
+   * Get all roles with permissions (filtered by vendor)
    */
-  async getRoles() {
+  async getRoles(vendorId?: number | null) {
     try {
+      const where: any = {}
+      
+      // Filter by vendor: show vendor-specific roles + global roles
+      if (vendorId) {
+        where[Op.or] = [
+          { vendorId },
+          { isGlobal: true }
+        ]
+      }
+      
       const _roles = await this.model.findAll({
+        where,
         include: {
           model: database.permission
         },
@@ -73,7 +86,9 @@ export class RoleService {
       const _role = await this.model.create(
         {
           name,
-          description
+          description,
+          vendorId: req.body.vendorId || null,
+          isGlobal: req.body.isGlobal || false
         },
         {
           transaction: t
@@ -190,10 +205,10 @@ export class RoleService {
   }
 
   /**
-   * Assign role to user
+   * Assign role to user (with vendor context)
    */
   async assignToUser(...[req, res, next]: [Request, Response, NextFunction]) {
-    const { userId, roleId } = req.body
+    const { userId, roleId, vendorId } = req.body
     const t = await this.sequelize?.transaction()
 
     try {
@@ -207,11 +222,47 @@ export class RoleService {
         throw new Error('Role not found')
       }
 
-      await user.addRole(role, { transaction: t })
+      // Check if role belongs to vendor (if vendorId provided)
+      if (vendorId && role.vendorId && role.vendorId !== vendorId) {
+        throw new Error('Role does not belong to this vendor')
+      }
+
+      // Add user to role with vendor context
+      await database.user_role.create({
+        userId,
+        roleId,
+        vendorId: vendorId || role.vendorId || null
+      }, { transaction: t })
+      
       await t?.commit()
 
       return {
         message: 'Role assigned successfully'
+      }
+    } catch (error) {
+      await t?.rollback()
+      throw error
+    }
+  }
+
+  /**
+   * Remove role from user
+   */
+  async removeFromUser(...[req, res, next]: [Request, Response, NextFunction]) {
+    const { userId, roleId, vendorId } = req.body
+    const t = await this.sequelize?.transaction()
+
+    try {
+      const where: any = { userId, roleId }
+      if (vendorId) {
+        where.vendorId = vendorId
+      }
+
+      await database.user_role.destroy({ where, transaction: t })
+      await t?.commit()
+
+      return {
+        message: 'Role removed successfully'
       }
     } catch (error) {
       await t?.rollback()

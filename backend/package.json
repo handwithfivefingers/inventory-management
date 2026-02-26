@@ -46,6 +46,7 @@
     "nodemon": "^3.1.10",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
+    "sequelize-cli": "^6.6.5",
     "tsc-alias": "^1.8.15",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",

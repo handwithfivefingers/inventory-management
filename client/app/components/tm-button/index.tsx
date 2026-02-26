@@ -26,6 +26,8 @@ const variants: IButtonVariants = {
     "bg-indigo-100 outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:bg-slate-700",
   ghost:
     "bg-transparent outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:dark:bg-transparent",
+  outline:
+    "bg-transparent border border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700",
 };
 
 const sizes: IButtonSizes = {
@@ -37,7 +39,7 @@ const sizes: IButtonSizes = {
 };
 
 export interface ITMButton extends BaseProps, React.ButtonHTMLAttributes<HTMLButtonElement>, BaseProps {
-  variant?: "primary" | "light" | "ghost";
+  variant?: "primary" | "light" | "ghost" | "outline";
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   component?: React.FC<any>;
   htmlType?: string;
@@ -45,7 +47,7 @@ export interface ITMButton extends BaseProps, React.ButtonHTMLAttributes<HTMLBut
   [key: string]: any;
 }
 
-export type IButtonVariants = Record<IVariants, string>;
+export type IButtonVariants = Record<IVariants | "outline", string>;
 export type IButtonSizes = Record<ISizes, string>;
 
 export const TMButton = ({

@@ -8,17 +8,17 @@ const API_PATH = {
 };
 
 const tagsService = {
-  get: (searchParams: ITagQueryParams): Promise<IResponse<ITag[]>> => {
+  get: (searchParams: ITagQueryParams): Promise<IResponse<ITag[] | undefined>> => {
     const qs = new URLSearchParams(searchParams as any);
     return http.get(API_PATH.tags + "?" + qs.toString());
   },
-  update: ({ id, ...params }: ITagParams): Promise<IResponse<ITag[]>> => {
+  update: ({ id, ...params }: ITagParams): Promise<IResponse<ITag[] | undefined>> => {
     return http.post(`${API_PATH.tags}/${id}`, params);
   },
   create: (params: ICategoryParams) => {
     return http.post(API_PATH.tags, params);
   },
-  getById: ({ id }: { id: string | number }): Promise<IResponse<ITag>> => {
+  getById: ({ id }: { id: string | number }): Promise<IResponse<ITag | undefined>> => {
     const params = new URLSearchParams({});
     return http.get(API_PATH.tags + "/" + id + "?" + params.toString());
   },

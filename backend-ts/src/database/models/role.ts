@@ -15,6 +15,14 @@ const RoleModel = (sequelize: Sequelize) => {
       },
       description: {
         type: DataTypes.STRING
+      },
+      vendorId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      isGlobal: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
       }
     },
     {
@@ -23,8 +31,9 @@ const RoleModel = (sequelize: Sequelize) => {
   )
 
   M.associate = (models: any) => {
-    M.belongsToMany(models.permission, { through: 'role_permission' }) // Auto Generate role_permission <-> Need to create model for compflex logic
-    M.belongsToMany(models.user, { through: 'user_role' }) // Auto Generate user_role <-> Need to create model for compflex logic
+    M.belongsToMany(models.permission, { through: 'role_permissions' })
+    M.belongsToMany(models.user, { through: 'user_roles' })
+    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
   }
 
   return M

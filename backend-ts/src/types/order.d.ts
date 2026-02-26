@@ -17,6 +17,7 @@ export interface IOrderModel extends Model<InferAttributes<IOrderModel>, InferCr
   paymentType: string
   providerId: ForeignKey<number>
   warehouseId: ForeignKey<number>
+  vendorId?: number | null
 }
 
 export type IOrderStatic = typeof Model & { associate: (models: any) => void } & {

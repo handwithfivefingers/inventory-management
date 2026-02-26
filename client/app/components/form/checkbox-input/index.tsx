@@ -39,7 +39,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
             <input
               type="checkbox"
               className={cn("hidden", styles.input)}
-              value={value}
+              checked={value}
               name={name}
               onChange={onChange}
               ref={inputRef}

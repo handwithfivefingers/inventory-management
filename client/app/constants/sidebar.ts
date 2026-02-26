@@ -22,6 +22,16 @@ export const SIDE_BAR = [
     iconName: "git-pull-request",
   },
   {
+    to: "/customers",
+    label: "Khách hàng",
+    iconName: "users",
+  },
+  {
+    to: "/invoices",
+    label: "Hóa đơn",
+    iconName: "file-text",
+  },
+  {
     to: "/warehouses",
     label: vi.WareHouse,
     iconName: "layers",

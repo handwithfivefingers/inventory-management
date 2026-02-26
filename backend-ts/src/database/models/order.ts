@@ -32,6 +32,10 @@ const OrderModel = (sequelize: Sequelize) => {
       },
       warehouseId: {
         type: DataTypes.INTEGER
+      },
+      vendorId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
       }
     },
     {
@@ -42,6 +46,7 @@ const OrderModel = (sequelize: Sequelize) => {
   M.associate = (models: any) => {
     M.hasMany(models.orderDetail, { foreignKey: 'orderId' })
     M.belongsTo(models.provider, { foreignKey: 'providerId' })
+    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
   }
   return M
 }

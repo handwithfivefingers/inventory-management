@@ -19,6 +19,8 @@ export interface IProductModel extends Model<InferAttributes<IProductModel>, Inf
   wholeSalePrice: number
   costPrice: number
   sold: number
+  unitId?: number
+  vendorId?: number | null
 
   setCategories(categories: number[], options?: FindOrCreateOptions): Promise<void>
   setTags(tags: number[], options?: FindOrCreateOptions): Promise<void>

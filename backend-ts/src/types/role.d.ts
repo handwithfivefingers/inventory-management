@@ -12,6 +12,8 @@ export interface RoleModel extends Model<InferAttributes<RoleModel>, InferCreati
   id: CreationOptional<number>
   name: string
   description?: string
+  vendorId?: number | null
+  isGlobal: boolean
 
   createPermission: (...arg: any) => Promise<PermissionModel>
 }

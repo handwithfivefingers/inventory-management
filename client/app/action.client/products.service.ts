@@ -32,11 +32,11 @@ interface IGetParamsByID {
   warehouse: string;
 }
 const productService = {
-  getProducts: (params?: IProductParams): Promise<IResponse<IProduct[]>> => {
+  getProducts: (params?: IProductParams): Promise<IResponse<IProduct[] | undefined>> => {
     const qs = new URLSearchParams(params);
     return http.get(API_PATH.products + "?" + qs.toString());
   },
-  getProductById: ({ id, warehouse }: IGetParamsByID): Promise<IResponse<IProduct>> => {
+  getProductById: ({ id, warehouse }: IGetParamsByID): Promise<IResponse<IProduct | undefined>> => {
     const params = new URLSearchParams({
       warehouse: warehouse,
     });
@@ -46,7 +46,7 @@ const productService = {
     return http.post(API_PATH.products, params);
   },
   importProduct: (params: any) => {
-    return http.post(`${API_PATH.products}/import`, params, {} as any, false);
+    return http.post(`${API_PATH.products}/import`, params, {} as any);
   },
   updateProduct: ({ id, warehouseId, ...params }: IUpdateParams) => {
     return http.post(`${API_PATH.products}/${id}?warehouseId=${warehouseId}`, params);

@@ -46,6 +46,14 @@ const ProductModel = (sequelize: Sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: true,
         defaultValue: 0
+      },
+      unitId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      vendorId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
       }
     },
 
@@ -55,12 +63,13 @@ const ProductModel = (sequelize: Sequelize) => {
   )
 
   M.associate = (models: any) => {
-    M.belongsToMany(models.category, { through: 'product_category' })
-    M.hasMany(models.inventory, { foreignKey: 'productId' }) // products.inventory = [] <-> inventory.products = {}
-    M.hasMany(models.orderDetail, { foreignKey: 'productId' }) // products.orderDetails = [] <-> orderDetails.products = {}
+    M.belongsToMany(models.category, { through: 'product_categories' })
+    M.hasMany(models.inventory, { foreignKey: 'productId' })
+    M.hasMany(models.orderDetail, { foreignKey: 'productId' })
     M.hasMany(models.transfer, { foreignKey: 'productId' })
-    M.belongsToMany(models.tag, { through: 'product_tag' }) // tags.products = [] <-> producst.tags = []
+    M.belongsToMany(models.tag, { through: 'product_tags' })
     M.belongsTo(models.unit, { foreignKey: 'unitId' })
+    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
   }
   return M
 }

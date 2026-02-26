@@ -7,18 +7,18 @@ const API_PATH = {
 };
 
 const categoryService = {
-  get: (searchParams: ICategoryQueryParams): Promise<IResponse<ICategory[]>> => {
+  get: (searchParams: ICategoryQueryParams): Promise<IResponse<ICategory[] | undefined>> => {
     const qs = new URLSearchParams(searchParams as any);
     return http.get(API_PATH.categories + "?" + qs.toString());
   },
   create: (params: ICategoryParams) => {
     return http.post(API_PATH.categories, params);
   },
-  getById: ({ id }: { id: string | number }): Promise<IResponse<ICategory>> => {
+  getById: ({ id }: { id: string | number }): Promise<IResponse<ICategory | undefined>> => {
     const params = new URLSearchParams({});
     return http.get(API_PATH.categories + "/" + id + "?" + params.toString());
   },
-  update: ({ id, ...params }: ICategoryParams): Promise<IResponse<ICategory[]>> => {
+  update: ({ id, ...params }: ICategoryParams): Promise<IResponse<ICategory[] | undefined>> => {
     return http.post(`${API_PATH.categories}/${id}`, params);
   },
 };

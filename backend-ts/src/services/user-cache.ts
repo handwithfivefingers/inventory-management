@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express'
 import AuthenticateService from '#/services/authenticate'
 import database from '#/database'
-import { cacheItem, cacheKey, cacheDel } from './cache'
+import { cacheItem, cacheKey, cacheDel } from '#/services/authenticate/cache'
+import { Redis } from '#/configs/redis'
 
 interface IRequestLocal extends Request {
   locals: {
@@ -162,12 +163,12 @@ export async function invalidateAllUserCaches(
   next: NextFunction
 ): Promise<void> {
   try {
-    const redis = (await import('#/configs/redis')).default
+    const redisInstance = new Redis()
     const pattern = cacheKey('User', '*')
-    const keys = await redis.redis.keys(pattern)
+    const keys = await redisInstance.redis.keys(pattern)
 
     if (keys.length > 0) {
-      await redis.redis.del(...keys)
+      await redisInstance.redis.del(...keys)
     }
 
     res.status(200).json({

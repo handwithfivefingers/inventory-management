@@ -17,7 +17,11 @@ class RoleController {
 
   async get(req: Request, res: Response, next: NextFunction) {
     try {
-      const resp = await new RoleService().getRoles()
+      // Get vendorId from query or user context
+      const { vendorId } = req.query
+      const userVendorId = (req as any).user?.vendorId
+      
+      const resp = await new RoleService().getRoles(vendorId ? Number(vendorId) : userVendorId)
       return res.status(200).json({
         data: resp
       })

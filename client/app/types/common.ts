@@ -4,7 +4,7 @@ export interface BaseProps {
 }
 
 export interface IResponse<T> {
-  data: T;
+  data?: T;
   total?: number;
   page?: number;
   pageSize?: number;

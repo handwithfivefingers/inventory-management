@@ -1,6 +1,8 @@
-export interface IResponse<T> extends IResponseError {
-  data?: T;
-  total?: number;
+import { IResponse } from "~/types/common";
+
+export interface IResponseError {
+  error?: string;
+  status: number;
 }
 
 export type IGetParams = string;
@@ -12,11 +14,6 @@ export interface IPostParams<T> {
 export interface IHTTPService {
   BASE_URL?: string;
   cookie?: string;
-}
-
-export interface IResponseError {
-  error?: string;
-  status: number;
 }
 
 export class ResponseError extends Error {

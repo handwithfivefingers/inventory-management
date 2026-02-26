@@ -18,7 +18,8 @@ const sequelize = new Sequelize(dbName, 'root', 'mysql', {
   define: {
     charset: 'utf8',
     collate: 'utf8_general_ci',
-    timestamps: true
+    timestamps: true,
+    freezeTableName: true // Prevent pluralization of table names
   }
 })
 const database: IDatabase = {

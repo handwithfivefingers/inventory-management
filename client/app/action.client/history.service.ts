@@ -6,7 +6,7 @@ const API_PATH = {
   history: "/history",
 };
 const historyService = {
-  getProductHistory: (id: string | number): Promise<IResponse<IProduct[]>> => {
+  getProductHistory: (id: string | number): Promise<IResponse<IProduct[] | undefined>> => {
     return http.get(API_PATH.history + `/${id}`);
   },
 };
