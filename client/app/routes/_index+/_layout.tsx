@@ -5,12 +5,11 @@ import { vendorService } from "~/action.server/vendor.service";
 import { ErrorComponent } from "~/components/error-component";
 import { AppLayout } from "~/components/layouts";
 import { commitSession, destroySession, getSession, parseCookieFromRequest } from "~/sessions";
-import { useVendor } from "~/store/vendor.store";
+import { useUser } from "~/store/user.store";
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const { cookie, userId, session } = await parseCookieFromRequest(request);
   try {
-    // const cookie = request.headers.get("cookie") as string;
-    // const userId = session.get("userId");
     if (!userId) {
       return redirect("/auth/login", {
         headers: {
@@ -19,7 +18,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       });
     }
     const resp = await vendorService.getVendor({ cookie });
-    console.log("resp", resp);
     const vendor = resp.data;
 
     if (vendor?.length) {
@@ -29,15 +27,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
 
-    console.log("session", session);
-    return Response.json(
-      { ...resp },
-      {
-        headers: {
-          "Set-Cookie": await commitSession(session),
-        },
-      }
-    );
+    return {
+      ...resp,
+      headers: {
+        "Set-Cookie": await commitSession(session),
+      },
+    };
   } catch (error) {
     throw redirect("/auth/login", {
       headers: {
@@ -49,12 +44,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 const MainLayout = () => {
   const { data: vendor } = useLoaderData<typeof loader>();
-  const vendorStore = useVendor();
+  const userStore = useUser();
+  
   useEffect(() => {
-    if (vendor) {
-      vendorStore.initialize(vendor);
+    if (vendor && !userStore.activeVendor) {
+      // Initialize from legacy vendor store if user store is not initialized
+      let activeVendor = vendor[0];
+      let activeWarehouse = undefined;
+      if (activeVendor && activeVendor.warehouses?.length) {
+        activeWarehouse = activeVendor.warehouses[0];
+      }
+      userStore.setVendor(activeVendor);
+      if (activeWarehouse) {
+        userStore.setWarehouse(activeWarehouse);
+      }
     }
-  }, []);
+  }, [vendor]);
+  
   return (
     <AppLayout>
       <Outlet />

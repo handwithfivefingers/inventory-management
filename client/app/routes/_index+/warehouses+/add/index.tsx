@@ -1,4 +1,5 @@
-import type { MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
@@ -12,7 +13,7 @@ import { ResponseError } from "~/http";
 import { toast } from "~/components/notification";
 import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Thêm kho hàng" }, { name: "description", content: "Thêm kho hàng mới" }];
 };
 const warehouseSchema = z.object({
   name: z.string().min(1),
@@ -89,15 +90,15 @@ export default function WarehouseItem() {
   );
 }
 
-export const action = async ({ request }: any) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { vendorId, cookie } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = JSON.parse(Object.fromEntries(formData)?.data);
     console.log("data", data);
     const resp = await warehouseService.createWarehouse({ ...data, vendorId, cookie });
-    return Response.json(resp);
+    return json(resp);
   } catch (error) {
-    return Response.json({ error: (error as any)?.message }, { status: 400 });
+    return json({ error: (error as any)?.message }, { status: 400 });
   }
 };

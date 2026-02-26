@@ -2,8 +2,10 @@ import { createCookieSessionStorage, LoaderFunctionArgs } from "@remix-run/node"
 
 type SessionData = {
   userId?: string | number;
-  vendorId: string | number;
-  warehouseId: string | number;
+  vendorId?: string | number;
+  warehouseId?: string | number;
+  warehouse?: string | number;
+  token?: string;
 };
 
 type SessionFlashData = {
@@ -11,7 +13,6 @@ type SessionFlashData = {
 };
 
 const { getSession, commitSession, destroySession } = createCookieSessionStorage<SessionData, SessionFlashData>({
-  // a Cookie from `createCookie` or the CookieOptions to create one
   cookie: {
     name: "ss_storage",
     secrets: ["s3cret1"],
@@ -29,6 +30,7 @@ const getSessionValues = async (cookie: string) => {
     userId: session.get("userId") as string,
     vendorId: session.get("vendorId") as string,
     warehouseId: session.get("warehouseId") as string,
+    warehouse: session.get("warehouse") as string,
   };
 };
 

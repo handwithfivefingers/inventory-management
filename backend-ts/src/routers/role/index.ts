@@ -1,8 +1,20 @@
-const express = require("express");
-const route = express.Router();
-const { RoleController } = require("../controllers");
+import { RoleController } from '#/controllers/role'
+import express, { NextFunction, Response, Request } from 'express'
+const Router = express.Router()
 
-route.get("/", new RoleController().get);
-route.post("/create", new RoleController().create);
-
-module.exports = route;
+// Public routes (with auth)
+// @ts-ignore
+Router.get('/', new RoleController().get)
+// @ts-ignore
+Router.get('/:id', new RoleController().getById)
+// CRUD operations
+// @ts-ignore
+Router.post('/create', new RoleController().create)
+// @ts-ignore
+Router.put('/:id', new RoleController().update)
+// @ts-ignore
+Router.delete('/:id', new RoleController().delete)
+// Role assignment
+// @ts-ignore
+Router.post('/assign', new RoleController().assignToUser)
+export default Router

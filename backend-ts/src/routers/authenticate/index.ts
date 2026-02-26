@@ -6,15 +6,7 @@ const router = express.Router()
 
 router.post('/login', loginValidator as any, new AuthenticateController().login)
 router.post('/register', new AuthenticateController().register)
-router.get('/me', auth, new AuthenticateController().get)
-router.post('/logout', (req, res) => {
-  res.clearCookie('session')
-  res.status(200).json({
-    data: {
-      message: 'Logout successfully'
-    }
-  })
-  return
-})
+router.get('/me', auth, new AuthenticateController().get as any)
+router.post('/logout', auth, new AuthenticateController().logout as any)
 
 export default router

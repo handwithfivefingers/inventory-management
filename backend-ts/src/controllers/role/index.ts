@@ -1,7 +1,10 @@
-const { RoleService } = require('@api/services')
+import { RoleService } from '#/services/role'
 import { IRequestHandler } from '#/types/common'
-export default class RoleController {
-  async create(...[req, res, next]: IRequestHandler) {
+import { RoleModel } from '#/types/role'
+import { Request, Response, NextFunction } from 'express'
+
+class RoleController {
+  async create(req: Request, res: Response, next: NextFunction) {
     try {
       const resp = await new RoleService().create(req, res, next)
       return res.status(200).json({
@@ -11,9 +14,55 @@ export default class RoleController {
       next(error)
     }
   }
-  async get(...[req, res, next]: IRequestHandler) {
+
+  async get(req: Request, res: Response, next: NextFunction) {
     try {
-      const resp = await new RoleService().getRoles(req, res, next)
+      const resp = await new RoleService().getRoles()
+      return res.status(200).json({
+        data: resp
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async getById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params
+      const resp = await new RoleService().getRoleById(Number(id))
+      return res.status(200).json({
+        data: resp
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new RoleService().update(req, res, next)
+      return res.status(200).json({
+        data: resp
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new RoleService().delete(req, res, next)
+      return res.status(200).json({
+        data: resp
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async assignToUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new RoleService().assignToUser(req, res, next)
       return res.status(200).json({
         data: resp
       })
@@ -22,3 +71,4 @@ export default class RoleController {
     }
   }
 }
+export { RoleController }

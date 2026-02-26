@@ -7,12 +7,12 @@ import { IWareHouse } from "~/types/warehouse";
 interface IVendorState {
   vendors?: IVendor[];
   activeVendor?: IVendor;
-  activeWarehouse?: IWareHouse;
+  activeWarehouse?: IWareHouse | undefined;
 }
 type Actions = {
   initialize: (vendors: IVendor[]) => void;
   setVendor: (vendor: IVendor) => void;
-  setWarehouse: (vendor: IWareHouse) => void;
+  setWarehouse: (warehouse: IWareHouse) => void;
 };
 const initialState: IVendorState = {
   vendors: undefined,
@@ -27,7 +27,7 @@ export const useVendor = create<IVendorState & Actions>()(
         ...initialState,
         initialize: (vendors) => {
           let activeVendor = vendors[0];
-          let activeWarehouse = undefined;
+          let activeWarehouse: IWareHouse | undefined = undefined;
           if (activeVendor && activeVendor.warehouses?.length) {
             activeWarehouse = activeVendor.warehouses[0];
           }

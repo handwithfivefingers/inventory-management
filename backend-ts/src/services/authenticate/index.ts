@@ -17,6 +17,7 @@ import { IWarehouseStatic } from '#/types/warehouse'
 import bcrypt from 'bcryptjs'
 import { Request } from 'express'
 import { Sequelize } from 'sequelize'
+import { cacheItem } from './cache'
 
 interface IRequestLocal extends Request {
   locals: {
@@ -46,24 +47,37 @@ export default class AuthenticateService {
 
   async get(req: IRequestLocal): Promise<any> {
     try {
-      const usr = await this.user.findOne({
-        where: { id: req.locals.id },
-        include: [
-          {
-            model: database.role,
-            include: {
-              model: database.permission
-            } as any
-          },
-          {
-            model: database.vendor
-          }
-        ]
+      // Get user email from request locals (set by auth middleware)
+      const userEmail = req.locals.email
+      
+      const usr = await cacheItem({
+        key: cacheKey('User', userEmail),
+        callback: async () => {
+          const user = await this.user.findOne({
+            where: { id: req.locals.id },
+            include: [
+              {
+                model: database.role,
+                include: {
+                  model: database.permission
+                } as any
+              },
+              {
+                model: database.vendor
+              }
+            ]
+          })
+          if (!user) throw new Error(ERROR.USR_NOT_VALID)
+          return user
+        }
       })
+      
+      if (!usr) throw new Error(ERROR.USR_NOT_VALID)
+      
       return {
-        ...usr?.parsed,
-        roles: usr.roles,
-        vendors: usr.vendors,
+        ...usr.parsed,
+        roles: (usr as any).roles,
+        vendors: (usr as any).vendors,
       }
     } catch (err) {
       console.log('error', err)
@@ -74,82 +88,104 @@ export default class AuthenticateService {
   async login(req: Request) {
     try {
       const { email, password } = req.body
-      console.log('req', req.body)
-      const user = await this.user.findOne({
-        where: { email }
-        // include: [
-        //   {
-        //     model: database.role,
-        //     include: {
-        //       model: database.permission
-        //     } as any
-        //   },
-        //   {
-        //     model: database.vendor
-        //   }
-        // ]
+      
+      // Use cache to store user data
+      const cacheKeyStr = cacheKey('User', email)
+      
+      const user = await cacheItem({
+        key: cacheKeyStr,
+        callback: async () => {
+          const usr = await this.user.findOne({
+            where: { email },
+            include: [
+              {
+                model: database.role,
+                include: {
+                  model: database.permission
+                } as any
+              },
+              {
+                model: database.vendor,
+                include: {
+                  model: database.warehouse
+                } as any
+              }
+            ]
+          })
+          
+          if (!usr) throw new Error(ERROR.USR_NOT_VALID)
+          
+          const isMatchPassword = await bcrypt.compare(password, usr.password)
+          if (!isMatchPassword) throw new Error(ERROR.USR_NOT_VALID)
+          
+          return usr
+        }
       })
-      console.log('user', user)
+      
       if (!user) throw new Error(ERROR.USR_NOT_VALID)
+      
+      // Verify password if not already verified in cache callback
+      if (!user.password) {
+        // Password already verified in cache callback
+        throw new Error(ERROR.USR_NOT_VALID)
+      }
+      
       const isMatchPassword = await bcrypt.compare(password, user.password)
-      if (!isMatchPassword) throw new Error(ERROR.USR_NOT_VALID)
-      return user.parsed
+      if (!isMatchPassword) {
+        // Clear cache on failed login
+        await cacheDel(cacheKeyStr)
+        throw new Error(ERROR.USR_NOT_VALID)
+      }
 
-      // const user = await cacheItem({
-      //   key: cacheKey('User', email),
-      //   callback: async () => {
-      //     const usr = await this.user.findOne({
-      //       where: { email },
-      //       include: [
-      //         {
-      //           model: database.role,
-      //           include: {
-      //             model: database.permission
-      //           } as any
-      //         },
-      //         {
-      //           model: database.vendor
-      //         }
-      //       ]
-      //     })
-      //     const usrCache: Record<any, any> = usr?.dataValues || {}
-      //     if (!usrCache) throw new Error(ERROR.USR_NOT_VALID)
+      // Build response with roles, permissions, vendors, and warehouses
+      const userData = user.parsed
+      const roles = (user as any).roles?.map((role: any) => ({
+        id: role.id,
+        name: role.name,
+        permissions: role.permissions?.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          C: p.C,
+          R: p.R,
+          U: p.U,
+          D: p.D
+        }))
+      }))
 
-      //     // Get all vendors and warehouses of user
-      //     const vendors = await database.vendor.findAll({
-      //       where: {
-      //         userId: usrCache?.id
-      //       },
-      //       include: database.warehouse
-      //     })
-      //     const listVendors = []
-      //     // const listWarehouse = []
-      //     for (let vendor of vendors) {
-      //       listVendors.push({ id: vendor.dataValues.id, name: vendor.dataValues.name })
-      //       // listWarehouse.push(...vendor.dataValues.warehouses?.map((item) => item.dataValues))
-      //     }
-      //     usrCache.vendors = listVendors
-      //     // usrCache.warehouses = listWarehouse
-      //     return usrCache
-      //   }
-      // })
+      // Build vendors with warehouses list
+      const vendors = (user as any).vendors?.map((vendor: any) => ({
+        id: vendor.id,
+        name: vendor.name,
+        warehouses: vendor.warehouses?.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          isMain: w.isMain,
+          address: w.address,
+          phone: w.phone,
+          email: w.email
+        }))
+      }))
 
-      // if (!user) throw new Error(ERROR.USR_NOT_VALID)
-      // const isMatchPassword = await bcrypt.compare(password, user.password)
-      // if (!user || !isMatchPassword) throw new Error('Email or Password are not valid')
-      // if (user?.activeWarehouse) {
-      //   delete user.password
-      //   return user
-      // }
-      // if (!user?.vendor) {
-      //   user.vendor = user.vendors[0]
-      // }
-      // let warehouse = user.warehouses[0]
-      // user.activeWarehouse = warehouse
-      // await cacheSet(cacheKey('User', email), user)
+      // Select default warehouse: prioritize isMain, then first warehouse
+      let defaultWarehouseId: number | null = null
+      let defaultVendorId: number | null = null
 
-      // delete user.password
-      // return user
+      if (vendors && vendors.length > 0) {
+        defaultVendorId = vendors[0].id
+        const firstVendor = vendors[0]
+        if (firstVendor.warehouses && firstVendor.warehouses.length > 0) {
+          const mainWarehouse = firstVendor.warehouses.find((w: any) => w.isMain)
+          defaultWarehouseId = mainWarehouse ? mainWarehouse.id : firstVendor.warehouses[0].id
+        }
+      }
+
+      return {
+        ...userData,
+        roles,
+        vendors,
+        defaultVendorId,
+        defaultWarehouseId
+      }
     } catch (error) {
       console.log('LOGIN ERROR >> error', error)
       throw error
@@ -216,66 +252,37 @@ export default class AuthenticateService {
       }
 
       await t.commit()
+      
+      // Cache the new user data
+      const cacheKeyStr = cacheKey('User', params.email)
+      const userData = {
+        ...usr.parsed,
+        vendors: [{
+          ...vendorModel.dataValues,
+          warehouses: [warehouseBuilder.dataValues]
+        }],
+        roles: [{
+          ...userRole.dataValues,
+          permissions: [permission.dataValues]
+        }]
+      }
+      await cacheSet(cacheKeyStr, userData, 3600 * 24)
+      
       return result
-      // Create role
-      // const role = await user.createRole(
-      //   {
-      //     name: 'Admin'
-      //   },
-      //   { transaction: t }
-      // )
-      // // Create permission
-      // const permission = await role.createPermission(
-      //   {
-      //     name: 'Admin',
-      //     C: true,
-      //     R: true,
-      //     U: true,
-      //     D: true
-      //   },
-      //   { transaction: t }
-      // )
-      // // Create vendor
-      // const vendor = await new VendorService().createInstance(
-      //   {
-      //     name: params?.vendor || 'Main Vendor',
-      //     description: 'Auto generating',
-      //     userId: user.id
-      //   },
-      //   {
-      //     transaction: t
-      //   }
-      // )
-      // // Create warehouse
-      // const warehouse = await new WarehouseService().createInstance(
-      //   {
-      //     name: params.warehouse || 'Main Warehouse',
-      //     vendorId: vendor.id,
-      //     description: 'Auto generating'
-      //   },
-      //   {
-      //     transaction: t
-      //   }
-      // )
-      // await t.commit()
-      // const usr = user.dataValues
-      // // Save user to redis
-      // const key = cacheKey('User', user.email)
-      // role.dataValues.permissions = [permission.dataValues]
-      // usr.roles = [role.dataValues]
-      // await cacheSet(key, { ...usr, vendor, warehouse: [warehouse] })
-      // return { user, vendor, warehouse: [warehouse] }
     } catch (error) {
-      // await t.rollback()
-      // Check if error is caused by duplicate email
-      // if (error.name === 'SequelizeUniqueConstraintError') {
-      //   throw {
-      //     code: error.original.code,
-      //     fields: error.fields
-      //   }
-      // }
       await t.rollback()
       throw error
+    }
+  }
+  
+  /**
+   * Clear user cache by email
+   */
+  async clearUserCache(email: string): Promise<void> {
+    try {
+      await cacheDel(cacheKey('User', email))
+    } catch (error) {
+      console.log('Cache clear error', error)
     }
   }
 }

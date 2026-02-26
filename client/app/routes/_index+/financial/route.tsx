@@ -8,6 +8,7 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { PermissionGuard } from "~/components/permission-guard";
 import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
 
@@ -30,7 +31,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Nhập hàng" }, { name: "description", content: "Nhập hàng" }];
+  return [{ title: "Tài chính" }, { name: "description", content: "Quản lý tài chính" }];
 };
 
 export default function Financial() {
@@ -38,16 +39,20 @@ export default function Financial() {
   const navigate = useNavigate();
   return (
     <div className="w-full flex flex-col p-4 gap-4">
-      <CardItem title="Product">
+      <CardItem title="Tài chính">
         <div className="py-2">
           <div className="flex gap-2">
             <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton component={Link} to={"./add"}>
-                  Thêm
-                </TMButton>
-                <TMButton component={Link}>Xuất Excel</TMButton>
+                <PermissionGuard requireAdmin>
+                  <TMButton component={Link} to={"./add"}>
+                    Thêm
+                  </TMButton>
+                </PermissionGuard>
+                <PermissionGuard requireAdmin>
+                  <TMButton component={Link}>Xuất Excel</TMButton>
+                </PermissionGuard>
               </div>
             </div>
           </div>

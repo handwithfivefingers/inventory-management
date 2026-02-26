@@ -11,61 +11,72 @@ import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { ERRORS, REGISTER_MESSAGE } from "~/constants/message";
-import { registerSchema } from "~/constants/schema/register";
+import type { registerSchema } from "~/constants/schema/register";
+import { registerResolver } from "~/constants/schema/register";
 import { cn } from "~/libs/utils";
 import { getSession } from "~/sessions";
 import { IRegisterParams } from "~/types/authenticate";
 import styles from "./styles.module.scss";
+import { useSubmitPromise } from "~/hooks";
 export async function loader({ request }: LoaderFunctionArgs) {
   let session = await getSession(request.headers.get("cookie"));
   let token = session.get("token");
   if (token) throw redirect("/");
-  return data(null);
+  return {};
 }
 
-function Register() {
-  const formMethods = useForm({
+export default function Register() {
+  const { submit } = useSubmitPromise();
+  const formMethods = useForm<registerSchema>({
     defaultValues: {
       email: "handgod1995@gmail.com",
       password: "123456",
-      confirmPassword: "12345",
-      // nickname: "hdme1995",
+      confirmPassword: "123456",
       firstName: "truyen",
       lastName: "mai",
       vendor: "Pro-IERP",
       warehouse: "HCM",
     },
-    resolver: zodResolver(registerSchema),
+    resolver: registerResolver,
   });
   const navigate = useNavigate();
+
   const onError = (errors: any) => {
     console.log("errors", errors);
     // throw errors;
   };
-  const fetcher = useFetcher<{ error: any; status: boolean }>({
-    key: "register-form",
-  });
-  useEffect(() => {
-    if ((fetcher.data as any)?.error?.code === "ER_DUP_ENTRY") {
-      formMethods.setError("email", {
-        message: ERRORS.ER_DUP_EMAIL,
-      });
-      fetcher.data = undefined;
-    } else if (fetcher.data?.status) {
+  // const fetcher = useFetcher<{ error: any; status: boolean }>({
+  //   key: "register-form",
+  // });
+  // useEffect(() => {
+  //   if ((fetcher.data as any)?.error?.code === "ER_DUP_ENTRY") {
+  //     formMethods.setError("email", {
+  //       message: ERRORS.ER_DUP_EMAIL,
+  //     });
+  //     fetcher.data = undefined;
+  //   } else if (fetcher.data?.status) {
+  //     toast.success({ message: REGISTER_MESSAGE.SUCCESS, title: "Thành công" });
+  //     navigate("/login");
+  //   }
+  // }, [fetcher.data]);
+  const onSubmit = async (values: registerSchema) => {
+    try {
+      const resp = await submit<{ status: number }>({ data: JSON.stringify(values) }, { method: "POST" });
+      console.log("resp"), resp;
+      if (resp.status !== 200) {
+        throw resp;
+      }
       toast.success({ message: REGISTER_MESSAGE.SUCCESS, title: "Thành công" });
-      navigate("/login");
+    } catch (error) {
+      console.log("error", error);
     }
-  }, [fetcher.data]);
-
+  };
   return (
     <div className="w-full flex flex-col p-4 gap-4 items-center justify-center">
       <CardItem title="Đăng kí" className={cn("p-4 flex-col gap-2 shadow-xl", styles.box)}>
         <FormProvider {...formMethods}>
           <form
-            onSubmit={formMethods.handleSubmit(
-              (v) => fetcher.submit(v, { method: "POST", action: "/register" }),
-              onError
-            )}
+            onSubmit={formMethods.handleSubmit(onSubmit, onError)}
             action="/register"
             method="POST"
             className="grid grid-cols-2 gap-2"
@@ -146,7 +157,7 @@ function Register() {
             </div>
             <div className="col-span-2">
               <div className="text-sm text-right">
-                <Link to="/register" className="text-indigo-600">
+                <Link to="/auth/register" className="text-indigo-600">
                   Quên mật khẩu?
                 </Link>
               </div>
@@ -159,7 +170,7 @@ function Register() {
             <div className="col-span-2 py-2">
               <div className="text-sm text-center">
                 <span>Bạn đã có tài khoản? </span>
-                <Link to="/login" className="text-indigo-600">
+                <Link to="/auth/login" className="text-indigo-600">
                   Đăng nhập
                 </Link>
               </div>
@@ -188,22 +199,21 @@ function Register() {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const form = await request.formData();
-  const email = form.get("email");
-  const password = form.get("password");
-  const confirmPassword = form.get("confirmPassword");
-  const firstName = form.get("firstName");
-  const lastName = form.get("lastName");
-  const vendor = form.get("vendor");
-  const warehouse = form.get("warehouse");
-  if (password !== confirmPassword) return json({ message: "Passwords don't match" }, { status: 400 });
-  const data = { email, password, firstName, lastName, vendor, warehouse };
-  const resp = await AuthService.register(data as IRegisterParams);
-  if (resp.status === 200) {
-    return json({
-      status: true,
-    });
+  try {
+    const form = await request.formData();
+    const data = (JSON.parse(form.get("data") as string) || undefined) as registerSchema | undefined;
+    if (data?.password !== data?.confirmPassword) throw new Error("Passwords don't match");
+    const resp = await AuthService.register(data as IRegisterParams);
+    if (resp.status === 200) {
+      return {
+        status: 200,
+      };
+    }
+    throw resp;
+  } catch (error) {
+    return {
+      status: 400,
+      response: error,
+    };
   }
-  return json(resp);
 };
-export default Register;

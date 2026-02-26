@@ -1,5 +1,6 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-export const registerSchema = z
+const schema = z
   .object({
     email: z.string(),
     password: z.string(),
@@ -13,3 +14,6 @@ export const registerSchema = z
     message: "Passwords don't match",
     path: ["confirmPassword"], // path of error
   });
+
+export type registerSchema = z.infer<typeof schema>;
+export const registerResolver = zodResolver(schema);

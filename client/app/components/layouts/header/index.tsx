@@ -1,12 +1,12 @@
 import { Link, useFetcher } from "@remix-run/react";
 import { AuthService } from "~/action.client/auth.service";
-import { SelectInput } from "~/components/form/select-input";
 import { Icon } from "~/components/icon";
 import { TMDropdown } from "~/components/tm-dropdown";
-import { useVendor } from "~/store/vendor.store";
+import { VendorWarehouseSwitcher } from "~/components/vendor-warehouse-switcher";
+import { useUser } from "~/store/user.store";
 
 export const Header = () => {
-  const { activeVendor, activeWarehouse } = useVendor();
+  const { activeVendor, activeWarehouse } = useUser();
   const fetcher = useFetcher();
   const handleLogOut = async () => {
     await AuthService.logout();
@@ -19,13 +19,8 @@ export const Header = () => {
       </div>
       <nav className=" flex flex-row gap-4 flex-1 px-4   p-2">
         <div className="flex items-center flex-row gap-2">
-          <div className="flex gap-2 items-center w-[300px]">
-            {/* <div>Warehouse:</div> */}
-            <SelectInput
-              options={activeVendor?.warehouses?.map((item) => ({ label: item.name, value: item.id })) || []}
-              value={activeWarehouse?.id}
-            />
-          </div>
+          {/* Vendor/Warehouse Switcher */}
+          <VendorWarehouseSwitcher />
         </div>
 
         <div className="ml-auto min-w-12  py-2 text-center rounded-sm flex gap-4">

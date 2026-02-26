@@ -8,6 +8,7 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { PermissionGuard } from "~/components/permission-guard";
 import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
 interface IFilter {
@@ -38,7 +39,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Sản phẩm" }, { name: "description", content: "Quản lý sản phẩm" }];
 };
 
 export default function Products() {
@@ -84,14 +85,22 @@ export default function Products() {
             />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton variant="light" component={Link} to="./add">
-                  Thêm
-                </TMButton>
-                <InputUpload onChange={handleImportUpload} destroyOnUnMount>
-                  Nhập từ Excel
-                </InputUpload>
-                <TMButton variant="light">Xuất Excel</TMButton>
-                <TMButton variant="light">In Mã Vạch</TMButton>
+                <PermissionGuard permission="C" module="product">
+                  <TMButton variant="light" component={Link} to="./add">
+                    Thêm
+                  </TMButton>
+                </PermissionGuard>
+                <PermissionGuard permission="C" module="product">
+                  <InputUpload onChange={handleImportUpload} destroyOnUnMount>
+                    Nhập từ Excel
+                  </InputUpload>
+                </PermissionGuard>
+                <PermissionGuard permission="R" module="product">
+                  <TMButton variant="light">Xuất Excel</TMButton>
+                </PermissionGuard>
+                <PermissionGuard permission="R" module="product">
+                  <TMButton variant="light">In Mã Vạch</TMButton>
+                </PermissionGuard>
               </div>
             </div>
           </div>

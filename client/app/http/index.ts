@@ -27,6 +27,9 @@ export class ResponseError extends Error {
     this.status = status;
   }
 }
+
+// Export singleton instance for service files
+
 class HTTPService {
   private static instance: HTTPService;
   public headers: Record<string, string> = {
@@ -132,5 +135,5 @@ class HTTPService {
     return HTTPService.instance;
   }
 }
-
+export const http = HTTPService.getInstance();
 export { HTTPService };

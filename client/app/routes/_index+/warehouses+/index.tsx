@@ -7,6 +7,7 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { PermissionGuard } from "~/components/permission-guard";
 import { dayjs } from "~/libs/date";
 import { getLoaderRequestQuery } from "~/libs/utils";
 import { parseCookieFromRequest } from "~/sessions";
@@ -24,7 +25,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Warehouse" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Kho bãi" }, { name: "description", content: "Quản lý kho bãi" }];
 };
 
 export default function WareHouses() {
@@ -38,12 +39,20 @@ export default function WareHouses() {
             <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton component={Link} to="/warehouses/add">
-                  Thêm
-                </TMButton>
-                <TMButton>Nhập từ Excel</TMButton>
-                <TMButton>Xuất Excel</TMButton>
-                <TMButton>In Mã Vạch</TMButton>
+                <PermissionGuard requireAdmin>
+                  <TMButton component={Link} to="/warehouses/add">
+                    Thêm
+                  </TMButton>
+                </PermissionGuard>
+                <PermissionGuard requireAdmin>
+                  <TMButton>Nhập từ Excel</TMButton>
+                </PermissionGuard>
+                <PermissionGuard permission="R" module="warehouse">
+                  <TMButton>Xuất Excel</TMButton>
+                </PermissionGuard>
+                <PermissionGuard permission="R" module="warehouse">
+                  <TMButton>In Mã Vạch</TMButton>
+                </PermissionGuard>
               </div>
             </div>
           </div>

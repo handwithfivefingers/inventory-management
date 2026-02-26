@@ -1,11 +1,11 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Controller, Form, FormProvider, useForm } from "react-hook-form";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { BANKS, CURRENCY } from "~/constants/banks";
 
-const Payment = () => {
+export const Payment = () => {
   const formMethod = useForm({
     defaultValues: {
       merchant_name: "Truyền Mai",
@@ -14,6 +14,7 @@ const Payment = () => {
       currency: "704",
     },
   });
+
   return (
     <div className="flex flex-col gap-2">
       <div>
@@ -108,5 +109,3 @@ const Payment = () => {
     </div>
   );
 };
-
-export default Payment;
