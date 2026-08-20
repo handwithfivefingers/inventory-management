@@ -17,7 +17,8 @@ const Unit = (sequelize: Sequelize) => {
       vendorId: DataTypes.INTEGER
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'units'
     }
   )
   Model.associate = (models) => {}

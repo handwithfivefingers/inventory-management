@@ -3,10 +3,6 @@
   position: relative;
 }
 
-.dropdown {
-  @apply shadow-xl rounded-sm mt-2 fixed bg-white;
-}
-
 .rotation {
   transform: rotate(0deg);
 }

@@ -18,7 +18,8 @@ const VendorModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'vendors'
     }
   )
 

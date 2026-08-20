@@ -17,7 +17,8 @@ const ProductCategory = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'product_categories'
     }
   )
 

@@ -72,7 +72,8 @@ const ProviderModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'providers'
     }
   )
 

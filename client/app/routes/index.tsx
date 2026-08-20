@@ -1,28 +1,26 @@
 import { LoaderFunctionArgs, redirect } from "@remix-run/node";
-import { AuthService } from "~/action.server/auth.service";
-import { commitSession, destroySession, getSession } from "~/sessions";
+import { commitSession, destroySession, parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { cookie, session, userId } = await parseCookieFromRequest(request);
   try {
-    const cookie = request.headers.get("cookie") as string;
-    const resp = await AuthService.getMe({ cookie });
-    const session = await getSession(cookie);
-    if (!resp) {
+    if (!userId) {
       throw redirect("/auth/login", {
         headers: {
           "Set-Cookie": await destroySession(session),
         },
       });
     }
-
-    session.set("userId", resp.data?.id);
-    
     return redirect("/dashboard", {
       headers: {
         "Set-Cookie": await commitSession(session),
       },
     });
   } catch (error) {
-    return redirect("/auth/login");
+    return redirect("/auth/login", {
+      headers: {
+        "Set-Cookie": await destroySession(session),
+      },
+    });
   }
 };

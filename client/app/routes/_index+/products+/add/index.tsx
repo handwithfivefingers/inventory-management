@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
-import { useFetcher, useRouteError, useSubmit } from "@remix-run/react";
+import { useFetcher } from "@remix-run/react";
 import { MouseEvent, useEffect } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
+import { FormControl } from "~/components/form/form-control";
 import { FormInput } from "~/components/form/formInput";
 import { MultiSelectInput } from "~/components/form/multi-select-input";
 import { NumberInput } from "~/components/form/number-input";
@@ -13,14 +14,13 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
-import { getSession, getSessionValues, parseCookieFromRequest } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
 export default function ProductItem() {
-  const fetcher = useFetcher();
   const { submit, isLoading } = useSubmitPromise();
   const formMethods = useForm<ProductSchemaType>({
     defaultValues: {
@@ -49,7 +49,7 @@ export default function ProductItem() {
       {
         data: JSON.stringify(v),
       },
-      { method: "POST" }
+      { method: "POST" },
     );
     console.log("response", response);
   };
@@ -60,7 +60,6 @@ export default function ProductItem() {
 
   useEffect(() => {
     load("/categories");
-    // loadTags("/tags");
     loadUnits("/units");
     (window as any).form = formMethods;
   }, []);
@@ -74,58 +73,28 @@ export default function ProductItem() {
               className="py-2 grid grid-cols-12 gap-4"
               onSubmit={formMethods.handleSubmit(
                 (v) => onSubmit({ ...v }),
-                (error) => handleError(error)
+                (error) => handleError(error),
               )}
             >
               <div className="col-span-12">
-                <Controller
-                  name="name"
-                  control={formMethods.control}
-                  render={({ field }) => {
-                    return (
-                      <TextInput
-                        label="Tên hàng hóa"
-                        value={field.value as any}
-                        onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                      />
-                    );
-                  }}
-                />
+                <FormControl name="name">
+                  <TextInput label="Tên hàng hóa" />
+                </FormControl>
               </div>
               <div className="col-span-6">
-                <Controller
-                  name="code"
-                  control={formMethods.control}
-                  render={({ field }) => {
-                    return (
-                      <TextInput
-                        label="Mã code"
-                        value={field.value as any}
-                        onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                      />
-                    );
-                  }}
-                />
+                <FormControl name="code">
+                  <TextInput label="Mã code" />
+                </FormControl>
               </div>
               <div className="col-span-6">
-                <Controller
-                  name="skuCode"
-                  control={formMethods.control}
-                  render={({ field }) => {
-                    return (
-                      <TextInput
-                        label="Mã sku"
-                        value={field.value as any}
-                        onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                      />
-                    );
-                  }}
-                />
+                <FormControl name="skuCode">
+                  <TextInput label="Mã sku" />
+                </FormControl>
               </div>
+
               <div className="col-span-4">
                 <Controller
                   name="costPrice"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <NumberInput
@@ -142,7 +111,6 @@ export default function ProductItem() {
               <div className="col-span-4">
                 <Controller
                   name="regularPrice"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <NumberInput
@@ -159,7 +127,6 @@ export default function ProductItem() {
               <div className="col-span-4">
                 <Controller
                   name="salePrice"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <NumberInput
@@ -176,7 +143,6 @@ export default function ProductItem() {
               <div className="col-span-4">
                 <Controller
                   name="wholeSalePrice"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <NumberInput
@@ -193,7 +159,6 @@ export default function ProductItem() {
               <div className="col-span-6">
                 <Controller
                   name="expiredAt"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <NumberInput
@@ -210,7 +175,6 @@ export default function ProductItem() {
               <div className="col-span-2">
                 <Controller
                   name="VAT"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <NumberInput
@@ -227,7 +191,6 @@ export default function ProductItem() {
               <div className="col-span-6">
                 <Controller
                   name="quantity"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <NumberInput
@@ -244,7 +207,6 @@ export default function ProductItem() {
               <div className="col-span-6">
                 <Controller
                   name="unit"
-                  control={formMethods.control}
                   render={({ field }) => {
                     return (
                       <SelectInput

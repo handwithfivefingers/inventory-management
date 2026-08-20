@@ -58,12 +58,13 @@ const ProductModel = (sequelize: Sequelize) => {
     },
 
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'products'
     }
   )
 
   M.associate = (models: any) => {
-    M.belongsToMany(models.category, { through: 'product_categories' })
+    M.belongsToMany(models.category, { through: 'product_category' })
     M.hasMany(models.inventory, { foreignKey: 'productId' })
     M.hasMany(models.orderDetail, { foreignKey: 'productId' })
     M.hasMany(models.transfer, { foreignKey: 'productId' })

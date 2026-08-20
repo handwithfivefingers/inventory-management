@@ -93,7 +93,8 @@ const InvoiceModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'invoices'
     }
   )
 

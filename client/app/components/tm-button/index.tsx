@@ -17,17 +17,16 @@ enum ISizes {
 }
 
 const variants: IButtonVariants = {
-  // primary:
-  //   "bg-main-700 dark:bg-main-300/20 outline outline-transparent  focus:outline-main-300 active:outline-main-300 text-white dark:text-slate-200",
   primary:
-    "bg-indigo-50 dark:bg-slate-400 dark:text-white dark:hover:bg-slate-100 dark:hover:text-indigo-600 text-indigo-600 hover:bg-indigo-100 transition-colors ",
-  secondary: "bg-slate-300 outline outline-transparent  active:outline-indigo-200 text-indigo-950 dark:text-slate-200",
+    "bg-indigo-50 dark:bg-slate-400 dark:text-white dark:hover:bg-slate-100 dark:hover:text-indigo-600 text-indigo-600 hover:bg-indigo-100 transition-colors transition-all",
+  secondary:
+    "bg-slate-300 outline outline-transparent  active:outline-indigo-200 text-indigo-950 dark:text-slate-200 transition-all",
   light:
-    "bg-indigo-100 outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:bg-slate-700",
+    "bg-indigo-100 outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:bg-slate-700 transition-all",
   ghost:
-    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:dark:bg-transparent",
+    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:dark:bg-transparent transition-all",
   outline:
-    "bg-transparent border border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700",
+    "bg-transparent border border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700 transition-all",
 };
 
 const sizes: IButtonSizes = {
@@ -66,7 +65,7 @@ export const TMButton = ({
     "cursor-pointer active:translate-y-[1px]",
     sizes[size as ISizes],
     variants[variant as IVariants],
-    className
+    className,
   );
   return (
     <Element
@@ -76,10 +75,8 @@ export const TMButton = ({
       {...rest}
       disabled={loading || rest.disabled}
     >
-      <div className="flex gap-1">
-        {children}
-        {loading && <Icon name="loader" className="animate-spin" />}
-      </div>
+      {children}
+      {loading && <Icon name="loader" className="animate-spin" />}
     </Element>
   );
 };

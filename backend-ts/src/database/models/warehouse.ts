@@ -36,7 +36,8 @@ const Warehouse = (sequelize: Sequelize) => {
     },
     {
       // Other model options go here
-      timestamps: true
+      timestamps: true,
+      tableName: 'warehouses'
     }
   )
   Model.associate = (models) => {

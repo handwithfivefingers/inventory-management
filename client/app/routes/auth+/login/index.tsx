@@ -1,24 +1,32 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "@remix-run/react";
+import { useState } from "react";
 import { Controller, FormProvider, useForm } from "react-hook-form";
+import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "react-router";
 import { AuthService } from "~/action.client/auth.service";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
-import { TMButton } from "~/components/tm-button";
-import { ILoginForm, loginSchema } from "~/constants/schema/login";
-import { cn } from "~/libs/utils";
-import styles from "./styles.module.scss";
-import { ResponseError } from "~/http";
 import { toast } from "~/components/notification";
-import { useState } from "react";
+import { TMButton } from "~/components/tm-button";
 import { WarehouseVendorSelectionModal } from "~/components/warehouse-vendor-selection-modal";
-import { IVendor } from "~/types/vendor";
+import { ILoginForm, loginSchema } from "~/constants/schema/login";
+import { useSubmitPromise } from "~/hooks";
+import { ResponseError } from "~/http";
+import { cn } from "~/libs/utils";
+import { commitSession, getSession, parseCookieFromRequest } from "~/sessions";
 import { useUser } from "~/store/user.store";
+import { IVendor } from "~/types/vendor";
+import styles from "./styles.module.scss";
+import { IUser } from "~/types/user";
+export async function loader({ request }: LoaderFunctionArgs) {
+  const { token, userId } = await parseCookieFromRequest(request);
+  if (token && userId) throw redirect("/");
+  return {};
+}
 
 function Login() {
   const navigate = useNavigate();
   const userStore = useUser();
-  const [isLoading, setIsLoading] = useState(false);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [pendingAuthData, setPendingAuthData] = useState<{
     vendors?: IVendor[];
@@ -28,111 +36,57 @@ function Login() {
 
   const formMethods = useForm<ILoginForm>({
     defaultValues: {
-      email: "",
-      password: "",
+      email: "handgod1995@gmail.com",
+      password: "123456",
     },
     resolver: zodResolver(loginSchema),
   });
+  const { submit, isLoading } = useSubmitPromise();
+  const onError = (errors: any) => {
+    console.log("errors", errors);
+  };
+
+  const handleSubmit = async (v: ILoginForm) => {
+    try {
+      // const resp = await AuthService.login(v);
+      const resp = await submit<{ data: IUser }>({ data: JSON.stringify(v) }, { method: "POST" });
+      const user = resp.data;
+      if (!user) {
+        toast.danger({
+          title: "Đăng nhập thất bại",
+          message: "Không có dữ liệu phản hồi",
+        });
+        return;
+      }
+    } catch (error) {
+      const err = error as ResponseError;
+      toast.danger({
+        title: "Đăng nhập thất bại",
+        message: err?.message || "Có lỗi xảy ra, vui lòng thử lại",
+      });
+    }
+  };
 
   const handleWarehouseVendorConfirm = (vendorId: number, warehouseId: number) => {
     // Update user store with selected vendor and warehouse
     const vendors = pendingAuthData?.vendors || [];
     const selectedVendor = vendors.find((v) => v.id === vendorId);
     const selectedWarehouse = selectedVendor?.warehouses?.find((w) => w.id === warehouseId);
-    
+
     if (selectedVendor) {
       userStore.setVendor(selectedVendor);
     }
     if (selectedWarehouse) {
       userStore.setWarehouse(selectedWarehouse);
     }
-    
+
     setShowSelectionModal(false);
     toast.success({
       title: "Đã chọn",
-      message: "Đang chuyển hướng..."
+      message: "Đang chuyển hướng...",
     });
     navigate("/", { replace: true });
   };
-
-  const handleSubmit = async (v: ILoginForm) => {
-    setIsLoading(true);
-    try {
-      const resp = await AuthService.login(v);
-      const loginData = resp.data;
-      
-      if (!loginData) {
-        toast.danger({
-          title: "Đăng nhập thất bại",
-          message: "Không có dữ liệu phản hồi"
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      const userData = loginData.data;
-      
-      if (!userData) {
-        toast.danger({
-          title: "Đăng nhập thất bại",
-          message: "Không có dữ liệu người dùng"
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Initialize user store with complete user data
-      userStore.initialize({
-        user: {
-          id: userData.id,
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          nickname: userData.nickname,
-          subscription: userData.subscription,
-          roles: userData.roles,
-          vendors: userData.vendors,
-          defaultVendorId: userData.defaultVendorId,
-          defaultWarehouseId: userData.defaultWarehouseId,
-        },
-        token: userData.token,
-        roles: userData.roles,
-        vendors: userData.vendors,
-        defaultVendorId: userData.defaultVendorId,
-        defaultWarehouseId: userData.defaultWarehouseId,
-      });
-
-      // Check if user has multiple vendors or warehouses
-      const vendors = userData.vendors || [];
-      const hasMultipleVendors = vendors.length > 1;
-      const hasMultipleWarehouses = vendors.some((v: IVendor) => (v.warehouses?.length || 0) > 1);
-
-      if (hasMultipleVendors || hasMultipleWarehouses) {
-        // Show selection modal
-        setPendingAuthData({
-          vendors: userData.vendors,
-          defaultVendorId: userData.defaultVendorId,
-          defaultWarehouseId: userData.defaultWarehouseId,
-        });
-        setShowSelectionModal(true);
-        setIsLoading(false);
-      } else {
-        toast.success({
-          title: "Đăng nhập thành công",
-          message: `Xin chào, ${userData?.firstName || "User"}!`
-        });
-        navigate("/", { replace: true });
-      }
-    } catch (error) {
-      const err = error as ResponseError;
-      toast.danger({
-        title: "Đăng nhập thất bại",
-        message: err?.message || "Có lỗi xảy ra, vui lòng thử lại"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   return (
     <div className="w-full flex flex-col p-4 gap-4 items-center justify-center h-screen">
@@ -153,11 +107,7 @@ function Login() {
               control={formMethods.control}
               name="email"
               render={({ field }) => (
-                <TextInput
-                  label="Email"
-                  {...field}
-                  onChange={(e: any) => field.onChange(e.target?.value)}
-                />
+                <TextInput label="Email" {...field} onChange={(e: any) => field.onChange(e.target?.value)} />
               )}
             />
             <Controller
@@ -191,5 +141,29 @@ function Login() {
     </div>
   );
 }
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  try {
+    const data = await request.formData();
+    const json = JSON.parse(data.get("data") as string);
+    const resp = await AuthService.login(json);
+    console.log("resp", resp);
+    if (resp.status !== 200) throw resp;
+    const session = await getSession(request.headers.get("cookie"));
+    const { token, ...user } = resp.data?.data || { id: "" };
+    session.set("token", token as string);
+    session.set("userId", user?.id);
+    return redirect("/", {
+      headers: {
+        "Set-Cookie": await commitSession(session),
+      },
+    });
+  } catch (error) {
+    console.log("error", error);
+    return {
+      message: ((error as any)?.error as any)?.error as string,
+    };
+  }
+};
 
 export default Login;

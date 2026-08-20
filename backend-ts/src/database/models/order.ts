@@ -39,7 +39,8 @@ const OrderModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'orders'
     }
   )
 

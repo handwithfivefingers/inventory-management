@@ -5,6 +5,7 @@ import "animate.css";
 import "feather-icons/dist/feather";
 import { ErrorComponent } from "./components/error-component";
 import { NotificationProvider } from "./components/notification";
+import { domAnimation, LazyMotion } from "motion/react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -26,7 +27,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <LazyMotion features={domAnimation}>
+      <Outlet />
+    </LazyMotion>
+  );
 }
 
 export const shouldRevalidate = () => false;

@@ -91,7 +91,7 @@ export default class AuthenticateController {
   }
   async get(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
     try {
-      const resp = await new AuthenticateService().get(req)
+      const resp = await new AuthenticateService().get(req as any)
       res.status(200).json({
         data: resp
       })

@@ -19,7 +19,8 @@ const CategoryModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'categories'
     }
   )
 

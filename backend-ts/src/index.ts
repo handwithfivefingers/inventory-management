@@ -57,10 +57,7 @@ class App {
         return next(err)
       }
       captureException(err)
-      return res.status(500).json({
-        error: err.message,
-        status: 400
-      })
+      return res.status((err as { status?: number })?.status || 400).json(err)
     }
     this.app.use(errorHandler as any)
     this.app.get('/debug-sentry', function mainHandler(req, res) {

@@ -1,6 +1,7 @@
 import { LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Outlet, useLoaderData } from "@remix-run/react";
 import { useEffect } from "react";
+import { AuthService } from "~/action.server/auth.service";
 import { vendorService } from "~/action.server/vendor.service";
 import { ErrorComponent } from "~/components/error-component";
 import { AppLayout } from "~/components/layouts";
@@ -8,8 +9,9 @@ import { commitSession, destroySession, getSession, parseCookieFromRequest } fro
 import { useUser } from "~/store/user.store";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { cookie, userId, session } = await parseCookieFromRequest(request);
+  const { cookie, session } = await parseCookieFromRequest(request);
   try {
+    const userId = session.get("userId");
     if (!userId) {
       return redirect("/auth/login", {
         headers: {
@@ -17,22 +19,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
         },
       });
     }
+    const getMeResponse = await AuthService.getMe({ cookie });
     const resp = await vendorService.getVendor({ cookie });
-    const vendor = resp.data;
-
+    console.log("getMeResponse", getMeResponse);
+    const vendor = resp.data?.data;
     if (vendor?.length) {
       session.set("vendorId", vendor[0].id);
       if (vendor[0].warehouses?.length) {
         session.set("warehouseId", vendor[0].warehouses[0].id);
       }
     }
-
-    return {
-      ...resp,
-      headers: {
-        "Set-Cookie": await commitSession(session),
+    return Response.json(
+      { ...resp.data, user: getMeResponse.data?.data },
+      {
+        headers: {
+          "Set-Cookie": await commitSession(session),
+        },
       },
-    };
+    );
   } catch (error) {
     throw redirect("/auth/login", {
       headers: {
@@ -43,9 +47,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 const MainLayout = () => {
-  const { data: vendor } = useLoaderData<typeof loader>();
+  const { data: vendor, user } = useLoaderData<typeof loader>();
   const userStore = useUser();
-  
+
   useEffect(() => {
     if (vendor && !userStore.activeVendor) {
       // Initialize from legacy vendor store if user store is not initialized
@@ -58,9 +62,10 @@ const MainLayout = () => {
       if (activeWarehouse) {
         userStore.setWarehouse(activeWarehouse);
       }
+      userStore.updateUser(user);
     }
   }, [vendor]);
-  
+
   return (
     <AppLayout>
       <Outlet />

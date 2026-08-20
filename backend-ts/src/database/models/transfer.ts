@@ -25,7 +25,8 @@ const Transfer = (sequelize: Sequelize) => {
       updatedAt: DataTypes.DATE
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'transfers'
     }
   )
 

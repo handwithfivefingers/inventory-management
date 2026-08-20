@@ -26,15 +26,30 @@ interface IFieldError {
 
 export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
   (
-    { label, name, prefix, placeholder, className, wrapperClassName, style, onChange, inputClassName, suffix, error, multiline, rows, ...rest },
-    ref
+    {
+      label,
+      name,
+      prefix,
+      placeholder,
+      className,
+      wrapperClassName,
+      style,
+      onChange,
+      inputClassName,
+      suffix,
+      error,
+      multiline,
+      rows,
+      ...rest
+    },
+    ref,
   ) => {
     const prefixRef = useRef<HTMLSpanElement>(null);
     const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
     const { clearErrors } = name ? useFormContext() : { clearErrors: (arg: string) => {} };
-    
+
     const hasError = error || (name && errors?.[name]?.message);
-    
+
     if (multiline) {
       return (
         <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
@@ -50,7 +65,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
                 className,
                 {
                   ["!ring-1 !ring-red-600 !ring-inset "]: hasError,
-                }
+                },
               )}
               placeholder={placeholder}
               rows={rows || 3}
@@ -66,14 +81,14 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               className={cn(
                 "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] bg-white",
                 styles.outline,
-                className
+                className,
               )}
             />
           </div>
         </div>
       );
     }
-    
+
     return (
       <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
         <InputLabel name={name} label={label} />
@@ -87,9 +102,6 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               styles.input,
               inputClassName,
               className,
-              {
-                ["!ring-1 !ring-red-600 !ring-inset "]: hasError,
-              }
             )}
             placeholder={placeholder}
             {...(rest as React.InputHTMLAttributes<HTMLInputElement>)}
@@ -108,14 +120,17 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
           <div
             className={cn(
               "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] bg-white",
+              {
+                ["ring-2 ring-inset !ring-red-600"]: name && errors?.[name]?.message,
+              },
               styles.outline,
-              className
+              className,
             )}
           />
         </div>
       </div>
     );
-  }
+  },
 );
 
 const InputLabel = ({ label, name }: { label?: string; name?: string }) => {

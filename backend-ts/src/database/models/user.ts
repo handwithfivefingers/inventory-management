@@ -59,7 +59,8 @@ const UserModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'users'
     }
   )
 

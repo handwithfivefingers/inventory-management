@@ -22,7 +22,33 @@ export class ResponseError extends Error {
     const { error: message, status } = error as { error: string; status: number };
     super(message);
     this.status = status;
+    Object.assign(this, error);
   }
+}
+
+function logger(target: HTTPService, propertyKey: string, descriptor: PropertyDescriptor) {
+  const originalMethod = descriptor.value;
+  const keyName = propertyKey.toUpperCase();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  descriptor.value = async function (...args: any[]) {
+    const isProd = typeof import.meta !== "undefined" && import.meta.env?.PROD;
+    if (isProd) {
+      return originalMethod.apply(this, args);
+    }
+    const debugLogger = import.meta.env.VITE_DEBUG_LOGGER;
+    debugLogger && console.log(`\x1b[33m [Logger] ${keyName} - ${args[0]}`);
+    debugLogger && console.log("\x1b[0m");
+    try {
+      const result = await originalMethod.apply(this, args);
+      return result;
+    } catch (error) {
+      debugLogger && console.error(`\x1b[31m[Logger] Error in ${keyName}:`, JSON.stringify(error, null, 2));
+      debugLogger && console.log("\x1b[0m");
+      throw error;
+    }
+  };
+
+  return descriptor;
 }
 
 // Export singleton instance for service files
@@ -38,40 +64,41 @@ class HTTPService {
   private constructor(props?: IHTTPService) {
     this.BASE_URL = props?.BASE_URL || import.meta.env.VITE_API_PATH;
   }
-  get = async <T>(params: IGetParams, options?: Record<string, string>): Promise<IResponse<T | undefined>> => {
+
+  private send = async <T, Body extends {} = never>(url: string, options?: Record<string, string>, body?: Body) => {
+    const response: {
+      data: T;
+      status: number;
+      error?: Error;
+    } = { data: {} as T, status: 200 };
     try {
-      const response = await fetch(this.BASE_URL + params, {
+      const fetchOptions: RequestInit = {
         headers: { ...this.headers, ...options },
         signal: AbortSignal.timeout(30000),
+        body: JSON.stringify(body),
+        method: options?.method,
         credentials: "include",
-        method: "GET",
-      });
-      const resp = await response?.json();
-      if (response.status !== 200) throw { message: resp.error, status: response.status };
-      if (!resp) return { data: undefined } as IResponse<undefined>;
-      return { data: resp?.data || resp, status: response.status, total: resp?.total };
+      };
+      const resp = await fetch(this.BASE_URL + url, fetchOptions);
+      const json = await resp.json();
+      response.data = json;
+      response.status = resp.status;
     } catch (error) {
-      throw error;
+      response.error = new ResponseError(error as Error);
+    } finally {
+      return response;
     }
   };
 
-  post = async <R, T>(apiPath: string, params?: T, options?: Record<string, string>): Promise<IResponse<R>> => {
-    try {
-      const response = await fetch(this.BASE_URL + apiPath, {
-        headers: { ...this.headers, ...options },
-        signal: AbortSignal.timeout(30000),
-        credentials: "include",
-        method: "POST",
-        body: JSON.stringify(params),
-      });
-      const data = await response.json();
-      if (response.status !== 200) throw data;
-      return { data: data, status: response.status };
-    } catch (error) {
-      console.log("error", error);
-      throw new ResponseError(error as Error);
-    }
-  };
+  @logger
+  async get<T>(params: IGetParams, options?: Record<string, string>): Promise<IResponse<T | undefined>> {
+    return this.send<T>(params, { method: "GET", ...options });
+  }
+
+  @logger
+  async post<R, T extends {}>(apiPath: string, params?: T, options?: Record<string, string>): Promise<IResponse<R>> {
+    return this.send<R, T>(apiPath, { method: "POST", ...options }, params);
+  }
   postUpload = async <R>(apiPath: string, params: IPostParams<FormData>): Promise<IResponse<R>> => {
     try {
       const response = await fetch(this.BASE_URL + apiPath, {

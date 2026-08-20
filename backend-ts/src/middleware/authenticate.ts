@@ -25,7 +25,6 @@ const auth: any = async (req: IRequest, res: Response, next: NextFunction) => {
   try {
     const cookie = req.cookies
     const session = cookie['session']
-    console.log('session', session)
     if (!session) throw new Error(ERROR.UNAUTHORIZED)
     const payload = verifyToken<ITokenPayload>(session)
     if (!payload) throw new Error(ERROR.UNAUTHORIZED)
@@ -36,6 +35,7 @@ const auth: any = async (req: IRequest, res: Response, next: NextFunction) => {
     }
     next()
   } catch (error) {
+    ;(error as Error & { status?: number }).status = 401
     captureException(error)
     next(error)
   }

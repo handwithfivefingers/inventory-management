@@ -4,6 +4,7 @@ import { Portal } from "~/components/portal";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
+import { m } from "motion/react";
 export interface ISelectInput extends BaseProps, React.InputHTMLAttributes<HTMLInputTypeAttribute> {
   label?: string;
   name?: string;
@@ -43,22 +44,26 @@ export const SelectInput = ({
   const skeleton = useRef<HTMLDivElement>(null);
   const [isFocus, setIsFocus] = useState<boolean>(false);
   useEffect(() => {
+    let resizeObserver: ResizeObserver;
     if (isFocus) {
-      handleBounce();
+      resizeObserver = new ResizeObserver(() => {
+        handleBounce();
+      });
+      resizeObserver.observe(document.body);
       addFocus();
+      handleBounce();
     } else {
       removeFocus();
     }
+    return () => resizeObserver?.disconnect();
   }, [isFocus]);
 
   useEffect(() => {
     const handler = (e: any) => {
       if (!dropdown.current?.contains(e.target)) {
-        console.log("clicked outside");
         setIsFocus(false);
         return;
       }
-      console.log("clicked inside");
     };
     if (isFocus) {
       setTimeout(() => {
@@ -75,7 +80,6 @@ export const SelectInput = ({
     dropdown.current?.style.setProperty("height", "auto");
     dropdown.current?.style.setProperty("z-index", "999");
     dropdown.current?.style.setProperty("width", `${rect?.width}px`);
-    console.log("dropdown", dropdown.current);
   };
 
   const removeFocus = () => {
@@ -98,12 +102,8 @@ export const SelectInput = ({
     if (onSelect) {
       onSelect?.(option.value, option);
     }
-    // if (closeOnSelect) {
-    //   setIsFocus(false);
-    // }
   };
   const selectedOption = options.find((option) => option.value === rest.value);
-  console.log("isFocus", isFocus);
   return (
     <div className={styles.inputWrapper} ref={wrapper}>
       <InputLabel label={label} name={name} />
@@ -130,24 +130,24 @@ export const SelectInput = ({
           className={cn(
             "block w-full bg-transparent cursor-pointer rounded-md border-0  text-transparent placeholder:text-gray-400  text-sm/6 outline-none px-1",
             styles.input,
-            inputClassName
+            inputClassName,
           )}
           readOnly
           {...(rest as any)}
         />
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 z-[1] px-1 ">
-          <Icon
-            name="chevron-down"
-            className={cn(" text-indigo-600 w-5 transition-transform rotate-0", {
-              ["rotate-180"]: isFocus,
-            })}
-          />
-        </div>
+        <m.div
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-[1] px-1 "
+          animate={{
+            rotate: isFocus ? 180 : 0,
+          }}
+        >
+          <Icon name="chevron-down" className={cn(" text-indigo-600 w-5 transition-transform ", {})} />
+        </m.div>
         <div
           className={cn(
             "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300 -z-[1] bg-white",
             styles.outline,
-            className
+            className,
           )}
           ref={skeleton}
         />
@@ -156,45 +156,45 @@ export const SelectInput = ({
       <Portal>
         {isFocus && (
           <>
-            {options?.length ? (
-              <div
-                className={cn("animate__animated", styles.dropdown)}
-                ref={dropdown}
-                style={
-                  {
-                    "--animate-duration": "0.1s",
-                  } as React.CSSProperties
-                }
-              >
-                <ul className="max-h-[400px] overflow-y-auto p-1 flex flex-col gap-1">
-                  {options?.map((item) => {
-                    return (
-                      <li
-                        value={item.value}
-                        className={cn(
-                          " px-2 hover:bg-slate-100 cursor-pointer rounded-xs bg-white text-neutral-700/90 hover:text-neutral-900 py-1"
-                        )}
-                        onClick={(e: any) => handleSelect(item)}
-                      >
-                        <div className="flex gap-2 items-center">
-                          <div
-                            className={cn({
-                              "opacity-100": item.value === selectedOption?.value,
-                              "opacity-0": item.value !== selectedOption?.value,
-                            })}
-                          >
-                            <Icon name="check" fontSize={16} />
-                          </div>
-                          <span>{item.label}</span>
+            <m.div
+              className={cn(`rounded-sm mt-2 fixed bg-white border border-slate-100`)}
+              ref={dropdown}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <ul className="max-h-[400px] overflow-y-auto p-1 flex flex-col gap-1">
+                {options?.length <= 0 && (
+                  <li className="px-2 py-4 flex flex-col gap-2 justify-center items-center text-slate-500">
+                    <Icon name="hard-drive" fontSize={28}></Icon>
+                    <span>No options</span>
+                  </li>
+                )}
+                {options?.map((item) => {
+                  return (
+                    <li
+                      value={item.value}
+                      className={cn(
+                        " px-2 hover:bg-slate-100 cursor-pointer rounded-xs bg-white text-neutral-700/90 hover:text-neutral-900 py-1",
+                      )}
+                      onClick={(e: any) => handleSelect(item)}
+                    >
+                      <div className="flex gap-2 items-center">
+                        <div
+                          className={cn({
+                            "opacity-100": item.value === selectedOption?.value,
+                            "opacity-0": item.value !== selectedOption?.value,
+                          })}
+                        >
+                          <Icon name="check" fontSize={16} />
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : (
-              ""
-            )}
+                        <span>{item.label}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </m.div>
           </>
         )}
       </Portal>

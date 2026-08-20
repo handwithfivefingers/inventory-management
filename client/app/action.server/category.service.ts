@@ -8,7 +8,10 @@ const API_PATH = {
 const categoryService = {
   get: ({ cookie, ...searchParams }: ICategoryQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<ICategory[]>(API_PATH.categories + "?" + qs.toString(), { Cookie: cookie });
+    return HTTPService.getInstance().get<{ data: ICategory[]; total: number }>(
+      API_PATH.categories + "?" + qs.toString(),
+      { Cookie: cookie },
+    );
   },
   create: ({ cookie, ...params }: ICategoryParams & { cookie: string }) => {
     console.log("cookie, ...params", cookie, params);

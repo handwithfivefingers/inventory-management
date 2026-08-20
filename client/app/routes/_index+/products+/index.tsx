@@ -10,13 +10,12 @@ import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { PermissionGuard } from "~/components/permission-guard";
 import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
+import { getSession, parseCookieFromRequest } from "~/sessions";
 interface IFilter {
   s?: string;
 }
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
-  const session = await getSession(cookie);
+  const { cookie, session } = await parseCookieFromRequest(request);
   const warehouseId = session.get("warehouseId");
   const url = new URL(request.url);
   const params = url.searchParams;
@@ -31,7 +30,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     s,
   });
   return {
-    ...resp,
+    data: resp.data?.data,
+    total: resp.data?.total,
     s,
     page,
     pageSize,
@@ -45,7 +45,6 @@ export const meta: MetaFunction = () => {
 export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize, s } = useLoaderData<typeof loader>();
-  console.log("data", data);
   const [filter, setFilter] = useState<IFilter>({ s });
   useEffect(() => {
     let timeout: any;
@@ -66,7 +65,6 @@ export default function Products() {
     //   body: form,
     // });
   };
-  console.log("render");
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem title="Sản phẩm" className="p-4 h-full">
@@ -85,12 +83,12 @@ export default function Products() {
             />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard permission="C" module="product">
-                  <TMButton variant="light" component={Link} to="./add">
-                    Thêm
-                  </TMButton>
+                <PermissionGuard permission="C" module="product" requireAdmin>
+                  <Link to="./add">
+                    <TMButton variant="light">Thêm</TMButton>
+                  </Link>
                 </PermissionGuard>
-                <PermissionGuard permission="C" module="product">
+                <PermissionGuard permission="C" module="product" requireAdmin>
                   <InputUpload onChange={handleImportUpload} destroyOnUnMount>
                     Nhập từ Excel
                   </InputUpload>

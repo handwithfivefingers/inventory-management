@@ -66,9 +66,9 @@ export default class OrderService {
     try {
       // Calculate the total price of the order details and add the surcharge
       const totalPrice = orderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
+      const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
 
       // Calculate the total amount to be paid including VAT
-      const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
 
       const orderParams: Partial<Omit<IOrderModel, 'id'>> = {
         VAT: Number(VAT),
@@ -86,7 +86,7 @@ export default class OrderService {
 
       const p = await orderBuilder.save({ transaction: t })
 
-      // Create order details for each item
+      // // Create order details for each item
       for (let item of orderDetails) {
         await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
       }
@@ -101,6 +101,7 @@ export default class OrderService {
       throw error
     }
   }
+
   /**
    * Create a new order detail.
    * @param {Object} params - contains order detail creation information
@@ -155,21 +156,33 @@ export default class OrderService {
   }
 
   async updateInventory({ productId, warehouseId, quantity, transaction }: IInventoryUpdateParams) {
-    try {
-      const inventory = await this.inventory.findOne({
-        where: {
-          productId,
-          warehouseId
-        }
-      })
-      if (!inventory) {
-        throw new Error('Inventory not found')
-      }
-      inventory.quantity = inventory.quantity - quantity
-      await inventory.save({ transaction })
-    } catch (error) {
-      throw error
+    // NEW
+    const [affectedRows] = await this.inventory.decrement('quantity', {
+      by: quantity,
+      where: { productId, warehouseId },
+      transaction
+    })
+
+    if ((affectedRows as number) === 0) {
+      throw new Error('Inventory not found')
     }
+
+    // OLD
+    // try {
+    //   const inventory = await this.inventory.findOne({
+    //     where: {
+    //       productId,
+    //       warehouseId
+    //     }
+    //   })
+    //   if (!inventory) {
+    //     throw new Error('Inventory not found')
+    //   }
+    //   inventory.quantity = inventory.quantity - quantity
+    //   await inventory.save({ transaction })
+    // } catch (error) {
+    //   throw error
+    // }
   }
   /**
    * @description Update product sold quantity

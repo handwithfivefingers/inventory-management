@@ -7,7 +7,7 @@ const API_PATH = {
 
 const vendorService = {
   getVendor: ({ cookie }: { cookie: string }) => {
-    return HTTPService.getInstance().get<IVendor[]>(API_PATH.vendor, { Cookie: cookie });
+    return HTTPService.getInstance().get<{ data: IVendor[] }>(API_PATH.vendor, { Cookie: cookie });
   },
 };
 

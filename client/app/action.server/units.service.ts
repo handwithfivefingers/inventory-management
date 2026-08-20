@@ -8,7 +8,9 @@ const API_PATH = {
 const unitsService = {
   get: ({ cookie: Cookie, ...searchParams }: IUnitQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<IUnit[]>(API_PATH.units + "?" + qs.toString(), { Cookie });
+    return HTTPService.getInstance().get<{ data: IUnit[]; total: number }>(API_PATH.units + "?" + qs.toString(), {
+      Cookie,
+    });
   },
   create: ({ cookie: Cookie, ...params }: IUnitParams) => {
     return HTTPService.getInstance().post(API_PATH.units, params, { Cookie });

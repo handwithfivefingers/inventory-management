@@ -47,29 +47,33 @@ export const PermissionGuard = ({
   className,
 }: PermissionGuardProps) => {
   const hasPermission = usePermission(permission!, module);
-  console.log("hasPermission", hasPermission);
-  console.log("permission", permission);
   const isAdmin = useIsAdmin();
   const hasRole = useHasRole(roles || []);
+  console.log(module, "has permission", hasPermission);
+  console.log(module, "isAdmin", isAdmin);
 
   // Check if all conditions are met
   const isAllowed = () => {
+    if (requireAdmin && isAdmin) return true;
+    if (roles && roles.length > 0 && hasRole) return true;
+    if (permission && hasPermission) return true;
+
     // If requireAdmin is true, user must be admin
-    if (requireAdmin && !isAdmin) {
-      return false;
-    }
+    // if (requireAdmin && !isAdmin) {
+    //   return false;
+    // }
 
     // If roles are specified, user must have one of those roles
-    if (roles && roles.length > 0 && !hasRole) {
-      return false;
-    }
+    // if (roles && roles.length > 0 && !hasRole) {
+    //   return false;
+    // }
 
     // If permission is specified, user must have that permission
-    if (permission && !hasPermission) {
-      return false;
-    }
+    // if (permission && !hasPermission) {
+    //   return false;
+    // }
 
-    return true;
+    return false;
   };
 
   if (isAllowed()) {

@@ -47,7 +47,8 @@ const InvoiceDetailModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'invoiceDetails'
     }
   )
 

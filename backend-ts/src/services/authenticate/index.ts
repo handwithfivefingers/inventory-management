@@ -10,6 +10,7 @@ import Redis from '#/configs/redis'
 import { ERROR } from '#/constant/message'
 import database from '#/database'
 import { getCtxUser } from '#/libs'
+import { ApiError } from '#/response'
 import { RoleStatic } from '#/types/role'
 import { IUserStatic } from '#/types/user'
 import { IVendorStatic } from '#/types/vendor'
@@ -49,7 +50,7 @@ export default class AuthenticateService {
     try {
       // Get user email from request locals (set by auth middleware)
       const userEmail = req.locals.email
-      
+
       const usr = await cacheItem({
         key: cacheKey('User', userEmail),
         callback: async () => {
@@ -71,13 +72,13 @@ export default class AuthenticateService {
           return user
         }
       })
-      
+
       if (!usr) throw new Error(ERROR.USR_NOT_VALID)
-      
+
       return {
         ...usr.parsed,
         roles: (usr as any).roles,
-        vendors: (usr as any).vendors,
+        vendors: (usr as any).vendors
       }
     } catch (err) {
       console.log('error', err)
@@ -88,10 +89,9 @@ export default class AuthenticateService {
   async login(req: Request) {
     try {
       const { email, password } = req.body
-      
       // Use cache to store user data
       const cacheKeyStr = cacheKey('User', email)
-      
+
       const user = await cacheItem({
         key: cacheKeyStr,
         callback: async () => {
@@ -112,24 +112,41 @@ export default class AuthenticateService {
               }
             ]
           })
-          
+
           if (!usr) throw new Error(ERROR.USR_NOT_VALID)
-          
+
           const isMatchPassword = await bcrypt.compare(password, usr.password)
           if (!isMatchPassword) throw new Error(ERROR.USR_NOT_VALID)
-          
+
           return usr
         }
       })
-      
+      // const user = await this.user.findOne({
+      //   where: { email }
+      //   include: [
+      //     {
+      //       model: database.role,
+      //       include: {
+      //         model: database.permission
+      //       } as any
+      //     },
+      //     {
+      //       model: database.vendor,
+      //       include: {
+      //         model: database.warehouse
+      //       } as any
+      //     }
+      //   ]
+      // })
+
       if (!user) throw new Error(ERROR.USR_NOT_VALID)
-      
+
       // Verify password if not already verified in cache callback
       if (!user.password) {
         // Password already verified in cache callback
         throw new Error(ERROR.USR_NOT_VALID)
       }
-      
+
       const isMatchPassword = await bcrypt.compare(password, user.password)
       if (!isMatchPassword) {
         // Clear cache on failed login
@@ -188,7 +205,7 @@ export default class AuthenticateService {
       }
     } catch (error) {
       console.log('LOGIN ERROR >> error', error)
-      throw error
+      throw new ApiError(error as any)
     }
   }
 
@@ -201,7 +218,6 @@ export default class AuthenticateService {
       const { vendor, warehouse, ...user } = params
       const userBuilder = await this.user.build(params as any)
 
-      console.log('parsed', userBuilder)
       // const user = await this.user.create(parsed)
       const usr = await userBuilder.save({
         transaction: t
@@ -235,9 +251,6 @@ export default class AuthenticateService {
         phone: '1234567890', // Provide a value for the phone property
         address: '123 Main St' // Provide a value for the address property
       })
-      // const roles = await usr.createRole({
-      //   name: 'Admin'
-      // })
 
       await warehouseBuilder.save({
         transaction: t
@@ -252,29 +265,33 @@ export default class AuthenticateService {
       }
 
       await t.commit()
-      
+
       // Cache the new user data
       const cacheKeyStr = cacheKey('User', params.email)
       const userData = {
         ...usr.parsed,
-        vendors: [{
-          ...vendorModel.dataValues,
-          warehouses: [warehouseBuilder.dataValues]
-        }],
-        roles: [{
-          ...userRole.dataValues,
-          permissions: [permission.dataValues]
-        }]
+        vendors: [
+          {
+            ...vendorModel.dataValues,
+            warehouses: [warehouseBuilder.dataValues]
+          }
+        ],
+        roles: [
+          {
+            ...userRole.dataValues,
+            permissions: [permission.dataValues]
+          }
+        ]
       }
       await cacheSet(cacheKeyStr, userData, 3600 * 24)
-      
+
       return result
     } catch (error) {
       await t.rollback()
-      throw error
+      throw new ApiError(error as any)
     }
   }
-  
+
   /**
    * Clear user cache by email
    */

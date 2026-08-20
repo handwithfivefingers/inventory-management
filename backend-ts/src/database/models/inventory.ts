@@ -17,7 +17,8 @@ const InventoryModel = (sequelize: Sequelize) => {
       warehouseId: DataTypes.INTEGER
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'inventories'
     }
   )
 

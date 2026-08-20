@@ -15,7 +15,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const params = url.searchParams;
   const page = params.get("page") || "1";
   const pageSize = params.get("pageSize") || "10";
-  // const vendor = session.get("vendor");
   const resp = await categoryService.get({
     vendorId: vendorId as string,
     page,
@@ -24,7 +23,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 
   return {
-    ...resp,
+    data: resp.data?.data,
+    total: resp.data?.total,
     page: Number(page),
     pageSize: Number(pageSize),
   };
@@ -37,6 +37,7 @@ export const meta: MetaFunction = () => {
 export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
+  console.log("data", data);
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem title="Danh mục" className="p-4 h-full">

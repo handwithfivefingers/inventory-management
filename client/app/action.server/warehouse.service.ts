@@ -20,9 +20,12 @@ interface IWarehouseParams extends Omit<IWarehouseById, "id"> {
 const warehouseService = {
   getWareHouses: ({ cookie, ...restParams }: IWarehouseParams) => {
     const params = new URLSearchParams(restParams);
-    return HTTPService.getInstance().get<IWareHouse[]>(API_PATH.warehouse + `?${params.toString()}`, {
-      Cookie: cookie,
-    });
+    return HTTPService.getInstance().get<{ data: IWareHouse[]; total: number }>(
+      API_PATH.warehouse + `?${params.toString()}`,
+      {
+        Cookie: cookie,
+      },
+    );
   },
   getInventoryFromWareHouseId: (documentId: string) => {
     const params = new URLSearchParams({});

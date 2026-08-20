@@ -36,7 +36,7 @@ const http = HTTPService.getInstance();
 const productService = {
   getProducts: ({ cookie, ...params }: IProductParams) => {
     const qs = new URLSearchParams(params);
-    return http.get<IProduct[]>(API_PATH.products + "?" + qs.toString(), { Cookie: cookie });
+    return http.get<{ data: IProduct[]; total: number }>(API_PATH.products + "?" + qs.toString(), { Cookie: cookie });
   },
   getProductById: ({ id, warehouseId, cookie }: IGetParamsByID) => {
     const params = new URLSearchParams({

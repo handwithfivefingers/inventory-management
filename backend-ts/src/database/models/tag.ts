@@ -17,11 +17,12 @@ const Tag = (sequelize: Sequelize) => {
       vendorId: DataTypes.INTEGER
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'tags'
     }
   )
   Model.associate = (models) => {
-    Model.belongsToMany(models.product, { through: 'product_tag' })
+    Model.belongsToMany(models.product, { through: 'product_tags' })
   }
   return Model
 }

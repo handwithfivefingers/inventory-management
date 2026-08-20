@@ -2,9 +2,8 @@ import { createCookieSessionStorage, LoaderFunctionArgs } from "@remix-run/node"
 
 type SessionData = {
   userId?: string | number;
-  vendorId?: string | number;
-  warehouseId?: string | number;
-  warehouse?: string | number;
+  vendorId: string | number;
+  warehouseId: string | number;
   token?: string;
 };
 
@@ -17,20 +16,16 @@ const { getSession, commitSession, destroySession } = createCookieSessionStorage
     name: "ss_storage",
     secrets: ["s3cret1"],
     sameSite: "lax",
-    encode: (v) => {
-      console.log("Encode", v);
-      return v;
-    },
   },
 });
 
 const getSessionValues = async (cookie: string) => {
   const session = await getSession(cookie);
   return {
+    token: session.get("token") as string,
     userId: session.get("userId") as string,
     vendorId: session.get("vendorId") as string,
     warehouseId: session.get("warehouseId") as string,
-    warehouse: session.get("warehouse") as string,
   };
 };
 
@@ -38,9 +33,11 @@ const parseCookieFromRequest = async (request: LoaderFunctionArgs["request"]) =>
   const cookie = request.headers.get("cookie") as string;
   const session = await getSession(cookie);
   const sessionValue = await getSessionValues(cookie as string);
+
+  const newCookies = `session=${sessionValue.token};`;
   return {
     ...sessionValue,
-    cookie,
+    cookie: newCookies,
     session,
   };
 };

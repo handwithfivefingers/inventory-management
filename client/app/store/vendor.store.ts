@@ -26,6 +26,7 @@ export const useVendor = create<IVendorState & Actions>()(
       (set) => ({
         ...initialState,
         initialize: (vendors) => {
+          console.log("vendors", vendors);
           let activeVendor = vendors[0];
           let activeWarehouse: IWareHouse | undefined = undefined;
           if (activeVendor && activeVendor.warehouses?.length) {
@@ -38,7 +39,7 @@ export const useVendor = create<IVendorState & Actions>()(
       }),
       {
         name: "vendors-storage",
-      }
-    )
-  )
+      },
+    ),
+  ),
 );

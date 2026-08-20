@@ -4,6 +4,7 @@ import { Portal } from "~/components/portal";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
+import { m } from "motion/react";
 export interface IMultiSelectInput extends BaseProps {
   label?: string;
   name?: string;
@@ -61,12 +62,18 @@ export const MultiSelectInput = ({
   }, [options]);
 
   useEffect(() => {
+    let resizeObserver: ResizeObserver;
     if (isFocus) {
-      handleBounce();
+      resizeObserver = new ResizeObserver(() => {
+        handleBounce();
+      });
+      resizeObserver.observe(document.body);
       addFocus();
+      handleBounce();
     } else {
       removeFocus();
     }
+    return () => resizeObserver?.disconnect();
   }, [isFocus]);
 
   useEffect(() => {
@@ -117,7 +124,7 @@ export const MultiSelectInput = ({
     if (onSelect) {
       onSelect?.(
         [...selected.values()].map((item) => item.value),
-        option
+        option,
       );
     }
   };
@@ -127,7 +134,7 @@ export const MultiSelectInput = ({
     if (onSelect) {
       onSelect?.(
         [...selected.values()].map((item) => item.value),
-        val
+        val,
       );
     }
   };
@@ -147,7 +154,7 @@ export const MultiSelectInput = ({
           className={cn(
             "min-h-6 flex flex-wrap gap-2 w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none px-1 cursor-pointer",
             styles.input,
-            inputClassName
+            inputClassName,
           )}
         >
           {rest.value?.map((item, index: number) => {
@@ -187,7 +194,7 @@ export const MultiSelectInput = ({
           className={cn(
             "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] bg-white",
             styles.outline,
-            className
+            className,
           )}
           ref={skeleton}
         />
@@ -195,47 +202,46 @@ export const MultiSelectInput = ({
 
       <Portal>
         {isFocus && (
-          <>
-            {options?.length ? (
-              <div
-                className={cn("animate__animated", styles.dropdown)}
-                ref={dropdown}
-                style={
-                  {
-                    "--animate-duration": "0.3s",
-                  } as React.CSSProperties
-                }
-              >
-                <ul className="max-h-[400px] overflow-y-auto p-1 flex flex-col gap-1">
-                  {options?.map((item) => {
-                    return (
-                      <li
-                        value={item.value}
-                        className={cn(
-                          " px-2 hover:bg-slate-100 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1"
-                        )}
-                        onClick={(e: any) => handleSelect(item)}
+          <m.div
+            className={cn("animate__animated", styles.dropdown)}
+            ref={dropdown}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <ul className="max-h-[400px] overflow-y-auto p-1 flex flex-col gap-1">
+              {options?.length <= 0 && (
+                <li className="px-2 py-4 flex flex-col gap-2 justify-center items-center text-slate-500">
+                  <Icon name="hard-drive" fontSize={28}></Icon>
+                  <span>No options</span>
+                </li>
+              )}
+
+              {options?.map((item) => {
+                return (
+                  <li
+                    value={item.value}
+                    className={cn(
+                      " px-2 hover:bg-slate-100 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1",
+                    )}
+                    onClick={(e: any) => handleSelect(item)}
+                  >
+                    <div className="flex gap-2 items-center">
+                      <div
+                        className={cn({
+                          "opacity-100": selected.get(item.value),
+                          "opacity-0": !selected.get(item.value),
+                        })}
                       >
-                        <div className="flex gap-2 items-center">
-                          <div
-                            className={cn({
-                              "opacity-100": selected.get(item.value),
-                              "opacity-0": !selected.get(item.value),
-                            })}
-                          >
-                            <Icon name="check" fontSize={16} />
-                          </div>
-                          <span>{item.label}</span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : (
-              ""
-            )}
-          </>
+                        <Icon name="check" fontSize={16} />
+                      </div>
+                      <span>{item.label}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </m.div>
         )}
       </Portal>
     </div>

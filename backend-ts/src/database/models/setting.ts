@@ -22,7 +22,8 @@ const Setting = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'settings'
     }
   )
   Model.associate = (models) => {

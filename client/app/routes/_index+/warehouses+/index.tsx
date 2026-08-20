@@ -18,7 +18,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { page, pageSize } = getLoaderRequestQuery(request);
   const resp = await warehouseService.getWareHouses({ cookie, vendorId: vendorId, page, pageSize } as any);
   return {
-    ...resp,
+    data: resp.data?.data,
+    total: resp.data?.total,
     page,
     pageSize,
   };

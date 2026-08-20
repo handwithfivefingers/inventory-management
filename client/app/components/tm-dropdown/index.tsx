@@ -4,7 +4,7 @@ import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import { ITMButton, TMButton } from "../tm-button";
 import { Portal } from "../portal";
-
+import { m } from "motion/react";
 interface IDropdownItem {
   label: React.ReactNode;
   onClick: (item: IDropdownItem) => void;
@@ -33,12 +33,18 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
     return () => document.removeEventListener("click", handler, false);
   }, [show]);
   useEffect(() => {
+    let resizeObserver: ResizeObserver;
     if (show) {
+      resizeObserver = new ResizeObserver(() => {
+        handleBounce();
+      });
       handleBounce();
+      resizeObserver.observe(document.body);
     } else {
       dropdown.current?.style.setProperty("height", "0");
       dropdown.current?.style.setProperty("z-index", "-1");
     }
+    return () => resizeObserver?.disconnect();
   }, [show]);
   const handleBounce = () => {
     const rect = wrapper.current?.getBoundingClientRect();
@@ -51,7 +57,6 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
     dropdown.current?.style.setProperty("top", `${rect?.bottom}px`);
     dropdown.current?.style.setProperty("height", "auto");
     dropdown.current?.style.setProperty("z-index", "999");
-    console.log("dropdown", dropdown.current);
   };
 
   const handleToggle = () => {
@@ -64,21 +69,22 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
       </TMButton>
       <Portal>
         {show && (
-          <div
-            className={cn("animate__animated animate__faster animate__fadeInUp", styles.dropdown)}
+          <m.div
+            className={cn(`rounded-md mt-2 fixed bg-white border border-slate-100 p-1`)}
             ref={dropdown}
-            style={
-              {
-                "--animate-duration": "0.3s",
-              } as React.CSSProperties
-            }
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{
+              duration: 0.2,
+            }}
           >
             <ul className="max-h-[400px] overflow-y-auto flex gap-0.5 flex-col p-0.5">
               {items?.map(({ onClick, label }) => {
                 return (
                   <li
                     className={cn(
-                      " px-2  hover:bg-indigo-50 cursor-pointer rounded-sm  bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1.5 "
+                      " px-2  hover:bg-indigo-50 cursor-pointer rounded-sm  bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1.5 ",
                     )}
                     onClick={onClick as any}
                   >
@@ -87,7 +93,7 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
                 );
               })}
             </ul>
-          </div>
+          </m.div>
         )}
       </Portal>
     </div>

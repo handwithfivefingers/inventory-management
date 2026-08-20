@@ -15,5 +15,5 @@ const schema = z
     path: ["confirmPassword"], // path of error
   });
 
-export type registerSchema = z.infer<typeof schema>;
-export const registerResolver = zodResolver(schema);
+export type RegisterType = z.infer<typeof schema>;
+export const registerSchema = zodResolver(schema);

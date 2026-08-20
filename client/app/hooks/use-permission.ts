@@ -80,7 +80,7 @@ export const useAllPermissions = (): IPermission[] => {
  */
 export const useIsAdmin = (): boolean => {
   const { user } = useUser();
-  console.log("user", user);
+  console.log("useIsAdmin user", user);
   if (!user?.roles) {
     return false;
   }

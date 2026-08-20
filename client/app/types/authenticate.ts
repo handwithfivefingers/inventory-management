@@ -1,31 +1,15 @@
+import { IUser } from "./user";
+
 // Re-export types from user, vendor, warehouse to avoid duplication
-export type { 
-  IUser, 
-  IRole, 
-  IPermission, 
-  ILoginResponse 
-} from "./user";
+export type { IRole, IPermission } from "./user";
 
 export interface ILoginParams {
   email: string;
   password: string;
 }
 
-// Keep IVendor and IWarehouse here for backward compatibility
-// but they should be imported from their respective files
-export interface IVendor {
-  id: number;
-  name: string;
-  warehouses?: IWarehouse[];
-}
-
-export interface IWarehouse {
-  id: number;
-  name: string;
-  isMain: boolean;
-  address?: string;
-  phone?: string;
-  email?: string;
+export interface ILoginResponse {
+  data: IUser & { token: string };
 }
 
 export interface IRegisterParams {

@@ -36,7 +36,8 @@ const CustomerModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'customers'
     }
   )
 

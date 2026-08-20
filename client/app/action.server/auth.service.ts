@@ -20,7 +20,7 @@ export const AuthService = {
     return HTTPService.getInstance().post(API_PATH.register, params);
   },
   getMe: async ({ cookie }: { cookie: string }) => {
-    return HTTPService.getInstance().get<IUser>(API_PATH.me, { cookie });
+    return HTTPService.getInstance().get<{ data: IUser }>(API_PATH.me, { cookie });
   },
   logout: () => {
     return HTTPService.getInstance().post(API_PATH.logout);

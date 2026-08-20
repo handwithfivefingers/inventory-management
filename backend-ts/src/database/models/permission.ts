@@ -80,12 +80,13 @@ const PermissionModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'permissions'
     }
   )
 
   M.associate = (models: any) => {
-    M.belongsToMany(models.role, { through: 'role_permission' })
+    M.belongsToMany(models.role, { through: 'role_permissions' })
   }
   return M
 }

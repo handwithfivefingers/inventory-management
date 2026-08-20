@@ -12,7 +12,7 @@ import { getSession, getSessionValues, parseCookieFromRequest } from "~/sessions
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
-  
+
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -24,7 +24,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     cookie,
   });
   return {
-    ...resp,
+    data: resp.data?.data,
+    total: resp.data?.total,
     page: Number(page),
     pageSize: Number(pageSize),
   };

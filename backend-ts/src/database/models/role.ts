@@ -26,13 +26,14 @@ const RoleModel = (sequelize: Sequelize) => {
       }
     },
     {
-      timestamps: true
+      timestamps: true,
+      tableName: 'roles'
     }
   )
 
   M.associate = (models: any) => {
     M.belongsToMany(models.permission, { through: 'role_permissions' })
-    M.belongsToMany(models.user, { through: 'user_roles' })
+    M.belongsToMany(models.user, { through: 'user_role' })
     M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
   }
 
