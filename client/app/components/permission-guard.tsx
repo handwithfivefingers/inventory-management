@@ -52,28 +52,13 @@ export const PermissionGuard = ({
   console.log(module, "has permission", hasPermission);
   console.log(module, "isAdmin", isAdmin);
 
-  // Check if all conditions are met
+  // All specified conditions must be satisfied (AND semantics),
+  // consistent with PermissionButton below.
   const isAllowed = () => {
-    if (requireAdmin && isAdmin) return true;
-    if (roles && roles.length > 0 && hasRole) return true;
-    if (permission && hasPermission) return true;
-
-    // If requireAdmin is true, user must be admin
-    // if (requireAdmin && !isAdmin) {
-    //   return false;
-    // }
-
-    // If roles are specified, user must have one of those roles
-    // if (roles && roles.length > 0 && !hasRole) {
-    //   return false;
-    // }
-
-    // If permission is specified, user must have that permission
-    // if (permission && !hasPermission) {
-    //   return false;
-    // }
-
-    return false;
+    if (requireAdmin && !isAdmin) return false;
+    if (roles && roles.length > 0 && !hasRole) return false;
+    if (permission && !hasPermission) return false;
+    return true;
   };
 
   if (isAllowed()) {

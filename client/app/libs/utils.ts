@@ -21,7 +21,7 @@ export const getLoaderRequestQuery = (request: LoaderFunctionArgs["request"]) =>
   // });
   const params = domain.searchParams;
   const searchParams: Record<string, string> = {};
-  Object.entries(params).forEach(([key, value]) => {
+  params.forEach((value, key) => {
     searchParams[key] = value;
   });
   // const page = params.get("page") || "1";

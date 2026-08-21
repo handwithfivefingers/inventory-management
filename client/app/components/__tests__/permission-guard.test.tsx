@@ -130,6 +130,34 @@ describe('PermissionGuard Component', () => {
 
     expect(screen.queryByText('Admin Create')).not.toBeInTheDocument()
   })
+
+  it('does not render when a role matches but the permission is missing (AND)', () => {
+    vi.mocked(usePermissionHooks.usePermission).mockReturnValue(false)
+    vi.mocked(usePermissionHooks.useIsAdmin).mockReturnValue(false)
+    vi.mocked(usePermissionHooks.useHasRole).mockReturnValue(true)
+
+    render(
+      <PermissionGuard permission="C" module="product" roles={['Manager']}>
+        <button>Role But No Perm</button>
+      </PermissionGuard>
+    )
+
+    expect(screen.queryByText('Role But No Perm')).not.toBeInTheDocument()
+  })
+
+  it('renders with only a permission when roles/admin are absent', () => {
+    vi.mocked(usePermissionHooks.usePermission).mockReturnValue(true)
+    vi.mocked(usePermissionHooks.useIsAdmin).mockReturnValue(false)
+    vi.mocked(usePermissionHooks.useHasRole).mockReturnValue(false)
+
+    render(
+      <PermissionGuard permission="C" module="product">
+        <button>Only Perm</button>
+      </PermissionGuard>
+    )
+
+    expect(screen.getByText('Only Perm')).toBeInTheDocument()
+  })
 })
 
 describe('PermissionButton Component', () => {
@@ -238,5 +266,20 @@ describe('PermissionButton Component', () => {
     button.click()
 
     expect(handleClick).not.toHaveBeenCalled()
+  })
+
+  it('should render an enabled button when a required role matches', () => {
+    vi.mocked(usePermissionHooks.usePermission).mockReturnValue(false)
+    vi.mocked(usePermissionHooks.useIsAdmin).mockReturnValue(false)
+    vi.mocked(usePermissionHooks.useHasRole).mockReturnValue(true)
+
+    render(
+      <PermissionButton roles={['Manager']}>
+        Manager
+      </PermissionButton>
+    )
+
+    const button = screen.getByRole('button', { name: /manager/i })
+    expect(button).not.toBeDisabled()
   })
 })

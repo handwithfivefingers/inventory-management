@@ -1,5 +1,5 @@
 import { WarehouseService } from '#/services/warehouse'
-import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { IRequestHandler } from '#/types/common'
 import { getPagination } from '#/utils'
 export class WarehouseController {
   async create(...arg: IRequestHandler) {

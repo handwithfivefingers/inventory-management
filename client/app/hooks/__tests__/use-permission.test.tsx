@@ -50,7 +50,7 @@ describe('Permission Hooks', () => {
 
   describe('usePermission', () => {
     it('should return true when user has the required permission', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => usePermission('C', 'product'))
       
@@ -58,7 +58,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should return false when user lacks the required permission', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockNonAdminUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockNonAdminUser, roles: mockNonAdminUser.roles } as any)
       
       const { result } = renderHook(() => usePermission('C', 'product'))
       
@@ -82,7 +82,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should check permission without module name', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => usePermission('R'))
       
@@ -92,7 +92,7 @@ describe('Permission Hooks', () => {
 
   describe('useResourcePermission', () => {
     it('should return true for create permission on product', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => useResourcePermission('product', 'create'))
       
@@ -100,7 +100,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should return true for read permission on order', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => useResourcePermission('order', 'read'))
       
@@ -108,7 +108,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should return false for delete permission on order', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => useResourcePermission('order', 'delete'))
       
@@ -116,7 +116,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should return false for update permission on warehouse', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => useResourcePermission('warehouse', 'update'))
       
@@ -126,7 +126,7 @@ describe('Permission Hooks', () => {
 
   describe('useIsAdmin', () => {
     it('should return true when user has Admin role', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => useIsAdmin())
       
@@ -134,7 +134,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should return false when user does not have Admin role', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockNonAdminUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockNonAdminUser, roles: mockNonAdminUser.roles } as any)
       
       const { result } = renderHook(() => useIsAdmin())
       
@@ -154,7 +154,7 @@ describe('Permission Hooks', () => {
         ...mockUser,
         roles: [{ id: 1, name: 'administrator', permissions: [] }]
       }
-      vi.mocked(useUser).mockReturnValue({ user: adminUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: adminUser, roles: adminUser.roles } as any)
       
       const { result } = renderHook(() => useIsAdmin())
       
@@ -164,7 +164,7 @@ describe('Permission Hooks', () => {
 
   describe('useHasRole', () => {
     it('should return true when user has one of the specified roles', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => useHasRole(['Admin', 'Manager']))
       
@@ -172,7 +172,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should return false when user has none of the specified roles', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockNonAdminUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockNonAdminUser, roles: mockNonAdminUser.roles } as any)
       
       const { result } = renderHook(() => useHasRole(['Admin', 'Manager']))
       
@@ -180,7 +180,7 @@ describe('Permission Hooks', () => {
     })
 
     it('should be case-insensitive for role names', () => {
-      vi.mocked(useUser).mockReturnValue({ user: mockUser } as any)
+      vi.mocked(useUser).mockReturnValue({ user: mockUser, roles: mockUser.roles } as any)
       
       const { result } = renderHook(() => useHasRole(['admin', 'MANAGER']))
       
