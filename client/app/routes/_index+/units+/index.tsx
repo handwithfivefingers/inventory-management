@@ -9,6 +9,7 @@ import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
 import { getSession, getSessionValues, parseCookieFromRequest } from "~/sessions";
+import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
@@ -38,16 +39,17 @@ export const meta: MetaFunction = () => {
 export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
+  const { t } = useTranslation();
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Danh sách đơn vị" className="p-4 h-full">
+      <CardItem title={t("units.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0">
-            <TextInput label="Name" placeholder="Lọc theo mã, tên hàng hóa" />
+            <TextInput label="Name" placeholder={t("providers.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <TMButton component={Link} to="./add" variant="light">
-                  Thêm
+                  {t("common.add")}
                 </TMButton>
               </div>
             </div>
@@ -56,12 +58,12 @@ export default function Products() {
             <TMTable
               columns={[
                 {
-                  title: "Đơn vị",
+                  title: t("units.unit"),
                   dataIndex: "name",
                   render: (record) => record["name"],
                 },
                 {
-                  title: "Ngày tạo",
+                  title: t("common.createdAt"),
                   dataIndex: "createdAt",
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
@@ -70,7 +72,6 @@ export default function Products() {
               rowKey={"id"}
               onRow={{
                 onClick: (record) => {
-                  console.log("record", record);
                   navigate(`./${record?.id}`);
                 },
               }}

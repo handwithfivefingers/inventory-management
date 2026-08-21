@@ -1,7 +1,7 @@
 import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import invoiceService from "~/action.client/invoice.service";
+import { invoiceService } from "~/action.server/invoice.service";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
@@ -11,18 +11,12 @@ import { PermissionGuard } from "~/components/permission-guard";
 import { getSession } from "~/sessions";
 import { IInvoice } from "~/types/invoice";
 import { formatCurrency } from "~/libs/format-currency";
+import { useTranslation } from "~/i18n";
 
 interface IFilter {
   s?: string;
   status?: string;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Nháp",
-  issued: "Đã phát hành",
-  paid: "Đã thanh toán",
-  cancelled: "Đã hủy",
-};
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-800",
@@ -52,12 +46,35 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   } as any);
 
   return {
-    ...resp,
+    data: resp.data?.data ?? [],
+    total: resp.data?.total ?? 0,
     s: search,
     status,
-    page,
-    pageSize,
+    page: Number(page),
+    pageSize: Number(pageSize),
   };
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const cookie = request.headers.get("cookie") as string;
+  const formData = await request.formData();
+  const id = Number(formData.get("id"));
+  const intent = formData.get("intent");
+
+  try {
+    if (intent === "update-status") {
+      await invoiceService.updateInvoiceStatus({
+        id,
+        status: formData.get("status") as any,
+        cookie,
+      });
+    } else {
+      await invoiceService.deleteInvoice({ id, cookie });
+    }
+    return new Response(null, { status: 200 });
+  } catch (error: any) {
+    return { error: error.message || "Request failed" };
+  }
 };
 
 export const meta: MetaFunction = () => {
@@ -67,6 +84,8 @@ export const meta: MetaFunction = () => {
 export default function Invoices() {
   const navigate = useNavigate();
   const { data, total, page, pageSize, s, status } = useLoaderData<typeof loader>();
+  const fetcher = useFetcher();
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<IFilter>({ s, status });
 
   useEffect(() => {
@@ -80,35 +99,25 @@ export default function Invoices() {
     return () => timeout && clearTimeout(timeout);
   }, [filter]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa hóa đơn này?")) {
+  const handleDelete = (id: number) => {
+    if (!confirm(t("common.confirmDelete"))) {
       return;
     }
-    try {
-      await invoiceService.deleteInvoice(id);
-      navigate(0);
-    } catch (error: any) {
-      alert(error.message || "Xóa hóa đơn thất bại");
-    }
+    fetcher.submit({ id: String(id), intent: "delete" }, { method: "post" });
   };
 
-  const handleUpdateStatus = async (id: number, newStatus: string) => {
-    try {
-      await invoiceService.updateInvoiceStatus({ id, status: newStatus as any });
-      navigate(0);
-    } catch (error: any) {
-      alert(error.message || "Cập nhật trạng thái thất bại");
-    }
+  const handleUpdateStatus = (id: number, newStatus: string) => {
+    fetcher.submit({ id: String(id), intent: "update-status", status: newStatus }, { method: "post" });
   };
 
   return (
     <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Hóa đơn" className="p-4 h-full">
+      <CardItem title={t("invoices.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0 justify-between items-center flex-wrap">
             <div className="flex gap-2 items-center">
               <TextInput
-                placeholder="Lọc theo số hóa đơn"
+                placeholder={t("invoices.searchPlaceholder")}
                 value={filter.s}
                 onChange={(v: any) => {
                   setFilter({ ...filter, s: v.target.value });
@@ -120,16 +129,16 @@ export default function Invoices() {
                 onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 className="border rounded px-3 py-2 text-sm"
               >
-                <option value="">Tất cả trạng thái</option>
-                <option value="draft">Nháp</option>
-                <option value="issued">Đã phát hành</option>
-                <option value="paid">Đã thanh toán</option>
-                <option value="cancelled">Đã hủy</option>
+                <option value="">{t("invoices.allStatuses")}</option>
+                <option value="draft">{t("invoices.status.draft")}</option>
+                <option value="issued">{t("invoices.status.issued")}</option>
+                <option value="paid">{t("invoices.status.paid")}</option>
+                <option value="cancelled">{t("invoices.status.cancelled")}</option>
               </select>
             </div>
             <PermissionGuard permission="C" module="invoice">
               <Link to="add">
-                <TMButton>Tạo hóa đơn</TMButton>
+                <TMButton>{t("invoices.create")}</TMButton>
               </Link>
             </PermissionGuard>
           </div>
@@ -137,44 +146,44 @@ export default function Invoices() {
           <div className="flex-1 overflow-auto">
             <TMTable
               columns={[
-                { title: "Số hóa đơn", dataIndex: "invoiceNumber", width: 150 },
-                { title: "Khách hàng", dataIndex: "customerName", width: 200, render: (item: IInvoice) => item.customer?.name || "-" },
-                { title: "Tổng tiền", dataIndex: "total", width: 120, render: (item: IInvoice) => formatCurrency(item.total) },
-                { title: "Đã trả", dataIndex: "paid", width: 120, render: (item: IInvoice) => formatCurrency(item.paid) },
-                { title: "Còn lại", dataIndex: "remaining", width: 120, render: (item: IInvoice) => formatCurrency(item.remaining) },
-                { title: "Trạng thái", dataIndex: "status", width: 120, render: (item: IInvoice) => (
+                { title: t("invoices.invoiceNumber"), dataIndex: "invoiceNumber", width: 150 },
+                { title: t("invoices.customer"), dataIndex: "customerName", width: 200, render: (item: IInvoice) => item.customer?.name || "-" },
+                { title: t("invoices.total"), dataIndex: "total", width: 120, render: (item: IInvoice) => formatCurrency(item.total) },
+                { title: t("invoices.paidAmount"), dataIndex: "paid", width: 120, render: (item: IInvoice) => formatCurrency(item.paid) },
+                { title: t("invoices.remaining"), dataIndex: "remaining", width: 120, render: (item: IInvoice) => formatCurrency(item.remaining) },
+                { title: t("invoices.statusLabel"), dataIndex: "status", width: 120, render: (item: IInvoice) => (
                   <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[item.status]}`}>
-                    {STATUS_LABELS[item.status]}
+                    {t(`invoices.status.${item.status}`)}
                   </span>
                 )},
                 {
-                  title: "Thao tác",
+                  title: t("common.actions"),
                   dataIndex: "actions",
                   width: 200,
                   render: (item: IInvoice) => (
                     <div className="flex gap-2">
                       <PermissionGuard permission="R" module="invoice">
                         <Link to={`${item.id}`} className="text-blue-600 hover:underline">
-                          Xem
+                          {t("common.view")}
                         </Link>
                       </PermissionGuard>
                       {item.status === "draft" && (
                         <>
                           <PermissionGuard permission="U" module="invoice">
                             <Link to={`${item.id}/edit`} className="text-orange-600 hover:underline">
-                              Sửa
+                              {t("common.edit")}
                             </Link>
                           </PermissionGuard>
                           <PermissionGuard permission="D" module="invoice">
                             <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:underline">
-                              Xóa
+                              {t("common.delete")}
                             </button>
                           </PermissionGuard>
                         </>
                       )}
                       {item.status === "issued" && (
                         <button onClick={() => handleUpdateStatus(item.id, "paid")} className="text-green-600 hover:underline">
-                          Đánh dấu đã trả
+                          {t("invoices.markAsPaid")}
                         </button>
                       )}
                     </div>

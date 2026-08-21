@@ -2,10 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { redirect, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
-import { Controller, FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { categoryService } from "~/action.server/category.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
@@ -133,10 +134,8 @@ const EditForm = ({ name, id }: Partial<ICategory>) => {
         )}
       >
         <div className="col-span-12">
-          <Controller
-            name="name"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="name">
+            {(field) => {
               return (
                 <TextInput
                   label="Tên danh mục"
@@ -145,7 +144,7 @@ const EditForm = ({ name, id }: Partial<ICategory>) => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="ml-auto col-span-12">
           <TMButton htmlType="submit" variant="light">

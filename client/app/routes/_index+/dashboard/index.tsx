@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useRevalidator } from "@remix-run/react";
 import { BarChart, LineChart } from "chartist";
 import "chartist/dist/index.css";
 import { useEffect, useRef } from "react";
@@ -8,15 +8,17 @@ import { ErrorComponent } from "~/components/error-component";
 import { dayjs } from "~/libs/date";
 import { parseCookieFromRequest } from "~/sessions";
 import "./styles.scss";
+import { useUser } from "~/store/user.store";
 // const chartOptions = {
 //   layout: { textColor: "black", background: { type: "solid", color: "white" } },
 //   waterMark: { visible: false },
 // };
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, warehouseId } = await parseCookieFromRequest(request);
-  const resp = await orderService.getOrders({ page: "1", pageSize: "10", cookie, warehouseId });
+  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
+  const resp = await orderService.getOrders({ page: "1", pageSize: "999", cookie, warehouseId, vendorId });
+  console.log("resp", resp);
   return {
-    ...resp,
+    ...resp.data,
     page: "1",
     pageSize: "10",
   };
@@ -26,14 +28,23 @@ export const meta: MetaFunction = () => {
 };
 export default function Home() {
   const { data } = useLoaderData<typeof loader>();
-  console.log("data", data);
+  const revalidator = useRevalidator();
+
   const chartRef = useRef<HTMLDivElement>(null);
   const chartRef1 = useRef<HTMLDivElement>(null);
   const chartRef2 = useRef<HTMLDivElement>(null);
   const chartRef3 = useRef<HTMLDivElement>(null);
   const chartRef4 = useRef<HTMLDivElement>(null);
+  const chartRes = useRef<(BarChart | LineChart)[]>([]);
   useEffect(() => {
-    if (chartRef.current) {
+    if (chartRes.current.length && revalidator.state === "idle") {
+      chartRes.current.forEach((chart) => {
+        chart.update();
+      });
+    }
+  }, [revalidator]);
+  useEffect(() => {
+    if (chartRef.current && revalidator) {
       const lastSevenDay = getCurrentWeek();
       const orderCurrentWeek = new Map();
       for (const day of lastSevenDay) {
@@ -47,7 +58,6 @@ export default function Home() {
           orderCurrentWeek.set(orderDate, (orderCurrentWeek.get(orderDate) || 0) + paid);
         }
       }
-      console.log("orderCurrentWeek", orderCurrentWeek);
       const chartData = {
         labels: lastSevenDay,
         series: [[...orderCurrentWeek.values()]],
@@ -67,7 +77,7 @@ export default function Home() {
       new BarChart(chartRef3.current, chartData, configs as any);
       new LineChart(chartRef4.current, chartData, configs as any);
     }
-  }, []);
+  }, [revalidator]);
 
   const hoverTooltips = (options: any) => {
     return function tooltip(chart: any) {
@@ -75,7 +85,7 @@ export default function Home() {
       const tooltipDiv = document.createElement("div");
       tooltipDiv.setAttribute(
         "class",
-        "ct-tooltip animate__animated animate__faster animate__fadeOut absolute bg-white px-4 py-2 rounded shadow text-slate-600 text-sm transition-all"
+        "ct-tooltip animate__animated animate__faster animate__fadeOut absolute bg-white px-4 py-2 rounded shadow text-slate-600 text-sm transition-all",
       );
       container.appendChild(tooltipDiv);
       const cleanObs = (obs: any) => {

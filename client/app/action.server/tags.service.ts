@@ -10,7 +10,7 @@ const API_PATH = {
 const tagsService = {
   get: ({ cookie: Cookie, ...searchParams }: ITagQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<ITag[]>(API_PATH.tags + "?" + qs.toString(), { Cookie });
+    return HTTPService.getInstance().get<{ data: ITag[]; total: number }>(API_PATH.tags + "?" + qs.toString(), { Cookie });
   },
   update: ({ id, cookie: Cookie, ...params }: ITagParams) => {
     return HTTPService.getInstance().post(`${API_PATH.tags}/${id}`, params, { Cookie });

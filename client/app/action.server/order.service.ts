@@ -9,6 +9,7 @@ const API_PATH = {
 
 interface IOrderQueryParams extends BaseQueryParams {
   warehouseId: string;
+  vendorId?: string;
   isProvider?: boolean;
 }
 interface IOrderDetails {
@@ -32,13 +33,13 @@ interface IOrderCreateParams {
 const orderService = {
   getOrders: ({ cookie, ...searchParams }: IOrderQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<IOrder[]>(API_PATH.orders + "?" + qs.toString(), {
+    return HTTPService.getInstance().get<{ data: IOrder[]; total: number }>(API_PATH.orders + "?" + qs.toString(), {
       Cookie: cookie,
     });
   },
   getOrderById: ({ id, cookie, ...searchParams }: IOrderQueryParams & { id: string }) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<IOrder>(`${API_PATH.orders}/${id}?${qs.toString()}`, {
+    return HTTPService.getInstance().get<{ data: IOrder }>(`${API_PATH.orders}/${id}?${qs.toString()}`, {
       Cookie: cookie,
     });
   },

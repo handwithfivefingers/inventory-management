@@ -16,7 +16,9 @@ const providerService = {
   getProviders: ({ cookie, ...params }: IProviderBaseQueryParams) => {
     try {
       const qs = new URLSearchParams(params as any);
-      return HTTPService.getInstance().get<IProvider[]>(API_PATH.provider + "?" + qs.toString(), { Cookie: cookie });
+      return HTTPService.getInstance().get<{ data: IProvider[]; total: number }>(API_PATH.provider + "?" + qs.toString(), {
+        Cookie: cookie,
+      });
     } catch (error) {
       throw error;
     }

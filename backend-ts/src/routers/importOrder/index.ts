@@ -1,12 +1,9 @@
-const express = require("express");
-const route = express.Router();
-const { ImportOrderController } = require("../controllers");
-const importOrderValidation = require("@src/validator/importOrder");
+import ImportOrderController from '#/controllers/importOrder'
+import express from 'express'
+const Router = express.Router()
 
-route.get("/", importOrderValidation, new ImportOrderController().getOrders);
+Router.get('/', new ImportOrderController().getOrders)
+Router.get('/:id', new ImportOrderController().getOrderById)
+Router.post('/', new ImportOrderController().create)
 
-route.get("/:id", new ImportOrderController().getOrderById);
-
-route.post("/", new ImportOrderController().create);
-
-module.exports = route;
+export default Router

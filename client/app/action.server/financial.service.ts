@@ -1,14 +1,24 @@
 import { http } from "~/http";
-import { IFinancialQueryParams } from "~/types/financial";
+import { IFinancialQueryParams, IFinancialRecord, IFinancialReport } from "~/types/financial";
 
 const API_PATH = {
   financial: "/financial",
 };
 
 const financialService = {
-  get: (searchParams: IFinancialQueryParams) => {
+  getVouchers: (searchParams: IFinancialQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return http.get(API_PATH.financial + "?" + qs.toString());
+    return http.get<{ data: IFinancialRecord[]; total: number }>(API_PATH.financial + "?" + qs.toString());
+  },
+  getVoucherById: (id: string | number) => {
+    return http.get<{ data: IFinancialRecord }>(`${API_PATH.financial}/${id}`);
+  },
+  createVoucher: (params: any) => {
+    return http.post(API_PATH.financial, params);
+  },
+  getReport: ({ cookie, ...searchParams }: IFinancialQueryParams) => {
+    const qs = new URLSearchParams(searchParams as any);
+    return http.get<{ data: IFinancialReport }>(`${API_PATH.financial}/report?` + qs.toString(), { cookie });
   },
 };
 

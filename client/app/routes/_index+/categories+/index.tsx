@@ -8,6 +8,7 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { parseCookieFromRequest } from "~/sessions";
+import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
@@ -37,18 +38,18 @@ export const meta: MetaFunction = () => {
 export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
-  console.log("data", data);
+  const { t } = useTranslation();
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Danh mục" className="p-4 h-full">
+      <CardItem title={t("categories.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="py-2">
             <div className="flex gap-2">
-              <TextInput placeholder="Lọc theo mã, tên hàng hóa" className="w-80" />
+              <TextInput placeholder={t("providers.searchPlaceholder")} className="w-80" />
               <div className="ml-auto block my-auto">
                 <div className="flex gap-2 flex-wrap flex-row">
                   <TMButton component={Link} to="./add" variant="light">
-                    Thêm
+                    {t("common.add")}
                   </TMButton>
                 </div>
               </div>
@@ -58,7 +59,7 @@ export default function Products() {
             <TMTable
               columns={[
                 {
-                  title: "Tên sản phẩm",
+                  title: t("categories.name"),
                   dataIndex: "name",
                   render: (record) => record["name"],
                 },
@@ -67,7 +68,6 @@ export default function Products() {
               rowKey={"id"}
               onRow={{
                 onClick: (record) => {
-                  console.log("record", record);
                   navigate(`./${record?.id}`);
                 },
               }}

@@ -1,5 +1,6 @@
 import React from "react";
-import { Controller, Form, FormProvider, useForm } from "react-hook-form";
+import { Form, FormProvider, useForm } from "react-hook-form";
+import { FormControl } from "~/components/form/form-control";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
@@ -22,24 +23,18 @@ export const Payment = () => {
       </div>
       <FormProvider {...formMethod}>
         <form className="w-96 flex flex-col gap-2">
-          <Controller
-            name="merchant_name"
-            control={formMethod.control}
-            render={({ field }) => {
+          <FormControl name="merchant_name">
+            {(field) => {
               return <TextInput {...field} label="Tên tài khoản" />;
             }}
-          />
-          <Controller
-            name="accountNumber"
-            control={formMethod.control}
-            render={({ field }) => {
+          </FormControl>
+          <FormControl name="accountNumber">
+            {(field) => {
               return <TextInput {...field} label="Số tài khoản" />;
             }}
-          />
-          <Controller
-            name="bankCode"
-            control={formMethod.control}
-            render={({ field }) => {
+          </FormControl>
+          <FormControl name="bankCode">
+            {(field) => {
               return (
                 <SelectInput
                   label="Ngân hàng"
@@ -72,11 +67,9 @@ export const Payment = () => {
                 />
               );
             }}
-          />
-          <Controller
-            name="currency"
-            control={formMethod.control}
-            render={({ field }) => {
+          </FormControl>
+          <FormControl name="currency">
+            {(field) => {
               return (
                 <SelectInput
                   label="Đơn vị tiền"
@@ -101,7 +94,7 @@ export const Payment = () => {
                 />
               );
             }}
-          />
+          </FormControl>
 
           <TMButton type="submit">Lưu lại</TMButton>
         </form>

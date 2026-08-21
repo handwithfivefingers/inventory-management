@@ -79,12 +79,11 @@ export const useAllPermissions = (): IPermission[] => {
  * @returns boolean - true if user is admin
  */
 export const useIsAdmin = (): boolean => {
-  const { user } = useUser();
-  console.log("useIsAdmin user", user);
-  if (!user?.roles) {
+  const { roles } = useUser();
+  if (!roles) {
     return false;
   }
-  return user.roles.some((role) => role.name.toLowerCase() === "admin" || role.name.toLowerCase() === "administrator");
+  return roles.some((role) => role.name.toLowerCase() === "admin" || role.name.toLowerCase() === "administrator");
 };
 
 /**

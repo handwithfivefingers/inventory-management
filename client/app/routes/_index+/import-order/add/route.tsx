@@ -2,11 +2,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import { Controller, FormProvider, useFieldArray, useForm } from "react-hook-form";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { importOrderService } from "~/action.server/importOrder.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { FormControl } from "~/components/form/form-control";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
@@ -36,7 +37,7 @@ export default function OrderItem() {
   const formMethods = useForm({
     defaultValues: {
       customer: undefined,
-      OrderDetails: [],
+      orderDetails: [],
       price: 0,
       VAT: "5",
       warehouse: undefined,
@@ -51,9 +52,9 @@ export default function OrderItem() {
   const { load: loadProvider, data: providers } = useFetcher<{ data: IProvider[] }>({ key: "providers" });
   const { fields, append, prepend, remove, swap, move, insert, replace } = useFieldArray<any>({
     control, // control props comes from useForm (optional: if you are using FormProvider)
-    name: "OrderDetails", // unique name for your Field Array
+    name: "orderDetails", // unique name for your Field Array
   });
-  const orderDetails = watch("OrderDetails");
+  const orderDetails = watch("orderDetails");
   const surcharge = watch("surcharge");
   const VAT = watch("VAT");
 
@@ -74,7 +75,7 @@ export default function OrderItem() {
   };
 
   const handleAdd = (item: IProduct) => {
-    const currentValue: IProductForm[] = getValues("OrderDetails");
+    const currentValue: IProductForm[] = getValues("orderDetails");
     if (!currentValue.length) {
       const result = {
         productId: item.id,
@@ -109,15 +110,15 @@ export default function OrderItem() {
   };
   const onQuantityChange = ({ value, float }: any, field: any, pos: number) => {
     field.onChange(value);
-    const price = getValues(`OrderDetails.${pos}.price` as any);
+    const price = getValues(`orderDetails.${pos}.price` as any);
     const v = Number(value) * Number(price);
-    setValue(`OrderDetails.${pos}.buyPrice` as any, v);
+    setValue(`orderDetails.${pos}.buyPrice` as any, v);
   };
   const onChangePrice = ({ value, float }: any, field: any, pos: number) => {
     field.onChange(value);
-    const quantity = getValues(`OrderDetails.${pos}.quantity` as any);
+    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
     const v = Number(value) * Number(quantity);
-    setValue(`OrderDetails.${pos}.buyPrice` as any, v);
+    setValue(`orderDetails.${pos}.buyPrice` as any, v);
   };
   const total = orderDetails?.reduce((total, item: IProductForm) => total + Number(item?.buyPrice), 0);
   let combineTotal = total + Number(surcharge);
@@ -128,11 +129,11 @@ export default function OrderItem() {
     searchFetcher.submit({ s: e.target.value }, { method: "POST", action: "/products" });
   };
   const onQuantityIncreasement = (field: any, pos: number) => {
-    const quantity = getValues(`OrderDetails.${pos}.quantity` as any);
+    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
     field.onChange(Number(quantity) + 1);
   };
   const onQuantityDecreasement = (field: any, pos: number) => {
-    const quantity = getValues(`OrderDetails.${pos}.quantity` as any);
+    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
     const lastQuantity = Number(quantity) > 0 ? Number(quantity) - 1 : 0;
     field.onChange(lastQuantity);
   };
@@ -172,31 +173,25 @@ export default function OrderItem() {
                   <div className="grid grid-cols-12">
                     <div className="col-span-12 grid grid-cols-12 gap-2 items-center" key={field.id}>
                       <div className="hidden">
-                        <Controller
-                          control={control}
-                          name={`OrderDetails.${i}.productId` as any}
-                          render={({ field }) => {
+                        <FormControl name={`orderDetails.${i}.productId` as any}>
+                          {(field) => {
                             return <TextInput {...field} readOnly />;
                           }}
-                        />
+                        </FormControl>
                       </div>
                       <div className="col-span-1 px-2">
                         <div className="px-2">{i + 1}</div>
                       </div>
                       <div className="col-span-4 ">
-                        <Controller
-                          control={control}
-                          name={`OrderDetails.${i}.name` as any}
-                          render={({ field }) => {
+                        <FormControl name={`orderDetails.${i}.name` as any}>
+                          {(field) => {
                             return <TextInput {...field} readOnly />;
                           }}
-                        />
+                        </FormControl>
                       </div>
                       <div className="col-span-2">
-                        <Controller
-                          control={control}
-                          name={`OrderDetails.${i}.quantity` as any}
-                          render={({ field }) => {
+                        <FormControl name={`orderDetails.${i}.quantity` as any}>
+                          {(field) => {
                             return (
                               <div className="flex gap-1">
                                 <TMButton
@@ -223,13 +218,11 @@ export default function OrderItem() {
                               </div>
                             );
                           }}
-                        />
+                        </FormControl>
                       </div>
                       <div className="col-span-2">
-                        <Controller
-                          control={control}
-                          name={`OrderDetails.${i}.price` as any}
-                          render={({ field }) => {
+                        <FormControl name={`orderDetails.${i}.price` as any}>
+                          {(field) => {
                             return (
                               <NumberInput
                                 value={field.value as any}
@@ -237,13 +230,11 @@ export default function OrderItem() {
                               />
                             );
                           }}
-                        />
+                        </FormControl>
                       </div>
                       <div className="col-span-3 px-2 text-right">
-                        <Controller
-                          control={control}
-                          name={`OrderDetails.${i}.buyPrice` as any}
-                          render={({ field }) => {
+                        <FormControl name={`orderDetails.${i}.buyPrice` as any}>
+                          {(field) => {
                             return (
                               <NumberInput
                                 value={field.value as any}
@@ -254,7 +245,7 @@ export default function OrderItem() {
                               />
                             );
                           }}
-                        />
+                        </FormControl>
                       </div>
                     </div>
                   </div>
@@ -264,10 +255,8 @@ export default function OrderItem() {
 
             <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t-2 border-indigo-200">
               <div className="col-span-6 max-w-[200px]">
-                <Controller
-                  control={control}
-                  name="providerId"
-                  render={({ field }) => {
+                <FormControl name="providerId">
+                  {(field) => {
                     return (
                       <SelectInput
                         options={providers?.data?.map((item) => ({ label: item.name, value: item.id })) || []}
@@ -277,7 +266,7 @@ export default function OrderItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-6 ml-auto flex flex-col gap-1">
                 <div className="w-96 flex justify-between ">
@@ -287,22 +276,18 @@ export default function OrderItem() {
                 <div className="w-96 flex justify-between">
                   <span>Phụ phí</span>{" "}
                   <div className="w-40">
-                    <Controller
-                      control={control}
-                      name="surcharge"
-                      render={({ field }) => (
+                    <FormControl name="surcharge">
+                      {(field) => (
                         <NumberInput value={`${field.value}`} onValueChange={(v) => field.onChange(v.value)} />
                       )}
-                    />
+                    </FormControl>
                   </div>
                 </div>
                 <div className="w-96 flex justify-between">
                   <span> VAT </span>
                   <div className="w-40">
-                    <Controller
-                      control={control}
-                      name="VAT"
-                      render={({ field }) => (
+                    <FormControl name="VAT">
+                      {(field) => (
                         <NumberInput
                           maxLength={4}
                           max={1000}
@@ -311,7 +296,7 @@ export default function OrderItem() {
                           suffix="%"
                         />
                       )}
-                    />
+                    </FormControl>
                   </div>
                 </div>
                 <div className="w-96 flex justify-between">
@@ -386,7 +371,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
   const session = await getSession(request.headers.get("Cookie"));
-  const warehouseId = session.get("warehouse");
+  const warehouseId = session.get("warehouseId");
   const params = {
     ...dataJson,
     warehouseId,

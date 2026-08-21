@@ -13,8 +13,23 @@ export interface IProvider {
 }
 
 export interface IOrderQueryParams extends BaseQueryParams {
-  vendor: string;
+  vendor?: string;
+  warehouseId?: string;
   isProvider?: boolean;
+}
+
+export interface IImportOrder {
+  id: number;
+  VAT?: number;
+  paid?: number;
+  surcharge?: number;
+  price?: number;
+  paymentType?: string;
+  providerId?: number;
+  warehouseId?: number;
+  createdAt?: string;
+  provider?: IProvider;
+  orderDetails?: any[];
 }
 export interface IOrderDetails {
   productId: number | string;

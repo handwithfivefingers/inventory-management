@@ -50,6 +50,8 @@ import history from './history'
 import role from './role'
 import customer from './customer'
 import invoice from './invoice'
+import staff from './staff'
+import shift from './shift'
 // import qr from './qr'
 import { auth } from '#/middleware/authenticate'
 const router = express.Router()
@@ -68,5 +70,7 @@ router.use('/history', auth, history)
 router.use('/roles', auth, role)
 router.use('/customers', auth, customer)
 router.use('/invoices', auth, invoice)
+router.use('/staff', auth, staff)
+router.use('/shift', auth, shift)
 // router.use('/qr', auth, qr)
 export default router

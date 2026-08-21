@@ -9,7 +9,9 @@ const historyService = {
   getProductHistory: ({ id, warehouseId, cookie }: { id: string; warehouseId: string[]; cookie: string }) => {
     const qs = new URLSearchParams({});
     for (const item of warehouseId) qs.append("warehouseId", item);
-    return HTTPService.getInstance().get<IProduct[]>(API_PATH.history + `/${id}?${qs.toString()}`, {Cookie:cookie});
+    return HTTPService.getInstance().get<{ data: IProduct[] }>(API_PATH.history + `/${id}?${qs.toString()}`, {
+      Cookie: cookie,
+    });
   },
 };
 

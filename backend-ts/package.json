@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsx --watch --env-file .env  src/index.ts",
     "start": "node --env-file .env dist/index.js",
+    "seed:all": "node scripts/run-seeds.js up",
+    "seed:undo": "node scripts/run-seeds.js down",
     "build": "tsc",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",

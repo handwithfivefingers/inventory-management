@@ -9,15 +9,15 @@ export const AppLayout = ({ children }: BaseProps) => {
   const isLoading = navigation.state !== "idle";
   return (
     <div className="w-full bg-slate-100/80 dark:bg-slate-600 min-h-[100svh] flex flex-col h-screen">
-      <div className="w-full border-b border-indigo-600">
+      <div className="w-full border-b border-indigo-600 shrink-0">
         <Header />
       </div>
-      <div className="flex flex-row flex-1 h-[calc(100svh-62px)]">
+      <div className="flex flex-row flex-1 overflow-hidden">
         {isLoading && <Loading />}
-        <div className="w-full max-w-60 h-[calc(100svh-62px)]  shrink-0">
+        <div className="w-full max-w-60 h-full  shrink-0">
           <Sidebar />
         </div>
-        <div className="container-lg mx-auto  h-full w-full rounded-sm overflow-y-auto">{children}</div>
+        <div className="container-lg mx-auto  h-full w-full rounded-sm overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

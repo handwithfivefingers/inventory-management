@@ -1,21 +1,20 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
-import { useState } from "react";
-import { Controller, FormProvider, useFieldArray, useForm } from "react-hook-form";
-import { NumericFormat } from "react-number-format";
+import { useRef, useState } from "react";
+import { FormProvider, useForm } from "react-hook-form";
 import { orderService } from "~/action.server/order.service";
 import { BarcodeScanner } from "~/components/barcode-scanner";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { FormControl } from "~/components/form/form-control";
 import { FormInput } from "~/components/form/formInput";
 import { NumberInput } from "~/components/form/number-input";
-import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
+import { OrderDetailFunction, OrderDetails } from "~/components/order-details";
+import { ProductSearchModal } from "~/components/product-search-modal";
 import { TMButton } from "~/components/tm-button";
-import { TMModal } from "~/components/tm-modal";
-import { TMTable } from "~/components/tm-table";
 import { IOrderDetailType, IOrderType, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
 import { parseCookieFromRequest } from "~/sessions";
@@ -26,9 +25,8 @@ export const meta: MetaFunction = () => {
 };
 
 export default function OrderItem() {
-  const fetcher = useFetcher();
   const [show, setShow] = useState(false);
-  const searchFetcher = useFetcher<{ data: IProduct[] }>({ key: "Products-Search" });
+  const searchFetcher = useFetcher<{ data: { data: IProduct[] } }>({ key: "Products-Search" });
   const formMethods = useForm<IOrderType>({
     defaultValues: {
       customer: undefined,
@@ -41,39 +39,18 @@ export default function OrderItem() {
     },
     resolver: zodResolver(orderSchema),
   });
-  const { control, watch, getValues, setValue } = formMethods;
-  const { fields, append, replace } = useFieldArray<any>({
-    control, // control props comes from useForm (optional: if you are using FormProvider)
-    name: "orderDetails", // unique name for your Field Array
-  });
+  const { watch, getValues, setValue } = formMethods;
   const { submit, isLoading } = useSubmitPromise();
+  const orderDetailsRef = useRef<OrderDetailFunction>(null);
   const orderDetails = watch("orderDetails") as IOrderDetailType[];
   const surcharge = watch("surcharge");
   const VAT = watch("VAT");
   const [canScan, setCanScan] = useState(true);
-
-  const controlledFields = fields.map((field, index) => {
-    return {
-      ...field,
-      ...(orderDetails?.[index] as any),
-    };
-  });
+  const data = searchFetcher?.data?.data?.data || [];
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
 
-  const onQuantityChange = ({ value, float }: any, field: any, pos: number) => {
-    field.onChange(value);
-    const price = getValues(`orderDetails.${pos}.price` as any);
-    const v = Number(value) * Number(price);
-    setValue(`orderDetails.${pos}.buyPrice` as any, v);
-  };
-  const onChangePrice = ({ value, float }: any, field: any, pos: number) => {
-    field.onChange(value);
-    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
-    const v = Number(value) * Number(quantity);
-    setValue(`orderDetails.${pos}.buyPrice` as any, v);
-  };
   const total = orderDetails?.reduce((total, item: IOrderDetailType) => total + Number(item?.buyPrice), 0);
   let combineTotal = total + Number(surcharge);
   const totalPaid = Number(combineTotal + (combineTotal / 100) * Number(VAT));
@@ -87,17 +64,8 @@ export default function OrderItem() {
     setCanScan(true);
   };
 
-  const handleFilterProduct = (e: any) => {
-    searchFetcher.submit({ s: e.target.value }, { method: "POST", action: "/products" });
-  };
-  const onQuantityIncreasement = (field: any, pos: number) => {
-    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
-    field.onChange(Number(quantity) + 1);
-  };
-  const onQuantityDecreasement = (field: any, pos: number) => {
-    const quantity = getValues(`orderDetails.${pos}.quantity` as any);
-    const lastQuantity = Number(quantity) > 0 ? Number(quantity) - 1 : 0;
-    field.onChange(lastQuantity);
+  const handleFilterProduct = (value: string) => {
+    searchFetcher.submit({ s: value }, { method: "POST", action: "/products" });
   };
 
   const handleAdd = (item: IProduct) => {
@@ -111,7 +79,7 @@ export default function OrderItem() {
         buyPrice: Number(item.regularPrice),
         note: "",
       };
-      return append(result);
+      return orderDetailsRef.current?.append(result);
     } else {
       let index = currentValue.findIndex((cItem) => item.id === cItem.productId && cItem.productId);
       if (index === -1) {
@@ -123,14 +91,14 @@ export default function OrderItem() {
           buyPrice: Number(item.regularPrice),
           note: "",
         };
-        return append(result);
+        return orderDetailsRef.current?.append(result);
       } else {
         const target = { ...currentValue[index] };
         const quantity = Number(target.quantity) + 1;
         target.quantity = quantity;
         target.buyPrice = quantity * Number(target.price);
         currentValue[index] = target;
-        return replace(currentValue);
+        return orderDetailsRef.current?.replace(currentValue);
       }
     }
   };
@@ -142,9 +110,7 @@ export default function OrderItem() {
         price: total,
         paid: totalPaid,
       };
-      console.log("params", params);
       const resp = await submit({ data: JSON.stringify(params) }, { method: "POST" });
-      console.log("resp", resp);
       toast.success({ title: "Created", message: "Tạo đơn hàng thành công" });
     } catch (err) {
       console.log("error", err);
@@ -152,7 +118,6 @@ export default function OrderItem() {
     }
   };
 
-  const data = searchFetcher?.data?.data || [];
   return (
     <div className="w-full flex flex-col p-2 gap-4">
       <BarcodeScanner onScan={handleRetrieveData} start={canScan}>
@@ -180,7 +145,7 @@ export default function OrderItem() {
                 <div className="col-span-3 text-right">Tổng tiền</div>
               </div>
               <div className="min-h-40 max-h-[45vh] overflow-auto flex flex-col gap-4 py-2">
-                {controlledFields?.map((field, i: number) => {
+                {/* {controlledFields?.map((field, i: number) => {
                   return (
                     <div className="grid grid-cols-12">
                       <div className="col-span-12 grid grid-cols-12 gap-2 items-center" key={field.id}>
@@ -246,7 +211,8 @@ export default function OrderItem() {
                       </div>
                     </div>
                   );
-                })}
+                })} */}
+                <OrderDetails ref={orderDetailsRef} />
               </div>
               <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t border-indigo-200 dark:border-slate-400">
                 <div className="col-span-12 ml-auto flex flex-col gap-1">
@@ -265,10 +231,8 @@ export default function OrderItem() {
                   <div className="w-96 flex justify-between">
                     <span> VAT </span>
                     <div className="w-40">
-                      <Controller
-                        control={control}
-                        name="VAT"
-                        render={({ field }) => (
+                      <FormControl name="VAT">
+                        {(field) => (
                           <NumberInput
                             maxLength={4}
                             max={1000}
@@ -277,7 +241,7 @@ export default function OrderItem() {
                             suffix="%"
                           />
                         )}
-                      />
+                      </FormControl>
                     </div>
                   </div>
                   <div className="w-96 flex justify-between">
@@ -304,49 +268,18 @@ export default function OrderItem() {
             </CardItem>
           </form>
         </FormProvider>
-        <TMModal open={show} close={() => setShow(false)} width={600}>
-          <div className="flex flex-col gap-2 w-full  ">
-            <div className="py-4">
-              <TextInput prefix={<Icon name="search" className="w-4" />} onChange={handleFilterProduct} />
-            </div>
-            <div className="max-h-[50vh] overflow-auto">
-              <TMTable
-                columns={[
-                  {
-                    title: "Hình ảnh",
-                    dataIndex: "image",
-                    render: () => <img src="https://placehold.co/60" />,
-                    width: 100,
-                  },
-                  { title: "Tên sản phẩm", dataIndex: "name" },
-                  {
-                    title: "Giá tiền",
-                    dataIndex: "regularPrice",
-                    render: (record) => (
-                      <NumericFormat value={record.regularPrice} thousandSeparator="," displayType="text" />
-                    ),
-                  },
-                  {
-                    title: "Action",
-                    dataIndex: "action",
-                    width: 110,
-                    render: (record) => (
-                      <TMButton onClick={() => handleAdd(record)} variant="light">
-                        Chọn
-                      </TMButton>
-                    ),
-                  },
-                ]}
-                data={data}
-                rowKey="id"
-              />
-            </div>
-          </div>
-        </TMModal>
+        <ProductSearchModal
+          data={data}
+          close={() => setShow(false)}
+          show={show}
+          onSearch={handleFilterProduct}
+          onSelect={handleAdd}
+        />
       </BarcodeScanner>
     </div>
   );
 }
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const data: any = await formData.get("data");

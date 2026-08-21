@@ -2,6 +2,7 @@ import database from '#/database'
 import { IInventoryStatic } from '#/types/inventory'
 import { IOrderModel, IOrderStatic } from '#/types/order'
 import { IOrderDetailStatic } from '#/types/orderDetail'
+import { IFinancialRecordStatic } from '#/types/financialRecord'
 import { IProductStatic } from '#/types/product'
 import { FindAttributeOptions, IncludeOptions, Op, Optional, Transaction } from 'sequelize'
 import { TransferService } from '../transfer'
@@ -35,6 +36,7 @@ interface IInventoryUpdateParams {
   warehouseId: number
   quantity: number
   transaction: Transaction
+  type?: string
 }
 
 interface IProductUpdateParams {
@@ -58,6 +60,7 @@ export default class OrderService {
   orderDetail: IOrderDetailStatic = database.orderDetail
   inventory: IInventoryStatic = database.inventory
   product: IProductStatic = database.product
+  financialRecord: IFinancialRecordStatic = database.financialRecord
   sequelize = database.sequelize
 
   async create({ VAT, surcharge, paymentType, warehouseId, providerId, orderDetails, type = '1' }: IOrderCreateParams) {
@@ -90,6 +93,14 @@ export default class OrderService {
       for (let item of orderDetails) {
         await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
       }
+
+      // Auto-create a financial voucher so the books stay in sync
+      // (revenue for sales, expense/import-cost for provider imports)
+      await this.createFinancialVoucher({
+        order: p,
+        warehouseId: Number(warehouseId),
+        transaction: t
+      })
 
       // Commit the transaction
       await t.commit()
@@ -142,7 +153,7 @@ export default class OrderService {
       return Promise.all([
         orderDetailBuilder.save({ transaction }),
         // Update the inventory
-        this.updateInventory({ quantity, productId, warehouseId, transaction }),
+        this.updateInventory({ quantity, productId, warehouseId, transaction, type }),
         // Update the product quantity
         this.updateProductQuantity({ quantity, productId, transaction }),
         // Create a new transfer
@@ -155,9 +166,11 @@ export default class OrderService {
     }
   }
 
-  async updateInventory({ productId, warehouseId, quantity, transaction }: IInventoryUpdateParams) {
-    // NEW
-    const [affectedRows] = await this.inventory.decrement('quantity', {
+  async updateInventory({ productId, warehouseId, quantity, transaction, type }: IInventoryUpdateParams) {
+    // type '0' = IN (import) -> increment inventory, otherwise decrement (export/sale)
+    const operator = type === '0' ? 'increment' : 'decrement'
+    const inventory: any = this.inventory
+    const [affectedRows] = await inventory[operator]('quantity', {
       by: quantity,
       where: { productId, warehouseId },
       transaction
@@ -222,6 +235,43 @@ export default class OrderService {
       throw error
     }
   }
+
+  /**
+   * @description Auto-create a financial voucher when an order is created.
+   * Sales (no providerId) -> revenue voucher. Provider imports -> expense (import cost) voucher.
+   */
+  async createFinancialVoucher({
+    order,
+    warehouseId,
+    transaction
+  }: {
+    order: IOrderModel
+    warehouseId: number
+    transaction: Transaction
+  }) {
+    try {
+      const isImport = order.providerId != null
+      const prefix = isImport ? 'PC' : 'PT'
+      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const code = `${prefix}-${datePart}-${order.id}`
+      await this.financialRecord.create(
+        {
+          code,
+          type: isImport ? 'expense' : 'revenue',
+          category: isImport ? 'import' : 'sale',
+          amount: Number(order.paid),
+          relatedType: isImport ? 'importOrder' : 'order',
+          relatedId: order.id,
+          warehouseId,
+          transactionDate: new Date()
+        } as any,
+        { transaction }
+      )
+    } catch (error) {
+      console.log('createFinancialVoucher error', error)
+      throw error
+    }
+  }
   /**
    * @function getOrders
    * @description Get orders with pagination
@@ -230,26 +280,26 @@ export default class OrderService {
    */
   async getOrders(req: Request) {
     try {
-      console.log('getOrders coming')
       const params = req.query
-      // const { offset, limit } = this.getPagination(req)
-      const { offset = 0, limit = 10, warehouseId, isProvider } = params
+      console.log('params', params)
+      const { offset = 0, limit = 10, warehouseId, isProvider, vendorId } = params
+      const where: any = {
+        warehouseId: warehouseId as string
+        // providerId: isProvider ? { [Op.ne]: null } : { [Op.eq]: null }
+      }
       if (!warehouseId) throw new Error('warehouseId is required')
+      if (vendorId) where.vendorId = Number(vendorId)
       // const { warehouse, vendor } = this.getActiveWarehouseAndVendor(req)
-      // console.log('warehouse', warehouse)
       const queryParams = {
-        where: {
-          warehouseId: warehouseId as string,
-          providerId: isProvider ? { [Op.ne]: null } : { [Op.eq]: null }
-        },
+        where,
         include: [
           {
             model: database.orderDetail
           }
         ],
         offset: Number(offset),
-        limit: Number(limit),
-        distinct: true // Prevents duplicate rows when using JOIN
+        limit: Number(limit)
+        // distinct: true // Prevents duplicate rows when using JOIN
       }
       const resp = await this.order.findAndCountAll(queryParams)
       console.log('resp', resp)

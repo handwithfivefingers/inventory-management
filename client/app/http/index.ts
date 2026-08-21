@@ -22,7 +22,7 @@ export class ResponseError extends Error {
     const { error: message, status } = error as { error: string; status: number };
     super(message);
     this.status = status;
-    Object.assign(this, error);
+    // Object.assign(this, error.toString());
   }
 }
 
@@ -84,6 +84,7 @@ class HTTPService {
       response.data = json;
       response.status = resp.status;
     } catch (error) {
+      console.log("error", error);
       response.error = new ResponseError(error as Error);
     } finally {
       return response;

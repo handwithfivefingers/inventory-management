@@ -8,6 +8,7 @@ import morgan from 'morgan'
 import Redis from './configs/redis'
 import database from './database'
 import cors from 'cors'
+import { endpointLogger } from '#/middleware/endpointLogger'
 
 const port = process.env.PORT ?? 3000
 class App {

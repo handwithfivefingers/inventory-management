@@ -1,9 +1,9 @@
 import React from "react";
-import { Controller, useFormContext, type FieldError } from "react-hook-form";
+import { Controller, ControllerRenderProps, FieldValues, useFormContext, type FieldError } from "react-hook-form";
 import { cn } from "~/libs/utils";
 interface IProps {
   name: string;
-  children: React.ReactElement;
+  children: ((field: ControllerRenderProps<FieldValues, string>) => React.ReactElement) | React.ReactElement;
   className?: string;
   size?: "sm" | "md";
 }
@@ -31,8 +31,11 @@ export const FormControl = ({ size = "sm", ...props }: IProps) => {
         name={props.name}
         control={form.control}
         render={({ field }) => {
+          if (typeof props.children === "function") {
+            return props.children(field);
+          }
           return React.cloneElement(props.children, {
-            ...(props.children?.props as Record<string, unknown>),
+            ...(props.children?.props as any),
             ...field,
           });
         }}

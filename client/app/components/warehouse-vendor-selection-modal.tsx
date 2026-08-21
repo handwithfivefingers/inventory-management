@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { TMModal } from "./tm-modal";
-import { IVendor, IWarehouse } from "~/types/authenticate";
 import { TMButton } from "./tm-button";
+import { TMModal } from "./tm-modal";
+import { IVendor } from "~/types/vendor";
 
 interface IWarehouseVendorSelectionModal {
   open: boolean;
@@ -31,13 +31,7 @@ export const WarehouseVendorSelectionModal = ({
   };
 
   return (
-    <TMModal
-      open={open}
-      title="Chọn nhà cung cấp và kho hàng"
-      width="500px"
-      close={() => {}}
-      maskOnClose={false}
-    >
+    <TMModal open={open} title="Chọn nhà cung cấp và kho hàng" width="500px" close={() => {}} maskOnClose={false}>
       <div className="flex flex-col gap-4 w-full">
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium">Nhà cung cấp</label>

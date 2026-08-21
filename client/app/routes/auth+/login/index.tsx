@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "@remix-run/react";
 import { useState } from "react";
-import { Controller, FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "react-router";
 import { AuthService } from "~/action.client/auth.service";
 import { CardItem } from "~/components/card-item";
+import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
@@ -103,17 +104,13 @@ function Login() {
       >
         <FormProvider {...formMethods}>
           <form onSubmit={formMethods.handleSubmit(handleSubmit)} className="flex flex-col gap-2">
-            <Controller
-              control={formMethods.control}
-              name="email"
-              render={({ field }) => (
+            <FormControl name="email">
+              {(field) => (
                 <TextInput label="Email" {...field} onChange={(e: any) => field.onChange(e.target?.value)} />
               )}
-            />
-            <Controller
-              control={formMethods.control}
-              name="password"
-              render={({ field }) => (
+            </FormControl>
+            <FormControl name="password">
+              {(field) => (
                 <TextInput
                   label="Mật khẩu"
                   {...field}
@@ -121,7 +118,7 @@ function Login() {
                   type="password"
                 />
               )}
-            />
+            </FormControl>
 
             <TMButton htmlType="submit" loading={isLoading} disabled={isLoading || showSelectionModal}>
               {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}

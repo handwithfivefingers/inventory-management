@@ -155,11 +155,9 @@ export default function Products() {
   );
 }
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const cookie = request.headers.get("Cookie") as string;
+  const { warehouseId, cookie } = await parseCookieFromRequest(request);
   const form = await request.formData();
   const s = form.get("s") || "";
-  const session = await getSession(cookie);
-  const warehouseId = session.get("warehouseId") as string;
   return productService.getProducts({ s: s as string, warehouseId, page: "1", pageSize: "10", cookie });
 };
 

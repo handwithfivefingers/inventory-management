@@ -1,9 +1,9 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "@remix-run/node";
-import { Form, Link, useNavigate, useLoaderData } from "@remix-run/react";
+import { Link, useFetcher, useNavigate, useLoaderData } from "@remix-run/react";
 import { useState, useEffect } from "react";
-import { invoiceService } from "~/action.client/invoice.service";
-import { customerService } from "~/action.client/customer.service";
-import { productService } from "~/action.client/products.service";
+import { invoiceService } from "~/action.server/invoice.service";
+import { customerService } from "~/action.server/customer.service";
+import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
@@ -15,20 +15,33 @@ import { formatCurrency } from "~/libs/format-currency";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const cookie = request.headers.get("cookie") as string;
-  
+
   const [customersResp, productsResp] = await Promise.all([
-    customerService.getCustomers({ cookie, pageSize: "100" } as any),
-    productService.getProducts({ cookie, pageSize: "100" } as any),
+    customerService.getCustomers({ cookie, pageSize: "100" }),
+    productService.getProducts({ cookie, pageSize: "100" }),
   ]);
 
   return {
-    customers: customersResp.data || [],
-    products: productsResp.data || [],
+    customers: customersResp.data?.data ?? [],
+    products: productsResp.data?.data ?? [],
   };
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const cookie = request.headers.get("cookie") as string;
+  const data = await request.json();
+
+  try {
+    await invoiceService.createInvoice({ cookie, ...data });
+    return redirect("/invoices");
+  } catch (error: any) {
+    return { error: error.message || "Tạo hóa đơn thất bại" };
+  }
 };
 
 export default function AddInvoice() {
   const navigate = useNavigate();
+  const fetcher = useFetcher<typeof action>();
   const { customers, products } = useLoaderData<typeof loader>();
   const [items, setItems] = useState<IInvoiceItem[]>([
     { productId: 0, quantity: 1, unitPrice: 0, discount: 0, taxRate: 0 },
@@ -38,6 +51,12 @@ export default function AddInvoice() {
   const [discount, setDiscount] = useState(0);
   const [surcharge, setSurcharge] = useState(0);
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data && !("error" in fetcher.data)) {
+      navigate("/invoices");
+    }
+  }, [fetcher.state, fetcher.data]);
 
   const calculateTotals = () => {
     let subtotal = 0;
@@ -81,7 +100,7 @@ export default function AddInvoice() {
     setItems(newItems);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate
@@ -96,8 +115,8 @@ export default function AddInvoice() {
       return;
     }
 
-    try {
-      await invoiceService.createInvoice({
+    fetcher.submit(
+      {
         customerId: selectedCustomerId,
         items: validItems,
         discount,
@@ -105,11 +124,9 @@ export default function AddInvoice() {
         paymentType,
         status: "draft",
         notes,
-      });
-      navigate("/invoices");
-    } catch (error: any) {
-      alert(error.message || "Tạo hóa đơn thất bại");
-    }
+      } as any,
+      { method: "post", encType: "application/json" },
+    );
   };
 
   return (
@@ -301,7 +318,9 @@ export default function AddInvoice() {
                 Hủy
               </TMButton>
             </Link>
-            <TMButton type="submit">Tạo hóa đơn</TMButton>
+            <TMButton type="submit" disabled={fetcher.state !== "idle"}>
+              {fetcher.state !== "idle" ? "Đang tạo..." : "Tạo hóa đơn"}
+            </TMButton>
           </div>
         </form>
       </CardItem>

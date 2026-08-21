@@ -1,16 +1,16 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Controller, FormProvider, useForm } from "react-hook-form";
-import { CardItem } from "~/components/card-item";
-import { TextInput } from "~/components/form/text-input";
+import { FormProvider, useForm } from "react-hook-form";
 import z from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { TMButton } from "~/components/tm-button";
-import { FormInput } from "~/components/form/formInput";
-import { useSubmitPromise } from "~/hooks";
 import { warehouseService } from "~/action.server/warehouse.service";
-import { ResponseError } from "~/http";
+import { CardItem } from "~/components/card-item";
+import { FormControl } from "~/components/form/form-control";
+import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
+import { TMButton } from "~/components/tm-button";
+import { useSubmitPromise } from "~/hooks";
+import { ResponseError } from "~/http";
 import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
   return [{ title: "Thêm kho hàng" }, { name: "description", content: "Thêm kho hàng mới" }];
@@ -56,24 +56,24 @@ export default function WarehouseItem() {
             <div className="col-span-3 h-full bg-slate-700 p-4 rounded">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <FormInput name="name">
+                  <FormControl name="name">
                     <TextInput label="Tên kho hàng" />
-                  </FormInput>
+                  </FormControl>
                 </div>
                 <div className="col-span-1">
-                  <FormInput name="email">
+                  <FormControl name="email">
                     <TextInput label="Email" />
-                  </FormInput>
+                  </FormControl>
                 </div>
                 <div className="col-span-1">
-                  <FormInput name="phone">
+                  <FormControl name="phone">
                     <TextInput label="Số điện thoại" />
-                  </FormInput>
+                  </FormControl>
                 </div>
                 <div className="col-span-2 ">
-                  <FormInput name="address">
+                  <FormControl name="address">
                     <TextInput label="Địa chỉ" />
-                  </FormInput>
+                  </FormControl>
                 </div>
                 <div className="col-span-2 flex justify-end">
                   <TMButton htmlType="submit" className="" loading={isLoading}>

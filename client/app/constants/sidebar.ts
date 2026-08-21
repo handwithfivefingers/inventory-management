@@ -1,65 +1,80 @@
-import vi from "~/assets/lang/vi.json";
-export const SIDE_BAR = [
+export interface ISidebarChild {
+  to: string;
+  labelKey: string;
+  iconName?: string;
+  divider?: boolean;
+}
+
+export interface ISideBarItem {
+  to?: string;
+  index?: boolean;
+  labelKey: string;
+  iconName?: string;
+  divider?: boolean;
+  items?: ISidebarChild[];
+}
+
+export const SIDE_BAR: ISideBarItem[] = [
   {
     to: "/",
     index: true,
-    label: "Doanh thu",
+    labelKey: "sidebar.revenue",
     iconName: "home",
   },
   {
     to: "/orders",
-    label: vi.Order,
+    labelKey: "sidebar.orders",
     iconName: "package",
   },
   {
     to: "/products",
-    label: vi.Product,
+    labelKey: "sidebar.products",
     iconName: "shopping-bag",
   },
   {
     to: "/providers",
-    label: vi.Provider,
+    labelKey: "sidebar.providers",
     iconName: "git-pull-request",
   },
   {
     to: "/customers",
-    label: "Khách hàng",
+    labelKey: "sidebar.customers",
     iconName: "users",
   },
   {
     to: "/invoices",
-    label: "Hóa đơn",
+    labelKey: "sidebar.invoices",
     iconName: "file-text",
   },
   {
     to: "/warehouses",
-    label: vi.WareHouse,
+    labelKey: "sidebar.warehouses",
     iconName: "layers",
   },
   {
     to: "/import-order",
-    label: vi.ImportOrder,
+    labelKey: "sidebar.importOrder",
     iconName: "upload",
   },
   {
     to: "#",
-    label: vi.Categories,
+    labelKey: "sidebar.catalog",
     iconName: "archive",
     items: [
       {
-        divider: "Danh mục",
+        divider: true,
         to: "/categories",
-        label: vi.Categories,
+        labelKey: "sidebar.categories",
         iconName: "archive",
       },
       {
         to: "/units",
-        label: vi.Unit,
+        labelKey: "sidebar.units",
         iconName: "dollar-sign",
       },
       {
         to: "/tags",
-        label: vi.Tags,
+        labelKey: "sidebar.tags",
         iconName: "tag",
       },
     ],
@@ -67,29 +82,29 @@ export const SIDE_BAR = [
 
   {
     to: "/financial",
-    label: "Thống kê",
+    labelKey: "sidebar.statistics",
     iconName: "bar-chart-2",
     items: [
       {
         to: "/financial",
-        label: vi.Financial,
+        labelKey: "sidebar.financial",
         iconName: "bar-chart-2",
       },
     ],
   },
 
   {
-    label: "Quản lý",
+    labelKey: "sidebar.management",
     iconName: "triangle",
     items: [
       {
         to: "/staff",
-        label: vi.Staff,
+        labelKey: "sidebar.staff",
         iconName: "users",
       },
       {
-        to: "/shilf",
-        label: vi.Shift,
+        to: "/shift",
+        labelKey: "sidebar.shift",
         iconName: "layers",
       },
     ],
@@ -97,8 +112,8 @@ export const SIDE_BAR = [
 
   {
     to: "/setting",
-    label: vi.Setting,
+    labelKey: "sidebar.settings",
     iconName: "settings",
-    divider: "Khác",
+    divider: true,
   },
 ];

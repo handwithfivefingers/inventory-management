@@ -42,7 +42,7 @@ const productService = {
     const params = new URLSearchParams({
       warehouseId,
     });
-    return http.get<IProduct>(API_PATH.products + "/" + id + "?" + params.toString(), { Cookie: cookie });
+    return http.get<{ data: IProduct }>(API_PATH.products + "/" + id + "?" + params.toString(), { Cookie: cookie });
   },
   createProduct: ({ cookie, ...params }: ICreateProductParams) => {
     return http.post(API_PATH.products, params, { Cookie: cookie });

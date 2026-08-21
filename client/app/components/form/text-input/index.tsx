@@ -3,7 +3,7 @@ import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
 import { useFormContext, useFormState } from "react-hook-form";
-export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInputTypeAttribute> {
+export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   name?: string;
   prefix?: string | React.ReactNode | any;
@@ -16,6 +16,7 @@ export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInp
   error?: string;
   multiline?: boolean;
   rows?: number;
+  inputSize?: "xs" | "sm" | "md";
 }
 
 interface IFieldError {
@@ -24,6 +25,11 @@ interface IFieldError {
   };
 }
 
+const SizeClass = {
+  xs: "py-1 px-1.5",
+  sm: "py-1.5 px-2",
+  md: "text-md py-2 px-3",
+};
 export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
   (
     {
@@ -40,6 +46,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
       error,
       multiline,
       rows,
+      inputSize,
       ...rest
     },
     ref,
@@ -90,7 +97,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     }
 
     return (
-      <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
+      <div className={cn(styles.inputWrapper)}>
         <InputLabel name={name} label={label} />
         <div className={cn("relative rounded-md flex items-center w-full")}>
           <InputPrefix prefix={prefix} prefixRef={prefixRef} />
@@ -98,7 +105,8 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             name={name}
             id={name}
             className={cn(
-              "block w-full bg-transparent rounded-md border-0 text-gray-900  placeholder:text-gray-400 outline-none  py-1.5 px-3 text-sm",
+              "block w-full bg-transparent rounded-md border-0 text-gray-900  placeholder:text-gray-400 outline-none text-sm",
+              SizeClass[inputSize || "sm"],
               styles.input,
               inputClassName,
               className,
@@ -108,7 +116,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             ref={ref}
             onChange={(e) => {
               clearErrors(name as string);
-              onChange?.(e as any);
+              onChange?.(e);
             }}
             style={style}
           />

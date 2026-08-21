@@ -1,7 +1,7 @@
 import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import customerService from "~/action.client/customer.service";
+import { customerService } from "~/action.server/customer.service";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
@@ -10,6 +10,7 @@ import { TMTable } from "~/components/tm-table";
 import { PermissionGuard } from "~/components/permission-guard";
 import { getSession } from "~/sessions";
 import { ICustomer } from "~/types/customer";
+import { useTranslation } from "~/i18n";
 
 interface IFilter {
   s?: string;
@@ -34,11 +35,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   } as any);
 
   return {
-    ...resp,
+    data: resp.data?.data ?? [],
+    total: resp.data?.total ?? 0,
     s: search,
-    page,
-    pageSize,
+    page: Number(page),
+    pageSize: Number(pageSize),
   };
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const cookie = request.headers.get("cookie") as string;
+  const formData = await request.formData();
+  const id = Number(formData.get("id"));
+
+  try {
+    await customerService.deleteCustomer({ id, cookie });
+    return new Response(null, { status: 200 });
+  } catch (error: any) {
+    return { error: error.message || "Delete failed" };
+  }
 };
 
 export const meta: MetaFunction = () => {
@@ -48,6 +63,8 @@ export const meta: MetaFunction = () => {
 export default function Customers() {
   const navigate = useNavigate();
   const { data, total, page, pageSize, s } = useLoaderData<typeof loader>();
+  const fetcher = useFetcher();
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<IFilter>({ s });
 
   useEffect(() => {
@@ -58,25 +75,20 @@ export default function Customers() {
     return () => timeout && clearTimeout(timeout);
   }, [filter]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa khách hàng này?")) {
+  const handleDelete = (id: number) => {
+    if (!confirm(t("common.confirmDelete"))) {
       return;
     }
-    try {
-      await customerService.deleteCustomer(id);
-      navigate(0);
-    } catch (error: any) {
-      alert(error.message || "Xóa khách hàng thất bại");
-    }
+    fetcher.submit({ id: String(id) }, { method: "post" });
   };
 
   return (
     <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Khách hàng" className="p-4 h-full">
+      <CardItem title={t("customers.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0 justify-between items-center">
             <TextInput
-              placeholder="Lọc theo tên, số điện thoại, email"
+              placeholder={t("customers.searchPlaceholder")}
               value={filter.s}
               onChange={(v: any) => {
                 const value = v.target.value;
@@ -86,7 +98,7 @@ export default function Customers() {
             />
             <PermissionGuard permission="C" module="customer">
               <Link to="add">
-                <TMButton>Tạo khách hàng</TMButton>
+                <TMButton>{t("customers.create")}</TMButton>
               </Link>
             </PermissionGuard>
           </div>
@@ -94,33 +106,32 @@ export default function Customers() {
           <div className="flex-1 overflow-auto">
             <TMTable
               columns={[
-                { title: "ID", dataIndex: "id", width: 60 },
-                { title: "Tên", dataIndex: "name", width: 200 },
-                { title: "Số điện thoại", dataIndex: "phone", width: 150 },
-                { title: "Email", dataIndex: "email", width: 200 },
-                { title: "Mã số thuế", dataIndex: "taxCode", width: 150 },
+                { title: t("customers.id"), dataIndex: "id", width: 60 },
+                { title: t("customers.name"), dataIndex: "name", width: 200 },
+                { title: t("customers.phone"), dataIndex: "phone", width: 150 },
+                { title: t("customers.email"), dataIndex: "email", width: 200 },
+                { title: t("customers.taxCode"), dataIndex: "taxCode", width: 150 },
                 {
-                  title: "Thao tác",
+                  title: t("common.actions"),
                   dataIndex: "actions",
                   width: 200,
                   render: (item: ICustomer) => (
                     <div className="flex gap-2">
                       <PermissionGuard permission="R" module="customer">
                         <Link to={`${item.id}`} className="text-blue-600 hover:underline">
-                          Xem
+                          {t("common.view")}
                         </Link>
                       </PermissionGuard>
                       <PermissionGuard permission="U" module="customer">
                         <Link to={`${item.id}/edit`} className="text-orange-600 hover:underline">
-                          Sửa
+                          {t("common.edit")}
                         </Link>
                       </PermissionGuard>
                       <PermissionGuard permission="D" module="customer">
                         <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:underline">
-                          Xóa
+                          {t("common.delete")}
                         </button>
-                      </PermissionGuard>
-                    </div>
+                      </PermissionGuard>                    </div>
                   ),
                 },
               ]}

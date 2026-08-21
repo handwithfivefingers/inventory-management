@@ -1,14 +1,21 @@
 import { Link, useFetcher } from "@remix-run/react";
 import { AuthService } from "~/action.client/auth.service";
 import { Icon } from "~/components/icon";
+import { LanguageToggle } from "~/components/language-toggle";
+import { ThemeToggle } from "~/components/theme-toggle";
 import { TMDropdown } from "~/components/tm-dropdown";
 import { VendorWarehouseSwitcher } from "~/components/vendor-warehouse-switcher";
+import { useTranslation } from "~/i18n";
 import { useUser } from "~/store/user.store";
 
 export const Header = () => {
   const { activeVendor, activeWarehouse } = useUser();
   const fetcher = useFetcher();
+  const { t } = useTranslation();
   const handleLogOut = async () => {
+    // Clear the persisted user store so a new login doesn't reuse the previous
+    // user's cached vendor/warehouse from localStorage.
+    useUser.getState().reset();
     await AuthService.logout();
     fetcher.submit({}, { method: "POST", action: "/api/auth" });
   };
@@ -23,15 +30,15 @@ export const Header = () => {
           <VendorWarehouseSwitcher />
         </div>
 
-        <div className="ml-auto min-w-12  py-2 text-center rounded-sm flex gap-4">
+        <div className="ml-auto min-w-12  py-2 text-center rounded-sm flex gap-4 items-center">
           <Link
             to="/sell"
             className="flex gap-2 items-center text-sm relative px-2 cursor-pointer hover:text-indigo-300"
           >
             <Icon name="package" className="w-4 h-4" />
-            <span>Bán hàng</span>
+            <span>{t("header.sell")}</span>
           </Link>
-          <div className="flex gap-2 items-center text-sm relative px-2">
+          <div className="flex gap-2 items-center text-sm relative px-2" title={t("header.notifications")}>
             <div className="flex relative">
               <Icon name="bell" className="w-4 h-4" />
               <span className="text-red-600/80 absolute -right-2 -top-2 rounded-full h-3 w-3 text-[10px] flex items-center justify-center font-semibold">
@@ -39,6 +46,9 @@ export const Header = () => {
               </span>
             </div>
           </div>
+
+          <ThemeToggle />
+          <LanguageToggle />
 
           <TMDropdown
             placement="right"
@@ -48,7 +58,7 @@ export const Header = () => {
                 label: (
                   <div className="flex gap-2 items-center text-sm">
                     <Icon name="user" className="w-4 h-4" />
-                    <span>Profile</span>
+                    <span>{t("header.profile")}</span>
                   </div>
                 ),
                 onClick: handleLogOut,
@@ -57,7 +67,7 @@ export const Header = () => {
                 label: (
                   <div className="flex gap-2 items-center text-sm">
                     <Icon name="log-out" className="w-4 h-4" />
-                    <span>Logout</span>
+                    <span>{t("header.logout")}</span>
                   </div>
                 ),
                 onClick: handleLogOut,

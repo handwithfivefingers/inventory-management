@@ -22,6 +22,8 @@ const MODULES = [
   { key: "tag", label: "Thẻ" },
   { key: "unit", label: "Đơn vị tính" },
   { key: "import-order", label: "Nhập hàng" },
+  { key: "staff", label: "Nhân viên" },
+  { key: "shift", label: "Chốt ca" },
   { key: "user", label: "Người dùng" },
   { key: "role", label: "Vai trò" },
 ];

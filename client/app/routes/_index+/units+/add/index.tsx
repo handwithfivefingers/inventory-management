@@ -2,10 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
 import { redirect, useFetcher } from "@remix-run/react";
 import { MouseEvent, useEffect } from "react";
-import { Controller, FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
@@ -70,10 +71,8 @@ const UnitForm = () => {
         )}
       >
         <div className="col-span-12">
-          <Controller
-            name="name"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="name">
+            {(field) => {
               return (
                 <TextInput
                   label="Tên đơn vị"
@@ -82,7 +81,7 @@ const UnitForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="ml-auto col-span-12">
           <TMButton htmlType="submit" variant="light">

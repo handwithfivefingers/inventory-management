@@ -1,7 +1,8 @@
 import { Link, useLocation } from "@remix-run/react";
 import { useMemo, useState } from "react";
 import { Icon } from "~/components/icon";
-import { SIDE_BAR } from "~/constants/sidebar";
+import { ISidebarChild, SIDE_BAR } from "~/constants/sidebar";
+import { useTranslation } from "~/i18n";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 
@@ -11,7 +12,7 @@ interface ISidebarItem extends BaseProps {
   iconName?: string;
   isActive?: boolean;
   index: number;
-  items?: ILinkItem[];
+  items?: ISidebarChild[];
 }
 
 interface ILinkItem extends BaseProps {
@@ -25,13 +26,14 @@ const DEFAULT_SPEED = 250;
 
 export const Sidebar = () => {
   let location = useLocation();
+  const { t } = useTranslation();
   return (
-    <div className="flex flex-col h-full flex-1 p-2 rounded-md  gap-1">
+    <div className="flex flex-col h-full flex-1 p-2 rounded-md  gap-1 overflow-auto">
       {SIDE_BAR?.map((sideItem, index) => (
         <SideBarItem
           to={sideItem.to}
           key={[sideItem.to, index].join("-")}
-          label={sideItem.label}
+          label={t(sideItem.labelKey)}
           iconName={sideItem?.iconName}
           isActive={
             sideItem?.to && sideItem.index
@@ -51,6 +53,7 @@ export const Sidebar = () => {
 const SideBarItem = (props: ISidebarItem) => {
   const { iconName, to, className, label, isActive, items, index } = props;
   let location = useLocation();
+  const { t } = useTranslation();
   const [isExpand, setIsExpand] = useState<boolean>(true);
   const isContainActiveMenu = items?.length && items?.filter((item) => item.to === location.pathname)?.length;
   const menuMemoiz = useMemo(() => {
@@ -77,7 +80,7 @@ const SideBarItem = (props: ISidebarItem) => {
               <LinkItem
                 to={item.to}
                 isActive={location.pathname.includes(item.to)}
-                label={item.label}
+                label={t(item.labelKey)}
                 iconName={item.iconName}
                 className={className}
                 isChildren={items.length > 0}
@@ -88,7 +91,7 @@ const SideBarItem = (props: ISidebarItem) => {
         </div>
       </div>
     );
-  }, [items, isExpand, location]);
+  }, [items, isExpand, location, t]);
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -98,7 +101,7 @@ const SideBarItem = (props: ISidebarItem) => {
             "py-1 transition-all rounded-md flex gap-2 justify-between pl-2 cursor-pointer text-indigo-950 hover:text-indigo-600 dark:hover:text-slate-800/80 dark:text-slate-200",
             {
               ["text-indigo-600 dark:text-slate-200"]: isContainActiveMenu,
-            }
+            },
           )}
           onClick={() => setIsExpand(!isExpand)}
         >
@@ -136,7 +139,7 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: ILin
             {
               ["bg-indigo-600"]: isActive,
               ["bg-slate-200"]: !isActive,
-            }
+            },
           )}
         />
       )}

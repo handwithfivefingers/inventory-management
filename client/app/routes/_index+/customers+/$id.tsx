@@ -1,6 +1,6 @@
 import { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useParams } from "@remix-run/react";
-import customerService from "~/action.client/customer.service";
+import { customerService } from "~/action.server/customer.service";
 import { CardItem } from "~/components/card-item";
 import { TMButton } from "~/components/tm-button";
 
@@ -12,8 +12,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     throw new Response("Not found", { status: 404 });
   }
 
-  const resp = await customerService.getCustomerById(Number(id));
-  return resp;
+  const resp = await customerService.getCustomerById({ id, cookie });
+  return resp.data?.data ?? null;
 };
 
 export const meta: MetaFunction = () => {
@@ -21,8 +21,7 @@ export const meta: MetaFunction = () => {
 };
 
 export default function CustomerDetail() {
-  const { data } = useLoaderData<typeof loader>();
-  const customer = data;
+  const customer = useLoaderData<typeof loader>();
 
   if (!customer) {
     return <div className="p-4">Không tìm thấy khách hàng</div>;

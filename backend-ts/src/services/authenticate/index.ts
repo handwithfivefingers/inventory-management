@@ -51,35 +51,55 @@ export default class AuthenticateService {
       // Get user email from request locals (set by auth middleware)
       const userEmail = req.locals.email
 
-      const usr = await cacheItem({
-        key: cacheKey('User', userEmail),
-        callback: async () => {
-          const user = await this.user.findOne({
-            where: { id: req.locals.id },
-            include: [
-              {
-                model: database.role,
-                include: {
-                  model: database.permission
-                } as any
-              },
-              {
-                model: database.vendor
-              }
-            ]
-          })
-          if (!user) throw new Error(ERROR.USR_NOT_VALID)
-          return user
-        }
+      // Cache only the base user record (cheap lookup). Roles/permissions and
+      // vendors are fetched live on every call so that permission or vendor
+      // changes are reflected immediately in `getMe` instead of being stale
+      // for up to 24h (a fresh `getMe` must re-verify the current permissions).
+      // Note: a distinct key (`User:base`) is used so it never collides with
+      // the full object cached by `login`.
+      const base = await this.user.findOne({
+        where: { id: req.locals.id }
+      })
+      // const base = await cacheItem({
+      //   key: cacheKey('User:base', userEmail),
+      //   callback: async () => {
+      //     const user = await this.user.findOne({
+      //       where: { id: req.locals.id }
+      //     })
+      //     if (!user) throw new Error(ERROR.USR_NOT_VALID)
+      //     return user
+      //   }
+      // })
+
+      if (!base) throw new Error(ERROR.USR_NOT_VALID)
+
+      const user = await this.user.findOne({
+        where: { id: (base as any).id },
+        include: [
+          {
+            model: database.role,
+            include: {
+              model: database.permission
+            } as any
+          },
+          {
+            model: database.vendor,
+            include: {
+              model: database.warehouse
+            } as any
+          }
+        ]
       })
 
-      if (!usr) throw new Error(ERROR.USR_NOT_VALID)
+      if (!user) throw new Error(ERROR.USR_NOT_VALID)
 
-      return {
-        ...usr.parsed,
-        roles: (usr as any).roles,
-        vendors: (usr as any).vendors
+      const response = {
+        ...(user as any).parsed,
+        roles: (user as any).roles,
+        vendors: (user as any).vendors
       }
+      console.log('user', user)
+      return response
     } catch (err) {
       console.log('error', err)
       throw err
@@ -92,52 +112,52 @@ export default class AuthenticateService {
       // Use cache to store user data
       const cacheKeyStr = cacheKey('User', email)
 
-      const user = await cacheItem({
-        key: cacheKeyStr,
-        callback: async () => {
-          const usr = await this.user.findOne({
-            where: { email },
-            include: [
-              {
-                model: database.role,
-                include: {
-                  model: database.permission
-                } as any
-              },
-              {
-                model: database.vendor,
-                include: {
-                  model: database.warehouse
-                } as any
-              }
-            ]
-          })
+      // const user = await cacheItem({
+      //   key: cacheKeyStr,
+      //   callback: async () => {
+      //     const usr = await this.user.findOne({
+      //       where: { email },
+      //       include: [
+      //         {
+      //           model: database.role,
+      //           include: {
+      //             model: database.permission
+      //           } as any
+      //         },
+      //         {
+      //           model: database.vendor,
+      //           include: {
+      //             model: database.warehouse
+      //           } as any
+      //         }
+      //       ]
+      //     })
 
-          if (!usr) throw new Error(ERROR.USR_NOT_VALID)
+      //     if (!usr) throw new Error(ERROR.USR_NOT_VALID)
 
-          const isMatchPassword = await bcrypt.compare(password, usr.password)
-          if (!isMatchPassword) throw new Error(ERROR.USR_NOT_VALID)
+      //     const isMatchPassword = await bcrypt.compare(password, usr.password)
+      //     if (!isMatchPassword) throw new Error(ERROR.USR_NOT_VALID)
 
-          return usr
-        }
-      })
-      // const user = await this.user.findOne({
-      //   where: { email }
-      //   include: [
-      //     {
-      //       model: database.role,
-      //       include: {
-      //         model: database.permission
-      //       } as any
-      //     },
-      //     {
-      //       model: database.vendor,
-      //       include: {
-      //         model: database.warehouse
-      //       } as any
-      //     }
-      //   ]
+      //     return usr
+      //   }
       // })
+      const user = await this.user.findOne({
+        where: { email },
+        include: [
+          {
+            model: database.role,
+            include: {
+              model: database.permission
+            } as any
+          },
+          {
+            model: database.vendor,
+            include: {
+              model: database.warehouse
+            } as any
+          }
+        ]
+      })
 
       if (!user) throw new Error(ERROR.USR_NOT_VALID)
 
@@ -267,23 +287,23 @@ export default class AuthenticateService {
       await t.commit()
 
       // Cache the new user data
-      const cacheKeyStr = cacheKey('User', params.email)
-      const userData = {
-        ...usr.parsed,
-        vendors: [
-          {
-            ...vendorModel.dataValues,
-            warehouses: [warehouseBuilder.dataValues]
-          }
-        ],
-        roles: [
-          {
-            ...userRole.dataValues,
-            permissions: [permission.dataValues]
-          }
-        ]
-      }
-      await cacheSet(cacheKeyStr, userData, 3600 * 24)
+      // const cacheKeyStr = cacheKey('User', params.email)
+      // const userData = {
+      //   ...usr.parsed,
+      //   vendors: [
+      //     {
+      //       ...vendorModel.dataValues,
+      //       warehouses: [warehouseBuilder.dataValues]
+      //     }
+      //   ],
+      //   roles: [
+      //     {
+      //       ...userRole.dataValues,
+      //       permissions: [permission.dataValues]
+      //     }
+      //   ]
+      // }
+      // await cacheSet(cacheKeyStr, userData, 3600 * 24)
 
       return result
     } catch (error) {

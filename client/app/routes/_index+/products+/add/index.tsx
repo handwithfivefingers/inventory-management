@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { MouseEvent, useEffect } from "react";
-import { Controller, FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { FormControl } from "~/components/form/form-control";
@@ -93,9 +93,8 @@ export default function ProductItem() {
               </div>
 
               <div className="col-span-4">
-                <Controller
-                  name="costPrice"
-                  render={({ field }) => {
+                <FormControl name="costPrice">
+                  {(field) => {
                     return (
                       <NumberInput
                         label="Giá vốn"
@@ -106,12 +105,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-4">
-                <Controller
-                  name="regularPrice"
-                  render={({ field }) => {
+                <FormControl name="regularPrice">
+                  {(field) => {
                     return (
                       <NumberInput
                         label="Giá bán lẻ"
@@ -122,12 +120,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-4">
-                <Controller
-                  name="salePrice"
-                  render={({ field }) => {
+                <FormControl name="salePrice">
+                  {(field) => {
                     return (
                       <NumberInput
                         label="Giá khuyến mại"
@@ -138,12 +135,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-4">
-                <Controller
-                  name="wholeSalePrice"
-                  render={({ field }) => {
+                <FormControl name="wholeSalePrice">
+                  {(field) => {
                     return (
                       <NumberInput
                         label="Giá bán sỉ"
@@ -154,12 +150,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-6">
-                <Controller
-                  name="expiredAt"
-                  render={({ field }) => {
+                <FormControl name="expiredAt">
+                  {(field) => {
                     return (
                       <NumberInput
                         label="Ngày hết hạn"
@@ -170,12 +165,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-2">
-                <Controller
-                  name="VAT"
-                  render={({ field }) => {
+                <FormControl name="VAT">
+                  {(field) => {
                     return (
                       <NumberInput
                         label="VAT(%)"
@@ -186,12 +180,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-6">
-                <Controller
-                  name="quantity"
-                  render={({ field }) => {
+                <FormControl name="quantity">
+                  {(field) => {
                     return (
                       <NumberInput
                         label="Tồn kho"
@@ -202,12 +195,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-6">
-                <Controller
-                  name="unit"
-                  render={({ field }) => {
+                <FormControl name="unit">
+                  {(field) => {
                     return (
                       <SelectInput
                         options={units?.data?.map((cate) => ({ label: cate.name, value: cate?.id || undefined })) || []}
@@ -217,13 +209,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-6">
-                <Controller
-                  name="categories"
-                  control={formMethods.control}
-                  render={({ field }) => {
+                <FormControl name="categories">
+                  {(field) => {
                     return (
                       <MultiSelectInput
                         options={data?.data?.map((cate) => ({ label: cate.name, value: cate.id })) || []}
@@ -233,13 +223,11 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-6">
-                <Controller
-                  name="tags"
-                  control={formMethods.control}
-                  render={({ field }) => {
+                <FormControl name="tags">
+                  {(field) => {
                     return (
                       <MultiSelectInput
                         options={tags?.data?.map((tag) => ({ label: tag.name, value: tag.id })) || []}
@@ -249,7 +237,7 @@ export default function ProductItem() {
                       />
                     );
                   }}
-                />
+                </FormControl>
               </div>
               <div className="col-span-12">
                 <FormInput name="description">

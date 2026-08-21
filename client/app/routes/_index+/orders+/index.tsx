@@ -15,10 +15,11 @@ import { IOrder } from "~/types/order";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { warehouseId, cookie } = await parseCookieFromRequest(request);
+    const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
     const { page, pageSize } = getLoaderRequestQuery(request);
-    const resp = await orderService.getOrders({ page, pageSize, cookie, warehouseId });
-    return { ...resp, page, pageSize };
+    const resp = await orderService.getOrders({ page, pageSize, cookie, warehouseId, vendorId });
+    console.log("resp", resp);
+    return { ...resp.data, page, pageSize };
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(error.message);

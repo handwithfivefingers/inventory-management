@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, data, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { providerService } from "~/action.server/provider.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
@@ -8,29 +8,29 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
-import { getSessionValues } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { IProvider } from "~/types/provider";
+import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  try {
-    const cookie = request.headers.get("cookie") as string;
-    const { vendorId } = await getSessionValues(cookie);
-    const url = new URL(request.url);
-    const params = url.searchParams;
-    const page = params.get("page") || "1";
-    const pageSize = params.get("pageSize") || "10";
-    const response = await providerService.getProviders({
-      page,
-      pageSize,
-      cookie,
-      vendor: vendorId as string,
-      isProvider: true,
-    });
-    return response;
-  } catch (error) {
-    console.log(error instanceof Error);
-    throw data(error, { status: 400 });
-  }
+  const { cookie, session, vendorId } = await parseCookieFromRequest(request);
+  const url = new URL(request.url);
+  const params = url.searchParams;
+  const page = params.get("page") || "1";
+  const pageSize = params.get("pageSize") || "10";
+  const response = await providerService.getProviders({
+    page,
+    pageSize,
+    cookie,
+    vendor: vendorId as string,
+    isProvider: true,
+  });
+  return {
+    data: response.data?.data ?? [],
+    total: response.data?.total ?? 0,
+    page: Number(page),
+    pageSize: Number(pageSize),
+  };
 };
 
 export const meta: MetaFunction = () => {
@@ -38,23 +38,23 @@ export const meta: MetaFunction = () => {
 };
 
 export default function Products() {
-  const { data, ...prods } = useLoaderData<typeof loader>();
+  const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  console.log("prods", prods);
+  const { t } = useTranslation();
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Nhà cung cấp" className="p-4 h-full">
+      <CardItem title={t("providers.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2">
-            <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
+            <TextInput placeholder={t("providers.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <TMButton variant="light" component={Link} to="/providers/add">
-                  Thêm
+                  {t("common.add")}
                 </TMButton>
-                <TMButton variant="light">Nhập từ Excel</TMButton>
-                <TMButton variant="light">Xuất Excel</TMButton>
-                <TMButton variant="light">In Mã Vạch</TMButton>
+                <TMButton variant="light">{t("common.importExcel")}</TMButton>
+                <TMButton variant="light">{t("common.exportExcel")}</TMButton>
+                <TMButton variant="light">{t("common.printBarcode")}</TMButton>
               </div>
             </div>
           </div>
@@ -62,24 +62,24 @@ export default function Products() {
             <TMTable
               columns={[
                 {
-                  title: "Tên sản phẩm",
+                  title: t("providers.name"),
                   dataIndex: "name",
                 },
                 {
-                  title: "Mã sản phẩm",
+                  title: t("providers.code"),
                   dataIndex: "skuCode",
                 },
                 {
-                  title: "Tồn kho",
+                  title: t("providers.inStock"),
                   dataIndex: "inStock",
                 },
                 {
-                  title: "Đã bán",
+                  title: t("providers.sold"),
                   dataIndex: "sold",
                   render: (record) => record["sold"] || 0,
                 },
                 {
-                  title: "Ngày tạo",
+                  title: t("common.createdAt"),
                   dataIndex: "createdAt",
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
@@ -91,7 +91,12 @@ export default function Products() {
               }}
             />
           </div>
-          <TMPagination total={20} current={1} pageSize={10} onPageChange={(page) => console.log(page)} />
+          <TMPagination
+            total={total || 0}
+            current={page as number}
+            pageSize={pageSize as number}
+            onPageChange={(nextPage) => navigate(`?page=${nextPage}&pageSize=${pageSize}`)}
+          />
         </div>
       </CardItem>
     </div>

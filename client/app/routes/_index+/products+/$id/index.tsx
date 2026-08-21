@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { data, useFetcher, useLoaderData } from "@remix-run/react";
+import { ActionFunctionArgs } from "@remix-run/node";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import { Controller, FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { historyService } from "~/action.server/history.service";
 import { productService } from "~/action.server/products.service";
@@ -10,6 +11,7 @@ import { BarCode } from "~/components/barcode";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { DatePicker } from "~/components/form/date-picker";
+import { FormControl } from "~/components/form/form-control";
 import { MultiSelectInput } from "~/components/form/multi-select-input";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
@@ -17,6 +19,7 @@ import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
+import { useSubmitPromise } from "~/hooks";
 import { dayjs } from "~/libs/date";
 import { cn } from "~/libs/utils";
 import { parseCookieFromRequest } from "~/sessions";
@@ -24,16 +27,12 @@ import { ICategory } from "~/types/category";
 import { IProduct } from "~/types/product";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  try {
-    const { warehouseId, cookie } = await parseCookieFromRequest(request);
-    const { id } = params;
-    if (!id || !warehouseId) throw new Error("Không tìm thấy sản phẩm");
-    const resp = await productService.getProductById({ id, cookie, warehouseId });
-    const history = await historyService.getProductHistory({ id: id as string, warehouseId: [warehouseId], cookie });
-    return { ...resp, history };
-  } catch (error) {
-    throw data(error, { status: 400 });
-  }
+  const { warehouseId, cookie } = await parseCookieFromRequest(request);
+  const { id } = params;
+  if (!id || !warehouseId) throw new Error("Không tìm thấy sản phẩm");
+  const resp = await productService.getProductById({ id, cookie, warehouseId });
+  const history = await historyService.getProductHistory({ id: id as string, warehouseId: [warehouseId], cookie });
+  return { data: resp.data?.data, history: history.data };
 };
 
 export const meta: MetaFunction = () => {
@@ -43,9 +42,9 @@ export const meta: MetaFunction = () => {
 export default function ProductItem() {
   const { data, history } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
-  console.log("history", history);
+  console.log("data", data);
   return (
-    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+    <div className=" w-full flex flex-col p-2 gap-2 h-full">
       <CardItem
         title={
           <div className="flex justify-between items-center">
@@ -68,7 +67,6 @@ export default function ProductItem() {
 }
 const Detail = () => {
   const { data } = useLoaderData<typeof loader>();
-  console.log("data", data);
   return (
     <div className="w-full grid grid-cols-5 gap-4">
       <div className="col-span-2 flex gap-2 flex-col ">
@@ -142,7 +140,7 @@ const Detail = () => {
 };
 const EditForm = () => {
   const { data } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+  const { submit, isLoading } = useSubmitPromise();
   const formMethods = useForm({
     defaultValues: {
       name: "",
@@ -172,16 +170,6 @@ const EditForm = () => {
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
-  const onSubmit = (v: any): void => {
-    // fetcher.submit(
-    //   {
-    //     data: JSON.stringify({
-    //       data: { ...v, id: data.id },
-    //     }),
-    //   },
-    //   { method: "POST", action: "/products/edit" }
-    // );
-  };
 
   const { load, data: categories } = useFetcher<{ data: ICategory[] }>({ key: "categories" });
   const { load: loadUnits, data: units } = useFetcher<{ data: ICategory[] }>({ key: "units" });
@@ -193,66 +181,41 @@ const EditForm = () => {
     (window as any).form = formMethods;
   }, []);
 
-  const submit = (v: any) => {
+  const onSubmit = (v: any) => {
     console.log("v", v);
-    onSubmit({ ...v });
+    submit(
+      {
+        data: JSON.stringify({
+          data: { ...v, id: data?.id },
+        }),
+      },
+      { method: "POST", action: "/products/edit" },
+    );
   };
   return (
     <FormProvider {...formMethods}>
       <form
         className="py-2 grid grid-cols-12 gap-4"
-        onSubmit={formMethods.handleSubmit(submit, (error) => handleError(error))}
+        onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
       >
         <div className="col-span-12">
-          <Controller
-            name="name"
-            control={formMethods.control}
-            render={({ field }) => {
-              return (
-                <TextInput
-                  label="Tên hàng hóa"
-                  value={field.value as any}
-                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                />
-              );
-            }}
-          />
+          <FormControl name="name">
+            <TextInput label="Tên hàng hóa" />
+          </FormControl>
         </div>
         <div className="col-span-6">
-          <Controller
-            name="code"
-            control={formMethods.control}
-            render={({ field }) => {
-              return (
-                <TextInput
-                  label="Mã code"
-                  value={field.value as any}
-                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                />
-              );
-            }}
-          />
+          <FormControl name="code">
+            <TextInput label="Mã code" />
+          </FormControl>
         </div>
         <div className="col-span-6">
-          <Controller
-            name="skuCode"
-            control={formMethods.control}
-            render={({ field }) => {
-              return (
-                <TextInput
-                  label="Mã sku"
-                  value={field.value as any}
-                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                />
-              );
-            }}
-          />
+          <FormControl name="skuCode">
+            <TextInput label="Mã sku" />
+          </FormControl>
         </div>
         <div className="col-span-4">
-          <Controller
-            name="costPrice"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="costPrice">
+            {(field) => {
               return (
                 <NumberInput
                   label="Giá vốn"
@@ -263,13 +226,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-4">
-          <Controller
-            name="regularPrice"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="regularPrice">
+            {(field) => {
               return (
                 <NumberInput
                   label="Giá bán lẻ"
@@ -280,13 +241,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-4">
-          <Controller
-            name="salePrice"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="salePrice">
+            {(field) => {
               return (
                 <NumberInput
                   label="Giá khuyến mại"
@@ -297,13 +256,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-4">
-          <Controller
-            name="wholeSalePrice"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="wholeSalePrice">
+            {(field) => {
               return (
                 <NumberInput
                   label="Giá bán sỉ"
@@ -314,31 +271,18 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-6">
-          <Controller
-            name="expiredAt"
-            control={formMethods.control}
-            render={({ field }) => {
-              return (
-                // <NumberInput
-                //   label="Ngày hết hạn"
-                //   value={field.value as any}
-                //   onValueChange={(v, info) => {
-                //     field.onChange(v.value);
-                //   }}
-                // />
-                <DatePicker {...field} label="Ngày hết hạn" />
-              );
+          <FormControl name="expiredAt">
+            {(field) => {
+              return <DatePicker {...field} label="Ngày hết hạn" />;
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-2">
-          <Controller
-            name="VAT"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="VAT">
+            {(field) => {
               return (
                 <NumberInput
                   label="VAT(%)"
@@ -349,13 +293,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-6">
-          <Controller
-            name="quantity"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="quantity">
+            {(field) => {
               return (
                 <NumberInput
                   label="Tồn kho"
@@ -366,13 +308,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-6">
-          <Controller
-            name="unit"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="unit">
+            {(field) => {
               return (
                 <SelectInput
                   options={units?.data?.map((cate) => ({ label: cate.name, value: cate?.id || undefined })) || []}
@@ -382,13 +322,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-6">
-          <Controller
-            name="categories"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="categories">
+            {(field) => {
               return (
                 <MultiSelectInput
                   options={categories?.data?.map((cate) => ({ label: cate.name, value: cate?.id || undefined })) || []}
@@ -398,13 +336,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-6">
-          <Controller
-            name="tags"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="tags">
+            {(field) => {
               return (
                 <MultiSelectInput
                   options={tags?.data?.map((tag) => ({ label: tag.name, value: tag?.id || undefined })) || []}
@@ -414,13 +350,11 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="col-span-12">
-          <Controller
-            name="description"
-            control={formMethods.control}
-            render={({ field }) => {
+          <FormControl name="description">
+            {(field) => {
               return (
                 <TextInput
                   label="Ghi chú"
@@ -429,7 +363,7 @@ const EditForm = () => {
                 />
               );
             }}
-          />
+          </FormControl>
         </div>
         <div className="ml-auto col-span-12">
           <TMButton htmlType="submit">Submit</TMButton>
@@ -469,9 +403,7 @@ const HistoryList = ({ history }: { history: IProduct[] }) => {
                     </p>
                   </div>
                 </div>
-                <span className="px-2 text-slate-700 text-sm">
-                  {dayjs(item.createdAt).format("DD/MM/YYYY")}
-                </span>
+                <span className="px-2 text-slate-700 text-sm">{dayjs(item.createdAt).format("DD/MM/YYYY")}</span>
               </div>
             </div>
           );
@@ -480,16 +412,16 @@ const HistoryList = ({ history }: { history: IProduct[] }) => {
     </CardItem>
   );
 };
-// export const action = async ({ request }: any) => {
-//   const session = await getSession(request.headers.get("Cookie"));
-//   const warehouse = session.get("warehouse");
-//   const formData = await request.formData();
-//   const data = await formData.get("data");
-//   const dataJson = JSON.parse(data);
-//   const bodyData = { ...dataJson.data, warehouseId: warehouse };
-//   const resp = await productService.updateProduct(bodyData);
-//   return resp;
-// };
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { warehouseId, cookie } = await parseCookieFromRequest(request);
+  const formData = await request.formData();
+  const data = (await formData.get("data")) as string;
+  const dataJson = JSON.parse(data);
+  const bodyData = { ...dataJson.data, warehouseId, cookie };
+  const resp = await productService.updateProduct(bodyData);
+  return resp;
+};
 
 export function ErrorBoundary() {
   return <ErrorComponent />;
