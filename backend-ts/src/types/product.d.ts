@@ -19,6 +19,8 @@ export interface IProductModel extends Model<InferAttributes<IProductModel>, Inf
   wholeSalePrice: number
   costPrice: number
   sold: number
+  image?: string | null
+  isNegative: CreationOptional<boolean>
   unitId?: number
   vendorId?: number | null
 

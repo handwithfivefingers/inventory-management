@@ -21,6 +21,12 @@ const Transfer = (sequelize: Sequelize) => {
       },
       warehouseId: DataTypes.INTEGER,
       productId: DataTypes.INTEGER,
+      // Nullable: NULL is a legacy/simple-product movement,
+      // a value points at the specific variant moved.
+      variantId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
       createdAt: DataTypes.DATE,
       updatedAt: DataTypes.DATE
     },
@@ -33,6 +39,7 @@ const Transfer = (sequelize: Sequelize) => {
   Model.associate = (models) => {
     Model.belongsTo(models.warehouse, { foreignKey: "warehouseId" });
     Model.belongsTo(models.product, { foreignKey: 'productId' })
+    Model.belongsTo(models.productVariant, { foreignKey: 'variantId' })
   }
   return Model
 }

@@ -12,6 +12,8 @@ export interface IInventoryModel extends Model<InferAttributes<IInventoryModel>,
   id: CreationOptional<number>
   quantity: number
   productId: ForeignKey<number>
+  /** Nullable: NULL = simple-product stock, otherwise stock of one variant */
+  variantId?: ForeignKey<number> | null
   warehouseId: ForeignKey<number>
 }
 

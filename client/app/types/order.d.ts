@@ -11,7 +11,7 @@ export interface IOrder {
   VAT?: number | string;
   surcharge?: number | string;
   paid: number | string;
-  paymentType: "cash" | "transfer";
+  paymentType: "cash" | "transfer" | "credit";
   warehouseId: number | string;
   providerId: number | string;
   createdAt: string;

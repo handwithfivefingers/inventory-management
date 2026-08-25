@@ -1,27 +1,32 @@
 import database from '#/database'
+import { IRequestLocal } from '#/types/common'
 import { IInventoryStatic } from '#/types/inventory'
 import { IOrderModel, IOrderStatic } from '#/types/order'
 import { IOrderDetailStatic } from '#/types/orderDetail'
 import { IFinancialRecordStatic } from '#/types/financialRecord'
 import { IProductStatic } from '#/types/product'
-import { FindAttributeOptions, IncludeOptions, Op, Optional, Transaction } from 'sequelize'
+import { IncludeOptions, Optional, Transaction } from 'sequelize'
 import { TransferService } from '../transfer'
+import { SettingService } from '../setting'
+import { applyCodeFormat, getCodeFormat } from '#/utils/code-generator'
 import { Request } from 'express'
 interface IOrderCreateParams {
-  orderDetails: any[]
   price?: number | string
   VAT?: number | string
   surcharge?: number | string
+  type?: string
+  orderDetails: any[]
   paid: number | string
-  paymentType: 'cash' | 'transfer'
+  paymentType: 'cash' | 'transfer' | 'credit'
   warehouseId: number | string
   providerId: number | string
-  type?: string
+  vendorId?: number | string
 }
 interface IOrderDetailCreateParams {
   name: string
   quantity: number
   productId: number
+  variantId?: number | null
   warehouseId: number
   orderId: number
   price: number
@@ -33,6 +38,7 @@ interface IOrderDetailCreateParams {
 
 interface IInventoryUpdateParams {
   productId: number
+  variantId?: number | null
   warehouseId: number
   quantity: number
   transaction: Transaction
@@ -42,6 +48,7 @@ interface IInventoryUpdateParams {
 interface IProductUpdateParams {
   quantity: number
   productId: number
+  variantId?: number | null
   transaction: Transaction
 }
 interface ICreateTransferParams {
@@ -49,13 +56,10 @@ interface ICreateTransferParams {
   warehouseId: number
   quantity: number
   productId: number
+  variantId?: number | null
   type: string
 }
 export default class OrderService {
-  //   this[modelName] = db[modelName];
-  // this.modelName = modelName;
-  // this.sequelize = db.sequelize;
-  // this.db = db;
   order: IOrderStatic = database.order
   orderDetail: IOrderDetailStatic = database.orderDetail
   inventory: IInventoryStatic = database.inventory
@@ -63,7 +67,16 @@ export default class OrderService {
   financialRecord: IFinancialRecordStatic = database.financialRecord
   sequelize = database.sequelize
 
-  async create({ VAT, surcharge, paymentType, warehouseId, providerId, orderDetails, type = '1' }: IOrderCreateParams) {
+  async create({
+    VAT,
+    surcharge,
+    paymentType,
+    warehouseId,
+    providerId,
+    orderDetails,
+    type = '1',
+    vendorId
+  }: IOrderCreateParams) {
     // Start a new transaction
     const t = await this.sequelize.transaction()
     try {
@@ -79,7 +92,8 @@ export default class OrderService {
         paid: totalPaid,
         price: totalPrice,
         paymentType,
-        warehouseId: Number(warehouseId)
+        warehouseId: Number(warehouseId),
+        vendorId: vendorId ? Number(vendorId) : null
       }
       if (providerId) {
         orderParams.providerId = Number(providerId)
@@ -88,6 +102,14 @@ export default class OrderService {
       const orderBuilder = this.order.build(orderParams as Optional<IOrderModel, 'id'>)
 
       const p = await orderBuilder.save({ transaction: t })
+
+      // Generate the order code from the vendor's prefix/suffix settings
+
+      let code = await this.getOrderCode(String(p.id), String(vendorId))
+
+      if (code) p.code = code
+
+      await p.save({ transaction: t })
 
       // // Create order details for each item
       for (let item of orderDetails) {
@@ -131,6 +153,7 @@ export default class OrderService {
     name,
     quantity,
     productId,
+    variantId,
     warehouseId,
     orderId,
     type,
@@ -146,6 +169,7 @@ export default class OrderService {
         orderId,
         note,
         productId,
+        variantId: variantId ?? null,
         ...orderDetail
       })
       // Delete the product from the Redis cache
@@ -153,11 +177,11 @@ export default class OrderService {
       return Promise.all([
         orderDetailBuilder.save({ transaction }),
         // Update the inventory
-        this.updateInventory({ quantity, productId, warehouseId, transaction, type }),
+        this.updateInventory({ quantity, productId, variantId, warehouseId, transaction, type }),
         // Update the product quantity
-        this.updateProductQuantity({ quantity, productId, transaction }),
+        this.updateProductQuantity({ quantity, productId, variantId, transaction }),
         // Create a new transfer
-        this.createTransfer({ quantity, warehouseId, productId, transaction, type })
+        this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
       ])
     } catch (error) {
       // Log the error and throw it
@@ -166,18 +190,62 @@ export default class OrderService {
     }
   }
 
-  async updateInventory({ productId, warehouseId, quantity, transaction, type }: IInventoryUpdateParams) {
+  async updateInventory({ productId, variantId, warehouseId, quantity, transaction, type }: IInventoryUpdateParams) {
     // type '0' = IN (import) -> increment inventory, otherwise decrement (export/sale)
     const operator = type === '0' ? 'increment' : 'decrement'
+
+    // Variant-aware stock row: a variant has its own (product, warehouse, variant)
+    // inventory row; simple products use the legacy row where variantId IS NULL.
+    const stockWhere: Record<string, unknown> = {
+      productId,
+      warehouseId,
+      ...(variantId != null ? { variantId } : { variantId: null })
+    }
+
+    // Stock guard: on export/sale, block going below zero unless the product
+    // is flagged to allow negative stock (products.isNegative). A variant's
+    // own isNegative flag overrides the parent product setting.
+    if (operator === 'decrement') {
+      const product = await this.product.findByPk(productId, { transaction })
+      if (!product) {
+        throw new Error(`Product ${productId} not found`)
+      }
+      let label = (product as any).name
+      let allowNegative = Boolean((product as any).isNegative)
+      let variant: any = null
+      if (!allowNegative && variantId != null) {
+        variant = await database.productVariant.findByPk(variantId, { transaction })
+        if (!variant) {
+          throw new Error(`Variant ${variantId} not found`)
+        }
+        label = `${label} [${variant.get('skuCode')}]`
+        allowNegative = Boolean(variant.get('isNegative'))
+      } else if (variantId != null) {
+        // Variant only needed for the error label; keep the existing message shape
+        variant = await database.productVariant.findByPk(variantId, { transaction })
+        if (variant) label = `${label} [${variant.get('skuCode')}]`
+      }
+      if (!allowNegative) {
+        const inventoryRow = await this.inventory.findOne({
+          where: stockWhere,
+          transaction
+        })
+        const available = Number(inventoryRow?.get('quantity') ?? 0)
+        if (available < Number(quantity)) {
+          throw new Error(`Insufficient stock for product "${label}" (available: ${available}, requested: ${quantity})`)
+        }
+      }
+    }
+
     const inventory: any = this.inventory
     const [affectedRows] = await inventory[operator]('quantity', {
       by: quantity,
-      where: { productId, warehouseId },
+      where: stockWhere,
       transaction
     })
 
     if ((affectedRows as number) === 0) {
-      throw new Error('Inventory not found')
+      throw new Error(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
     }
 
     // OLD
@@ -205,12 +273,20 @@ export default class OrderService {
    * @param {Transaction} params.transaction - transaction object
    * @returns {Promise<void>} - a Promise that resolves when product is updated
    */
-  async updateProductQuantity({ productId, quantity, transaction }: IProductUpdateParams) {
+  async updateProductQuantity({ quantity, productId, variantId, transaction }: IProductUpdateParams) {
     try {
       const prod = await this.product.findByPk(productId)
       if (!prod) throw new Error('Product not found')
       prod.sold = prod.sold + quantity
       await prod.save({ transaction })
+      // Keep the per-variant sold counter in sync when a specific variant sold
+      if (variantId != null) {
+        const variant = await database.productVariant.findByPk(variantId, { transaction })
+        if (variant) {
+          variant.sold = Number(variant.get('sold') ?? 0) + quantity
+          await variant.save({ transaction })
+        }
+      }
     } catch (error) {
       throw error
     }
@@ -278,6 +354,122 @@ export default class OrderService {
    * @param {Object} params - pagination params, warehouseId, isProvider
    * @return {Promise<Object>} - result of query
    */
+  /**
+   * Update an existing order and adjust inventory by the difference between
+   * old and new quantities, so stock always reflects reality.
+   * Note: the original transfer/financial voucher records are kept as-is
+   * (they document the state at creation time).
+   */
+  async update(req: IRequestLocal) {
+    const t = await this.sequelize.transaction()
+    try {
+      const { id } = req.params
+      const { VAT, surcharge, paymentType, orderDetails, type = '1' } = req.body
+
+      if (!orderDetails || orderDetails.length === 0) {
+        throw new Error('Order details are required')
+      }
+
+      const order = await this.order.findByPk(id, { transaction: t })
+      if (!order) {
+        throw new Error('Order not found')
+      }
+
+      const warehouseId = Number(order.warehouseId)
+
+      // Build quantity maps keyed by product+variant to compute deltas
+      const keyOf = (item: { productId: number; variantId?: number | null }) =>
+        `${item.productId}-${item.variantId ?? 'x'}`
+
+      const oldDetails = await this.orderDetail.findAll({
+        where: { orderId: order.id },
+        transaction: t
+      })
+      const oldQtyMap = new Map<string, { productId: number; variantId?: number | null; quantity: number }>()
+      for (const detail of oldDetails) {
+        oldQtyMap.set(keyOf(detail.get() as any), {
+          productId: Number(detail.get('productId')),
+          variantId: (detail.get('variantId') as number | null) ?? undefined,
+          quantity: Number(detail.get('quantity'))
+        })
+      }
+      const newQtyMap = new Map<string, { productId: number; variantId?: number | null; quantity: number }>()
+      for (const item of orderDetails) {
+        newQtyMap.set(keyOf(item), {
+          productId: Number(item.productId),
+          variantId: item.variantId ?? undefined,
+          quantity: Number(item.quantity)
+        })
+      }
+
+      // Apply stock adjustments for the difference (delta > 0 means more goods
+      // leave for a sale; delta < 0 means goods come back)
+      const allKeys = new Set([...oldQtyMap.keys(), ...newQtyMap.keys()])
+      for (const key of allKeys) {
+        const oldQty = oldQtyMap.get(key)?.quantity ?? 0
+        const newQty = newQtyMap.get(key)?.quantity ?? 0
+        const delta = newQty - oldQty
+        if (delta === 0) continue
+
+        const ref = newQtyMap.get(key) ?? oldQtyMap.get(key)!
+        // For sales ('1'): increase => export more, decrease => return stock.
+        // For imports ('0'): the opposite.
+        const adjustmentType = type === '0' ? (delta > 0 ? '0' : '1') : delta > 0 ? '1' : '0'
+        await this.updateInventory({
+          productId: ref.productId,
+          variantId: ref.variantId,
+          warehouseId,
+          quantity: Math.abs(delta),
+          transaction: t,
+          type: adjustmentType
+        })
+      }
+
+      // Replace the order detail rows
+      await this.orderDetail.destroy({ where: { orderId: order.id }, transaction: t })
+      for (const item of orderDetails) {
+        await this.orderDetail.create(
+          {
+            orderId: order.id,
+            warehouseId,
+            productId: item.productId,
+            variantId: item.variantId ?? null,
+            quantity: item.quantity,
+            price: item.price,
+            buyPrice: item.buyPrice,
+            note: item.note
+          },
+          { transaction: t }
+        )
+      }
+
+      // Recalculate totals the same way create() does
+      const totalPrice =
+        orderDetails.reduce((total: number, item: any) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
+      const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
+
+      ;(order as any).price = totalPrice
+      ;(order as any).VAT = Number(VAT)
+      ;(order as any).surcharge = Number(surcharge)
+      ;(order as any).paid = totalPaid
+      if (paymentType) {
+        ;(order as any).paymentType = paymentType
+      }
+      await order.save({ transaction: t })
+
+      await t.commit()
+
+      return this.getOrderById({
+        id: String(order.id),
+        warehouseId: String(warehouseId)
+      })
+    } catch (error) {
+      console.log('order update error', error)
+      await t.rollback()
+      throw error
+    }
+  }
+
   async getOrders(req: Request) {
     try {
       const params = req.query
@@ -302,7 +494,7 @@ export default class OrderService {
         // distinct: true // Prevents duplicate rows when using JOIN
       }
       const resp = await this.order.findAndCountAll(queryParams)
-      console.log('resp', resp)
+      console.log('this.order.findAndCountAll', resp)
       return resp
     } catch (error) {
       console.warn('error', error)
@@ -351,21 +543,14 @@ export default class OrderService {
     }
   }
 
-  // /**
-  //  * Create a new order detail.
-  //  * @param {{ orderDetail, quantity, warehouseId, productId, orderId }} params
-  //  */
-  // async onCreateOrderDetail(params) {
-  //   try {
-  //     const resp = await this.db.orderDetail.create(params)
-  //     return resp
-  //   } catch (err) {
-  //     throw err
-  //   }
-  // }
-
-  // async importOrder(params) {
-  //   try {
-  //   } catch (error) {}
-  // }
+  async getOrderCode(id: string, vendorId: string) {
+    try {
+      const settings = vendorId ? await new SettingService().getForVendor(Number(vendorId)) : null
+      const { prefix, suffix } = getCodeFormat(settings?.codePrefix, settings?.codeSuffix, 'order')
+      return applyCodeFormat(`ORD${new Date().getFullYear()}${String(id).padStart(5, '0')}`, prefix, suffix)
+    } catch (codeError) {
+      console.warn('order code generation failed', codeError)
+      return undefined
+    }
+  }
 }

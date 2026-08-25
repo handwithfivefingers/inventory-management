@@ -14,6 +14,12 @@ const InventoryModel = (sequelize: Sequelize) => {
         type: DataTypes.INTEGER
       },
       productId: DataTypes.INTEGER,
+      // Nullable: NULL means product-level (simple product) stock,
+      // a value targets one specific variant of the product.
+      variantId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
       warehouseId: DataTypes.INTEGER
     },
     {
@@ -24,6 +30,8 @@ const InventoryModel = (sequelize: Sequelize) => {
 
   M.associate = (models: any) => {
     M.belongsTo(models.warehouse, { foreignKey: 'warehouseId' })
+    M.belongsTo(models.product, { foreignKey: 'productId' })
+    M.belongsTo(models.productVariant, { foreignKey: 'variantId' })
   }
   return M
 }

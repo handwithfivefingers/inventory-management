@@ -10,6 +10,10 @@ const OrderModel = (sequelize: Sequelize) => {
         autoIncrement: true,
         primaryKey: true
       },
+      code: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
       VAT: {
         type: DataTypes.INTEGER
       },
@@ -24,7 +28,7 @@ const OrderModel = (sequelize: Sequelize) => {
       },
       paymentType: {
         type: DataTypes.ENUM,
-        values: ['cash', 'transfer'],
+        values: ['cash', 'transfer', 'credit'],
         defaultValue: 'cash'
       },
       providerId: {

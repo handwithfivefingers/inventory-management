@@ -4,12 +4,11 @@ import { NumericFormat } from "react-number-format";
 import { financialService } from "~/action.server/financial.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { TextInput } from "~/components/form/text-input";
+import { DatePicker } from "~/components/form/date-picker";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { getSession, parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
-import { FormProvider, useForm } from "react-hook-form";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -50,7 +49,6 @@ export const meta: MetaFunction = () => {
 
 export default function FinancialReport() {
   const { report, from, to } = useLoaderData<typeof loader>();
-  const form = useForm();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -66,24 +64,22 @@ export default function FinancialReport() {
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <CardItem title={t("financial.report")} className="p-4">
-        <FormProvider {...form}>
-          <form
-            className="flex gap-2 items-end flex-wrap"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = new FormData(e.currentTarget);
-              const f = form.get("from") as string;
-              const tt = form.get("to") as string;
-              navigate(`?from=${f}&to=${tt}`);
-            }}
-          >
-            <TextInput label={t("financial.from")} name="from" type="date" defaultValue={from} />
-            <TextInput label={t("financial.to")} name="to" type="date" defaultValue={to} />
-            <TMButton htmlType="submit" variant="light">
-              {t("common.search")}
-            </TMButton>
-          </form>
-        </FormProvider>
+        <form
+          className="flex gap-2 items-end flex-wrap"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const data = new FormData(e.currentTarget);
+            const f = data.get("from") as string;
+            const tt = data.get("to") as string;
+            navigate(`?from=${f}&to=${tt}`);
+          }}
+        >
+          <DatePicker label={t("financial.from")} name="from" defaultValue={from} clearable />
+          <DatePicker label={t("financial.to")} name="to" defaultValue={to} clearable />
+          <TMButton htmlType="submit" variant="light">
+            {t("common.search")}
+          </TMButton>
+        </form>
 
         <div className="mt-4">
           <TMTable

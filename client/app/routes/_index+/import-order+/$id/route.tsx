@@ -28,7 +28,7 @@ export const meta: MetaFunction = () => {
 export default function ImportOrderDetail() {
   const { data } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
-  if (!data) return <div className="p-4">No data</div>;
+  if (!data) return <div className="p-4">{t("common.noData")}</div>;
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <CardItem title={`${t("importOrder.title")} #${data.id}`} className="p-4">
@@ -46,14 +46,14 @@ export default function ImportOrderDetail() {
             <NumericFormat value={data.paid} displayType={"text"} thousandSeparator="," />
           </div>
           <div>
-            <span className="text-gray-500">VAT: </span>
+            <span className="text-gray-500">{t("importOrder.VAT")}: </span>
             {data.VAT}%
           </div>
         </div>
         <TMTable
           columns={[
             { title: t("importOrder.stt"), dataIndex: "id", width: 80, render: (_r: any, i) => Number(i) + 1 },
-            { title: t("importOrder.provider"), dataIndex: "name" },
+            { title: t("importOrder.product"), dataIndex: "name" },
             {
               title: t("importOrder.total"),
               dataIndex: "buyPrice",
@@ -61,7 +61,7 @@ export default function ImportOrderDetail() {
                 <NumericFormat value={record.buyPrice} displayType={"text"} thousandSeparator="," />
               ),
             },
-            { title: "Quantity", dataIndex: "quantity" },
+            { title: t("importOrder.quantity"), dataIndex: "quantity" },
           ]}
           data={data.orderDetails ?? []}
           rowKey="id"

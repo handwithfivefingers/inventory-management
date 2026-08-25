@@ -28,6 +28,11 @@ const OrderDetailModel = (sequelize: Sequelize) => {
       productId: {
         type: DataTypes.INTEGER
       },
+      // Nullable for simple products; set when a specific variant was ordered.
+      variantId: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
       orderId: {
         type: DataTypes.INTEGER
       }
@@ -41,6 +46,7 @@ const OrderDetailModel = (sequelize: Sequelize) => {
   M.associate = (models: any) => {
     M.belongsTo(models.product, { foreignKey: 'productId' })
     M.belongsTo(models.warehouse, { foreignKey: 'warehouseId' })
+    M.belongsTo(models.productVariant, { foreignKey: 'variantId' })
   }
   return M
 }

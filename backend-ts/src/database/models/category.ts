@@ -10,6 +10,10 @@ const CategoryModel = (sequelize: Sequelize) => {
         autoIncrement: true,
         primaryKey: true
       },
+      code: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
       name: {
         type: DataTypes.STRING,
         allowNull: false

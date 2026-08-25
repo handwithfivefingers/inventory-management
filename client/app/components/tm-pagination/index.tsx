@@ -63,10 +63,9 @@ export const TMPagination = ({ total, current, page, pageSize, onChange, onPageC
       {generatePagination().map((paginationItem, index) => (
         <div key={index}>
           <TMButton
-            // variant="ghost"
             size="xs"
             onClick={paginationItem.onClick}
-            className={cn({
+            className={cn("px-3 py-1", {
               "text-white bg-indigo-300 rounded": paginationItem.label === current,
             })}
           >

@@ -10,6 +10,7 @@ import {
 } from 'sequelize'
 export interface IOrderModel extends Model<InferAttributes<IOrderModel>, InferCreationAttributes<IOrderModel>> {
   id: CreationOptional<number>
+  code?: string | null
   VAT: number
   paid: number
   surcharge: number

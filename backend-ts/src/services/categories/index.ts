@@ -6,17 +6,35 @@
 import database from '#/database'
 import { ICategoryModel, ICategoryStatic } from '#/types/category'
 import { IRequestLocal } from '#/types/common'
+import { SettingService } from '../setting'
+import { applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
 import { getPagination } from '#/utils'
 import { Optional, Sequelize } from 'sequelize'
 
 export class CategoriesService {
   category: ICategoryStatic = database.category
   sequelize: Sequelize = database.sequelize
-  async create(params: Optional<ICategoryModel, 'id'>) {
+  async create(params: Optional<ICategoryModel, 'id'>, vendorId?: number | string | null) {
     try {
       if (!params.name) throw new Error('Category name is required')
-      if (!params.vendorId) throw new Error('Vendor is required')
-      const builder = this.category.build(params)
+      if (!params.vendorId && !vendorId) throw new Error('Vendor is required')
+
+      // Auto-generate the category code from the vendor prefix/suffix settings
+      let code = (params as any).code
+      const finalVendorId = params.vendorId || vendorId
+      try {
+        const settings = await new SettingService().getForVendor(finalVendorId)
+        const seq: number = (await this.category.count({
+          where: { vendorId: Number(finalVendorId) }
+        } as any)) as unknown as number
+        const baseCode = code || padSeq(seq + 1)
+        const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'category')
+        code = applyCodeFormat(baseCode, prefix, suffix)
+      } catch (e) {
+        console.warn('category code generation skipped', e)
+      }
+
+      const builder = this.category.build({ ...params, code })
       const instance = await builder.save()
       return instance
     } catch (error) {

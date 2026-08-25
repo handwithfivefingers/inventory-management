@@ -30,11 +30,11 @@ const variants: IButtonVariants = {
 };
 
 const sizes: IButtonSizes = {
-  xs: "px-1 py-0.5 rounded-sm",
-  sm: "px-4 py-1 rounded-md",
-  md: "px-5 py-1.5 rounded-md",
-  lg: "px-6 py-2 rounded-lg",
-  xl: "px-7 py-3 rounded-xl",
+  xs: "px-1.5 py-0.5 rounded-sm text-xs",
+  sm: "px-2 py-1 rounded-md text-sm",
+  md: "px-4 py-1.5 rounded-md text-base",
+  lg: "px-6 py-2 rounded-lg text-base",
+  xl: "px-7 py-3 rounded-xl text-base",
 };
 
 export interface ITMButton extends BaseProps, React.ButtonHTMLAttributes<HTMLButtonElement>, BaseProps {
@@ -62,7 +62,7 @@ export const TMButton = ({
 }: ITMButton) => {
   const Element: any = component || "button";
   const classCn = cn(
-    "cursor-pointer active:translate-y-[1px]",
+    "cursor-pointer active:translate-y-[1px] flex items-center justify-center gap-1",
     sizes[size as ISizes],
     variants[variant as IVariants],
     className,

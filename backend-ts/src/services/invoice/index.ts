@@ -181,15 +181,71 @@ export class InvoiceService {
         notes
       } = req.body
 
-      // Validate required fields
-      if (!items || items.length === 0) {
-        throw new Error('Invoice items are required')
+      // BUSINESS RULE: an invoice can only be created from an existing order.
+      // Stock movement is handled by the order; the invoice is a financial document.
+      if (!orderId) {
+        throw new Error('orderId is required: invoices can only be created from an order')
       }
 
-      // Determine vendorId
-      const vendorId = req.user?.vendorId
+      // Validate that the order exists
+      const order = await database.order.findByPk(Number(orderId), {
+        include: [{ model: database.orderDetail }]
+      })
+      if (!order) {
+        throw new Error('Order not found')
+      }
+
+      // Resolve vendorId: explicit body value > authenticated user > the order's own vendor.
+      // (The auth middleware exposes req.locals; most callers don't have req.user.vendorId,
+      // so the order's vendor is the reliable source.)
+      const vendorId = Number(
+        (req.body as any).vendorId || (req as any).user?.vendorId || (order as any).vendorId
+      )
       if (!vendorId) {
         throw new Error('vendorId is required')
+      }
+
+      if ((order as any).vendorId && Number((order as any).vendorId) !== vendorId) {
+        throw new Error('Unauthorized to create an invoice for this order')
+      }
+
+      // Prevent duplicate invoices for the same order (cancelled ones don't count)
+      const existingInvoice = await this.invoice.findOne({
+        where: { orderId: Number(orderId), status: { [Op.ne]: 'cancelled' } },
+        transaction: t
+      })
+      if (existingInvoice) {
+        throw new Error(`This order already has invoice ${existingInvoice.invoiceNumber}`)
+      }
+
+      // If no items are provided, derive them from the order details so an
+      // invoice can be generated from an order in one click
+      let sourceItems = items
+      let effectiveVAT = VAT
+      let effectiveSurcharge = surcharge
+      let effectivePaymentType = paymentType
+      if (!sourceItems || sourceItems.length === 0) {
+        const details = (order as any).orderDetails ?? []
+        if (!details.length) {
+          throw new Error('Order has no items to invoice')
+        }
+        sourceItems = details.map((detail: any) => ({
+          productId: detail.productId,
+          quantity: Number(detail.quantity),
+          unitPrice: Number(detail.price || 0),
+          taxRate: Number((order as any).VAT || 0)
+        }))
+        effectiveVAT = effectiveVAT ?? undefined
+        effectiveSurcharge =
+          surcharge === undefined ? Number((order as any).surcharge || 0) : surcharge
+        if (!paymentType || !['cash', 'transfer', 'credit'].includes(paymentType)) {
+          effectivePaymentType = (order as any).paymentType === 'transfer' ? 'transfer' : 'cash'
+        }
+      }
+
+      // Validate required fields
+      if (!sourceItems || sourceItems.length === 0) {
+        throw new Error('Invoice items are required')
       }
 
       // Generate invoice number
@@ -200,7 +256,7 @@ export class InvoiceService {
       let subtotal = 0
       let taxAmount = 0
 
-      const invoiceDetails = items.map((item: any) => {
+      const invoiceDetails = sourceItems.map((item: any) => {
         const itemSubtotal = item.quantity * item.unitPrice
         const itemTax = (itemSubtotal * (item.taxRate || 0)) / 100
         const itemDiscount = item.discount || 0
@@ -219,28 +275,28 @@ export class InvoiceService {
         }
       })
 
-      const total = subtotal - discount + taxAmount + surcharge
-      const paid = paymentType === 'cash' ? total : 0
+      const total = subtotal - discount + taxAmount + Number(effectiveSurcharge || 0)
+      const paid = effectivePaymentType === 'cash' ? total : 0
       const remaining = total - paid
 
       // Create invoice
       const invoice = await this.invoice.create(
         {
           invoiceNumber,
-          orderId,
+          orderId: Number(orderId),
           customerId,
           vendorId,
-          warehouseId,
+          warehouseId: warehouseId ?? (order as any).warehouseId,
           subtotal,
           discount,
-          VAT: VAT || 0,
+          VAT: effectiveVAT || 0,
           taxAmount,
-          surcharge,
+          surcharge: Number(effectiveSurcharge || 0),
           total,
           paid,
           remaining,
           currency: 'VND',
-          paymentType,
+          paymentType: effectivePaymentType,
           status,
           dueDate,
           notes

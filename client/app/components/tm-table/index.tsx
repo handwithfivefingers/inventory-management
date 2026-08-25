@@ -6,6 +6,7 @@ interface ICol {
   dataIndex: string;
   render?: (record: any, index?: number) => React.ReactNode;
   width?: number | string;
+  className?: string;
 }
 
 interface IRow {
@@ -23,14 +24,15 @@ interface ITMTable {
   };
   children?: React.ReactNode;
   scrollable?: boolean;
+  className?: string;
 }
 
-export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable }: ITMTable) => {
+export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable, className }: ITMTable) => {
   const isEmpty = !children && !data?.length;
   return (
     <div
       className={cn(
-        "not-prose relative bg-slate-100 h-full rounded-md overflow-hidden dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600"
+        "relative bg-slate-100 w-full h-full rounded-md overflow-hidden dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600",
       )}
     >
       <div
@@ -40,13 +42,11 @@ export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable }: 
         }}
       />
       <div className="relative rounded-md h-full flex flex-col">
-        {/* <div className="pr-2.5 border-b border-slate-500 "> */}
-        <table className="table-fixed w-full text-sm ">
-          <TMTable.Header columns={columns} />
-        </table>
-        {/* </div> */}
+        {/* Single scroll container wraps BOTH header and body, so they always
+            scroll together horizontally. The header itself is position:sticky
+            so it stays pinned when scrolling vertically. */}
         <div
-          className={cn("shadow-sm", {
+          className={cn("shadow-sm flex-1 min-h-0", {
             ["overflow-auto"]: scrollable,
             ["overflow-hidden"]: !scrollable,
           })}
@@ -54,7 +54,8 @@ export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable }: 
             scrollbarWidth: "thin",
           }}
         >
-          <table className="border-collapse table-fixed w-full text-sm">
+          <table className={cn("border-collapse table-fixed w-full text-sm w-max min-w-full", className)}>
+            <TMTable.Header columns={columns} />
             <tbody className="bg-white dark:bg-slate-800">
               {isEmpty && (
                 <tr>
@@ -92,7 +93,8 @@ TMTable.Header = ({ columns }: { columns: ICol[] }) => {
           <th
             key={`header-${i}`}
             className={cn(
-              "border-b dark:border-slate-600 font-medium p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left py-3"
+              "sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600 font-medium p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left py-3",
+              col.className,
             )}
             style={{
               width: col.width,
@@ -115,7 +117,7 @@ TMTable.Row = ({ columns, data, onClick, index }: IRow) => {
     <tr onClick={handleCellClick} className={cn("cursor-pointer group", styles.row)}>
       {columns.map((item, i) => {
         return (
-          <TMTable.Cell className={styles.cell} key={`cell_${i}`} style={{ width: item.width }}>
+          <TMTable.Cell className={cn(styles.cell, item.className)} key={`cell_${i}`} style={{ width: item.width }}>
             {item?.render ? item?.render(data, index) : data?.[item?.dataIndex]}
           </TMTable.Cell>
         );
@@ -129,7 +131,7 @@ TMTable.Cell = ({ children, className, style }: any) => {
     <td
       className={cn(
         " dark:border-slate-600 p-4 text-slate-500 dark:text-slate-400 group-hover:bg-slate-100 transition-all",
-        className
+        className,
       )}
       style={style}
     >

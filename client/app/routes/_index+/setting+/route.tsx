@@ -1,15 +1,11 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { Link, Outlet, useLoaderData } from "@remix-run/react";
+import { Link, Outlet } from "@remix-run/react";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { Icon } from "~/components/icon";
 
 export const meta: MetaFunction = () => {
-  return [
-    { title: "Cài đặt" },
-    { name: "description", content: "Quản lý cài đặt hệ thống" },
-  ];
+  return [{ title: "Cài đặt" }, { name: "description", content: "Quản lý cài đặt hệ thống" }];
 };
 
 /**
@@ -17,7 +13,7 @@ export const meta: MetaFunction = () => {
  * Load setting page
  */
 export async function loader({ request }: LoaderFunctionArgs) {
-  return json({});
+  return {};
 }
 
 interface ISettingItem {
@@ -68,9 +64,7 @@ export default function Setting() {
               className="block p-6 rounded-lg border border-gray-200 hover:shadow-lg hover:border-indigo-200 transition-all duration-200 group"
             >
               <div className="flex items-start gap-4">
-                <div
-                  className={`p-3 rounded-lg bg-gray-50 group-hover:bg-indigo-50 transition-colors ${item.color}`}
-                >
+                <div className={`p-3 rounded-lg bg-gray-50 group-hover:bg-indigo-50 transition-colors ${item.color}`}>
                   <Icon name={item.icon} className="w-6 h-6" />
                 </div>
                 <div className="flex-1">

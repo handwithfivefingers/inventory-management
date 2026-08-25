@@ -13,14 +13,19 @@ export interface ISelectInput extends BaseProps, React.InputHTMLAttributes<HTMLI
   placeholder?: string;
   value?: string | number | undefined;
   type?: string | undefined | any;
-  inputClassName?: string;
   options: any[];
+  inputSize?: "xs" | "sm" | "md";
 }
 
 type actions = {
   closeOnSelect?: boolean;
   onClick?: any;
   onSelect?: (value: string | number, option: any) => void;
+};
+const SizeClass = {
+  xs: "py-1 px-1.5 text-xs",
+  sm: "py-1 px-2 text-sm",
+  md: "py-2 px-4 text-sm",
 };
 
 export const SelectInput = ({
@@ -31,11 +36,11 @@ export const SelectInput = ({
   className,
   style,
   onChange,
-  inputClassName,
   suffix,
   options,
   onClick,
   onSelect,
+  inputSize,
   closeOnSelect = true,
   ...rest
 }: ISelectInput & actions) => {
@@ -103,12 +108,14 @@ export const SelectInput = ({
       onSelect?.(option.value, option);
     }
   };
-  const selectedOption = options.find((option) => option.value === rest.value);
+  const selectedOption = options.find((option) => option.value == rest.value);
+  console.log("selectedOption", selectedOption, options);
+  console.log("rest.value", rest.value);
   return (
     <div className={styles.inputWrapper} ref={wrapper}>
       <InputLabel label={label} name={name} />
       <div
-        className={cn("relative rounded-md flex items-center py-1 px-1 pl-2 w-full", className)}
+        className={cn("relative rounded-md flex items-center py-1 px-1 w-full", className)}
         onClick={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsFocus(true);
           if (onClick) {
@@ -117,7 +124,10 @@ export const SelectInput = ({
         }}
       >
         <div
-          className="z-[1] absolute pt-0.5 w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none px-1 "
+          className={cn(
+            "z-[1] absolute pt-0.5 w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none",
+            SizeClass[inputSize || "sm"],
+          )}
           style={{
             width: "calc(100% - 28px)",
             maxHeight: "30px",
@@ -128,29 +138,31 @@ export const SelectInput = ({
         </div>
         <input
           className={cn(
-            "block w-full bg-transparent cursor-pointer rounded-md border-0  text-transparent placeholder:text-gray-400  text-sm/6 outline-none px-1",
+            "block w-full bg-transparent rounded-md ",
+            "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 border border-slate-300 outline-none",
+            "text-transparent placeholder:text-gray-400",
+            SizeClass[inputSize || "sm"],
             styles.input,
-            inputClassName,
           )}
           readOnly
           {...(rest as any)}
         />
         <m.div
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-[1] px-1 "
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-[1] "
           animate={{
             rotate: isFocus ? 180 : 0,
           }}
         >
           <Icon name="chevron-down" className={cn(" text-indigo-600 w-5 transition-transform ", {})} />
         </m.div>
-        <div
+        {/* <div
           className={cn(
             "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300 -z-[1] bg-white",
             styles.outline,
             className,
           )}
           ref={skeleton}
-        />
+        /> */}
       </div>
 
       <Portal>
@@ -180,6 +192,7 @@ export const SelectInput = ({
                       onClick={(e: any) => handleSelect(item)}
                     >
                       <div className="flex gap-2 items-center">
+                        <span>{item.label}</span>
                         <div
                           className={cn({
                             "opacity-100": item.value === selectedOption?.value,
@@ -188,7 +201,6 @@ export const SelectInput = ({
                         >
                           <Icon name="check" fontSize={16} />
                         </div>
-                        <span>{item.label}</span>
                       </div>
                     </li>
                   );

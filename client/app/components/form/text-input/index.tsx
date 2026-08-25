@@ -11,12 +11,13 @@ export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInp
   placeholder?: string;
   value?: string;
   type?: string | undefined | any;
-  inputClassName?: string;
   wrapperClassName?: string;
   error?: string;
   multiline?: boolean;
   rows?: number;
   inputSize?: "xs" | "sm" | "md";
+  /** Show a red asterisk next to the label for required fields */
+  required?: boolean;
 }
 
 interface IFieldError {
@@ -26,9 +27,9 @@ interface IFieldError {
 }
 
 const SizeClass = {
-  xs: "py-1 px-1.5",
-  sm: "py-1.5 px-2",
-  md: "text-md py-2 px-3",
+  xs: "py-1 px-1.5 text-xs",
+  sm: "py-1 px-2 text-sm",
+  md: "py-2 px-4 text-sm",
 };
 export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
   (
@@ -41,12 +42,12 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
       wrapperClassName,
       style,
       onChange,
-      inputClassName,
       suffix,
       error,
       multiline,
       rows,
       inputSize,
+      required,
       ...rest
     },
     ref,
@@ -60,18 +61,20 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     if (multiline) {
       return (
         <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
-          <InputLabel name={name} label={label} />
+          <InputLabel name={name} label={label} required={required} />
           <div className={cn("relative rounded-md flex items-center w-full")}>
             <textarea
               name={name}
               id={name}
               className={cn(
-                "block w-full bg-transparent rounded-md border-0 text-gray-900  placeholder:text-gray-400 outline-none  py-1.5 px-3 text-sm",
+                "block w-full bg-transparent rounded-md border-0 text-xs",
+                "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 border border-slate-300 outline-none",
+                "text-slate-700  placeholder:text-gray-400",
+                SizeClass[inputSize || "sm"],
                 styles.input,
-                inputClassName,
                 className,
                 {
-                  ["!ring-1 !ring-red-600 !ring-inset "]: hasError,
+                  ["focus:!ring-red-600"]: hasError,
                 },
               )}
               placeholder={placeholder}
@@ -84,13 +87,6 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               }}
               style={style}
             />
-            <div
-              className={cn(
-                "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] bg-white",
-                styles.outline,
-                className,
-              )}
-            />
           </div>
         </div>
       );
@@ -98,18 +94,24 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
 
     return (
       <div className={cn(styles.inputWrapper)}>
-        <InputLabel name={name} label={label} />
+        <InputLabel name={name} label={label} required={required} />
         <div className={cn("relative rounded-md flex items-center w-full")}>
           <InputPrefix prefix={prefix} prefixRef={prefixRef} />
           <input
             name={name}
             id={name}
             className={cn(
-              "block w-full bg-transparent rounded-md border-0 text-gray-900  placeholder:text-gray-400 outline-none text-sm",
+              "block w-full bg-transparent rounded-md ",
+              "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 border border-slate-300 outline-none",
+              "text-slate-700  placeholder:text-gray-400",
               SizeClass[inputSize || "sm"],
+              prefix && "pl-8",
+              suffix && "pr-8",
               styles.input,
-              inputClassName,
               className,
+              {
+                ["focus:!ring-red-600"]: name && errors?.[name]?.message,
+              },
             )}
             placeholder={placeholder}
             {...(rest as React.InputHTMLAttributes<HTMLInputElement>)}
@@ -125,27 +127,18 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               <span className="text-gray-500 sm:text-sm">{suffix}</span>
             </div>
           )}
-          <div
-            className={cn(
-              "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300  -z-[1] bg-white",
-              {
-                ["ring-2 ring-inset !ring-red-600"]: name && errors?.[name]?.message,
-              },
-              styles.outline,
-              className,
-            )}
-          />
         </div>
       </div>
     );
   },
 );
 
-const InputLabel = ({ label, name }: { label?: string; name?: string }) => {
+const InputLabel = ({ label, name, required }: { label?: string; name?: string; required?: boolean }) => {
   if (!label) return;
   return (
     <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900 dark:text-slate-200">
       {label}
+      {required && <span className="text-rose-600"> *</span>}
     </label>
   );
 };
@@ -153,7 +146,7 @@ const InputLabel = ({ label, name }: { label?: string; name?: string }) => {
 const InputPrefix = ({ prefix, prefixRef }: { prefix: string; prefixRef: React.RefObject<HTMLSpanElement> }) => {
   if (!prefix) return "";
   return (
-    <div className="pointer-events-none inset-y-0 left-0 flex items-center pl-1 z-[1]">
+    <div className="pointer-events-none inset-y-0 flex items-center pl-1 z-[1] absolute top-1/2 left-1 -translate-y-1/2">
       <span className="text-indigo-950  sm:text-sm" ref={prefixRef}>
         {prefix}
       </span>

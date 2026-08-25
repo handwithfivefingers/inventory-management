@@ -7,6 +7,7 @@ import { financialService } from "~/action.server/financial.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
+import { DatePicker } from "~/components/form/date-picker";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
@@ -95,7 +96,7 @@ export default function FinancialAdd() {
             </div>
             <div className="col-span-1">
               <FormControl name="transactionDate">
-                {(field) => <TextInput label={t("financial.date")} type="date" {...field} />}
+                {(field) => <DatePicker label={t("financial.date")} {...field} />}
               </FormControl>
             </div>
             <div className="col-span-2">

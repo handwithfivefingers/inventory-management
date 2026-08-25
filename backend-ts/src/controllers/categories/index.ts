@@ -6,7 +6,7 @@ export class CategoriesController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new CategoriesService().create(req.body)
+      const resp = await new CategoriesService().create(req.body, req.query?.vendorId ?? (req as any)?.user?.vendorId)
       res.status(200).json({
         data: resp
       })

@@ -14,6 +14,8 @@ export interface ITransferModel
   type: string
   warehouseId: ForeignKey<number>
   productId: ForeignKey<number>
+  /** Nullable: NULL = legacy/simple-product movement */
+  variantId?: ForeignKey<number> | null
   createdAt: CreationOptional<Date>
   updatedAt: CreationOptional<Date>
 }

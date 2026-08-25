@@ -53,7 +53,7 @@ export default function ImportOrder() {
       <CardItem title={t("importOrder.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2">
-            <TextInput placeholder={t("providers.searchPlaceholder")} />
+            <TextInput placeholder={t("importOrder.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <PermissionGuard requireAdmin>
@@ -72,7 +72,7 @@ export default function ImportOrder() {
                   title: t("importOrder.stt"),
                   dataIndex: "id",
                   width: 80,
-                  render: (record, i) => Number(i) + 1,
+                  render: (_record, i) => (page - 1) * pageSize + Number(i) + 1,
                 },
                 {
                   title: t("importOrder.provider"),

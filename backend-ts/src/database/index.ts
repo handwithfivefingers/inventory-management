@@ -24,6 +24,8 @@ const sequelize = new Sequelize(dbName, 'root', 'mysql', {
 const database: IDatabase = {
   sync: async () => {
     try {
+      // alter: true keeps the schema in step with model changes in dev
+      // (e.g. the per-variant isNegative column added to productVariants).
       await sequelize.sync({ alter: true })
       console.log(`Database \x1b[33m${dbName}\x1b[0m has been established successfully`)
       return true

@@ -11,6 +11,7 @@ import {
 export interface ICustomerModel
   extends Model<InferAttributes<ICustomerModel>, InferCreationAttributes<ICustomerModel>> {
   id: CreationOptional<number>
+  code?: string | null
   name: string
   phone?: string | null
   email?: string | null

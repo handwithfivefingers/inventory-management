@@ -1,30 +1,28 @@
 import { forwardRef, useImperativeHandle } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
-import { IOrderDetailType } from "~/constants/schema/order";
 import { FormControl } from "../form/form-control";
 import { TextInput } from "../form/text-input";
 import { NumberInput } from "../form/number-input";
 import { TMButton } from "../tm-button";
 import { Icon } from "../icon";
+import { OrderDetailSchema } from "~/constants/schema/order";
+import { NumberStepper } from "../form/number-stepper";
 
 export interface OrderDetailFunction {
-  append: (value: Partial<IOrderDetailType>) => void;
-  replace: (value: IOrderDetailType[]) => void;
+  append: (value: Partial<OrderDetailSchema>) => void;
+  replace: (value: OrderDetailSchema[]) => void;
 }
-export const OrderDetails = forwardRef<OrderDetailFunction>((_, ref) => {
+interface Props {
+  addProduct: () => void;
+}
+export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) => {
   const form = useFormContext();
   if (!form) throw new Error("Component must be used within a FormProvider");
   const { fields, append, replace } = useFieldArray<any>({
     control: form.control, // control props comes from useForm (optional: if you are using FormProvider)
     name: "orderDetails", // unique name for your Field Array
   });
-  const orderDetails = form.watch("orderDetails") as IOrderDetailType[];
-  const controlledFields = fields.map((field, index) => {
-    return {
-      ...field,
-      ...(orderDetails?.[index] as any),
-    };
-  });
+  // const orderDetails = form.watch("orderDetails") as OrderDetailSchema[];
 
   const onQuantityIncreasement = (field: any, pos: number) => {
     const quantity = form.getValues(`orderDetails.${pos}.quantity` as any);
@@ -60,7 +58,7 @@ export const OrderDetails = forwardRef<OrderDetailFunction>((_, ref) => {
 
   return (
     <div className="min-h-40 max-h-[45vh] overflow-auto flex flex-col gap-4 py-2">
-      {controlledFields?.map((field, i: number) => {
+      {fields?.map((field, i: number) => {
         return (
           <div className="grid grid-cols-12" key={field.id}>
             <div className="col-span-12 grid grid-cols-12 gap-2 items-center" key={field.id}>
@@ -78,35 +76,9 @@ export const OrderDetails = forwardRef<OrderDetailFunction>((_, ref) => {
                 </FormControl>
               </div>
               <div className="col-span-2">
-                <FormControl name={`orderDetails.${i}.quantity` as any}>
+                <FormControl name={`orderDetails.${i}.quantity`}>
                   {(field) => (
-                    <div className="flex gap-1 rounded">
-                      <NumberInput
-                        value={field.value as any}
-                        onValueChange={(v) => onQuantityChange(v, field, i)}
-                        style={{ margin: 0 }}
-                      />
-                      <div className="flex">
-                        <TMButton
-                          size="xs"
-                          onClick={() => onQuantityDecreasement(field, i)}
-                          style={{
-                            borderRadius: "4px 0 0 4px",
-                          }}
-                        >
-                          <Icon name="minus" fontSize={16} />
-                        </TMButton>
-                        <TMButton
-                          size="xs"
-                          style={{
-                            borderRadius: "0 4px 4px 0",
-                          }}
-                          onClick={() => onQuantityIncreasement(field, i)}
-                        >
-                          <Icon name="plus" fontSize={16} />
-                        </TMButton>
-                      </div>
-                    </div>
+                    <NumberStepper value={field.value} onValueChange={(v) => onQuantityChange(v, field, i)} />
                   )}
                 </FormControl>
               </div>
@@ -126,6 +98,12 @@ export const OrderDetails = forwardRef<OrderDetailFunction>((_, ref) => {
           </div>
         );
       })}
+
+      <div className="col-span-12 justify-items-center items-center">
+        <div>
+          <TMButton onClick={props.addProduct}>Thêm sản phẩm</TMButton>
+        </div>
+      </div>
     </div>
   );
 });

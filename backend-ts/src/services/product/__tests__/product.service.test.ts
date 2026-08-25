@@ -121,10 +121,29 @@ describe("ProductService", () => {
       ).rejects.toThrow("Invalid quantity");
     });
 
-    it("throws when the product code is missing", async () => {
-      await expect(
-        service.create({ body: { warehouseId: 1, quantity: 5, name: "Cola" } } as any),
-      ).rejects.toThrow("Product code is required");
+    it("auto-generates the product code and SKU from vendor settings when missing", async () => {
+      const product = buildInstance();
+      const inventory = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 10 } };
+      const transfer = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 20 } };
+      database.product.findOne.mockResolvedValue(null);
+      database.product.count.mockResolvedValue(4);
+      database.product.build.mockReturnValue(product);
+      database.inventory.build.mockReturnValue(inventory as any);
+      database.transfer.build.mockReturnValue(transfer as any);
+      database.setting.findOne.mockResolvedValue({
+        codePrefix: { product: "SP-" },
+        codeSuffix: { product: "-V1" },
+        skuTemplate: "{CODE}",
+      });
+
+      await service.create({
+        body: { warehouseId: 1, quantity: 5, name: "Cola", vendorId: 2 },
+      } as any);
+
+      // seq = count + 1 = 5 -> padded '00005' wrapped with prefix/suffix
+      expect(database.product.build).toHaveBeenCalledWith(
+        expect.objectContaining({ code: "SP-00005-V1", skuCode: "SP-00005-V1" }),
+      );
     });
 
     it("throws when a product with the same code already exists", async () => {

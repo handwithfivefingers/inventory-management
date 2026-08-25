@@ -122,6 +122,18 @@ export default function Products() {
                   render: (record) => record["quantity"] || 0,
                 },
                 {
+                  title: "Biến thể",
+                  dataIndex: "variantCount",
+                  render: (record) =>
+                    Number(record.variantCount) > 0 ? (
+                      <span className="bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-xs">
+                        {record.variantCount} biến thể
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    ),
+                },
+                {
                   title: "Đã bán",
                   dataIndex: "sold",
                   render: (record) => record["sold"] || 0,
@@ -157,6 +169,11 @@ export default function Products() {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { warehouseId, cookie } = await parseCookieFromRequest(request);
   const form = await request.formData();
+  // Variant listing for the order flow: POST /products with variantOf=<productId>
+  const variantOf = form.get("variantOf");
+  if (variantOf) {
+    return productService.getProductVariants({ id: variantOf as string, cookie, warehouseId });
+  }
   const s = form.get("s") || "";
   return productService.getProducts({ s: s as string, warehouseId, page: "1", pageSize: "10", cookie });
 };

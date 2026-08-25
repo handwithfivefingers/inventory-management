@@ -52,10 +52,12 @@ export interface IInvoice {
 }
 
 export interface IInvoiceCreate {
-  orderId?: number;
+  /** Required in practice: an invoice can only be created from an order */
+  orderId: number;
   customerId?: number;
   warehouseId?: number;
-  items: IInvoiceItem[];
+  /** Optional: derived from the order details by the backend when omitted */
+  items?: IInvoiceItem[];
   VAT?: number;
   discount?: number;
   surcharge?: number;

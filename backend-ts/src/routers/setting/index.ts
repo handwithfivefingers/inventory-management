@@ -1,9 +1,10 @@
-const express = require("express");
-const route = express.Router();
-const { SettingController } = require("../controllers");
+import { SettingController } from '#/controllers/setting'
+import express from 'express'
+const Router = express.Router()
 
-route.post("/", new SettingController().createSetting);
-route.post("/:id", new SettingController().updateSetting);
-route.get("/:id", new SettingController().getSetting);
+// @ts-ignore
+Router.get('/', new SettingController().get)
+// @ts-ignore
+Router.put('/', new SettingController().update)
 
-module.exports = route;
+export default Router

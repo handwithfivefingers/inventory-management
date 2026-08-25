@@ -58,7 +58,8 @@ class App {
         return next(err)
       }
       captureException(err)
-      return res.status((err as { status?: number })?.status || 400).json(err)
+      // Include the message so clients can display the failure reason
+      return res.status((err as { status?: number })?.status || 400).json({ ...err, error: err.message })
     }
     this.app.use(errorHandler as any)
     this.app.get('/debug-sentry', function mainHandler(req, res) {

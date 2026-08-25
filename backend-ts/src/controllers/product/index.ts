@@ -56,4 +56,110 @@ export class ProductController {
   //     next(error)
   //   }
   // }
+
+  async getProductVariants(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().getProductVariants(req as IRequestLocal)
+      res.status(200).json({ total: resp.count, data: resp.rows })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async updateVariant(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().updateVariant(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async deleteVariant(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().deleteVariant(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async syncProductVariants(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().syncProductVariants(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async getProductAttributes(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().getProductAttributes(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async listAttributes(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().listAttributes(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async createAttribute(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().createAttribute(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async updateAttribute(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().updateAttribute(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async deleteAttribute(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new ProductService().deleteAttribute(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
 }

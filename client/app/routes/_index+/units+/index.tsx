@@ -45,7 +45,7 @@ export default function Products() {
       <CardItem title={t("units.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0">
-            <TextInput label="Name" placeholder={t("providers.searchPlaceholder")} />
+            <TextInput label="Name" placeholder={t("units.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <TMButton component={Link} to="./add" variant="light">

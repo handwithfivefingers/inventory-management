@@ -1,32 +1,50 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher, useLoaderData } from "@remix-run/react";
-import { useRef, useState } from "react";
+import { Link, useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
+import { useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { invoiceService } from "~/action.server/invoice.service";
 import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { FormControl } from "~/components/form/form-control";
-import { FormInput } from "~/components/form/formInput";
-import { NumberInput } from "~/components/form/number-input";
-import { Icon } from "~/components/icon";
-import { toast } from "~/components/notification";
-import { OrderDetailFunction, OrderDetails } from "~/components/order-details";
-import { ProductSearchModal } from "~/components/product-search-modal";
 import { TMButton } from "~/components/tm-button";
-import { IOrderDetailType, IOrderType, orderSchema } from "~/constants/schema/order";
+import { OrderForm } from "~/components/form/order-form";
+import { toast } from "~/components/notification";
+import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
+import { formatCurrency } from "~/libs/format-currency";
+import { IReceipt, printReceiptToDevice, stripDiacritics } from "~/libs/device-print";
+import { useState } from "react";
 import { useSubmitPromise } from "~/hooks";
 import { parseCookieFromRequest } from "~/sessions";
 import { IProduct } from "~/types/product";
+import { useTranslation } from "~/i18n";
+import { Icon } from "~/components/icon";
+
+const PRINT_STYLES = `
+@media print {
+  body * { visibility: hidden; }
+  .invoice-print, .invoice-print * { visibility: visible; }
+  .invoice-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 24px;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .no-print { display: none !important; }
+}
+`;
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }];
+  return [{ title: "Chi tiết đơn hàng" }];
 };
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { id } = params;
   const { cookie, warehouseId } = await parseCookieFromRequest(request);
-  if (!id) throw new Error("Không tìm thấy sản phẩm");
+  if (!id) throw new Error("Không tìm thấy đơn hàng");
   const response = await orderService.getOrderById({
     id,
     cookie,
@@ -34,212 +52,317 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   });
   return response.data;
 };
+
+export const action = async ({ request, params }: ActionFunctionArgs) => {
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+
+  try {
+    if (intent === "create-invoice") {
+      // An invoice can only be created from this order — backend enforces it
+      const resp: any = await invoiceService.createInvoice({
+        orderId: Number(params.id),
+        status: "draft",
+        cookie,
+        ...(warehouseId ? { warehouseId: Number(warehouseId) } : {}),
+      });
+      return { invoiceId: resp?.data?.data?.id ?? resp?.data?.id };
+    }
+
+    // default: update order
+    const data: any = await formData.get("data");
+    const dataJson = data ? JSON.parse(data) : {};
+    await orderService.updateOrder({
+      id: params.id as string,
+      ...dataJson,
+      cookie,
+    });
+    return { ok: true };
+  } catch (error: any) {
+    return { error: error.message || "Request failed" };
+  }
+};
+
 export default function OrderItem() {
   const loaderData = useLoaderData<typeof loader>();
-  const [show, setShow] = useState(false);
-  const searchFetcher = useFetcher<{ data: IProduct[] }>({ key: "Products-Search" });
-  const orderDetailsRef = useRef<OrderDetailFunction>(null);
-  const formMethods = useForm<IOrderType>({
+  const navigate = useNavigate();
+  const fetcher = useFetcher<typeof action>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isEdit = searchParams.get("edit") === "1";
+  const order: any = (loaderData as any)?.data ?? loaderData;
+  const { t } = useTranslation();
+
+  const searchFetcher = useFetcher<{ data: { data: IProduct[]; total: number } }>({ key: "Products-Search" });
+  const form = useForm<OrderSchema>({
     defaultValues: {
       customer: undefined,
-      orderDetails: loaderData?.data?.orderDetails,
-      price: loaderData?.data?.price || 0,
-      VAT: loaderData?.data?.VAT || "5",
-      surcharge: loaderData?.data?.surcharge || "0",
-      paid: 0,
-      paymentType: loaderData?.data?.paymentType || "cash",
+      orderDetails: (order?.orderDetails || []).map((detail: any) => ({
+        productId: detail.productId,
+        variantId: detail.variantId ?? undefined,
+        name: detail.name,
+        quantity: Number(detail.quantity),
+        price: Number(detail.price),
+        buyPrice: Number(detail.buyPrice),
+        note: detail.note || "",
+      })),
+      price: order?.price || 0,
+      VAT: order?.VAT,
+      surcharge: order?.surcharge || "0",
+      paid: order?.paid || 0,
+      paymentType: order?.paymentType || "cash",
     },
-    resolver: zodResolver(orderSchema),
+    resolver: orderSchema,
   });
-  const { watch, getValues, setValue } = formMethods;
+
   const { submit, isLoading } = useSubmitPromise();
-  const orderDetails = watch("orderDetails") as IOrderDetailType[];
-  const surcharge = watch("surcharge");
-  const VAT = watch("VAT");
+
+  // After creating an invoice, go see it
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data && !("error" in (fetcher.data as any))) {
+      const result: any = fetcher.data;
+      if (result.invoiceId) {
+        toast.success({ title: "Success", message: "Đã tạo hóa đơn từ đơn hàng" });
+        navigate(`/invoices/${result.invoiceId}`);
+      }
+      if (result.ok) {
+        toast.success({ title: "Success", message: "Cập nhật đơn hàng thành công" });
+        setSearchParams({}, { replace: true });
+        form.reset(form.getValues());
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetcher.state, fetcher.data]);
+
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
 
-  const total = orderDetails?.reduce((total, item: IOrderDetailType) => total + Number(item?.buyPrice), 0);
-  let combineTotal = total + Number(surcharge);
-  const totalPaid = Number(combineTotal + (combineTotal / 100) * Number(VAT));
-  // const handleRetrieveData = async (barcode: any) => {
-  //   setCanScan(false);
-  //   const item = data?.find((item: IProduct) => item.code == barcode);
-  //   if (item) {
-  //     handleAdd(item);
-  //   }
-  //   await new Promise((resolve) => setTimeout(resolve, 2000));
-  //   setCanScan(true);
-  // };
-
-  const handleFilterProduct = (e: any) => {
-    searchFetcher.submit({ s: e.target.value }, { method: "POST", action: "/products" });
+  const handleFilterProduct = (queryString: string) => {
+    searchFetcher.submit({ s: queryString }, { method: "POST", action: "/products" });
   };
 
   const handleAdd = (item: IProduct) => {
-    const currentValue: IOrderDetailType[] = getValues("orderDetails") || [];
-    if (!currentValue.length) {
-      const result = {
+    const currentValue: OrderDetailSchema[] = form.getValues("orderDetails") || [];
+    const index = currentValue.findIndex((cItem) => item.id === cItem.productId && cItem.productId);
+    if (index === -1) {
+      currentValue.push({
         productId: item.id,
         name: item.name,
         quantity: 1,
         price: Number(item.regularPrice),
         buyPrice: Number(item.regularPrice),
         note: "",
-      };
-      return orderDetailsRef.current?.append(result);
+      });
     } else {
-      let index = currentValue.findIndex((cItem) => item.id === cItem.productId && cItem.productId);
-      if (index === -1) {
-        const result = {
-          productId: item.id,
-          name: item.name,
-          quantity: 1,
-          price: Number(item.regularPrice),
-          buyPrice: Number(item.regularPrice),
-          note: "",
-        };
-        return orderDetailsRef.current?.append(result);
-      } else {
-        const target = { ...currentValue[index] };
-        const quantity = Number(target.quantity) + 1;
-        target.quantity = quantity;
-        target.buyPrice = quantity * Number(target.price);
-        currentValue[index] = target;
-        return orderDetailsRef.current?.replace(currentValue);
-      }
+      const target = { ...currentValue[index] };
+      target.quantity = Number(target.quantity) + 1;
+      target.buyPrice = Number(target.quantity) * Number(target.price);
+      currentValue[index] = target;
     }
+    form.setValue("orderDetails", currentValue);
   };
 
-  const onSubmit = async (v: IOrderType) => {
+  const onSubmitEdit = async (v: OrderSchema) => {
     try {
-      const params = {
-        ...v,
-        price: total,
-        paid: totalPaid,
-      };
-      const resp = await submit({ data: JSON.stringify(params) }, { method: "POST" });
-      toast.success({ title: "Created", message: "Tạo đơn hàng thành công" });
+      await submit({ intent: "update", data: JSON.stringify(v) }, { method: "post" });
     } catch (err) {
       console.log("error", err);
-      toast.danger({ title: "Error", message: "Tạo đơn hàng thất bại" });
+      toast.danger({ title: "Error", message: "Cập nhật đơn hàng thất bại" });
     }
-    // v.price = total;
-    // v.paid = totalPaid;
-    // console.log("v", v);
-    // fetcher.submit({ data: JSON.stringify(v) }, { method: "POST", action: "/orders/add" });
   };
 
-  const data = searchFetcher?.data?.data || [];
-  return (
-    <div className="w-full flex flex-col p-2 gap-4">
-      {/* <BarcodeScanner onScan={handleRetrieveData} start={canScan}> */}
-      <FormProvider {...formMethods}>
-        <form className="flex gap-4 flex-col" onSubmit={formMethods.handleSubmit(onSubmit, handleError)}>
+  const handleCreateInvoice = () => {
+    fetcher.submit({ intent: "create-invoice" }, { method: "post" });
+  };
+
+  const handlePrintTempInvoice = () => window.print();
+
+  // Direct USB (ESC/POS) printing — falls back to the browser dialog
+  const [devicePrinting, setDevicePrinting] = useState(false);
+  const handleDevicePrint = async () => {
+    setDevicePrinting(true);
+    try {
+      const width = 42;
+      const row = (left: string, right: string) => {
+        const l = stripDiacritics(left);
+        const r = stripDiacritics(right);
+        return l + " ".repeat(Math.max(1, width - l.length - r.length)) + r;
+      };
+      const receipt: IReceipt = {
+        title: t("orders.tempInvoice"),
+        subtitle: `${order?.code || ""} - ${new Date(order?.createdAt).toLocaleString("vi-VN")}`,
+        lines: [
+          ...items.map((item: any) => ({
+            text: row(`${item.name || `#${item.productId}`} x${item.quantity}`, formatCurrency(item.buyPrice)),
+          })),
+          { text: "-".repeat(width) },
+          { text: row(t("invoices.detail.subtotalLabel"), formatCurrency(subtotal)) },
+          {
+            text: row(`${t("invoices.detail.surcharge")}`, formatCurrency(order?.surcharge || 0)),
+          },
+          { text: row(`${t("importOrder.VAT")} ${Number(order?.VAT || 0)}%`, formatCurrency(vatAmount)) },
+          { text: "" },
+          { text: row(t("importOrder.totalPayable"), formatCurrency(totalPaid)), bold: true, large: true },
+        ],
+        footer: t("orders.tempInvoiceNotice"),
+      };
+      const ok = await printReceiptToDevice(receipt);
+      if (!ok) window.print();
+    } finally {
+      setDevicePrinting(false);
+    }
+  };
+
+  const data = searchFetcher?.data?.data?.data || [];
+
+  // ---------- Edit mode ----------
+  if (isEdit) {
+    return (
+      <FormProvider {...form}>
+        <div className="w-full flex flex-col p-2 gap-4 no-print">
           <CardItem
             title={
               <div className="flex justify-between items-center">
-                <label className="text-lg">Tạo đơn hàng</label>
-                <TMButton className="font-normal text-sm py-2" onClick={() => setShow(true)} size="xs">
-                  <div className="flex gap-0.5 items-center">
-                    <Icon name="plus" />
-                    <span>Thêm sản phẩm</span>
-                  </div>
-                </TMButton>
+                <label className="text-lg">
+                  {t("orders.editOrder")} - {order?.code || ""}
+                </label>
               </div>
             }
             className="min-h-80 p-4"
           >
-            <div className="col-span-12 grid grid-cols-12 gap-2 py-2 mb-4 border-b border-indigo-600 dark:border-slate-400">
-              <div className="col-span-1 ">STT</div>
-              <div className="col-span-4">Tên sản phẩm</div>
-              <div className="col-span-2 ">Số lượng</div>
-              <div className="col-span-2 text-right">Giá tiền</div>
-              <div className="col-span-3 text-right">Tổng tiền</div>
-            </div>
-            <div className="min-h-40 max-h-[45vh] overflow-auto flex flex-col gap-4 py-2">
-              <OrderDetails ref={orderDetailsRef} />
-            </div>
-            <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t border-indigo-200 dark:border-slate-400">
-              <div className="col-span-12 ml-auto flex flex-col gap-1">
-                <div className="w-96 flex justify-between ">
-                  <span>Tổng tiền</span>
-                  <NumberInput value={`${total}`} displayType="text" />
-                </div>
-                <div className="w-96 flex justify-between">
-                  <span>Phụ phí</span>{" "}
-                  <div className="w-40">
-                    <FormInput name="surcharge">
-                      {(field) => <NumberInput onValueChange={(v) => field.onChange(v.value)} />}
-                    </FormInput>
-                  </div>
-                </div>
-                <div className="w-96 flex justify-between">
-                  <span> VAT </span>
-                  <div className="w-40">
-                    <FormControl name="VAT">
-                      {(field) => (
-                        <NumberInput
-                          maxLength={4}
-                          max={1000}
-                          value={`${field.value}`}
-                          onValueChange={(v) => field.onChange(v.value)}
-                          suffix="%"
-                        />
-                      )}
-                    </FormControl>
-                  </div>
-                </div>
-                <div className="w-96 flex justify-between">
-                  <span>Tổng tiền đơn hàng </span>
-                  <NumberInput value={`${totalPaid}`} displayType="text" />
-                </div>
-                <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
-                <div className="w-96 flex justify-between font-bold">
-                  <span>Tổng phải thu</span> <NumberInput value={`${totalPaid}`} displayType="text" />
-                </div>
-                <div className="w-96 flex justify-between">
-                  <span>Đã thanh toán</span> <NumberInput value={`${totalPaid}`} displayType="text" />
-                </div>
-
-                <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
-
-                <div className="w-96 flex justify-end">
-                  <TMButton htmlType="submit" size="md" variant="light" loading={isLoading}>
-                    Tạo đơn hàng
-                  </TMButton>
-                </div>
-              </div>
+            <OrderForm
+              products={data}
+              addProduct={handleAdd}
+              onProductFilter={handleFilterProduct}
+              isLoading={isLoading}
+              onSubmit={onSubmitEdit}
+              onError={handleError}
+              submitLabel={t("common.save")}
+            />
+            <div className="flex justify-end pt-2">
+              <TMButton variant="outline" onClick={() => setSearchParams({}, { replace: true })}>
+                {t("common.cancel")}
+              </TMButton>
             </div>
           </CardItem>
-        </form>
+        </div>
       </FormProvider>
-      <ProductSearchModal
-        data={data}
-        close={() => setShow(false)}
-        show={show}
-        onSearch={handleFilterProduct}
-        onSelect={handleAdd}
-      />
-      {/* </BarcodeScanner> */}
+    );
+  }
+
+  // ---------- Read-only detail mode ----------
+  const items = order?.orderDetails || [];
+  const subtotal = items.reduce((sum: number, d: any) => sum + Number(d.buyPrice || 0), 0);
+  const vatAmount = (subtotal * Number(order?.VAT || 0)) / 100;
+  const totalPaid = subtotal + Number(order?.surcharge || 0) + vatAmount;
+
+  return (
+    <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <style>{PRINT_STYLES}</style>
+
+      {/* Toolbar */}
+      <div className="flex gap-2 shrink-0 no-print">
+        <Link to="/orders" className="text-blue-600 hover:underline text-sm self-center">
+          ← {t("common.back")}
+        </Link>
+
+        <div className="ml-auto flex gap-2">
+          <TMButton variant="outline" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
+            <Icon name="printer" fontSize={16} />
+            <span>{t("orders.printDevice")}</span>
+          </TMButton>
+          <TMButton variant="outline" onClick={handlePrintTempInvoice} size="sm">
+            <Icon name="printer" fontSize={16} />
+            <span>{t("orders.printTempInvoice")}</span>
+          </TMButton>
+          <TMButton variant="outline" onClick={() => setSearchParams({ edit: "1" })} size="sm">
+            <Icon name="edit" fontSize={16} />
+            <span>{t("orders.editOrder")}</span>
+          </TMButton>
+          <TMButton onClick={handleCreateInvoice} loading={fetcher.state !== "idle"} size="sm">
+            <Icon name="plus" fontSize={16} />
+            <span>{t("orders.createInvoice")}</span>
+          </TMButton>
+        </div>
+      </div>
+
+      {/* Printable temp invoice */}
+      <CardItem
+        title={
+          <span className="no-print">
+            {t("orders.detailTitle")} {order?.code || ""}
+          </span>
+        }
+        className="p-6 overflow-auto invoice-print"
+      >
+        <div className="flex flex-col gap-6">
+          {/* Header */}
+          <div className="flex justify-between items-start flex-wrap gap-2">
+            <div>
+              <p className="text-lg font-bold">{order?.code || `#${order?.id}`}</p>
+              <p className="text-sm text-gray-500">{new Date(order?.createdAt).toLocaleString("vi-VN")}</p>
+            </div>
+            <span className="px-3 py-1 rounded text-sm bg-gray-100 text-gray-800">
+              {order?.paymentType === "transfer" ? t("invoices.detail.transfer") : t("invoices.detail.cash")}
+            </span>
+          </div>
+
+          {/* Items */}
+          <div className="border rounded overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-2 text-left">{t("importOrder.product")}</th>
+                  <th className="p-2 w-24 text-right">{t("importOrder.quantity")}</th>
+                  <th className="p-2 w-32 text-right">{t("importOrder.price")}</th>
+                  <th className="p-2 w-32 text-right">{t("importOrder.total")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item: any, index: number) => (
+                  <tr key={`${item.id}-${index}`} className="border-t">
+                    <td className="p-2">{item.name || `#${item.productId}`}</td>
+                    <td className="p-2 text-right">{item.quantity}</td>
+                    <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                    <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals */}
+          <div className="flex justify-end">
+            <div className="w-72 space-y-2">
+              <div className="flex justify-between">
+                <span>{t("invoices.detail.subtotalLabel")}</span>
+                <span className="font-medium">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>{t("invoices.detail.surcharge")}</span>
+                <span className="font-medium">{formatCurrency(order?.surcharge || 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>
+                  {t("importOrder.VAT")} ({Number(order?.VAT || 0)}%)
+                </span>
+                <span className="font-medium">{formatCurrency(vatAmount)}</span>
+              </div>
+              <div className="flex justify-between text-lg font-bold border-t pt-2">
+                <span>{t("importOrder.totalPayable")}</span>
+                <span className="text-blue-600">{formatCurrency(totalPaid)}</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
+        </div>
+      </CardItem>
     </div>
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const formData = await request.formData();
-  const data: any = await formData.get("data");
-  const dataJson = data ? JSON.parse(data) : {};
-  const { warehouseId, cookie } = await parseCookieFromRequest(request);
-  const params = {
-    ...dataJson,
-    warehouseId,
-    cookie,
-  };
-  const resp = await orderService.createOrder(params);
-  return resp;
-};
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

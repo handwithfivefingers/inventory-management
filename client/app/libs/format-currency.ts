@@ -6,12 +6,34 @@
  */
 export const formatCurrency = (value: number | string | undefined | null, currency: string = '₫'): string => {
   if (value === undefined || value === null) return '0' + currency;
-  
+
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  
+
   if (isNaN(numValue)) return '0' + currency;
-  
+
   return new Intl.NumberFormat('vi-VN').format(numValue) + currency;
+};
+
+export interface IMoneyFormatOptions {
+  /** Currency unit, e.g. 'VND', '$', 'đ' */
+  unit?: string;
+  /** Where the unit is placed relative to the amount */
+  position?: 'prefix' | 'suffix';
+}
+
+/**
+ * Format a money value using the vendor's money-unit settings
+ * (unit symbol + prefix/suffix position).
+ * e.g. formatWithUnit(150000, { unit: 'đ', position: 'suffix' }) -> '150.000đ'
+ *      formatWithUnit(150000, { unit: '$', position: 'prefix' }) -> '$150.000'
+ */
+export const formatWithUnit = (
+  value: number | string | undefined | null,
+  { unit = '₫', position = 'suffix' }: IMoneyFormatOptions = {}
+): string => {
+  const formatted = formatNumber(value);
+  if (!formatted) return '';
+  return position === 'prefix' ? `${unit}${formatted}` : `${formatted}${unit}`;
 };
 
 /**

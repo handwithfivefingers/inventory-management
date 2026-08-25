@@ -47,6 +47,16 @@ const ProductModel = (sequelize: Sequelize) => {
         allowNull: true,
         defaultValue: 0
       },
+      isNegative: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      },
+      // Product image URL (single image for now)
+      image: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
       unitId: {
         type: DataTypes.INTEGER,
         allowNull: true
@@ -69,6 +79,8 @@ const ProductModel = (sequelize: Sequelize) => {
     M.hasMany(models.orderDetail, { foreignKey: 'productId' })
     M.hasMany(models.transfer, { foreignKey: 'productId' })
     M.belongsToMany(models.tag, { through: 'product_tags' })
+    M.hasMany(models.productVariant, { foreignKey: 'productId', as: 'variants' })
+    M.hasMany(models.productAttribute, { foreignKey: 'productId', as: 'attributes' })
     M.belongsTo(models.unit, { foreignKey: 'unitId' })
     M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
   }

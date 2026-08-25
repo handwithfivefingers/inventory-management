@@ -5,11 +5,12 @@ export class HistoryController {
     const [req, res, next] = arg
     try {
       const { id } = req.params
-      const { warehouseId } = req.query
+      const { warehouseId, variantId } = req.query
       if (!warehouseId) throw new Error('warehouseId is required')
       const { count, rows } = await new TransferService().getHistoryByProductId({
         id,
-        warehouseId: warehouseId as string | string[]
+        warehouseId: warehouseId as string | string[],
+        variantId: (variantId as string) ?? null
       })
       res.status(200).json({ total: count, data: rows })
       return

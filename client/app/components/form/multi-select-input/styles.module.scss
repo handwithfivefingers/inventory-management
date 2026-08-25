@@ -4,14 +4,6 @@
   & ~ .chevron {
     transform: rotate(0);
   }
-  &:focus {
-    & ~ .outline {
-      @apply ring-2 ring-inset ring-indigo-600 dark:ring-indigo-300/50;
-    }
-    & ~ .chevron {
-      transform: rotate(90deg);
-    }
-  }
 }
 
 .outline {
@@ -28,7 +20,6 @@
 
 .dropdown {
   @apply rounded-sm mt-2 fixed bg-white;
-  border: 1px solid #eee;
 }
 
 .rotation {

@@ -6,9 +6,9 @@ const API_PATH = {
 };
 
 const financialService = {
-  getVouchers: (searchParams: IFinancialQueryParams) => {
+  getVouchers: ({ cookie, ...searchParams }: IFinancialQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return http.get<{ data: IFinancialRecord[]; total: number }>(API_PATH.financial + "?" + qs.toString());
+    return http.get<{ data: IFinancialRecord[]; total: number }>(API_PATH.financial + "?" + qs.toString(), { cookie });
   },
   getVoucherById: (id: string | number) => {
     return http.get<{ data: IFinancialRecord }>(`${API_PATH.financial}/${id}`);

@@ -18,7 +18,6 @@ export default class OrderController {
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {
-      console.log('getOrders error', error)
       next(error)
     }
   }
@@ -27,6 +26,17 @@ export default class OrderController {
       const { id } = req.params
       const { warehouseId } = req.query
       const resp = await new OrderService().getOrderById({ warehouseId: warehouseId as string, id })
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const resp = await new OrderService().update(req as any)
       res.status(200).json({
         data: resp
       })

@@ -13,7 +13,6 @@ export default class VendorService {
     const t = await this.sequelize.transaction()
     try {
       const user = await getCtxUser(req as any)
-      console.log('user', this.vendor)
       if (!user) throw new Error(ERROR.UNAUTHORIZED)
       const _vendor = await this.vendor.create(
         {

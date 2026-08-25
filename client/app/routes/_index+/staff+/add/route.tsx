@@ -7,6 +7,7 @@ import { staffService } from "~/action.server/staff.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
+import { DatePicker } from "~/components/form/date-picker";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
@@ -121,7 +122,7 @@ export default function StaffAdd() {
               </FormControl>
             </div>
             <div className="col-span-1">
-              <FormControl name="hireDate">{(field) => <TextInput label={t("staff.hireDate")} type="date" {...field} />}</FormControl>
+              <FormControl name="hireDate">{(field) => <DatePicker label={t("staff.hireDate")} {...field} />}</FormControl>
             </div>
             <div className="col-span-2">
               <FormControl name="address">{(field) => <TextInput label={t("staff.address")} {...field} />}</FormControl>

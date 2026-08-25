@@ -11,6 +11,7 @@ import {
 export interface ICategoryModel
   extends Model<InferAttributes<ICategoryModel>, InferCreationAttributes<ICategoryModel>> {
   id: CreationOptional<number>
+  code?: string | null
   name: string
   vendorId: ForeignKey<number>
 }

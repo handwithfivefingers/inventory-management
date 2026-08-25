@@ -6,8 +6,9 @@ import { tagSchema } from "../tag";
 import { productSchema } from "../product";
 import { shiftSchema } from "../shift";
 import { financialSchema } from "../financial";
-import { orderSchema } from "../order";
-import { providerSchema } from "../provider";
+import { orderFormSchema } from "../order";
+import { providerSchema, providerUpdateSchema } from "../provider";
+import { warehouseSchema } from "../warehouse";
 import { unitSchema } from "../units";
 import { staffSchema } from "../staff";
 
@@ -137,9 +138,9 @@ describe("financialSchema", () => {
   });
 });
 
-describe("orderSchema", () => {
+describe("orderFormSchema", () => {
   it("defaults price, VAT, surcharge, paid and paymentType", () => {
-    const parsed = orderSchema.parse({});
+    const parsed = orderFormSchema.parse({});
     expect(parsed.price).toBe("0");
     expect(parsed.VAT).toBe("0");
     expect(parsed.surcharge).toBe("0");
@@ -147,15 +148,15 @@ describe("orderSchema", () => {
     expect(parsed.paymentType).toBe("cash");
   });
   it("validates orderDetails and paymentType", () => {
-    const result = orderSchema.safeParse({
+    const result = orderFormSchema.safeParse({
       paymentType: "transfer",
       orderDetails: [{ productId: "1", quantity: 2, price: "5" }],
     });
     expect(result.success).toBe(true);
-    expect(orderSchema.safeParse({ paymentType: "bitcoin" }).success).toBe(false);
+    expect(orderFormSchema.safeParse({ paymentType: "bitcoin" }).success).toBe(false);
   });
   it("requires productId inside each order detail", () => {
-    expect(orderSchema.safeParse({ orderDetails: [{ quantity: 2 }] }).success).toBe(false);
+    expect(orderFormSchema.safeParse({ orderDetails: [{ quantity: 2 }] }).success).toBe(false);
   });
 });
 
@@ -169,6 +170,24 @@ describe("providerSchema", () => {
   });
   it("rejects an invalid email when provided", () => {
     expect(providerSchema.safeParse({ name: "ACME", email: "bad" }).success).toBe(false);
+  });
+});
+
+describe("providerUpdateSchema", () => {
+  it("requires an id and a name", () => {
+    expect(providerUpdateSchema.safeParse({ id: 1 }).success).toBe(false);
+    expect(providerUpdateSchema.safeParse({ name: "ACME" }).success).toBe(false);
+    expect(providerUpdateSchema.safeParse({ id: "1", name: "ACME" }).success).toBe(true);
+  });
+});
+
+describe("warehouseSchema", () => {
+  it("requires a name", () => {
+    expect(warehouseSchema.safeParse({}).success).toBe(false);
+    expect(warehouseSchema.safeParse({ name: "Main" }).success).toBe(true);
+  });
+  it("treats contact fields as optional", () => {
+    expect(warehouseSchema.safeParse({ name: "Main", email: "", phone: "", address: "" }).success).toBe(true);
   });
 });
 

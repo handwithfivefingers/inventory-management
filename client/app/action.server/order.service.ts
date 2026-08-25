@@ -25,7 +25,7 @@ interface IOrderCreateParams {
   VAT?: number | string;
   surcharge?: number | string;
   paid: number | string;
-  paymentType: "cash" | "transfer";
+  paymentType: "cash" | "transfer" | "credit";
   warehouseId: number | string;
   cookie: string;
 }
@@ -45,6 +45,9 @@ const orderService = {
   },
   createOrder: ({ cookie, ...params }: IOrderCreateParams) => {
     return HTTPService.getInstance().post(API_PATH.orderCreate, params, { Cookie: cookie });
+  },
+  updateOrder: ({ id, cookie, ...params }: IOrderCreateParams & { id: string | number; cookie: string }) => {
+    return HTTPService.getInstance().put(`${API_PATH.orders}/${id}`, params, { Cookie: cookie });
   },
 };
 

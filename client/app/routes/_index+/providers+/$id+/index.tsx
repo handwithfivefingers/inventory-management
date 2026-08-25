@@ -1,87 +1,88 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { redirect, useLoaderData } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
-import { z } from "zod";
 import { providerService } from "~/action.server/provider.service";
 import { CardItem } from "~/components/card-item";
-import { FormInput } from "~/components/form/formInput";
+import { ErrorComponent } from "~/components/error-component";
+import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
+import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
+import { providerUpdateSchema, ProviderUpdateSchema } from "~/constants/schema/provider";
+import { useSubmitPromise } from "~/hooks";
+import { ResponseError } from "~/http";
+import { parseCookieFromRequest } from "~/sessions";
+import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  try {
-    const { id } = params;
-    const cookie = request.headers.get("cookie") as string;
-    if (!id) return redirect(`/providers`);
-    const resp = await providerService.getProviderById({ id, cookie });
-    console.log("resp", resp);
-    if (resp.status !== 200) throw resp;
-    return resp;
-  } catch (error) {
-    // throw data(error, { status: 400 });
-    throw error;
-  }
-};
-export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  const { id } = params;
+  const { cookie } = await parseCookieFromRequest(request);
+  if (!id) return redirect("/providers");
+  const resp = await providerService.getProviderById({ id, cookie });
+  if (resp.status !== 200) throw new Response("Provider not found", { status: resp.status });
+  return resp;
 };
 
-const ProviderSchema = z.object({
-  id: z.number(),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-});
+export const meta: MetaFunction = () => {
+  return [{ title: "Chỉnh sửa nhà cung cấp" }, { name: "description", content: "Chỉnh sửa nhà cung cấp" }];
+};
 
 export default function ProviderItem() {
   const { data } = useLoaderData<typeof loader>();
-  const formMethods = useForm({
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const formMethods = useForm<ProviderUpdateSchema>({
     values: data,
-    resolver: zodResolver(ProviderSchema),
+    resolver: zodResolver(providerUpdateSchema),
   });
-  const { control, handleSubmit } = formMethods;
-  const onSubmit = (v: z.infer<typeof ProviderSchema>) => {
-    console.log("v", v);
+  const { handleSubmit } = formMethods;
+  const { submit, isLoading } = useSubmitPromise();
+  const onSubmit = async (v: ProviderUpdateSchema) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const resp = await submit<any>({ data: JSON.stringify(v) }, { method: "POST", action: `/providers/${v.id}` });
+      if (resp?.status && Number(resp.status) >= 400) {
+        throw new ResponseError({ error: resp?.error ?? t("common.tryAgain"), status: Number(resp.status) });
+      }
+      toast.success({ title: t("common.success"), message: t("providers.updateSuccess") });
+      navigate("/providers");
+    } catch (error) {
+      if (error instanceof ResponseError) {
+        toast.danger({ title: t("common.error"), message: error.message });
+      }
+    }
   };
   return (
     <div className="w-full flex flex-col p-2 gap-4">
-      <CardItem title="Chỉnh sửa đơn vị cung cấp" className="flex p-4">
+      <CardItem title={t("providers.editTitle")} className="flex p-4">
         <FormProvider {...formMethods}>
-          <form
-            className="grid grid-cols-2 gap-x-2 gap-2"
-            onSubmit={handleSubmit(
-              onSubmit
-              // (v) =>
-              // submit({ data: JSON.stringify(v) }, { method: "POST", action: `/providers/${data.id}` })
-            )}
-          >
+          <form className="grid grid-cols-2 gap-x-2 gap-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="col-span-2">
-              <FormInput name="name">
-                <TextInput label="Tên kho hàng" />
-              </FormInput>
+              <FormControl name="name">
+                <TextInput label={t("providers.name")} />
+              </FormControl>
             </div>
             <div className="col-span-1">
-              <FormInput name="email">
-                <TextInput label="Email" />
-              </FormInput>
+              <FormControl name="email">
+                <TextInput label={t("providers.email")} />
+              </FormControl>
             </div>
             <div className="col-span-1">
-              <FormInput name="phone">
-                <TextInput label="Số điện thoại" />
-              </FormInput>
+              <FormControl name="phone">
+                <TextInput label={t("providers.phone")} />
+              </FormControl>
             </div>
             <div className="col-span-2">
-              <FormInput name="address">
-                <TextInput label="Địa chỉ" />
-              </FormInput>
+              <FormControl name="address">
+                <TextInput label={t("providers.address")} />
+              </FormControl>
             </div>
 
             <div className="col-span-2 ml-auto">
-              <TMButton variant="light" htmlType="submit">
-                Lưu
+              <TMButton variant="light" htmlType="submit" loading={isLoading}>
+                {t("common.save")}
               </TMButton>
             </div>
           </form>
@@ -90,21 +91,17 @@ export default function ProviderItem() {
     </div>
   );
 }
+export function ErrorBoundary() {
+  return <ErrorComponent />;
+}
+
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   try {
-    const form = await request.formData();
-    const { id } = params;
-    const data = form.get("data") as string;
-    console.log("data", data);
-    const parsed = JSON.parse(data);
-    parsed.id = id;
-    const resp = await providerService.update(parsed);
-    console.log("resp", resp);
-    if (resp.status === 200) {
-      return redirect(`/providers`, 302);
-    }
-    return resp;
+    const formData = await request.formData();
+    const data = JSON.parse(Object.fromEntries(formData)?.data as string);
+    const resp = await providerService.update({ ...data, id: params.id });
+    return json(resp);
   } catch (error) {
-    throw error;
+    return json({ error: (error as any)?.message }, { status: 400 });
   }
 };

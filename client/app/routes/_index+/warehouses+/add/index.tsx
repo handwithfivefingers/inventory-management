@@ -1,30 +1,28 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import { useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
-import z from "zod";
 import { warehouseService } from "~/action.server/warehouse.service";
 import { CardItem } from "~/components/card-item";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
+import { warehouseSchema, WarehouseSchema } from "~/constants/schema/warehouse";
 import { useSubmitPromise } from "~/hooks";
 import { ResponseError } from "~/http";
 import { parseCookieFromRequest } from "~/sessions";
+import { useTranslation } from "~/i18n";
+
 export const meta: MetaFunction = () => {
   return [{ title: "Thêm kho hàng" }, { name: "description", content: "Thêm kho hàng mới" }];
 };
-const warehouseSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-});
 
-type warehouseSchemaType = z.infer<typeof warehouseSchema>;
-export default function WarehouseItem() {
-  const formMethods = useForm<warehouseSchemaType>({
+export default function WarehouseAdd() {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const formMethods = useForm<WarehouseSchema>({
     defaultValues: {
       name: "",
       email: "",
@@ -35,54 +33,51 @@ export default function WarehouseItem() {
   });
   const { handleSubmit } = formMethods;
   const { submit, isLoading } = useSubmitPromise();
-  const onSubmit = async (v: warehouseSchemaType) => {
+  const onSubmit = async (v: WarehouseSchema) => {
     try {
-      console.log("v", v);
-      const resp = await submit({ data: JSON.stringify(v) }, { method: "POST" });
-      console.log("resp", resp);
-      toast.success({ title: "Created", message: "Tạo kho hàng thành công" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const resp = await submit<any>({ data: JSON.stringify(v) }, { method: "POST" });
+      if (resp?.status && Number(resp.status) >= 400) {
+        throw new ResponseError({ error: resp?.error ?? t("common.tryAgain"), status: Number(resp.status) });
+      }
+      toast.success({ title: t("common.success"), message: t("warehouses.createSuccess") });
+      navigate("/warehouses");
     } catch (error) {
-      console.log("error", error);
       if (error instanceof ResponseError) {
-        toast.danger({ title: "Error", message: error.message });
+        toast.danger({ title: t("common.error"), message: error.message });
       }
     }
   };
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Thêm kho hàng" className="p-4 h-full">
+      <CardItem title={t("warehouses.addTitle")} className="p-4 h-full">
         <FormProvider {...formMethods}>
-          <form className="grid grid-cols-4 gap-2 h-full" onSubmit={handleSubmit(onSubmit)}>
-            <div className="col-span-3 h-full bg-slate-700 p-4 rounded">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <FormControl name="name">
-                    <TextInput label="Tên kho hàng" />
-                  </FormControl>
-                </div>
-                <div className="col-span-1">
-                  <FormControl name="email">
-                    <TextInput label="Email" />
-                  </FormControl>
-                </div>
-                <div className="col-span-1">
-                  <FormControl name="phone">
-                    <TextInput label="Số điện thoại" />
-                  </FormControl>
-                </div>
-                <div className="col-span-2 ">
-                  <FormControl name="address">
-                    <TextInput label="Địa chỉ" />
-                  </FormControl>
-                </div>
-                <div className="col-span-2 flex justify-end">
-                  <TMButton htmlType="submit" className="" loading={isLoading}>
-                    Tạo mới
-                  </TMButton>
-                </div>
-              </div>
+          <form className="grid grid-cols-2 gap-4" onSubmit={handleSubmit(onSubmit)}>
+            <div className="col-span-2">
+              <FormControl name="name">
+                <TextInput label={t("warehouses.nameLabel")} />
+              </FormControl>
             </div>
-            <div className="col-span-1 h-full bg-slate-700 p-4 rounded"></div>
+            <div className="col-span-1">
+              <FormControl name="email">
+                <TextInput label={t("warehouses.email")} />
+              </FormControl>
+            </div>
+            <div className="col-span-1">
+              <FormControl name="phone">
+                <TextInput label={t("warehouses.phone")} />
+              </FormControl>
+            </div>
+            <div className="col-span-2 ">
+              <FormControl name="address">
+                <TextInput label={t("warehouses.address")} />
+              </FormControl>
+            </div>
+            <div className="col-span-2 flex justify-end">
+              <TMButton htmlType="submit" loading={isLoading}>
+                {t("common.save")}
+              </TMButton>
+            </div>
           </form>
         </FormProvider>
       </CardItem>
@@ -94,11 +89,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { vendorId, cookie } = await parseCookieFromRequest(request);
     const formData = await request.formData();
-    const data = JSON.parse(Object.fromEntries(formData)?.data);
-    console.log("data", data);
+    const data = JSON.parse(Object.fromEntries(formData)?.data as string);
     const resp = await warehouseService.createWarehouse({ ...data, vendorId, cookie });
     return json(resp);
   } catch (error) {
-    return json({ error: (error as any)?.message }, { status: 400 });
+    return json({ status: 400, error: (error as any)?.message }, { status: 400 });
   }
 };

@@ -98,7 +98,6 @@ export default class AuthenticateService {
         roles: (user as any).roles,
         vendors: (user as any).vendors
       }
-      console.log('user', user)
       return response
     } catch (err) {
       console.log('error', err)

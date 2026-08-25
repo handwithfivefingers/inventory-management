@@ -1,6 +1,8 @@
 import database from '#/database'
 import { IRequestLocal } from '#/types/common'
 import { ICustomerStatic } from '#/types/customer'
+import { SettingService } from '../setting'
+import { applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
 import { Sequelize } from 'sequelize'
 
 export class CustomerService {
@@ -97,6 +99,18 @@ export class CustomerService {
         throw new Error('vendorId is required')
       }
 
+      // Auto-generate the customer code from the vendor prefix/suffix settings
+      let code = req.body?.code
+      try {
+        const settings = await new SettingService().getForVendor(finalVendorId)
+        const seq = await this.customer.count({ where: { vendorId: finalVendorId } })
+        const baseCode = code || padSeq(seq + 1)
+        const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'customer')
+        code = applyCodeFormat(baseCode, prefix, suffix)
+      } catch (e) {
+        console.warn('customer code generation skipped', e)
+      }
+
       const customer = await this.customer.create(
         {
           name,
@@ -104,6 +118,7 @@ export class CustomerService {
           email,
           address,
           taxCode,
+          code,
           vendorId: finalVendorId
         },
         { transaction: t }

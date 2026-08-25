@@ -18,6 +18,8 @@ export interface IOrderDetailModel
   warehouseId: ForeignKey<number>
   orderId: ForeignKey<number>
   productId: ForeignKey<number>
+  /** Nullable for simple products; set when a specific variant was ordered */
+  variantId?: ForeignKey<number> | null
 }
 
 export type IOrderDetailStatic = typeof Model & { associate: (models: any) => void } & {

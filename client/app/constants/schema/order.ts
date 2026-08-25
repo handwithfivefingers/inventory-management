@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { StrOrNum } from "./common";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 const orderDetails = z.object({
   productId: StrOrNum,
+  /** Optional: set when the line targets a specific product variant */
+  variantId: StrOrNum.optional(),
   quantity: StrOrNum,
   price: StrOrNum.optional(),
   buyPrice: StrOrNum.optional(),
@@ -11,7 +14,7 @@ const orderDetails = z.object({
   warehouseId: StrOrNum.optional(),
 });
 
-const orderSchema = z.object({
+const schema = z.object({
   orderDetails: z.array(orderDetails).optional(),
   price: StrOrNum.default("0"),
   VAT: StrOrNum.default("0"),
@@ -22,6 +25,9 @@ const orderSchema = z.object({
   customer: StrOrNum.optional(),
 });
 
-export type IOrderType = z.infer<typeof orderSchema>;
-export type IOrderDetailType = z.infer<typeof orderDetails>;
-export { orderSchema };
+export type OrderSchema = z.infer<typeof schema>;
+export type OrderDetailSchema = z.infer<typeof orderDetails>;
+/** Raw zod schema (usable for `.parse()` / `.safeParse()` in tests and services). */
+export const orderFormSchema = schema;
+/** react-hook-form resolver for the order form. */
+export const orderSchema = zodResolver(schema);

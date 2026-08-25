@@ -13,9 +13,9 @@
 import OrderController from '#/controllers/order'
 import express from 'express'
 const Router = express.Router()
-// Router.get('/', new VendorController().get)
 Router.get('/', new OrderController().getOrders)
 Router.get('/:id', new OrderController().getOrderById)
 Router.post('/create', new OrderController().create)
+Router.put('/:id', new OrderController().update)
 
 export default Router

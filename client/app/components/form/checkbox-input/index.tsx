@@ -17,7 +17,7 @@ interface ICheckboxInput {
 export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
   (
     { label, name, className, wrapperClassName, style, onChange, inputClassName, suffix, value = false, ...rest },
-    ref
+    ref,
   ) => {
     const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
     const inputRef = useRef<HTMLInputElement>(null);
@@ -46,8 +46,10 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
             />
             <span
               className={cn(
-                "w-3.5 h-3.5 bg-indigo-600 shadow-xl flex items-center justify-center rounded-full absolute top-1/2 left-0 transform  -translate-y-1/2 translate-x-0.5 transition-all",
-                styles.dot
+                "w-3.5 h-3.5 bg-slate-500 shadow-xl flex items-center justify-center rounded-full absolute top-1/2 left-0 transform  -translate-y-1/2 translate-x-0.5 transition-all",
+                {
+                  "translate-x-[calc(100%+2px)] bg-indigo-600": value,
+                },
               )}
             />
           </div>
@@ -55,5 +57,5 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
         {name && errors?.[name]?.message && <p className="text-red-500 p-2">{errors?.[name]?.message as string}</p>}
       </div>
     );
-  }
+  },
 );

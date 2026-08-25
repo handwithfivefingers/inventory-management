@@ -34,7 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Nhà cung cấp" }, { name: "description", content: "Quản lý nhà cung cấp" }];
 };
 
 export default function Products() {
@@ -66,17 +66,16 @@ export default function Products() {
                   dataIndex: "name",
                 },
                 {
-                  title: t("providers.code"),
-                  dataIndex: "skuCode",
+                  title: t("providers.phone"),
+                  dataIndex: "phone",
                 },
                 {
-                  title: t("providers.inStock"),
-                  dataIndex: "inStock",
+                  title: t("providers.email"),
+                  dataIndex: "email",
                 },
                 {
-                  title: t("providers.sold"),
-                  dataIndex: "sold",
-                  render: (record) => record["sold"] || 0,
+                  title: t("providers.address"),
+                  dataIndex: "address",
                 },
                 {
                   title: t("common.createdAt"),

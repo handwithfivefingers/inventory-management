@@ -45,7 +45,7 @@ export default function Products() {
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="py-2">
             <div className="flex gap-2">
-              <TextInput placeholder={t("providers.searchPlaceholder")} className="w-80" />
+              <TextInput placeholder={t("categories.searchPlaceholder")} className="w-80" />
               <div className="ml-auto block my-auto">
                 <div className="flex gap-2 flex-wrap flex-row">
                   <TMButton component={Link} to="./add" variant="light">

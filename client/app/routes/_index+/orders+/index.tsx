@@ -5,6 +5,7 @@ import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -43,10 +44,15 @@ export default function Orders() {
             <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton component={Link} to={"./add"}>
-                  Thêm
+                <TMButton component={Link} to={"./add"} size="sm">
+                  <Icon name="plus" fontSize={16} />
+                  <span>Thêm</span>
                 </TMButton>
-                <TMButton component={Link}>Xuất Excel</TMButton>
+                <TMButton component={Link} size="sm">
+                  {/* <Icon name="upload" fontSize={16} /> */}
+                  <Icon name="file-plus" fontSize={16} />
+                  <span>Xuất Excel</span>
+                </TMButton>
               </div>
             </div>
           </div>

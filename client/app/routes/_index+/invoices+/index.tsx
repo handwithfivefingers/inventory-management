@@ -8,7 +8,7 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { PermissionGuard } from "~/components/permission-guard";
-import { getSession } from "~/sessions";
+import { getSession, parseCookieFromRequest } from "~/sessions";
 import { IInvoice } from "~/types/invoice";
 import { formatCurrency } from "~/libs/format-currency";
 import { useTranslation } from "~/i18n";
@@ -26,9 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
-  const session = await getSession(cookie);
-  const vendorId = session.get("vendorId");
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -136,7 +134,7 @@ export default function Invoices() {
                 <option value="cancelled">{t("invoices.status.cancelled")}</option>
               </select>
             </div>
-            <PermissionGuard permission="C" module="invoice">
+            <PermissionGuard permission="C" module="invoice" requireAdmin>
               <Link to="add">
                 <TMButton>{t("invoices.create")}</TMButton>
               </Link>
@@ -147,34 +145,59 @@ export default function Invoices() {
             <TMTable
               columns={[
                 { title: t("invoices.invoiceNumber"), dataIndex: "invoiceNumber", width: 150 },
-                { title: t("invoices.customer"), dataIndex: "customerName", width: 200, render: (item: IInvoice) => item.customer?.name || "-" },
-                { title: t("invoices.total"), dataIndex: "total", width: 120, render: (item: IInvoice) => formatCurrency(item.total) },
-                { title: t("invoices.paidAmount"), dataIndex: "paid", width: 120, render: (item: IInvoice) => formatCurrency(item.paid) },
-                { title: t("invoices.remaining"), dataIndex: "remaining", width: 120, render: (item: IInvoice) => formatCurrency(item.remaining) },
-                { title: t("invoices.statusLabel"), dataIndex: "status", width: 120, render: (item: IInvoice) => (
-                  <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[item.status]}`}>
-                    {t(`invoices.status.${item.status}`)}
-                  </span>
-                )},
+                {
+                  title: t("invoices.customer"),
+                  dataIndex: "customerName",
+                  width: 200,
+                  render: (item: IInvoice) => item.customer?.name || "-",
+                },
+                {
+                  title: t("invoices.total"),
+                  dataIndex: "total",
+                  width: 120,
+                  render: (item: IInvoice) => formatCurrency(item.total),
+                },
+                {
+                  title: t("invoices.paidAmount"),
+                  dataIndex: "paid",
+                  width: 120,
+                  render: (item: IInvoice) => formatCurrency(item.paid),
+                },
+                {
+                  title: t("invoices.remaining"),
+                  dataIndex: "remaining",
+                  width: 120,
+                  render: (item: IInvoice) => formatCurrency(item.remaining),
+                },
+                {
+                  title: t("invoices.statusLabel"),
+                  dataIndex: "status",
+                  width: 120,
+                  render: (item: IInvoice) => (
+                    <span className={`px-2 py-1 rounded text-xs ${STATUS_COLORS[item.status]}`}>
+                      {t(`invoices.status.${item.status}`)}
+                    </span>
+                  ),
+                },
                 {
                   title: t("common.actions"),
                   dataIndex: "actions",
                   width: 200,
                   render: (item: IInvoice) => (
                     <div className="flex gap-2">
-                      <PermissionGuard permission="R" module="invoice">
+                      <PermissionGuard permission="R" module="invoice" requireAdmin>
                         <Link to={`${item.id}`} className="text-blue-600 hover:underline">
                           {t("common.view")}
                         </Link>
                       </PermissionGuard>
                       {item.status === "draft" && (
                         <>
-                          <PermissionGuard permission="U" module="invoice">
+                          <PermissionGuard permission="U" module="invoice" requireAdmin>
                             <Link to={`${item.id}/edit`} className="text-orange-600 hover:underline">
                               {t("common.edit")}
                             </Link>
                           </PermissionGuard>
-                          <PermissionGuard permission="D" module="invoice">
+                          <PermissionGuard permission="D" module="invoice" requireAdmin>
                             <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:underline">
                               {t("common.delete")}
                             </button>
@@ -182,7 +205,10 @@ export default function Invoices() {
                         </>
                       )}
                       {item.status === "issued" && (
-                        <button onClick={() => handleUpdateStatus(item.id, "paid")} className="text-green-600 hover:underline">
+                        <button
+                          onClick={() => handleUpdateStatus(item.id, "paid")}
+                          className="text-green-600 hover:underline"
+                        >
                           {t("invoices.markAsPaid")}
                         </button>
                       )}

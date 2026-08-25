@@ -1,7 +1,13 @@
-.input {
-  &:checked {
-    & ~ .dot {
-      transform: translate(calc(100% + 2px), -50%);
-    }
-  }
-}
+// .input {
+//   .dot {
+//     position: absolute;
+//     top: 50%;
+//     left: 0;
+//     transform: translate(2px, -50%);
+//   }
+//   &:checked {
+//     & ~ .dot {
+//       transform: translate(calc(100% + 2px), -50%);
+//     }
+//   }
+// }

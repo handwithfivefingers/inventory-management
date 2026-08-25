@@ -46,12 +46,14 @@ import categories from './categories'
 import tags from './tags'
 import units from './units'
 import financial from './financial'
+import stats from './stats'
 import history from './history'
 import role from './role'
 import customer from './customer'
 import invoice from './invoice'
 import staff from './staff'
 import shift from './shift'
+import setting from './setting'
 // import qr from './qr'
 import { auth } from '#/middleware/authenticate'
 const router = express.Router()
@@ -66,11 +68,13 @@ router.use('/categories', auth, categories)
 router.use('/tags', auth, tags)
 router.use('/units', auth, units)
 router.use('/financial', auth, financial)
+router.use('/stats', auth, stats)
 router.use('/history', auth, history)
 router.use('/roles', auth, role)
 router.use('/customers', auth, customer)
 router.use('/invoices', auth, invoice)
 router.use('/staff', auth, staff)
 router.use('/shift', auth, shift)
+router.use('/settings', auth, setting)
 // router.use('/qr', auth, qr)
 export default router

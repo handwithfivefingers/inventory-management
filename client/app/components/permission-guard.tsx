@@ -49,16 +49,12 @@ export const PermissionGuard = ({
   const hasPermission = usePermission(permission!, module);
   const isAdmin = useIsAdmin();
   const hasRole = useHasRole(roles || []);
-  console.log(module, "has permission", hasPermission);
-  console.log(module, "isAdmin", isAdmin);
 
-  // All specified conditions must be satisfied (AND semantics),
-  // consistent with PermissionButton below.
   const isAllowed = () => {
-    if (requireAdmin && !isAdmin) return false;
-    if (roles && roles.length > 0 && !hasRole) return false;
-    if (permission && !hasPermission) return false;
-    return true;
+    if (requireAdmin && isAdmin) return true;
+    if (roles && roles.length > 0 && hasRole) return true;
+    if (permission && hasPermission) return false;
+    return false;
   };
 
   if (isAllowed()) {
