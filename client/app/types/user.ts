@@ -13,6 +13,8 @@ export interface IPermission {
 export interface IRole {
   id: number;
   name: string;
+  isSystem?: boolean;
+  isGlobal?: boolean;
   permissions: IPermission[];
 }
 

@@ -35,9 +35,9 @@ import {
 import { RoleModel } from './role'
 export interface IUserModel extends Model<InferAttributes<IUserModel>, InferCreationAttributes<IUserModel>> {
   id: CreationOptional<number>
-  nickname: string
-  firstName: string
-  lastName: string
+  // nickname: string
+  // firstName: string
+  // lastName: string
   email: string
   password: string
   subscription: string

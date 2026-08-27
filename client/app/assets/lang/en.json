@@ -128,6 +128,13 @@
       "cash": "Cash",
       "transfer": "Bank transfer",
       "credit": "Credit",
+      "receiptTitle": "SALES RECEIPT",
+      "thanks": "Thank you & see you again!",
+      "printer": "Printer",
+      "fontSize": "Font size",
+      "letterSpacing": "Letter spacing",
+      "widthAdjust": "Width adjust",
+      "scanQr": "Scan to transfer",
       "dueDate": "Due date",
       "createdAt": "Created at",
       "notes": "Notes",
@@ -260,7 +267,11 @@
     "status": "Status",
     "address": "Address",
     "add": "New staff",
-    "searchPlaceholder": "Search by name"
+    "searchPlaceholder": "Search by name",
+    "createAccount": "Create login account",
+    "loginEmail": "Login email",
+    "loginEmailHint": "Leave empty to use staff email as login",
+    "password": "Password"
   },
   "shift": {
     "title": "Shift",

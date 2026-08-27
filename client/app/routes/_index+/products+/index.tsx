@@ -3,27 +3,28 @@ import { Link, useLoaderData, useNavigate, useRouteError } from "@remix-run/reac
 import { useEffect, useState } from "react";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
-import { InputUpload } from "~/components/form/input-upload";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
+import { PermissionGuard } from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { PermissionGuard } from "~/components/permission-guard";
+import { MODULE_ENUM } from "~/constants/modules";
+import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
-import { getSession, parseCookieFromRequest } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 interface IFilter {
   s?: string;
 }
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, session } = await parseCookieFromRequest(request);
-  const warehouseId = session.get("warehouseId");
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
   const pageSize = params.get("pageSize") || "10";
   const s = params.get("s") || "";
   const resp = await productService.getProducts({
-    warehouseId,
+    vendorId,
     page,
     pageSize,
     cookie,
@@ -46,6 +47,7 @@ export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize, s } = useLoaderData<typeof loader>();
   const [filter, setFilter] = useState<IFilter>({ s });
+  const { t } = useTranslation();
   useEffect(() => {
     let timeout: any;
     timeout = setTimeout(() => {
@@ -67,7 +69,7 @@ export default function Products() {
   };
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Sản phẩm" className="p-4 h-full">
+      <CardItem title={t("sidebar.products")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0">
             <TextInput
@@ -83,21 +85,29 @@ export default function Products() {
             />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard permission="C" module="product" requireAdmin>
-                  <Link to="./add">
-                    <TMButton variant="light">Thêm</TMButton>
-                  </Link>
+                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                  <TMButton component={Link} to={"./add"} size="sm">
+                    <Icon name="plus" fontSize={16} />
+                    <span>{t("common.add")}</span>
+                  </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="C" module="product" requireAdmin>
-                  <InputUpload onChange={handleImportUpload} destroyOnUnMount>
-                    Nhập từ Excel
-                  </InputUpload>
+                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                  <TMButton component={Link} to={"./add"} size="sm">
+                    <Icon name="file-plus" fontSize={16} />
+                    <span>{t("common.importExcel")}</span>
+                  </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module="product">
-                  <TMButton variant="light">Xuất Excel</TMButton>
+                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                  <TMButton component={Link} to={"./add"} size="sm">
+                    <Icon name="file-text" fontSize={16} />
+                    <span>{t("common.exportExcel")}</span>
+                  </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module="product">
-                  <TMButton variant="light">In Mã Vạch</TMButton>
+                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                  <TMButton component={Link} to={"./add"} size="sm">
+                    <Icon name="bar-chart-2" fontSize={16} />
+                    <span>{t("common.printBarcode")}</span>
+                  </TMButton>
                 </PermissionGuard>
               </div>
             </div>

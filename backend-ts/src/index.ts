@@ -8,7 +8,7 @@ import morgan from 'morgan'
 import Redis from './configs/redis'
 import database from './database'
 import cors from 'cors'
-import { endpointLogger } from '#/middleware/endpointLogger'
+import PermissionSyncService from '#/services/permissionSync'
 
 const port = process.env.PORT ?? 3000
 class App {
@@ -26,7 +26,12 @@ class App {
     app.use(helmet())
     app.use(
       cors({
-        origin: ['http://localhost:3000', 'localhost:5173', 'localhost:3001'],
+        // SECURITY: allowed origins come from CORS_ORIGINS (comma-separated);
+        // the localhost defaults only exist for local development.
+        origin: (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:5173')
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
         methods: ['GET', 'POST', 'PUT', 'DELETE'],
         credentials: true
       })
@@ -44,7 +49,22 @@ class App {
       new SentryInstance().profiler.startProfiler()
       database
         .load()
+        .then(async () => {
+          // CRITICAL ORDER: the one-time hybrid data migration (flags moved
+          // from `permissions` onto `role_permissions`) must run BEFORE
+          // sync({alter:true}), which would otherwise drop the legacy
+          // columns - and the grants inside them.
+          await new PermissionSyncService().migrateLegacyIfNeeded()
+        })
         .then(() => database.sync())
+        .then(async () => {
+          // Ensure the catalog matches the module registry and Admin roles
+          // keep full access to any newly introduced modules.
+          const result = await new PermissionSyncService().sync()
+          if (result.createdPermissions || result.linkedAdminPermissions) {
+            console.log('permission sync:', result)
+          }
+        })
         .catch((error: unknown) => {
           console.error('database Sync error:', error)
         })
@@ -53,18 +73,26 @@ class App {
   }
 
   debugSentry() {
-    const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+    const errorHandler = (err: Error & { status?: number }, req: Request, res: Response, next: NextFunction) => {
       if (res.headersSent) {
         return next(err)
       }
       captureException(err)
-      // Include the message so clients can display the failure reason
-      return res.status((err as { status?: number })?.status || 400).json({ ...err, error: err.message })
+      // SECURITY: 5xx responses must not leak internals (stack, SQL, ...).
+      // Client errors keep their message; server failures return a generic
+      // body and default to 500 so monitoring sees real fault rates.
+      const status = err?.status && Number.isFinite(err.status) ? err.status : 500
+      const isClientError = status >= 400 && status < 500
+      return res.status(status).json({
+        error: isClientError ? err.message : 'Internal Server Error'
+      })
     }
     this.app.use(errorHandler as any)
-    this.app.get('/debug-sentry', function mainHandler(req, res) {
-      throw new Error('My first Sentry error!')
-    })
+    if (process.env.NODE_ENV !== 'production') {
+      this.app.get('/debug-sentry', function mainHandler(req, res) {
+        throw new Error('My first Sentry error!')
+      })
+    }
   }
 }
 

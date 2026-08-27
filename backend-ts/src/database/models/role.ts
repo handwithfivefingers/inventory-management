@@ -23,6 +23,11 @@ const RoleModel = (sequelize: Sequelize) => {
       isGlobal: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
+      },
+      isSystem: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        comment: 'System default role - cannot be deleted'
       }
     },
     {
@@ -32,8 +37,12 @@ const RoleModel = (sequelize: Sequelize) => {
   )
 
   M.associate = (models: any) => {
-    M.belongsToMany(models.permission, { through: 'role_permissions' })
-    M.belongsToMany(models.user, { through: 'user_role' })
+    M.belongsToMany(models.permission, {
+      through: models.role_permission,
+      foreignKey: 'roleId',
+      otherKey: 'permissionId'
+    })
+    M.hasMany(models.staff, { foreignKey: 'roleId' })
     M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
   }
 

@@ -4,13 +4,16 @@ import { providerService } from "~/action.server/provider.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
+import PermissionGuard from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { MODULE_ENUM } from "~/constants/modules";
+import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { parseCookieFromRequest } from "~/sessions";
 import { IProvider } from "~/types/provider";
-import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cookie, session, vendorId } = await parseCookieFromRequest(request);
@@ -49,12 +52,24 @@ export default function Products() {
             <TextInput placeholder={t("providers.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton variant="light" component={Link} to="/providers/add">
-                  {t("common.add")}
-                </TMButton>
-                <TMButton variant="light">{t("common.importExcel")}</TMButton>
-                <TMButton variant="light">{t("common.exportExcel")}</TMButton>
-                <TMButton variant="light">{t("common.printBarcode")}</TMButton>
+                <PermissionGuard permission="R" module={MODULE_ENUM.provider} requireAdmin>
+                  <TMButton variant="light" size="sm" component={Link} to="/providers/add">
+                    <Icon name="plus" fontSize={16} />
+                    {t("common.add")}
+                  </TMButton>
+                </PermissionGuard>
+                <PermissionGuard permission="R" module={MODULE_ENUM.provider} requireAdmin>
+                  <TMButton size="sm">
+                    <Icon name="file-plus" fontSize={16} />
+                    {t("common.importExcel")}
+                  </TMButton>
+                </PermissionGuard>
+                <PermissionGuard permission="R" module={MODULE_ENUM.provider} requireAdmin>
+                  <TMButton size="sm">
+                    <Icon name="file-text" fontSize={16} />
+                    {t("common.exportExcel")}
+                  </TMButton>
+                </PermissionGuard>
               </div>
             </div>
           </div>

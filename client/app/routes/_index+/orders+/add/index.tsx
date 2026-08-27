@@ -8,9 +8,7 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TMButton } from "~/components/tm-button";
 import { OrderForm } from "~/components/form/order-form";
-import {
-  VariantPickerModal,
-} from "~/components/variant-picker-modal";
+import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { toast } from "~/components/notification";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { formatCurrency } from "~/libs/format-currency";
@@ -90,8 +88,7 @@ export default function OrderItem() {
     if (!currentValue.length) return [result];
     const index = currentValue.findIndex(
       (cItem) =>
-        cItem.productId === result.productId &&
-        (cItem.variantId ?? undefined) === (result.variantId ?? undefined),
+        cItem.productId === result.productId && (cItem.variantId ?? undefined) === (result.variantId ?? undefined),
     );
     if (index === -1) {
       currentValue.push(result);
@@ -112,9 +109,7 @@ export default function OrderItem() {
       addLine(form.getValues("orderDetails") || [], {
         productId: variantTarget.id,
         variantId: variant.id,
-        name: `${variantTarget.name} (${(variant.attributeValues || [])
-          .map((v: any) => v.value)
-          .join(" / ")})`,
+        name: `${variantTarget.name} (${(variant.attributeValues || []).map((v: any) => v.value).join(" / ")})`,
         price,
         note: "",
       }),
@@ -161,10 +156,7 @@ export default function OrderItem() {
   const orderDetails = form.watch("orderDetails") as OrderDetailSchema[];
   const watchSurcharge = form.watch("surcharge");
   const watchVAT = form.watch("VAT");
-  const tempSubtotal = (orderDetails || []).reduce(
-    (sum, item) => sum + Number(item?.buyPrice || 0),
-    0,
-  );
+  const tempSubtotal = (orderDetails || []).reduce((sum, item) => sum + Number(item?.buyPrice || 0), 0);
   const tempVatAmount = (tempSubtotal * Number(watchVAT || 0)) / 100;
   const tempTotal = tempSubtotal + Number(watchSurcharge || 0) + tempVatAmount;
 
@@ -251,12 +243,7 @@ export default function OrderItem() {
           title={
             <div className="flex justify-between items-center">
               <label className="text-lg">Tạo đơn hàng</label>
-              <TMButton
-                variant="outline"
-                size="xs"
-                type="button"
-                onClick={() => setShowTempInvoice(true)}
-              >
+              <TMButton variant="outline" size="xs" type="button" onClick={() => setShowTempInvoice(true)}>
                 🧾 {t("orders.printTempInvoice")}
               </TMButton>
             </div>
@@ -283,76 +270,7 @@ export default function OrderItem() {
             onSelect={pickVariant}
           />
           {/* <BarcodeScanner onScan={handleRetrieveData} start={canScan}>
-            <form className="flex gap-4 flex-col" onSubmit={formMethods.handleSubmit(onSubmit, handleError)}>
-              <div className="col-span-12 grid grid-cols-12 gap-2 py-2 mb-4 border-b border-indigo-600 dark:border-slate-400">
-                <div className="col-span-1 ">STT</div>
-                <div className="col-span-4">Tên sản phẩm</div>
-                <div className="col-span-2 ">Số lượng</div>
-                <div className="col-span-2 text-right">Giá tiền</div>
-                <div className="col-span-3 text-right">Tổng tiền</div>
-              </div>
-              <div className="min-h-40 max-h-[45vh] overflow-auto flex flex-col gap-4 py-2">
-                <OrderDetails ref={orderDetailsRef} />
-              </div>
-              <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t border-indigo-200 dark:border-slate-400">
-                <div className="col-span-12 ml-auto flex flex-col gap-1">
-                  <div className="w-96 flex justify-between ">
-                    <span>Tổng tiền</span>
-                    <NumberInput value={`${total}`} displayType="text" />
-                  </div>
-                  <div className="w-96 flex justify-between">
-                    <span>Phụ phí</span>{" "}
-                    <div className="w-40">
-                      <FormInput name="surcharge">
-                        {(field) => <NumberInput onValueChange={(v) => field.onChange(v.value)} />}
-                      </FormInput>
-                    </div>
-                  </div>
-                  <div className="w-96 flex justify-between">
-                    <span> VAT </span>
-                    <div className="w-40">
-                      <FormControl name="VAT">
-                        {(field) => (
-                          <NumberInput
-                            maxLength={4}
-                            max={1000}
-                            value={`${field.value}`}
-                            onValueChange={(v) => field.onChange(v.value)}
-                            suffix="%"
-                          />
-                        )}
-                      </FormControl>
-                    </div>
-                  </div>
-                  <div className="w-96 flex justify-between">
-                    <span>Tổng tiền đơn hàng </span>
-                    <NumberInput value={`${totalPaid}`} displayType="text" />
-                  </div>
-                  <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
-                  <div className="w-96 flex justify-between font-bold">
-                    <span>Tổng phải thu</span> <NumberInput value={`${totalPaid}`} displayType="text" />
-                  </div>
-                  <div className="w-96 flex justify-between">
-                    <span>Đã thanh toán</span> <NumberInput value={`${totalPaid}`} displayType="text" />
-                  </div>
-
-                  <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
-
-                  <div className="w-96 flex justify-end">
-                    <TMButton htmlType="submit" size="md" variant="light" loading={isLoading}>
-                      Tạo đơn hàng
-                    </TMButton>
-                  </div>
-                </div>
-              </div>
-            </form>
-            <ProductSearchModal
-              data={data}
-              close={() => setShow(false)}
-              show={show}
-              onSearch={handleFilterProduct}
-              onSelect={handleAdd}
-            />
+           
           </BarcodeScanner> */}
         </CardItem>
       </div>

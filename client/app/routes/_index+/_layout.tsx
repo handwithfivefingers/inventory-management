@@ -45,12 +45,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
       console.error("Failed to load settings, using defaults", settingsError);
     }
 
+    // Return what is actually in the session after seeding above. The locally
+    // destructured `vendorId`/`warehouseId` were read from the incoming cookie
+    // *before* seeding, so on a fresh login they are still empty — returning
+    // them would make the UI fall back to a different warehouse than the one
+    // server-side loaders use.
+    const resolvedVendorId = session.get("vendorId") ?? vendorId;
+    const resolvedWarehouseId = session.get("warehouseId") ?? warehouseId;
+
     return Response.json(
       {
         vendor,
         user: getMeResponse.data?.data,
-        selectedVendorId: vendorId,
-        selectedWarehouseId: Number(warehouseId),
+        selectedVendorId: resolvedVendorId,
+        selectedWarehouseId: resolvedWarehouseId != null ? Number(resolvedWarehouseId) : undefined,
         settings,
       },
       {

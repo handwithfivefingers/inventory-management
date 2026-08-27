@@ -2,7 +2,7 @@ import { m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "~/components/icon";
 import { Portal } from "~/components/portal";
-import { useSubmitPromise } from "~/hooks";
+import { useSubmitPromise, DROPDOWN_PANEL_CLASS, useDropdownPosition } from "~/hooks";
 import { cn } from "~/libs/utils";
 import { useUser } from "~/store/user.store";
 import { IVendor } from "~/types/vendor";
@@ -22,11 +22,16 @@ export const VendorWarehouseSwitcher = () => {
     // Switching vendor resets the active warehouse to the vendor's first one.
     const warehouse = vendor.warehouses?.[0];
     setVendor(vendor);
-    submit({ vendorId: vendor.id }, { method: "post", action: "/api/session" });
     if (warehouse && warehouse.id !== activeWarehouse?.id) {
       setWarehouse(warehouse);
-      submit({ warehouseId: warehouse.id }, { method: "post", action: "/api/session" });
     }
+    // Persist both values in a single submit — two sequential submits through
+    // the same fetcher would cancel the first request and drop vendorId.
+    const formData: Record<string, string> = { vendorId: String(vendor.id) };
+    if (warehouse && warehouse.id !== activeWarehouse?.id) {
+      formData.warehouseId = String(warehouse.id);
+    }
+    submit(formData, { method: "post", action: "/api/session" });
   };
 
   const handleWarehouseChange = (warehouseId: number) => {
@@ -75,8 +80,6 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    let resizeObserver: ResizeObserver;
-
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -89,26 +92,14 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
 
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      resizeObserver = new ResizeObserver(() => {
-        handleBounce();
-      });
-      resizeObserver.observe(document.body);
-      handleBounce();
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      resizeObserver?.disconnect();
     };
   }, [isOpen]);
 
-  const handleBounce = () => {
-    const rect = wrapperRef.current?.getBoundingClientRect();
-    dropdownRef.current?.style.setProperty("top", `${rect?.bottom}px`);
-    dropdownRef.current?.style.setProperty("left", `${rect?.left}px`);
-    dropdownRef.current?.style.setProperty("height", "auto");
-    dropdownRef.current?.style.setProperty("z-index", "999");
-    dropdownRef.current?.style.setProperty("width", `${rect?.width}px`);
-  };
+  // Keep the dropdown glued to the trigger on scroll / resize.
+  useDropdownPosition(isOpen, wrapperRef, dropdownRef);
 
   return (
     <div className="flex items-center gap-2" ref={wrapperRef}>
@@ -126,7 +117,7 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
           {isOpen && (
             <m.div
               ref={dropdownRef}
-              className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[200px]"
+              className={cn(DROPDOWN_PANEL_CLASS, "min-w-[200px]")}
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}

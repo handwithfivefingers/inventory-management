@@ -1,15 +1,8 @@
-// const db = require('@db')
-// const VendorService = require('../vendor')
-// const WarehouseService = require('../warehouse')
-// const bcrypt = require('bcryptjs')
-// const { cacheKey, cacheSet } = require('@libs/redis')
-// const { cacheItem } = require('./cache')
-// const { ERROR } = require('@constant/message')
-// const { retrieveUser } = require('@src/libs/utils')
 import Redis from '#/configs/redis'
 import { ERROR } from '#/constant/message'
+import { getModule } from '#/constant/modules'
 import database from '#/database'
-import { getCtxUser } from '#/libs'
+import { buildFullPermissions, flattenRolePermissions } from '#/libs/permission'
 import { ApiError } from '#/response'
 import { RoleStatic } from '#/types/role'
 import { IUserStatic } from '#/types/user'
@@ -18,7 +11,6 @@ import { IWarehouseStatic } from '#/types/warehouse'
 import bcrypt from 'bcryptjs'
 import { Request } from 'express'
 import { Sequelize } from 'sequelize'
-import { cacheItem } from './cache'
 
 interface IRequestLocal extends Request {
   locals: {
@@ -36,6 +28,15 @@ interface IRegister {
   password: string
   warehouse: string
   vendor: string
+}
+interface LoginResponse {
+  id: number
+  email: string
+  subscription: 'free' | 'pro'
+  createdAt: Date
+  updatedAt: Date
+  roles: RoleStatic[]
+  vendors: IVendorStatic[]
 }
 
 export default class AuthenticateService {
@@ -73,14 +74,21 @@ export default class AuthenticateService {
 
       if (!base) throw new Error(ERROR.USR_NOT_VALID)
 
-      const user = await this.user.findOne({
+      const user: any = await this.user.findOne({
         where: { id: (base as any).id },
         include: [
           {
-            model: database.role,
-            include: {
-              model: database.permission
-            } as any
+            model: database.staff,
+            required: false,
+            include: [
+              {
+                model: database.role,
+                include: {
+                  model: database.permission,
+                  through: { attributes: ['C', 'R', 'U', 'D'] }
+                } as any
+              }
+            ]
           },
           {
             model: database.vendor,
@@ -93,9 +101,18 @@ export default class AuthenticateService {
 
       if (!user) throw new Error(ERROR.USR_NOT_VALID)
 
+      const staffList: any[] = (user as any).staffs ?? (user as any).staff ?? []
+
+      let rolesRaw2 = [(staffList as any)?.role]
+      const roles = rolesRaw2.map((role: any) => ({
+        id: role.id,
+        name: role.name,
+        permissions: flattenRolePermissions(role)
+      }))
+
       const response = {
         ...(user as any).parsed,
-        roles: (user as any).roles,
+        roles,
         vendors: (user as any).vendors
       }
       return response
@@ -105,49 +122,27 @@ export default class AuthenticateService {
     }
   }
 
-  async login(req: Request) {
+  async login(req: Request): Promise<LoginResponse> {
     try {
       const { email, password } = req.body
       // Use cache to store user data
       const cacheKeyStr = cacheKey('User', email)
 
-      // const user = await cacheItem({
-      //   key: cacheKeyStr,
-      //   callback: async () => {
-      //     const usr = await this.user.findOne({
-      //       where: { email },
-      //       include: [
-      //         {
-      //           model: database.role,
-      //           include: {
-      //             model: database.permission
-      //           } as any
-      //         },
-      //         {
-      //           model: database.vendor,
-      //           include: {
-      //             model: database.warehouse
-      //           } as any
-      //         }
-      //       ]
-      //     })
-
-      //     if (!usr) throw new Error(ERROR.USR_NOT_VALID)
-
-      //     const isMatchPassword = await bcrypt.compare(password, usr.password)
-      //     if (!isMatchPassword) throw new Error(ERROR.USR_NOT_VALID)
-
-      //     return usr
-      //   }
-      // })
-      const user = await this.user.findOne({
+      const user: any = await this.user.findOne({
         where: { email },
         include: [
           {
-            model: database.role,
-            include: {
-              model: database.permission
-            } as any
+            model: database.staff,
+            required: false,
+            include: [
+              {
+                model: database.role,
+                include: {
+                  model: database.permission,
+                  through: { attributes: ['C', 'R', 'U', 'D'] }
+                } as any
+              }
+            ]
           },
           {
             model: database.vendor,
@@ -159,13 +154,8 @@ export default class AuthenticateService {
       })
 
       if (!user) throw new Error(ERROR.USR_NOT_VALID)
-
       // Verify password if not already verified in cache callback
-      if (!user.password) {
-        // Password already verified in cache callback
-        throw new Error(ERROR.USR_NOT_VALID)
-      }
-
+      if (!user.password) throw new Error(ERROR.USR_NOT_VALID)
       const isMatchPassword = await bcrypt.compare(password, user.password)
       if (!isMatchPassword) {
         // Clear cache on failed login
@@ -174,18 +164,14 @@ export default class AuthenticateService {
       }
 
       // Build response with roles, permissions, vendors, and warehouses
+      // Roles now come from staff profiles (staff.role).
       const userData = user.parsed
-      const roles = (user as any).roles?.map((role: any) => ({
+      const staffList: any[] = (user as any).staffs ?? (user as any).staff ?? []
+      let rolesRaw2 = [(staffList as any)?.role as RoleStatic]
+      const roles = rolesRaw2.map((role: any) => ({
         id: role.id,
         name: role.name,
-        permissions: role.permissions?.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          C: p.C,
-          R: p.R,
-          U: p.U,
-          D: p.D
-        }))
+        permissions: flattenRolePermissions(role)
       }))
 
       // Build vendors with warehouses list
@@ -215,13 +201,15 @@ export default class AuthenticateService {
         }
       }
 
-      return {
+      const response = {
         ...userData,
         roles,
         vendors,
         defaultVendorId,
         defaultWarehouseId
       }
+      console.log('response', response)
+      return response as LoginResponse
     } catch (error) {
       console.log('LOGIN ERROR >> error', error)
       throw new ApiError(error as any)
@@ -241,24 +229,45 @@ export default class AuthenticateService {
       const usr = await userBuilder.save({
         transaction: t
       })
-      const vendorBuilder = this.vendor.build({ name: vendor, userId: usr.id })
 
-      const userRole = await usr.createRole(
-        {
-          name: 'Admin'
-        },
-        { transaction: t }
-      )
-      const permission = await userRole.createPermission(
-        {
-          name: 'Admin',
-          C: true,
-          R: true,
-          U: true,
-          D: true
-        },
-        { transaction: t }
-      )
+      // Provision the owner role exactly once per account lifetime: verified
+      // against the join table itself (not the unloaded association), so
+      // re-invoking registration-like flows can never duplicate roles.
+      const existingRoleCount = await (database as any).user_role.count({
+        where: { userId: usr.id },
+        transaction: t
+      })
+      let userRole: any = null
+      if (!existingRoleCount) {
+        userRole = await usr.createRole({ name: 'Admin', isGlobal: true }, { transaction: t })
+        userRole = await this.role.findByPk(userRole.id, { transaction: t })
+        if (!userRole) throw new Error(ERROR.USR_NOT_VALID)
+
+        // Hybrid model: link the SHARED permission catalog onto the role with
+        // full C/R/U/D join flags - never duplicate catalog rows.
+        const fullPermissions = buildFullPermissions()
+        for (const grant of fullPermissions) {
+          const [catalogRow] = await database.permission.findOrCreate({
+            where: { name: grant.name },
+            defaults: { name: grant.name, description: getModule(grant.name)?.description },
+            transaction: t
+          })
+          await (database as any).role_permission.create(
+            {
+              roleId: userRole.id,
+              permissionId: catalogRow.id,
+              C: grant.C,
+              R: grant.R,
+              U: grant.U,
+              D: grant.D
+            },
+            { transaction: t }
+          )
+        }
+        userRole.permissions = fullPermissions
+      }
+
+      const vendorBuilder = this.vendor.build({ name: vendor, userId: usr.id })
       const vendorModel = await vendorBuilder.save({
         transaction: t
       })
@@ -279,8 +288,7 @@ export default class AuthenticateService {
         ...usr.parsed,
         vendor: vendorModel,
         warehouses: [warehouseBuilder],
-        roles: [userRole],
-        permissions: [permission]
+        roles: userRole ? [userRole] : []
       }
 
       await t.commit()

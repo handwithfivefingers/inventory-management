@@ -6,21 +6,21 @@ const API_PATH = {
 };
 
 const staffService = {
-  get: (searchParams: IStaffQueryParams) => {
+  get: ({ cookie, ...searchParams }: IStaffQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return http.get<{ data: IStaff[]; total: number }>(API_PATH.staff + "?" + qs.toString());
+    return http.get<{ data: IStaff[]; total: number }>(API_PATH.staff + "?" + qs.toString(), { cookie });
   },
-  getById: (id: string | number) => {
-    return http.get<{ data: IStaff }>(`${API_PATH.staff}/${id}`);
+  getById: (id: string | number, cookie: string) => {
+    return http.get<{ data: IStaff }>(`${API_PATH.staff}/${id}`, { cookie });
   },
-  create: (params: Partial<IStaff>) => {
-    return http.post(API_PATH.staff, params);
+  create: ({ cookie, ...params }: Partial<IStaff> & { cookie: string }) => {
+    return http.post(API_PATH.staff, params, { cookie });
   },
   update: (id: string | number, params: Partial<IStaff>) => {
     return http.put(`${API_PATH.staff}/${id}`, params);
   },
-  remove: (id: string | number) => {
-    return http.delete(`${API_PATH.staff}/${id}`);
+  remove: (id: string | number, cookie: string) => {
+    return http.delete(`${API_PATH.staff}/${id}`, { cookie });
   },
 };
 

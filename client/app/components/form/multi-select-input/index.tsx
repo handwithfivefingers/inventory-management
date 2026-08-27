@@ -2,6 +2,7 @@ import { m } from "motion/react";
 import React, { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Icon } from "~/components/icon";
 import { Portal } from "~/components/portal";
+import { DROPDOWN_PANEL_CLASS, useDropdownPosition } from "~/hooks";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
@@ -57,32 +58,14 @@ export const MultiSelectInput = ({
       const newMap = new Map();
       options?.map((item) => {
         const isSelected = (rest.value as any)?.includes(item.value);
-        console.log("isSelected", isSelected);
         if (isSelected) newMap.set(item.value, item);
       });
       setSelected(newMap);
     }
   }, [options]);
 
-  useEffect(() => {
-    let resizeObserver: ResizeObserver;
-    if (isFocus) {
-      resizeObserver = new ResizeObserver(() => {
-        handleBounce();
-      });
-      resizeObserver.observe(document.body);
-      // capture phase is required: "scroll" does not bubble,
-      // so scrolling inside nested containers won't reach document otherwise
-      document.addEventListener("scroll", handleBounce, true);
-      window.addEventListener("resize", handleBounce);
-      handleBounce();
-    }
-    return () => {
-      resizeObserver?.disconnect();
-      document.removeEventListener("scroll", handleBounce, true);
-      window.removeEventListener("resize", handleBounce);
-    };
-  }, [isFocus]);
+  // Keep the dropdown glued to the input on scroll / resize.
+  useDropdownPosition(isFocus, wrapper, dropdown);
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -96,21 +79,6 @@ export const MultiSelectInput = ({
     }
     return () => document.removeEventListener("click", handler, false);
   }, [isFocus]);
-
-  const handleBounce = () => {
-    const rect = wrapper.current?.getBoundingClientRect();
-    dropdown.current?.style.setProperty("left", `${rect?.left}px`);
-    dropdown.current?.style.setProperty("height", "auto");
-    dropdown.current?.style.setProperty("z-index", "999");
-    dropdown.current?.style.setProperty("width", `${rect?.width}px`);
-    const dropdownHeight = dropdown.current?.offsetHeight || 0;
-    const isOverWindow = window.innerHeight - dropdownHeight < (rect?.bottom || 0);
-    if (isOverWindow) {
-      dropdown.current?.style.setProperty("top", `${(rect?.top || 0) - dropdownHeight}px`);
-    } else {
-      dropdown.current?.style.setProperty("top", `${rect?.bottom}px`);
-    }
-  };
 
   const handleSelect = (option: any) => {
     if (selected.has(option.value)) {
@@ -137,28 +105,31 @@ export const MultiSelectInput = ({
     }
   };
   return (
-    <div className={styles.inputWrapper} ref={wrapper}>
+    <div className={`relative`}>
       <InputLabel label={label} name={name} />
       <div
-        className={cn("relative rounded-md flex items-center py-1")}
+        className={cn(
+          "relative rounded-md flex items-center py-1 px-1 bg-slate-100",
+          "ring-2 ring-transparent transition-all border border-slate-300 outline-none",
+          "text-slate-700 placeholder:text-gray-400",
+          SizeClass[inputSize || "sm"],
+          styles.input,
+          {
+            ["ring-indigo-400/30"]: isFocus,
+          },
+        )}
         onClick={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsFocus(true);
           if (onClick) {
             onClick(e);
           }
         }}
+        ref={wrapper}
       >
         <div
           className={cn(
-            "min-h-6 flex flex-wrap gap-1 w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none cursor-pointer",
-            "ring-2 ring-transparent transition-all  border border-slate-300 outline-none",
-            "text-slate-700 placeholder:text-gray-400",
-            SizeClass[inputSize || "sm"],
+            "min-h-5 flex flex-wrap gap-1 w-full bg-transparent rounded-md border-0  text-gray-700  placeholder:text-gray-400  text-sm cursor-pointer",
             "pr-6",
-            styles.input,
-            {
-              ["ring-indigo-400/30"]: isFocus,
-            },
           )}
           ref={skeleton}
         >
@@ -186,19 +157,19 @@ export const MultiSelectInput = ({
         </div>
 
         <m.div
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-[1] "
+          className="absolute right-1 top-1/2 -translate-y-1/2 z-[1] "
           animate={{
             rotate: isFocus ? 180 : 0,
           }}
         >
-          <Icon name="chevron-down" className={cn(" text-indigo-600 w-5 transition-transform rotate-0")} />
+          <Icon name="chevron-down" className={cn(" text-indigo-600 w-5")} />
         </m.div>
       </div>
 
       <Portal>
         {isFocus && (
           <m.div
-            className={cn(styles.dropdown, "border border-slate-300")}
+            className={cn(DROPDOWN_PANEL_CLASS, "rounded-sm")}
             ref={dropdown}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -221,7 +192,7 @@ export const MultiSelectInput = ({
                     )}
                     onClick={(e: any) => handleSelect(item)}
                   >
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center text-sm">
                       <span>{item.label}</span>
                       <div
                         className={cn("text-green-500", {

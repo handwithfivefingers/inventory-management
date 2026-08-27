@@ -90,15 +90,13 @@ export default function Home() {
     { value: "week" as const, enabled: spanDays >= 10 },
     { value: "month" as const, enabled: spanDays >= 45 },
   ];
-
-  console.log("groupBy", groupBy);
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-xl font-semibold">{t("dashboard.title")}</h1>
         <div className="ml-auto flex gap-2 items-center flex-wrap">
           <div className="flex gap-2 items-center pt-2">
-            <div className="flex rounded-md overflow-hidden ring-1 ring-gray-300 mb-2">
+            <div className="flex rounded-md overflow-hidden ring-1 ring-gray-300">
               {granularityOptions.map(({ value: g, enabled }) => (
                 <button
                   key={g}
@@ -106,7 +104,7 @@ export default function Home() {
                   disabled={!enabled}
                   title={enabled ? undefined : t("dashboard.groupDisabledHint")}
                   className={cn(
-                    "px-3 py-1.5 text-sm bg-transparent border-0 transition-colors",
+                    "px-3 py-1 text-sm bg-transparent border-0 transition-colors",
                     granularity === g
                       ? "bg-indigo-600 text-white"
                       : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-indigo-50",
@@ -123,10 +121,10 @@ export default function Home() {
                 </button>
               ))}
             </div>
-            <div className="">
+            <div className="w-28">
               <SelectInput
                 options={[
-                  ...periods.map((p) => ({ label: p, value: p })),
+                  ...periods.map((p) => ({ label: `${p} Days`, value: p })),
                   { label: t("dashboard.custom"), value: "custom" },
                 ]}
                 value={preset}

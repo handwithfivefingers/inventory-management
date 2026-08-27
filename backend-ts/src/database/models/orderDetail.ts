@@ -44,6 +44,7 @@ const OrderDetailModel = (sequelize: Sequelize) => {
   )
 
   M.associate = (models: any) => {
+    M.belongsTo(models.order, { foreignKey: 'orderId' })
     M.belongsTo(models.product, { foreignKey: 'productId' })
     M.belongsTo(models.warehouse, { foreignKey: 'warehouseId' })
     M.belongsTo(models.productVariant, { foreignKey: 'variantId' })

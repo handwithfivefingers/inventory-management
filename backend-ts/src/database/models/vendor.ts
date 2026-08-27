@@ -24,11 +24,13 @@ const VendorModel = (sequelize: Sequelize) => {
   )
 
   M.associate = (models: any) => {
+    M.belongsTo(models.user, { foreignKey: 'userId' })
+    // Many
     M.hasMany(models.warehouse, { foreignKey: 'vendorId' })
     M.hasMany(models.category, { foreignKey: 'vendorId' })
     M.hasMany(models.tag, { foreignKey: 'vendorId' })
     M.hasMany(models.unit, { foreignKey: 'vendorId' })
-    M.belongsTo(models.user, { foreignKey: 'userId' })
+    M.hasMany(models.staff, { foreignKey: 'vendorId' })
   }
   return M
 }

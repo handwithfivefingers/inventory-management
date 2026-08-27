@@ -10,7 +10,6 @@ import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
 import { CheckboxInput } from "~/components/form/checkbox-input";
 import { FormControl } from "~/components/form/form-control";
-import { FormInput } from "~/components/form/formInput";
 import { MultiSelectInput } from "~/components/form/multi-select-input";
 import { NumberStepper } from "~/components/form/number-stepper";
 import { NumberInput } from "~/components/form/number-input";
@@ -416,9 +415,9 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
           </FormControl>
         </div>
         <div className="col-span-12">
-          <FormInput name="description">
+          <FormControl name="description">
             <TextInput label={t("product.note")} />
-          </FormInput>
+          </FormControl>
         </div>
       </div>
     </div>

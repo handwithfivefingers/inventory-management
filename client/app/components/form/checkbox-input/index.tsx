@@ -1,8 +1,6 @@
-import React, { HTMLInputTypeAttribute, forwardRef, useRef } from "react";
-import { cn } from "~/libs/utils";
-import { BaseProps } from "~/types/common";
-import styles from "./styles.module.scss";
+import { forwardRef, useRef } from "react";
 import { useFormState } from "react-hook-form";
+import { cn } from "~/libs/utils";
 
 interface IFieldError {
   [key: string]: {
@@ -23,7 +21,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
     const inputRef = useRef<HTMLInputElement>(null);
 
     return (
-      <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
+      <div className={cn("")}>
         {label ? (
           <label htmlFor={name} className="block text-sm/6 font-medium text-indigo-950 dark:text-slate-200">
             {label}
@@ -38,7 +36,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
           >
             <input
               type="checkbox"
-              className={cn("hidden", styles.input)}
+              className={cn("hidden")}
               checked={value}
               name={name}
               onChange={onChange}

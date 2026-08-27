@@ -1,33 +1,44 @@
 import { cn } from "~/libs/utils";
-import styles from "./styles.module.scss";
 import { Icon } from "../icon";
-interface ICol {
-  title: string;
+import { Loader } from "../loader";
+import styles from "./styles.module.scss";
+interface ICol<T> {
+  title: React.ReactNode;
   dataIndex: string;
-  render?: (record: any, index?: number) => React.ReactNode;
+  render?: (record: T, index?: number) => React.ReactNode;
   width?: number | string;
   className?: string;
 }
 
-interface IRow {
-  columns: ICol[];
-  data: any;
-  onClick?: (record: any) => void;
+interface IRow<T extends object> {
+  columns: ICol<T>[];
+  data: T;
+  onClick?: (record: T) => void;
   index?: number;
 }
-interface ITMTable {
-  columns: ICol[];
-  data: Record<string, any>[];
+interface ITMTable<T> {
+  columns: ICol<T>[];
+  data: T[];
   rowKey: string;
   onRow?: {
-    onClick?: (record: IRow["data"]) => void;
+    onClick?: (record: T) => void;
   };
   children?: React.ReactNode;
   scrollable?: boolean;
   className?: string;
+  loading?: boolean;
 }
 
-export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable, className }: ITMTable) => {
+export const TMTable = <T extends object>({
+  columns,
+  data,
+  rowKey,
+  onRow,
+  children,
+  scrollable,
+  className,
+  loading,
+}: ITMTable<T>) => {
   const isEmpty = !children && !data?.length;
   return (
     <div
@@ -41,10 +52,8 @@ export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable, cl
           backgroundPosition: "10px 10px",
         }}
       />
+      {loading && <Loader />}
       <div className="relative rounded-md h-full flex flex-col">
-        {/* Single scroll container wraps BOTH header and body, so they always
-            scroll together horizontally. The header itself is position:sticky
-            so it stays pinned when scrolling vertically. */}
         <div
           className={cn("shadow-sm flex-1 min-h-0", {
             ["overflow-auto"]: scrollable,
@@ -54,7 +63,7 @@ export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable, cl
             scrollbarWidth: "thin",
           }}
         >
-          <table className={cn("border-collapse table-fixed w-full text-sm w-max min-w-full", className)}>
+          <table className={cn("border-collapse table-fixed text-sm w-max min-w-full", className)}>
             <TMTable.Header columns={columns} />
             <tbody className="bg-white dark:bg-slate-800">
               {isEmpty && (
@@ -85,7 +94,7 @@ export const TMTable = ({ columns, data, rowKey, onRow, children, scrollable, cl
     </div>
   );
 };
-TMTable.Header = ({ columns }: { columns: ICol[] }) => {
+TMTable.Header = <T extends object>({ columns }: { columns: ICol<T>[] }) => {
   return (
     <thead>
       <tr>
@@ -107,10 +116,10 @@ TMTable.Header = ({ columns }: { columns: ICol[] }) => {
     </thead>
   );
 };
-TMTable.Row = ({ columns, data, onClick, index }: IRow) => {
+TMTable.Row = <T extends object>({ columns, data, onClick, index }: IRow<T>) => {
   const handleCellClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
     if (onClick) {
-      return onClick?.(data);
+      return onClick?.(data as T);
     }
   };
   return (
@@ -118,7 +127,7 @@ TMTable.Row = ({ columns, data, onClick, index }: IRow) => {
       {columns.map((item, i) => {
         return (
           <TMTable.Cell className={cn(styles.cell, item.className)} key={`cell_${i}`} style={{ width: item.width }}>
-            {item?.render ? item?.render(data, index) : data?.[item?.dataIndex]}
+            {item?.render ? item?.render(data as T, index) : (data as T)?.[item?.dataIndex as keyof T]}
           </TMTable.Cell>
         );
       })}

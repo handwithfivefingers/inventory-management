@@ -18,7 +18,10 @@ const UserRoleModel = (sequelize: Sequelize) => {
       },
       userId: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
+        // Requirement: a user holds exactly ONE role. Enforced both at the DB
+        // level and by replace-semantics in RoleService.assignToUser.
+        unique: true
       },
       roleId: {
         type: DataTypes.INTEGER,

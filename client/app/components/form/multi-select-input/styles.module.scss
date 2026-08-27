@@ -10,18 +10,6 @@
   z-index: 0;
 }
 
-.inputWrapper {
-  margin-bottom: 0.5rem;
-  position: relative;
-
-  .indicator {
-  }
-}
-
-.dropdown {
-  @apply rounded-sm mt-2 fixed bg-white;
-}
-
 .rotation {
   transform: rotate(0deg);
 }

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const db = vi.hoisted(() => {
-  const MODEL_METHODS = ["findOne","findAll","findAndCountAll","create","build","update","destroy","findByPk","count","bulkCreate"];
+  const MODEL_METHODS = ["findOne","findAll","findAndCountAll","create","build","update","destroy","findByPk","count","bulkCreate","findOrCreate"];
   const makeModelMock = () => { const m: any = {}; for (const method of MODEL_METHODS) m[method] = vi.fn(); return m; };
-  const models = ["user","role","vendor","warehouse","product","inventory","transfer","category","tag","unit","permission","customer","provider","staff","shift","order","orderDetail","invoice","invoiceDetail","financialRecord","setting","units","user_role"];
+  const models = ["user","role","vendor","warehouse","product","inventory","transfer","category","tag","unit","permission","customer","provider","staff","shift","order","orderDetail","invoice","invoiceDetail","financialRecord","setting","units","user_role","role_permission"];
   const database: any = {};
   for (const name of models) database[name] = makeModelMock();
   database.sequelize = { transaction: vi.fn(), literal: vi.fn((v:any)=>v), col: vi.fn((v:any)=>v), query: vi.fn() };
@@ -68,7 +68,16 @@ describe("AuthenticateService", () => {
       expect(database.user.findOne).toHaveBeenCalledTimes(2);
       expect(result).toEqual({
         ...user.parsed,
-        roles: user.roles,
+        roles: [
+          {
+            id: 1,
+            name: "Admin",
+            description: undefined,
+            vendorId: undefined,
+            isGlobal: undefined,
+            permissions: [],
+          },
+        ],
         vendors: user.vendors,
       });
     });
@@ -170,16 +179,13 @@ describe("AuthenticateService", () => {
       lastName: "User",
     };
 
-    it("creates user, vendor, role, permission, warehouse and commits", async () => {
+    it("creates user, vendor, Admin role with full permission links, warehouse and commits", async () => {
       const tx = makeTx();
       database.sequelize.transaction.mockResolvedValue(tx);
+      // No existing roles -> owner role must be provisioned exactly once.
+      database.user_role.count.mockResolvedValue(0);
 
-      const userRole = {
-        id: 1,
-        name: "Admin",
-        dataValues: { id: 1, name: "Admin" },
-        createPermission: vi.fn().mockResolvedValue({ id: 1, dataValues: { id: 1 } }),
-      };
+      const userRole = { id: 1, name: "Admin", dataValues: { id: 1, name: "Admin" } };
       const usr = {
         id: 1,
         parsed: { id: 1, email: params.email },
@@ -193,12 +199,31 @@ describe("AuthenticateService", () => {
       database.user.build.mockReturnValue(userBuilder);
       database.vendor.build.mockReturnValue(vendorBuilder);
       database.warehouse.build.mockReturnValue(warehouseBuilder);
+      database.role.findByPk.mockResolvedValue(userRole);
+      // Hybrid: shared catalog lookup + flag-bearing join rows.
+      database.permission.findOrCreate.mockImplementation(({ where }: any) =>
+        Promise.resolve([{ id: where.name.length, name: where.name }, false])
+      );
+      database.role_permission.create.mockResolvedValue({});
 
       const result = await service.register(params as any);
 
       expect(database.user.build).toHaveBeenCalled();
-      expect(usr.createRole).toHaveBeenCalledWith({ name: "Admin" }, expect.anything());
-      expect(userRole.createPermission).toHaveBeenCalled();
+      expect(database.user_role.count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: usr.id }, transaction: tx })
+      );
+      expect(usr.createRole).toHaveBeenCalledWith(
+        { name: "Admin", isGlobal: true },
+        expect.anything()
+      );
+      // One catalog link per canonical module (16 modules), each fully granted.
+      expect(database.permission.findOrCreate).toHaveBeenCalledTimes(16);
+      expect(database.role_permission.create).toHaveBeenCalledTimes(16);
+      for (const call of database.role_permission.create.mock.calls) {
+        const joinRow = call[0];
+        expect(joinRow.roleId).toBe(userRole.id);
+        expect(joinRow.C && joinRow.R && joinRow.U && joinRow.D).toBe(true);
+      }
       expect(tx.commit).toHaveBeenCalled();
       expect(tx.rollback).not.toHaveBeenCalled();
       expect(result).toEqual({
@@ -206,8 +231,29 @@ describe("AuthenticateService", () => {
         vendor: vendorModel,
         warehouses: [warehouseBuilder],
         roles: [userRole],
-        permissions: [expect.anything()],
       });
+    });
+
+    it("never re-provisions the owner role if the user already has one", async () => {
+      const tx = makeTx();
+      database.sequelize.transaction.mockResolvedValue(tx);
+      database.user_role.count.mockResolvedValue(1); // lifetime-once guarantee
+
+      const usr = {
+        id: 9,
+        parsed: { id: 9, email: params.email },
+        createRole: vi.fn(),
+      };
+      const vendorModel = { id: 3, dataValues: {} };
+      database.user.build.mockReturnValue({ save: vi.fn().mockResolvedValue(usr) });
+      database.vendor.build.mockReturnValue({ save: vi.fn().mockResolvedValue(vendorModel) });
+      database.warehouse.build.mockReturnValue({ id: 4, save: vi.fn().mockResolvedValue(undefined) });
+
+      const result = await service.register(params as any);
+
+      expect(usr.createRole).not.toHaveBeenCalled();
+      expect(result.roles).toEqual([]);
+      expect(tx.commit).toHaveBeenCalled();
     });
 
     it("rolls back the transaction on failure", async () => {

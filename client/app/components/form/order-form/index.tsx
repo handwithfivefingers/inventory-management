@@ -7,7 +7,6 @@ import { OrderDetailSchema, OrderSchema } from "~/constants/schema/order";
 import { useTranslation } from "~/i18n";
 import { IProduct } from "~/types/product";
 import { NumberInput } from "../number-input";
-import { FormInput } from "../formInput";
 import { FormControl } from "../form-control";
 import { TMButton } from "~/components/tm-button";
 import { SelectInput } from "../select-input";
@@ -124,9 +123,9 @@ export const OrderForm = ({
               <div className="w-96 flex justify-between">
                 <span>{t("importOrder.surcharge")}</span>{" "}
                 <div className="w-40">
-                  <FormInput name="surcharge">
+                  <FormControl name="surcharge">
                     {(field) => <NumberInput onValueChange={(v) => field.onChange(v.value)} />}
-                  </FormInput>
+                  </FormControl>
                 </div>
               </div>
               <div className="w-96 flex justify-between">

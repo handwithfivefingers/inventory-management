@@ -62,7 +62,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
       return (
         <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
           <InputLabel name={name} label={label} required={required} />
-          <div className={cn("relative rounded-md flex items-center w-full")}>
+          <div className={cn("relative rounded-md flex items-center w-full bg-slate-50")}>
             <textarea
               name={name}
               id={name}
@@ -95,7 +95,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     return (
       <div className={cn(styles.inputWrapper)}>
         <InputLabel name={name} label={label} required={required} />
-        <div className={cn("relative rounded-md flex items-center w-full")}>
+        <div className={cn("relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700")}>
           <InputPrefix prefix={prefix} prefixRef={prefixRef} />
           <input
             name={name}
@@ -103,7 +103,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             className={cn(
               "block w-full bg-transparent rounded-md ",
               "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 border border-slate-300 outline-none",
-              "text-slate-700  placeholder:text-gray-400",
+              "text-slate-700 dark:text-slate-300  placeholder:text-gray-400",
               SizeClass[inputSize || "sm"],
               prefix && "pl-8",
               suffix && "pr-8",

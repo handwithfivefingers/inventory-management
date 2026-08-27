@@ -1,6 +1,8 @@
 import database from '#/database'
 import { IRequestLocal } from '#/types/common'
 import { IInvoiceStatic } from '#/types/invoice'
+import { assertVendorAccess, getVendorScope } from '#/utils/tenant'
+import { isDuplicateEntryError, nextSequence } from '#/utils/sequence'
 import { Sequelize } from 'sequelize'
 import { Op } from 'sequelize'
 
@@ -10,13 +12,29 @@ export class InvoiceService {
 
   /**
    * Generate invoice number with format: {vendorCode}-{YYYY}-{sequence}
+   *
+   * The sequence comes from the atomic `sequences` counter
+   * (utils/sequence.ts) so concurrent creations for the same vendor can
+   * never observe the same number; the unique index on invoices.invoiceNumber
+   * is the final safety net (callers retry once on ER_DUP_ENTRY).
    */
-  private async generateInvoiceNumber(vendorId: number, year: number): Promise<string> {
+  private async generateInvoiceNumber(vendorId: number, year: number, transaction?: any): Promise<string> {
     // Get vendor code (first 3 letters of vendor name in uppercase)
     const vendor = await database.vendor.findByPk(vendorId)
     const vendorCode = vendor?.name?.substring(0, 3).toUpperCase() || 'INV'
 
-    // Get the last invoice number for this vendor and year
+    // The transaction pins ONE pooled connection so LAST_INSERT_ID() is
+    // read back reliably (it is connection-scoped).
+    const seq = await nextSequence(`invoice:${vendorId}`, year, {
+      transaction,
+      initial: await this.currentMaxSequence(vendorId, vendorCode, year)
+    })
+
+    return `${vendorCode}-${year}-${seq.toString().padStart(5, '0')}`
+  }
+
+  /** Highest sequence already used by existing invoices - seeds the counter lazily. */
+  private async currentMaxSequence(vendorId: number, vendorCode: string, year: number): Promise<number> {
     const lastInvoice = await this.invoice.findOne({
       where: {
         vendorId,
@@ -26,20 +44,10 @@ export class InvoiceService {
       },
       order: [['id', 'DESC']]
     })
-
-    // Extract sequence number from last invoice or start from 1
-    let sequence = 1
-    if (lastInvoice) {
-      const lastNumber = lastInvoice.invoiceNumber.split('-').pop()
-      if (lastNumber) {
-        sequence = parseInt(lastNumber, 10) + 1
-      }
-    }
-
-    // Format sequence with leading zeros (5 digits)
-    const sequenceStr = sequence.toString().padStart(5, '0')
-
-    return `${vendorCode}-${year}-${sequenceStr}`
+    if (!lastInvoice) return 1
+    const lastNumber = lastInvoice.invoiceNumber.split('-').pop()
+    const parsed = lastNumber ? parseInt(lastNumber, 10) : NaN
+    return Number.isFinite(parsed) ? parsed + 1 : 1
   }
 
   /**
@@ -51,11 +59,14 @@ export class InvoiceService {
 
     const where: any = {}
 
-    // Filter by vendor
+    // S1: filter by vendor. Scoped callers may only list their own vendors'
+    // invoices; an explicit out-of-scope filter is rejected.
+    const scope = getVendorScope(req)
     if (vendorId) {
-      where.vendorId = vendorId
-    } else if (req.user?.vendorId) {
-      where.vendorId = req.user.vendorId
+      assertVendorAccess(scope, Number(vendorId), 'Unauthorized to read this vendor\'s invoices')
+      where.vendorId = Number(vendorId)
+    } else if (scope !== null) {
+      where.vendorId = { [Op.in]: scope }
     }
 
     // Filter by status
@@ -152,18 +163,30 @@ export class InvoiceService {
       throw new Error('Invoice not found')
     }
 
-    // Check vendor permission
-    if (req.user?.vendorId && invoice.vendorId !== req.user.vendorId) {
-      throw new Error('Unauthorized to view this invoice')
-    }
+    // S1: vendor permission - enforced (the old `req.user?.vendorId && ...`
+    // check could never fire because auth never set req.user).
+    assertVendorAccess(getVendorScope(req), (invoice as any).vendorId, 'Unauthorized to view this invoice')
 
     return invoice
   }
 
   /**
-   * Create new invoice
+   * Create new invoice.
+   * Retries once on ER_DUP_ENTRY: invoices.invoiceNumber is UNIQUE as a
+   * final safety net against duplicate codes under extreme concurrency.
    */
   async create(req: IRequestLocal) {
+    try {
+      return await this.createAttempt(req)
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        return await this.createAttempt(req)
+      }
+      throw error
+    }
+  }
+
+  private async createAttempt(req: IRequestLocal) {
     const t = await this.sequelize.transaction()
 
     try {
@@ -195,15 +218,24 @@ export class InvoiceService {
         throw new Error('Order not found')
       }
 
-      // Resolve vendorId: explicit body value > authenticated user > the order's own vendor.
-      // (The auth middleware exposes req.locals; most callers don't have req.user.vendorId,
-      // so the order's vendor is the reliable source.)
+      // Resolve vendorId: explicit body value > authenticated user's primary
+      // vendor > the order's own vendor. Scoped callers must stay inside
+      // their vendor scope.
+      const scope = getVendorScope(req)
+      const requestedVendorId = (req.body as any).vendorId ?? (req as any).user?.vendorId
+      if (requestedVendorId != null) {
+        assertVendorAccess(scope, Number(requestedVendorId), 'Unauthorized to create invoices for this vendor')
+      }
       const vendorId = Number(
-        (req.body as any).vendorId || (req as any).user?.vendorId || (order as any).vendorId
+        requestedVendorId || (order as any).vendorId || (scope && scope.length ? scope[0] : null)
       )
       if (!vendorId) {
         throw new Error('vendorId is required')
       }
+
+      // S1: enforced - even when falling back to the ORDER's vendor, scoped
+      // callers may never mint invoices outside their vendor scope.
+      assertVendorAccess(scope, vendorId, 'Unauthorized to create an invoice for this order')
 
       if ((order as any).vendorId && Number((order as any).vendorId) !== vendorId) {
         throw new Error('Unauthorized to create an invoice for this order')
@@ -248,9 +280,11 @@ export class InvoiceService {
         throw new Error('Invoice items are required')
       }
 
-      // Generate invoice number
+      // Generate invoice number (inside the transaction: the atomic counter
+      // and the insert must share a connection; retry once on the rare race
+      // where another creator committed the same number first).
       const currentYear = new Date().getFullYear()
-      const invoiceNumber = await this.generateInvoiceNumber(vendorId, currentYear)
+      let invoiceNumber = await this.generateInvoiceNumber(vendorId, currentYear, t)
 
       // Calculate totals
       let subtotal = 0
@@ -373,10 +407,8 @@ export class InvoiceService {
         throw new Error('Invoice not found')
       }
 
-      // Check vendor permission
-      if (req.user?.vendorId && invoice.vendorId !== req.user.vendorId) {
-        throw new Error('Unauthorized to update this invoice')
-      }
+      // S1: enforced vendor permission
+      assertVendorAccess(getVendorScope(req), (invoice as any).vendorId, 'Unauthorized to update this invoice')
 
       // Update basic fields
       invoice.customerId = customerId ?? invoice.customerId
@@ -480,10 +512,8 @@ export class InvoiceService {
         throw new Error('Invoice not found')
       }
 
-      // Check vendor permission
-      if (req.user?.vendorId && invoice.vendorId !== req.user.vendorId) {
-        throw new Error('Unauthorized to delete this invoice')
-      }
+      // S1: enforced vendor permission
+      assertVendorAccess(getVendorScope(req), (invoice as any).vendorId, 'Unauthorized to delete this invoice')
 
       // Can only delete draft invoices
       if (invoice.status !== 'draft') {
@@ -517,10 +547,8 @@ export class InvoiceService {
         throw new Error('Invoice not found')
       }
 
-      // Check vendor permission
-      if (req.user?.vendorId && invoice.vendorId !== req.user.vendorId) {
-        throw new Error('Unauthorized to update this invoice')
-      }
+      // S1: enforced vendor permission
+      assertVendorAccess(getVendorScope(req), (invoice as any).vendorId, 'Unauthorized to update this invoice')
 
       invoice.status = status
 

@@ -1,27 +1,26 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useFetcher, useLoaderData } from "@remix-run/react";
-import { useEffect } from "react";
+import { useLoaderData } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { staffService } from "~/action.server/staff.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { FormControl } from "~/components/form/form-control";
 import { DatePicker } from "~/components/form/date-picker";
+import { FormControl } from "~/components/form/form-control";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
-import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
-import { staffSchema } from "~/constants/schema/staff";
-import { getSession } from "~/sessions";
+import { StaffSchema, staffSchema } from "~/constants/schema/staff";
+import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
+import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   try {
+    const { cookie } = await parseCookieFromRequest(request);
     const { id } = params;
-    const resp = await staffService.getById(id as string);
-    return { data: resp.data?.data ?? null };
+    const resp = await staffService.getById(id as string, cookie);
+    return { data: resp.data?.data ?? null, id };
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
@@ -32,48 +31,50 @@ export const meta: MetaFunction = () => {
 };
 
 export default function StaffDetail() {
-  const { data } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+  const { data, id } = useLoaderData<typeof loader>();
+  // const fetcher = useFetcher();
+  const { submit, isLoading } = useSubmitPromise();
   const { t } = useTranslation();
-  const formMethods = useForm({
+  const formMethods = useForm<StaffSchema>({
     defaultValues: {
       fullName: data?.fullName ?? "",
       gender: data?.gender ?? "male",
       phone: data?.phone ?? "",
       email: data?.email ?? "",
-      position: data?.position ?? "other",
       salary: data?.salary ?? 0,
       hireDate: data?.hireDate ?? "",
       status: data?.status ?? "active",
       address: data?.address ?? "",
     },
-    resolver: zodResolver(staffSchema),
+    resolver: staffSchema,
   });
   const { handleSubmit, control } = formMethods;
 
-  useEffect(() => {
-    if (fetcher.state === "idle" && (fetcher.data as any)?.status === 200) {
-      toast.success({ title: "Thành công", message: "Cập nhật thành công" });
-    }
-  }, [fetcher.data, fetcher.state]);
+  // useEffect(() => {
+  //   if (fetcher.state === "idle" && (fetcher.data as any)?.status === 200) {
+  //     toast.success({ title: "Thành công", message: "Cập nhật thành công" });
+  //   }
+  // }, [fetcher.data, fetcher.state]);
 
+  const onSubmit = async (values: StaffSchema) => {
+    try {
+      const response = await submit({ data: JSON.stringify(values) }, { method: "POST", action: `/staff/${id}` });
+      console.log("Response", response);
+    } catch (error) {
+      console.log("error", error);
+    }
+  };
   if (!data) return <div className="p-4">No data</div>;
 
   return (
     <div className="w-full flex flex-col p-4 gap-4">
       <CardItem title={`${t("staff.title")} - ${data.code}`} className="p-4">
         <FormProvider {...formMethods}>
-          <form
-            className="grid grid-cols-2 gap-x-4 gap-2"
-            onSubmit={handleSubmit((v) =>
-              fetcher.submit(
-                { data: JSON.stringify(v) },
-                { method: "POST", action: `/staff/${data.id}` }
-              )
-            )}
-          >
+          <form className="grid grid-cols-2 gap-x-4 gap-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="col-span-1">
-              <FormControl name="fullName">{(field) => <TextInput label={t("staff.fullName")} {...field} />}</FormControl>
+              <FormControl name="fullName">
+                {(field) => <TextInput label={t("staff.fullName")} {...field} />}
+              </FormControl>
             </div>
             <div className="col-span-1">
               <FormControl name="phone">{(field) => <TextInput label={t("staff.phone")} {...field} />}</FormControl>
@@ -133,18 +134,24 @@ export default function StaffDetail() {
             <div className="col-span-1">
               <FormControl name="salary">
                 {(field) => (
-                  <NumberInput label={t("staff.salary")} value={field.value as any} onValueChange={(v) => field.onChange(v.value)} />
+                  <NumberInput
+                    label={t("staff.salary")}
+                    value={field.value as any}
+                    onValueChange={(v) => field.onChange(v.value)}
+                  />
                 )}
               </FormControl>
             </div>
             <div className="col-span-1">
-              <FormControl name="hireDate">{(field) => <DatePicker label={t("staff.hireDate")} {...field} />}</FormControl>
+              <FormControl name="hireDate">
+                {(field) => <DatePicker label={t("staff.hireDate")} {...field} />}
+              </FormControl>
             </div>
             <div className="col-span-2">
               <FormControl name="address">{(field) => <TextInput label={t("staff.address")} {...field} />}</FormControl>
             </div>
             <div className="col-span-2 ml-auto">
-              <TMButton variant="light" htmlType="submit">
+              <TMButton variant="light" htmlType="submit" size="sm" loading={isLoading}>
                 {t("common.save")}
               </TMButton>
             </div>

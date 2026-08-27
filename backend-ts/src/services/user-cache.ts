@@ -1,8 +1,7 @@
-import { Request, Response, NextFunction } from 'express'
-import AuthenticateService from '#/services/authenticate'
-import database from '#/database'
-import { cacheItem, cacheKey, cacheDel } from '#/services/authenticate/cache'
 import { Redis } from '#/configs/redis'
+import database from '#/database'
+import { cacheDel, cacheItem, cacheKey } from '#/services/authenticate/cache'
+import { NextFunction, Request, Response } from 'express'
 
 interface IRequestLocal extends Request {
   locals: {
@@ -14,11 +13,7 @@ interface IRequestLocal extends Request {
 /**
  * Update user profile with cache invalidation
  */
-export async function updateUserProfile(
-  req: IRequestLocal,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function updateUserProfile(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
   try {
     const userId = req.locals.id
     const userEmail = req.locals.email
@@ -49,7 +44,8 @@ export async function updateUserProfile(
             {
               model: database.role,
               include: {
-                model: database.permission
+                model: database.permission,
+                through: { attributes: ['C', 'R', 'U', 'D'] }
               } as any
             },
             {
@@ -78,11 +74,7 @@ export async function updateUserProfile(
 /**
  * Update user roles with cache invalidation
  */
-export async function updateUserRoles(
-  req: IRequestLocal,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function updateUserRoles(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
   try {
     const userId = req.locals.id
     const userEmail = req.locals.email
@@ -100,10 +92,28 @@ export async function updateUserRoles(
       return
     }
 
-    // Set new roles
+    // Single-role policy: only the first role id is honored - a user holds
+    // exactly one role, so this REPLACES any previous assignment.
+    const roleId = Array.isArray(roleIds) ? roleIds[0] : roleIds
+    if (!roleId) {
+      res.status(400).json({
+        error: 'roleIds must contain at least one role',
+        status: 400
+      })
+      return
+    }
+
+    // Set new roles (replacing whatever was there)
     const roles = await database.role.findAll({
-      where: { id: roleIds }
+      where: { id: roleId }
     })
+    if (!roles.length) {
+      res.status(404).json({
+        error: 'Role not found',
+        status: 404
+      })
+      return
+    }
     await user.setRoles(roles)
 
     // Invalidate cache
@@ -124,11 +134,7 @@ export async function updateUserRoles(
  * Invalidate user cache by user ID
  * Useful when user data is modified from admin panel
  */
-export async function invalidateUserCache(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function invalidateUserCache(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { userId, email } = req.body
 
@@ -157,11 +163,7 @@ export async function invalidateUserCache(
  * Invalidate all user caches (admin only)
  * Use with caution - clears all user sessions
  */
-export async function invalidateAllUserCaches(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function invalidateAllUserCaches(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const redisInstance = new Redis()
     const pattern = cacheKey('User', '*')

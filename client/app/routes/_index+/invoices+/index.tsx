@@ -3,15 +3,17 @@ import { Link, useFetcher, useLoaderData, useNavigate, useRouteError } from "@re
 import { useEffect, useState } from "react";
 import { invoiceService } from "~/action.server/invoice.service";
 import { CardItem } from "~/components/card-item";
+import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
+import { PermissionGuard } from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { PermissionGuard } from "~/components/permission-guard";
-import { getSession, parseCookieFromRequest } from "~/sessions";
-import { IInvoice } from "~/types/invoice";
-import { formatCurrency } from "~/libs/format-currency";
 import { useTranslation } from "~/i18n";
+import { formatCurrency } from "~/libs/format-currency";
+import { parseCookieFromRequest } from "~/sessions";
+import { IInvoice } from "~/types/invoice";
 
 interface IFilter {
   s?: string;
@@ -113,7 +115,7 @@ export default function Invoices() {
       <CardItem title={t("invoices.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0 justify-between items-center flex-wrap">
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center p-1">
               <TextInput
                 placeholder={t("invoices.searchPlaceholder")}
                 value={filter.s}
@@ -122,7 +124,24 @@ export default function Invoices() {
                 }}
                 className="max-w-xs"
               />
-              <select
+
+              <div className="max-w-40">
+                <SelectInput
+                  options={[
+                    { label: t("invoices.allStatuses"), value: "" },
+                    { label: t("invoices.status.draft"), value: "draft" },
+                    { label: t("invoices.status.issued"), value: "issued" },
+                    { label: t("invoices.status.paid"), value: "paid" },
+                    { label: t("invoices.status.cancelled"), value: "cancelled" },
+                  ]}
+                  value={filter.status}
+                  onChange={(v: any) => {
+                    setFilter({ ...filter, status: v.target.value });
+                  }}
+                />
+              </div>
+
+              {/* <select
                 value={filter.status}
                 onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 className="border rounded px-3 py-2 text-sm"
@@ -132,12 +151,17 @@ export default function Invoices() {
                 <option value="issued">{t("invoices.status.issued")}</option>
                 <option value="paid">{t("invoices.status.paid")}</option>
                 <option value="cancelled">{t("invoices.status.cancelled")}</option>
-              </select>
+              </select> */}
             </div>
             <PermissionGuard permission="C" module="invoice" requireAdmin>
-              <Link to="add">
-                <TMButton>{t("invoices.create")}</TMButton>
-              </Link>
+              <TMButton component={Link} to={"./add"} size="sm">
+                <Icon name="plus" fontSize={16} />
+                {t("invoices.create")}
+              </TMButton>
+              {/* <PermissionGuard permission="C" module="invoice" requireAdmin>
+              <Link to="add"> */}
+              {/* <TMButton>{t("invoices.create")}</TMButton> */}
+              {/* </Link> */}
             </PermissionGuard>
           </div>
 
@@ -184,33 +208,49 @@ export default function Invoices() {
                   dataIndex: "actions",
                   width: 200,
                   render: (item: IInvoice) => (
-                    <div className="flex gap-2">
+                    // stopPropagation so clicking an action doesn't also trigger the row navigation
+                    <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
                       <PermissionGuard permission="R" module="invoice" requireAdmin>
-                        <Link to={`${item.id}`} className="text-blue-600 hover:underline">
-                          {t("common.view")}
+                        <Link
+                          to={`${item.id}`}
+                          title={t("common.view")}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <Icon name="eye" fontSize={16} />
                         </Link>
                       </PermissionGuard>
                       {item.status === "draft" && (
                         <>
                           <PermissionGuard permission="U" module="invoice" requireAdmin>
-                            <Link to={`${item.id}/edit`} className="text-orange-600 hover:underline">
-                              {t("common.edit")}
+                            <Link
+                              to={`${item.id}/edit`}
+                              title={t("common.edit")}
+                              className="text-orange-600 hover:text-orange-800"
+                            >
+                              <Icon name="edit-2" fontSize={16} />
                             </Link>
                           </PermissionGuard>
                           <PermissionGuard permission="D" module="invoice" requireAdmin>
-                            <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:underline">
-                              {t("common.delete")}
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              title={t("common.delete")}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Icon name="trash-2" fontSize={16} />
                             </button>
                           </PermissionGuard>
                         </>
                       )}
                       {item.status === "issued" && (
-                        <button
-                          onClick={() => handleUpdateStatus(item.id, "paid")}
-                          className="text-green-600 hover:underline"
-                        >
-                          {t("invoices.markAsPaid")}
-                        </button>
+                        <PermissionGuard permission="U" module="invoice" requireAdmin>
+                          <button
+                            onClick={() => handleUpdateStatus(item.id, "paid")}
+                            title={t("invoices.markAsPaid")}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            <Icon name="check-circle" fontSize={16} />
+                          </button>
+                        </PermissionGuard>
                       )}
                     </div>
                   ),
@@ -218,6 +258,9 @@ export default function Invoices() {
               ]}
               data={data || []}
               rowKey="id"
+              onRow={{
+                onClick: (item) => navigate(`/invoices/${item.id}`),
+              }}
             />
           </div>
 

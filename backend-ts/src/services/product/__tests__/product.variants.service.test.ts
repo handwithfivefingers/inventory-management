@@ -14,6 +14,7 @@ const db = vi.hoisted(() => {
     "count",
     "increment",
     "decrement",
+    "bulkCreate",
   ];
   const makeModelMock = () => {
     const m: any = {};
@@ -28,6 +29,7 @@ const db = vi.hoisted(() => {
     "category",
     "tag",
     "unit",
+    "warehouse",
     "productAttribute",
     "productAttributeValue",
     "productVariant",
@@ -78,6 +80,8 @@ describe("ProductService.create with variants", () => {
     database.setting.findOne.mockResolvedValue(null);
     database.product.count.mockResolvedValue(0);
     database.product.findOne.mockResolvedValue(null);
+    // S1: tenant checks resolve the warehouse (platform-admin scope here).
+    database.warehouse.findByPk.mockResolvedValue({ vendorId: 1 });
   });
 
   const makeProduct = () => {
@@ -320,17 +324,27 @@ describe("ProductService.syncProductVariants", () => {
 
     // Attribute lookup (rename check) + value list replacement
     database.productAttribute.findByPk.mockResolvedValue({ get: () => "Color" });
-    database.productAttributeValue.findAll.mockResolvedValue([
-      { get: (k: string) => (k === "value" ? "Red" : 11) },
-      { get: (k: string) => (k === "value" ? "Blue" : 12) },
-    ]);
-    // productAttributeValue.findOne: with include -> option resolution; without -> syncAttribute existing
-    database.productAttributeValue.findOne.mockImplementation(({ where, include }: any) => {
-      if (include) {
-        return Promise.resolve({ get: (k: string) => (k === "id" ? (where.value === "Red" ? 11 : 12) : where.value) });
+    database.productAttributeValue.findAll.mockImplementation(({ where, include }: any) => {
+      if (include && where?.productId != null) {
+        // P6 batched option-value resolution (one query, not one per option)
+        const mk = (id: number, value: string) => ({
+          get: (k: string) =>
+            k === "id" ? id : k === "value" ? value : k === "productAttribute"
+              ? { get: () => "Color" }
+              : null,
+          productAttribute: { name: "Color" },
+        });
+        return Promise.resolve([mk(11, "Red"), mk(12, "Blue")]);
       }
-      return Promise.resolve({});
+      // attribute-values listing for the edited attribute (Red/Blue)
+      return Promise.resolve([
+        { get: (k: string) => (k === "value" ? "Red" : 11) },
+        { get: (k: string) => (k === "value" ? "Blue" : 12) },
+      ]);
     });
+    database.productAttributeValue.bulkCreate.mockResolvedValue([]);
+    // syncAttribute find-or-create lookups
+    database.productAttributeValue.findOne.mockResolvedValue({});
 
     // Existing variant "Red"; variant 99 was removed in the editor
     const redVariant = makeVariantInstance(21, ["Red"]);

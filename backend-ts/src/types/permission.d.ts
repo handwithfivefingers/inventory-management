@@ -11,11 +11,7 @@ export interface PermissionModel
   extends Model<InferAttributes<PermissionModel>, InferCreationAttributes<PermissionModel>> {
   id: CreationOptional<number>
   name: string
-  description: string
-  C: boolean
-  R: boolean
-  U: boolean
-  D: boolean
+  description?: string | null
 }
 
 export type IPermissionStatic = typeof Model & { associate: (models: any) => void } & {

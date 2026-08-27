@@ -43,7 +43,8 @@ const Warehouse = (sequelize: Sequelize) => {
   Model.associate = (models) => {
     Model.hasMany(models.inventory, { foreignKey: 'warehouseId' })
     Model.hasMany(models.orderDetail, { foreignKey: 'warehouseId' })
-    Model.hasMany(models.transfer, { foreignKey: 'warehouseId' })
+    Model.hasMany(models.transfer, { foreignKey: 'fromWarehouseId', as: 'outgoingTransfers' })
+    Model.hasMany(models.transfer, { foreignKey: 'toWarehouseId', as: 'incomingTransfers' })
     Model.hasMany(models.order, { foreignKey: 'warehouseId' })
   }
   return Model

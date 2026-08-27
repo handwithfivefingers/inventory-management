@@ -7,7 +7,6 @@ export interface IStaff {
   gender?: "male" | "female" | "other";
   phone?: string;
   email?: string;
-  position: string;
   salary?: number;
   hireDate?: string;
   status: "active" | "inactive";

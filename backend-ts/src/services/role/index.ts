@@ -1,4 +1,6 @@
 import database from '#/database'
+import { getModule, isModuleKey, MODULE_KEYS_LIST } from '#/constant/modules'
+import { flattenRolePermissions } from '#/libs/permission'
 import { RoleStatic } from '#/types/role'
 import { NextFunction, Request, Response } from 'express'
 import { Sequelize, Op } from 'sequelize'
@@ -20,6 +22,32 @@ interface IRoleInput {
   permissions?: IPermissionInput[]
 }
 
+/**
+ * Validate + normalize a permission payload against the canonical module
+ * registry. Unknown module keys are rejected so the permission catalog can
+ * never drift from what the backend actually enforces; CRUD flags are
+ * clamped to real booleans.
+ */
+export const sanitizePermissions = (permissions?: IPermissionInput[]) => {
+  if (!permissions?.length) return []
+  return permissions.map((permission) => {
+    const name = String(permission.name ?? '').trim().toLowerCase()
+    if (!isModuleKey(name)) {
+      throw new Error(
+        `Unknown permission module "${permission.name}". Allowed modules: ${MODULE_KEYS_LIST.join(', ')}`
+      )
+    }
+    return {
+      name,
+      description: getModule(name)?.description,
+      C: permission.C === true,
+      R: permission.R === true,
+      U: permission.U === true,
+      D: permission.D === true
+    }
+  })
+}
+
 export class RoleService {
   model: RoleStatic
   sequelize: Sequelize | undefined
@@ -29,12 +57,14 @@ export class RoleService {
   }
 
   /**
-   * Get all roles with permissions (filtered by vendor)
+   * Get all roles with permissions (filtered by vendor).
+   * Permissions are returned in the flat {id,name,C,R,U,D} shape - flags
+   * resolved from the role_permissions join table.
    */
   async getRoles(vendorId?: number | null) {
     try {
       const where: any = {}
-      
+
       // Filter by vendor: show vendor-specific roles + global roles
       if (vendorId) {
         where[Op.or] = [
@@ -42,36 +72,69 @@ export class RoleService {
           { isGlobal: true }
         ]
       }
-      
+
       const _roles = await this.model.findAll({
         where,
         include: {
-          model: database.permission
-        },
+          model: database.permission,
+          through: { attributes: ['C', 'R', 'U', 'D'] }
+        } as any,
         order: [['id', 'ASC']]
       })
-      return _roles
+      return _roles.map((role: any) => ({
+        ...role.toJSON(),
+        permissions: flattenRolePermissions(role)
+      }))
     } catch (error) {
       throw error
     }
   }
 
   /**
-   * Get role by ID
+   * Get role by ID (permissions flattened, see getRoles).
    */
   async getRoleById(id: number) {
     try {
       const role = await this.model.findByPk(id, {
         include: {
-          model: database.permission
-        }
+          model: database.permission,
+          through: { attributes: ['C', 'R', 'U', 'D'] }
+        } as any
       })
       if (!role) {
         throw new Error('Role not found')
       }
-      return role
+      return {
+        ...(role as any).toJSON(),
+        permissions: flattenRolePermissions(role as any)
+      }
     } catch (error) {
       throw error
+    }
+  }
+
+  /**
+   * Grant a set of sanitized permissions on a role by linking the shared
+   * catalog rows with per-role C/R/U/D join flags.
+   */
+  private async grantPermissions(roleId: number, permissions: ReturnType<typeof sanitizePermissions>, t?: any) {
+    for (const grant of permissions) {
+      const [catalogRow] = await database.permission.findOrCreate({
+        where: { name: grant.name },
+        defaults: { name: grant.name, description: grant.description },
+        transaction: t
+      })
+      await (database as any).role_permission.create(
+        {
+          roleId,
+          permissionId: catalogRow.id,
+          C: grant.C,
+          R: grant.R,
+          U: grant.U,
+          D: grant.D
+        },
+        { transaction: t }
+      )
     }
   }
 
@@ -96,21 +159,13 @@ export class RoleService {
       )
 
       if (permissions && permissions.length > 0) {
-        for (const { id, ...perm } of permissions) {
-          await (_role as any).createPermission(perm, {
-            transaction: t
-          })
-        }
+        await this.grantPermissions((_role as any).id, sanitizePermissions(permissions), t)
       }
 
       await t?.commit()
 
       // Return role with permissions
-      const roleWithPermissions = await this.model.findByPk(_role.id, {
-        include: {
-          model: database.permission
-        }
-      })
+      const roleWithPermissions = await this.getRoleById(_role.id)
 
       return {
         role: roleWithPermissions
@@ -139,26 +194,19 @@ export class RoleService {
       // Update role info
       await role.update({ name, description }, { transaction: t })
 
-      // Delete existing permissions
-      await (role as any).permissions?.destroy({ transaction: t })
-
-      // Create new permissions
-      if (permissions && permissions.length > 0) {
-        for (const perm of permissions) {
-          await (role as any).createPermission(perm, {
-            transaction: t
-          })
-        }
-      }
+      // Replace the permission set: clear the join rows, then re-link the
+      // catalog with the submitted flags.
+      const sanitized = sanitizePermissions(permissions)
+      await (database as any).role_permission.destroy({
+        where: { roleId: Number(id) },
+        transaction: t
+      })
+      await this.grantPermissions(Number(id), sanitized, t)
 
       await t?.commit()
 
       // Return updated role with permissions
-      const updatedRole = await this.model.findByPk(id, {
-        include: {
-          model: database.permission
-        }
-      })
+      const updatedRole = await this.getRoleById(Number(id))
 
       return {
         role: updatedRole
@@ -182,13 +230,18 @@ export class RoleService {
         throw new Error('Role not found')
       }
 
-      // Prevent deleting Admin role
-      if (role.name.toLowerCase() === 'admin') {
-        throw new Error('Cannot delete Admin role')
+      // Prevent deleting system/default roles (isSystem flag) and legacy Admin by name
+      const isSystem = (role as any).isSystem === true || (role as any).get?.('isSystem') === true
+      if (isSystem || role.name.toLowerCase() === 'admin') {
+        throw new Error('Cannot delete system role')
       }
 
-      // Delete permissions first
-      await (role as any).permissions?.destroy({ transaction: t })
+      // Delete permission links first (join rows), then the role itself.
+      await (database as any).role_permission.destroy({
+        where: { roleId: role.id },
+        transaction: t
+      })
+      await database.user_role.destroy({ where: { roleId: role.id }, transaction: t })
 
       // Delete role
       await role.destroy({ transaction: t })
@@ -205,7 +258,10 @@ export class RoleService {
   }
 
   /**
-   * Assign role to user (with vendor context)
+   * Assign role to user (with vendor context).
+   *
+   * A user holds exactly ONE role: any previous assignment is replaced.
+   * Re-assigning the same role is a no-op (idempotent).
    */
   async assignToUser(...[req, res, next]: [Request, Response, NextFunction]) {
     const { userId, roleId, vendorId } = req.body
@@ -227,17 +283,36 @@ export class RoleService {
         throw new Error('Role does not belong to this vendor')
       }
 
-      // Add user to role with vendor context
+      const resolvedVendorId = vendorId || role.vendorId || null
+
+      const existing = await database.user_role.findOne({
+        where: { userId },
+        transaction: t
+      })
+
+      if (existing) {
+        if ((existing as any).roleId === roleId) {
+          await t?.commit()
+          return {
+            message: 'Role assigned successfully',
+            replaced: false
+          }
+        }
+        // Single-role policy: swap the old assignment out before adding.
+        await (existing as any).destroy({ transaction: t })
+      }
+
       await database.user_role.create({
         userId,
         roleId,
-        vendorId: vendorId || role.vendorId || null
+        vendorId: resolvedVendorId
       }, { transaction: t })
-      
+
       await t?.commit()
 
       return {
-        message: 'Role assigned successfully'
+        message: 'Role assigned successfully',
+        replaced: !!existing
       }
     } catch (error) {
       await t?.rollback()

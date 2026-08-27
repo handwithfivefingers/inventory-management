@@ -55,7 +55,7 @@ const SETTING_ITEMS: ISettingItem[] = [
 export default function Setting() {
   return (
     <div className="w-full flex flex-col p-4 gap-4">
-      <CardItem title="Cài đặt" className="p-4">
+      {/* <CardItem title="Cài đặt" className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {SETTING_ITEMS.map((item) => (
             <Link
@@ -81,7 +81,7 @@ export default function Setting() {
             </Link>
           ))}
         </div>
-      </CardItem>
+      </CardItem> */}
       <Outlet />
     </div>
   );

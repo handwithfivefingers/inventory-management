@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import jwt from "jsonwebtoken";
 import { signToken, verifyToken, decodeToken } from "#/libs/token";
 
@@ -68,5 +68,40 @@ describe("decodeToken", () => {
     const noExp = jwt.sign({ id: 5 }, SECRET);
     const decoded = (await decodeToken(noExp)) as { id: number };
     expect(decoded.id).toBe(5);
+  });
+});
+
+describe("security #1: JWT secret fail-fast in production", () => {
+  const ORIGINAL_ENV = { ...process.env };
+
+  it("refuses to boot when NODE_ENV=production and no secret is set", async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = "production";
+    delete process.env.JWT_SECRET_KEY;
+    await expect(import("#/libs/token")).rejects.toThrow(/JWT_SECRET_KEY is required/);
+  });
+
+  it("boots fine in production when a secret IS configured", async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = "production";
+    process.env.JWT_SECRET_KEY = "a-real-production-secret";
+    await expect(import("#/libs/token")).resolves.toBeTruthy();
+  });
+
+  it("keeps working without a secret outside production (local dev)", async () => {
+    vi.resetModules();
+    process.env.NODE_ENV = "development";
+    delete process.env.JWT_SECRET_KEY;
+    await expect(import("#/libs/token")).resolves.toBeTruthy();
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = ORIGINAL_ENV.NODE_ENV;
+    if (ORIGINAL_ENV.JWT_SECRET_KEY !== undefined) {
+      process.env.JWT_SECRET_KEY = ORIGINAL_ENV.JWT_SECRET_KEY;
+    } else {
+      delete process.env.JWT_SECRET_KEY;
+    }
+    vi.resetModules();
   });
 });

@@ -2,6 +2,7 @@ import database from '#/database'
 import { IInventoryStatic } from '#/types/inventory'
 import { IOrderDetailStatic } from '#/types/orderDetail'
 import { IOrderStatic } from '#/types/order'
+import { getVendorScope, TVendorScope } from '#/utils/tenant'
 import { FindAttributeOptions, Op, Sequelize } from 'sequelize'
 
 export class StatsService {
@@ -23,7 +24,8 @@ export class StatsService {
     to,
     groupBy,
     warehouseId,
-    lowStockThreshold
+    lowStockThreshold,
+    vendorScope = null
   }: {
     days?: string
     from?: string
@@ -31,6 +33,8 @@ export class StatsService {
     groupBy?: string
     warehouseId?: string
     lowStockThreshold?: string
+    /** Multi-tenant scope from auth middleware (null = platform admin). */
+    vendorScope?: TVendorScope
   }) {
     try {
       const threshold = Math.max(0, Number(lowStockThreshold) || 10)
@@ -66,11 +70,15 @@ export class StatsService {
       const endExclusive = new Date(end)
       endExclusive.setDate(endExclusive.getDate() + 1)
 
+      // S1: scoped callers only ever aggregate their own vendors' orders.
       const salesWhere: any = {
         providerId: { [Op.eq]: null },
         createdAt: { [Op.gte]: start, [Op.lt]: endExclusive }
       }
       if (warehouseId) salesWhere.warehouseId = Number(warehouseId)
+      if (vendorScope !== null) {
+        salesWhere.vendorId = { [Op.in]: vendorScope.length ? vendorScope : [-1] }
+      }
 
       // Revenue & order count grouped by day
       const grouped = (await this.order.findAll({
@@ -143,48 +151,49 @@ export class StatsService {
 
       const avgOrderValue = totalOrders ? Math.round(totalRevenue / totalOrders) : 0
 
-      // Top selling products in the period
-      const salesOrders = (await this.order.findAll({
-        where: salesWhere,
-        attributes: ['id'],
+      // Top selling products in the period.
+      // P5: single JOIN aggregate instead of loading every order id into an
+      // IN-list first; joins the sales-filtered orders straight onto their
+      // details.
+      const topProducts = (await this.orderDetail.findAll({
+        attributes: [
+          [this.sequelize.col('orderDetail.productId'), 'productId'],
+          [this.sequelize.col('product.name'), 'productName'],
+          [this.sequelize.col('product.code'), 'productCode'],
+          [this.sequelize.fn('SUM', this.sequelize.col('orderDetail.quantity')), 'quantitySold'],
+          [
+            this.sequelize.fn(
+              'SUM',
+              this.sequelize.literal('`orderDetail`.`quantity` * `orderDetail`.`price`')
+            ),
+            'revenue'
+          ]
+        ] as FindAttributeOptions,
+        include: [
+          { model: database.product, attributes: [] },
+          {
+            model: database.order,
+            attributes: [],
+            required: true,
+            where: salesWhere
+          }
+        ],
+        group: [
+          this.sequelize.col('orderDetail.productId'),
+          this.sequelize.col('product.id'),
+          this.sequelize.col('product.name'),
+          this.sequelize.col('product.code')
+        ],
+        order: [[this.sequelize.literal('`quantitySold`'), 'DESC']],
+        limit: 5,
         raw: true
       })) as any[]
-      const orderIds = salesOrders.map((o) => o.id)
 
-      let topProducts: any[] = []
-      if (orderIds.length) {
-        topProducts = (await this.orderDetail.findAll({
-          where: { orderId: { [Op.in]: orderIds } },
-          attributes: [
-            [this.sequelize.col('orderDetail.productId'), 'productId'],
-            [this.sequelize.col('product.name'), 'productName'],
-            [this.sequelize.col('product.code'), 'productCode'],
-            [this.sequelize.fn('SUM', this.sequelize.col('orderDetail.quantity')), 'quantitySold'],
-            [
-              this.sequelize.fn(
-                'SUM',
-                this.sequelize.literal('`orderDetail`.`quantity` * `orderDetail`.`price`')
-              ),
-              'revenue'
-            ]
-          ] as FindAttributeOptions,
-          include: [{ model: database.product, attributes: [] }],
-          group: [
-            this.sequelize.col('orderDetail.productId'),
-            this.sequelize.col('product.id'),
-            this.sequelize.col('product.name'),
-            this.sequelize.col('product.code')
-          ],
-          order: [[this.sequelize.literal('`quantitySold`'), 'DESC']],
-          limit: 5,
-          raw: true
-        })) as any[]
-        topProducts = topProducts.map((row) => ({
-          ...row,
-          quantitySold: Number(row.quantitySold) || 0,
-          revenue: Number(row.revenue) || 0
-        }))
-      }
+      const mappedTopProducts = topProducts.map((row) => ({
+        ...row,
+        quantitySold: Number(row.quantitySold) || 0,
+        revenue: Number(row.revenue) || 0
+      }))
 
       // Low stock alerts (product-level rows only; variant rows are aggregated separately)
       const inventoryWhere: any = {
@@ -216,7 +225,7 @@ export class StatsService {
         totalRevenue,
         totalOrders,
         avgOrderValue,
-        topProducts,
+        topProducts: mappedTopProducts,
         lowStock,
         lowStockCount
       }

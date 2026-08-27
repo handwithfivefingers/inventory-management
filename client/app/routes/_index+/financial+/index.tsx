@@ -30,7 +30,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const fromParam = dayjs(params.get("from") || "");
     const toParam = dayjs(params.get("to") || "");
     const from = fromParam.isValid() ? fromParam.startOf("day") : now.startOf("month");
-    const to = toParam.isValid() && toParam.valueOf() >= fromParam.valueOf() ? toParam.endOf("day") : now.endOf("month");
+    const to =
+      toParam.isValid() && toParam.valueOf() >= fromParam.valueOf() ? toParam.endOf("day") : now.endOf("month");
     const rangeQuery = { from: from.format("YYYY-MM-DD"), to: to.format("YYYY-MM-DD") };
 
     // Summary of the selected period, compared with the previous period of the same length
@@ -68,12 +69,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       from: rangeQuery.from,
       to: rangeQuery.to,
       summary: {
-        current:
-          currentReport.data?.data ??
-          defaultSummary(),
-        previous:
-          previousReport.data?.data ??
-          defaultSummary(),
+        current: currentReport.data?.data ?? defaultSummary(),
+        previous: previousReport.data?.data ?? defaultSummary(),
       },
     };
   } catch (error) {
@@ -113,7 +110,7 @@ export default function Financial() {
   };
 
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
+    <div className="w-full flex flex-col p-2 gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         <SummaryCard
           label={t("financial.revenue")}
@@ -125,13 +122,21 @@ export default function Financial() {
           label={t("financial.totalExpense")}
           value={<Money value={summary?.current?.totalExpense} />}
           variant="red"
-          delta={renderDelta(summary?.current?.totalExpense, summary?.previous?.totalExpense, t("financial.vsPreviousPeriod"))}
+          delta={renderDelta(
+            summary?.current?.totalExpense,
+            summary?.previous?.totalExpense,
+            t("financial.vsPreviousPeriod"),
+          )}
         />
         <SummaryCard
           label={t("financial.netProfit")}
           value={<Money value={summary?.current?.netProfit} />}
           variant="indigo"
-          delta={renderDelta(summary?.current?.netProfit, summary?.previous?.netProfit, t("financial.vsPreviousPeriod"))}
+          delta={renderDelta(
+            summary?.current?.netProfit,
+            summary?.previous?.netProfit,
+            t("financial.vsPreviousPeriod"),
+          )}
         />
       </div>
       <CardItem title={t("financial.title")} className="p-4">
@@ -183,12 +188,6 @@ export default function Financial() {
         <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
           <TMTable
             columns={[
-              {
-                title: t("financial.stt"),
-                dataIndex: "id",
-                width: 80,
-                render: (record, i) => Number(i) + 1,
-              },
               {
                 title: t("financial.code"),
                 dataIndex: "code",
@@ -273,7 +272,8 @@ const SummaryCard = ({
   label: string;
   value: ReactNode;
   delta?: ReactNode;
-  variant?: "green" | "red" | "indigo";}) => {
+  variant?: "green" | "red" | "indigo";
+}) => {
   return (
     <div className="bg-white p-4 flex flex-col gap-2 rounded shadow-2xl shadow-slate-200">
       <span>{label}</span>

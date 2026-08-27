@@ -4,6 +4,12 @@ import jwt from 'jsonwebtoken'
 
 const EXPIRED_TIME = 60 * 60 * 24
 const SECRET_KEY = process.env.JWT_SECRET_KEY || 'secret'
+
+// SECURITY: a forgeable fallback secret must never survive in production.
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET_KEY) {
+  throw new Error('JWT_SECRET_KEY is required when NODE_ENV=production')
+}
+
 const signToken = (payload: Record<string, any>) => {
   return jwt.sign(payload, SECRET_KEY, { expiresIn: EXPIRED_TIME })
 }
@@ -21,7 +27,7 @@ const decodeToken = async (token: string) => {
 
 const verifyToken = <T>(token: string): T | false => {
   try {
-    const decoded = jwt.verify(token, SECRET_KEY) as T 
+    const decoded = jwt.verify(token, SECRET_KEY) as T
     return decoded as T
   } catch (error) {
     return false

@@ -6,7 +6,7 @@ import { customerService } from "~/action.server/customer.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { TMButton } from "~/components/tm-button";
-import { getSession } from "~/sessions";
+import { getSession, parseCookieFromRequest } from "~/sessions";
 import { IInvoiceItem, PaymentType } from "~/types/invoice";
 import { IProduct } from "~/types/product";
 import { ICustomer } from "~/types/customer";
@@ -14,7 +14,7 @@ import { formatCurrency } from "~/libs/format-currency";
 import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
+  const { cookie } = await parseCookieFromRequest(request);
 
   const [invoiceResp, customersResp, productsResp] = await Promise.all([
     invoiceService.getInvoiceById({ id: params.id as string, cookie }),
@@ -30,7 +30,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
+  const { cookie } = await parseCookieFromRequest(request);
   const data = await request.json();
 
   try {

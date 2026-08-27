@@ -129,6 +129,13 @@
       "cash": "Tiền mặt",
       "transfer": "Chuyển khoản",
       "credit": "Tín dụng",
+      "receiptTitle": "HÓA ĐƠN BÁN HÀNG",
+      "thanks": "Cảm ơn Quý khách - Hẹn gặp lại!",
+      "printer": "Máy in",
+      "fontSize": "Cỡ chữ",
+      "letterSpacing": "Giãn chữ",
+      "widthAdjust": "Điều chỉnh khổ giấy",
+      "scanQr": "Quét VietQR chuyển khoản",
       "dueDate": "Hạn thanh toán",
       "createdAt": "Ngày tạo",
       "notes": "Ghi chú",
@@ -261,7 +268,11 @@
     "status": "Trạng thái",
     "address": "Địa chỉ",
     "add": "Thêm nhân viên",
-    "searchPlaceholder": "Tìm theo tên"
+    "searchPlaceholder": "Tìm theo tên",
+    "createAccount": "Tạo tài khoản đăng nhập",
+    "loginEmail": "Email đăng nhập",
+    "loginEmailHint": "Để trống sẽ dùng email nhân viên làm tài khoản",
+    "password": "Mật khẩu"
   },
   "shift": {
     "title": "Chốt ca",

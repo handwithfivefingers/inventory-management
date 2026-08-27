@@ -240,7 +240,7 @@ const VariantsManager = ({
           <VariantEditor />
         </div>
         <div className="ml-auto">
-          <TMButton htmlType="submit" loading={busy}>
+          <TMButton htmlType="submit" loading={busy} size="sm">
             {t("common.save")}
           </TMButton>
         </div>
@@ -341,8 +341,7 @@ const EditForm = () => {
       skuCode: data?.skuCode ?? "",
       quantity: (data?.quantity as number) ?? undefined,
       unit: (data as any)?.unitId || undefined,
-      categories:
-        ((data?.categories as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
+      categories: ((data?.categories as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
       tags: (((data as any)?.tags as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
       description: data?.description ?? "",
       costPrice: (data?.costPrice ?? undefined) as any,

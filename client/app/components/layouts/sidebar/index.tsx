@@ -1,11 +1,14 @@
 import { Link, useLocation } from "@remix-run/react";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Icon } from "~/components/icon";
-import { ISidebarChild, SIDE_BAR } from "~/constants/sidebar";
+import { ISidebarChild, ISideBarItem, SIDE_BAR } from "~/constants/sidebar";
+import { checkPermission } from "~/hooks/use-permission";
+import { useUser } from "~/store/user.store";
 import { useTranslation } from "~/i18n";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
-
+import { IRole } from "~/types/user";
+import { m } from "motion/react";
 interface ISidebarItem extends BaseProps {
   to?: string;
   label: string;
@@ -35,11 +38,33 @@ const hasActiveDescendant = (items: ISidebarChild[] | undefined, pathname: strin
     item.items?.length ? hasActiveDescendant(item.items, pathname) : isRouteActive(pathname, item.to),
   );
 
+/**
+ * Pure visibility rule: a sidebar entry renders only when the user holds the
+ * module's Read permission (exact module-key match, mirroring the backend
+ * authorize() checks). Items without a moduleKey are always visible.
+ */
+const isVisible = (item: ISidebarChild | ISideBarItem, roles: IRole[] | undefined): boolean =>
+  !item.moduleKey || checkPermission(roles, item.moduleKey, "R");
+
+/** Filter any level of entries down to what the user may see. */
+const filterVisible = <T extends ISidebarChild | ISideBarItem>(items: T[], roles: IRole[] | undefined): T[] =>
+  items.filter((item) => isVisible(item, roles));
+
 export const Sidebar = () => {
   const { t } = useTranslation();
+  const { user } = useUser();
+
+  // Requirement 4: group headers remain visible even when the user lacks
+  // permission for all children - only the children are filtered.
+  const visibleGroups = useMemo(() => {
+    return SIDE_BAR.map((group) =>
+      group.items?.length ? { ...group, items: filterVisible(group.items, user?.roles) } : group,
+    );
+  }, [user?.roles]);
+
   return (
-    <div className="flex flex-col h-full flex-1 p-2 rounded-md gap-1 overflow-auto">
-      {SIDE_BAR.map((group, index) => (
+    <div className="flex flex-col h-full flex-1 p-2 rounded-md gap-1 overflow-auto scrollbar">
+      {visibleGroups.map((group, index) => (
         <SideBarItem
           key={[group.labelKey, index].join("-")}
           to={group.to}
@@ -64,8 +89,18 @@ const SideBarItem = ({ to, label, iconName, items, divider, level = 0 }: ISideba
   let location = useLocation();
   const pathname = location.pathname;
 
-  // Plain navigation link
+  // Top-level groups always render as collapsible headers even when
+  // all children are filtered (requirement 4). Only leaf levels fall
+  // back to a plain link when empty.
   if (!items?.length) {
+    if (level === 0) {
+      // Empty group: header stays visible with no children
+      return (
+        <CollapsibleGroup label={label} iconName={iconName} containsActive={false} level={level} divider={divider}>
+          <GroupChildren items={[]} level={level} />
+        </CollapsibleGroup>
+      );
+    }
     return (
       <LinkItem
         to={to || "#"}
@@ -149,9 +184,9 @@ const CollapsibleGroup = ({
   containsActive?: boolean;
   children: ReactNode;
 }) => {
-  // Expanded by default only when the group holds the active route;
-  // auto-expand later if the user navigates into it.
-  const [isExpand, setIsExpand] = useState<boolean>(() => !!containsActive);
+  // Expanded by default; auto-expand if the user navigates into a
+  // group they manually collapsed.
+  const [isExpand, setIsExpand] = useState<boolean>(true);
 
   useEffect(() => {
     if (containsActive) setIsExpand(true);
@@ -187,14 +222,14 @@ const CollapsibleGroup = ({
           />
           <div className="flex-shrink-0 text-sm">{label}</div>
         </div>
-        <Icon
-          name="chevron-down"
+        <m.div
           className={cn("w-5")}
-          style={{
-            transition: "transform 0.2s ease-out",
-            transform: `rotate(${isExpand ? "180deg" : "0deg"})`,
+          animate={{
+            rotate: isExpand ? 180 : 0,
           }}
-        />
+        >
+          <Icon name="chevron-down" />
+        </m.div>
       </div>
 
       {/* Children: grid-rows 0fr -> 1fr animates collapse without measuring */}

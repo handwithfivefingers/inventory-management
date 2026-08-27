@@ -14,6 +14,7 @@ export interface IFinancialRecord {
   transactionDate: string;
   createdAt?: string;
   staff?: any;
+  staffName?: string;
   warehouse?: any;
 }
 

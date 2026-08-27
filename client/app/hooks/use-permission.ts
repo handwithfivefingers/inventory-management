@@ -1,5 +1,28 @@
 import { useUser } from "~/store/user.store";
-import { IPermission } from "~/types/user";
+import { IPermission, IRole } from "~/types/user";
+
+/**
+ * Pure permission check shared by hooks and non-hook contexts (sidebar
+ * filtering, loaders). Mirrors the backend's exact-match rule: the module key
+ * must equal `permission.name`, and the admin role bypasses all checks.
+ */
+export const checkPermission = (
+  roles: IRole[] | undefined,
+  moduleName?: string,
+  permissionCode: "C" | "R" | "U" | "D" = "R",
+): boolean => {
+  if (!roles?.length) return false;
+
+  return roles.some((role) => {
+    if (role.name?.toLowerCase() === "admin") return true;
+    if (!role.permissions?.length) return false;
+
+    return role.permissions.some(
+      (permission: IPermission) =>
+        (!moduleName || permission.name.toLowerCase() === moduleName.toLowerCase()) && permission[permissionCode],
+    );
+  });
+};
 
 /**
  * Hook to check if user has specific permission
@@ -9,26 +32,8 @@ import { IPermission } from "~/types/user";
  */
 export const usePermission = (permissionCode: "C" | "R" | "U" | "D", moduleName?: string): boolean => {
   const { user } = useUser();
-
-  if (!user?.roles) {
-    return false;
-  }
-
-  // Check if user has any role with the required permission
-  const hasPermission = user.roles.some((role) => {
-    if (!role.permissions) return false;
-
-    return role.permissions.some((permission: IPermission) => {
-      // If moduleName is provided, check if permission name includes it
-      if (moduleName) {
-        return permission.name.toLowerCase().includes(moduleName.toLowerCase()) && permission[permissionCode];
-      }
-      // Otherwise, check if any permission has the required code
-      return permission[permissionCode];
-    });
-  });
-
-  return hasPermission;
+  const isAdmin = useIsAdmin();
+  return checkPermission(user?.roles, moduleName, permissionCode) || isAdmin;
 };
 
 /**

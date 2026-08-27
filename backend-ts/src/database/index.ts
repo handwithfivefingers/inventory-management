@@ -1,32 +1,127 @@
 // const { Sequelize } = require('sequelize')
 // const fs = require('fs')
 // const path = require('path')
-import { Sequelize, DataTypes } from 'sequelize'
+import { Sequelize, DataTypes, Transaction } from 'sequelize'
 import fs from 'node:fs'
 import path from 'node:path'
 import { IDatabase } from '#/types/database'
 const basename = path.basename(__filename)
 
-const dbName = 'inventory'
+const dbName = process.env.DB_NAME || 'inventory'
 
-const folderPath = path.join(process.cwd(), 'src', 'database', 'models')
+// Resolve model folder for both src (tsx) and dist (node) runs.
+// `process.cwd()/src/...` exists when running via tsx, `dist/...` when running built JS.
+const resolveModelsPath = () => {
+  // When running from dist (node dist/index.js), __dirname is .../dist/database
+  // so we must prefer the compiled models over the TS source.
+  const isDist = __filename.includes(`${path.sep}dist${path.sep}`) || __dirname.includes(`${path.sep}dist`)
+  const candidates = isDist
+    ? [
+        path.join(__dirname, 'models'),
+        path.join(process.cwd(), 'dist', 'database', 'models'),
+        path.join(process.cwd(), 'src', 'database', 'models')
+      ]
+    : [
+        path.join(process.cwd(), 'src', 'database', 'models'),
+        path.join(__dirname, 'models'),
+        path.join(process.cwd(), 'dist', 'database', 'models')
+      ]
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p) && fs.statSync(p).isDirectory()) return p
+    } catch {}
+  }
+  return path.join(process.cwd(), 'src', 'database', 'models')
+}
+const folderPath = resolveModelsPath()
 
-const sequelize = new Sequelize(dbName, 'root', 'mysql', {
-  host: 'localhost',
+// SECURITY: credentials come from env vars (DB_USER / DB_PASSWORD / DB_HOST).
+// The previous hardcoded root/mysql defaults remain ONLY as a local-dev
+// fallback - production must set the DB_* variables.
+const sequelize = new Sequelize(dbName, process.env.DB_USER || 'root', process.env.DB_PASSWORD || 'mysql', {
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 3306),
   dialect: 'mysql',
   logging: false,
+  // P1: default pool is max:5 - concurrent transactions queued behind it.
+  // READ COMMITTED avoids stale-repeatable-read surprises under load.
+  isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED,
+  pool: {
+    max: Number(process.env.DB_POOL_MAX || 20),
+    min: 2,
+    acquire: 10000,
+    idle: 10000
+  },
   define: {
     charset: 'utf8',
     collate: 'utf8_general_ci',
     timestamps: true
   }
 })
+const dedupeInvoiceIndexes = async () => {
+  // sync({alter:true}) on MySQL creates duplicate UNIQUE indexes for
+  // invoiceNumber/code columns (one per boot) until hitting the 64-key limit.
+  // Clean them before sync so alter doesn't hit ER_TOO_MANY_KEYS.
+  const dedupeTable = async (table: string, keepNames: string[], columnPattern?: RegExp) => {
+    try {
+      const [rows] = (await sequelize.query(`SHOW INDEX FROM \`${table}\``)) as any
+      if (!Array.isArray(rows) || rows.length === 0) return
+      const byKey = new Map<string, any[]>()
+      for (const r of rows) {
+        const k = r.Key_name
+        if (!byKey.has(k)) byKey.set(k, [])
+        byKey.get(k)!.push(r)
+      }
+      // Keep the canonical indexes, drop duplicated ones that match pattern
+      for (const [key, cols] of byKey) {
+        if (keepNames.includes(key)) continue
+        if (columnPattern && !columnPattern.test(key)) continue
+        // Only drop single-column unique indexes that look like duplicated alters
+        // (e.g. invoiceNumber_2, code_2). Keep FK indexes.
+        try {
+          await sequelize.query(`ALTER TABLE \`${table}\` DROP INDEX \`${key}\``)
+          console.log(`dropped duplicate index ${table}.${key}`)
+        } catch {}
+      }
+    } catch {}
+  }
+  await dedupeTable(
+    'invoices',
+    ['PRIMARY', 'invoiceNumber', 'orderId', 'customerId', 'vendorId', 'warehouseId'],
+    /^invoiceNumber/
+  )
+  await dedupeTable('staff', ['PRIMARY', 'staff_code_unique', 'code', 'userId', 'warehouseId'], /^code/)
+  await dedupeTable('products', ['PRIMARY', 'products_code_unique', 'code', 'vendorId', 'unitId'], /^code/)
+  await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
+}
+
 const database: IDatabase = {
   sync: async () => {
     try {
+      if (process.env.NODE_ENV === 'production') {
+        // P2: schema-diff DDL (sync({alter:true})) never runs against prod -
+        // migrations are the only schema path there.
+        console.log(`Database \x1b[33m${dbName}\x1b[0m sync skipped in production (use migrations)`)
+        return true
+      }
+      await dedupeInvoiceIndexes()
       // alter: true keeps the schema in step with model changes in dev
       // (e.g. the per-variant isNegative column added to productVariants).
-      await sequelize.sync({ alter: true })
+      try {
+        await sequelize.sync({ alter: true })
+      } catch (e: any) {
+        // ER_TOO_MANY_KEYS is the duplicate-index fallout - clean and retry once
+        if (e?.parent?.code === 'ER_TOO_MANY_KEYS' || String(e?.message ?? '').includes('Too many keys')) {
+          console.log('sync hit Too many keys - retrying after dedupe')
+          await dedupeInvoiceIndexes()
+          await sequelize.sync({ alter: true })
+        } else {
+          throw e
+        }
+      }
+      // Post-sync dedupe: alter may have recreated a duplicate unique index
+      // (e.g. invoiceNumber_2) even when one already existed. Clean again.
+      await dedupeInvoiceIndexes()
       console.log(`Database \x1b[33m${dbName}\x1b[0m has been established successfully`)
       return true
     } catch (error) {

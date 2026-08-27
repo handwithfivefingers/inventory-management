@@ -4,7 +4,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { tagsService } from "~/action.server/tags.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { FormInput } from "~/components/form/formInput";
+import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { ITagSchema, tagSchema } from "~/constants/schema/tag";
@@ -49,9 +49,9 @@ const CategoryForm = () => {
         onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
       >
         <div className="col-span-12">
-          <FormInput name="name">
+          <FormControl name="name">
             <TextInput label="Tên thẻ" />
-          </FormInput>
+          </FormControl>
         </div>
         <div className="ml-auto col-span-12">
           <TMButton htmlType="submit" variant="light" loading={isLoading}>

@@ -97,7 +97,14 @@ describe("OrderService stock handling with product variants", () => {
       });
 
       const where = database.inventory.decrement.mock.calls[0][1].where;
-      expect(where).toEqual({ productId: 1, warehouseId: 2, variantId: 33 });
+      // C2: the availability check is part of the atomic write - the WHERE
+      // clause must require quantity >= requested.
+      expect(where).toEqual({
+        productId: 1,
+        warehouseId: 2,
+        variantId: 33,
+        quantity: { [require("sequelize").Op.gte]: 4 },
+      });
       // Stock guard reads the same variant-specific row
       expect(database.inventory.findOne).toHaveBeenCalledWith(
         expect.objectContaining({ where: { productId: 1, warehouseId: 2, variantId: 33 } }),
@@ -113,7 +120,9 @@ describe("OrderService stock handling with product variants", () => {
       database.productVariant.findByPk.mockResolvedValue({
         get: (key: string) => (key === "isNegative" ? false : "TS-RED-XL"),
       });
+      // Row exists but the atomic decrement matches 0 rows -> oversell blocked
       database.inventory.findOne.mockResolvedValue({ get: () => 3 });
+      database.inventory.decrement.mockResolvedValue([0]);
 
       await expect(
         service.updateInventory({
@@ -125,6 +134,33 @@ describe("OrderService stock handling with product variants", () => {
           type: "1",
         }),
       ).rejects.toThrow('Insufficient stock for product "T-Shirt [TS-RED-XL]"');
+
+      // The guard lives inside the UPDATE's WHERE clause
+      const where = database.inventory.decrement.mock.calls[0][1].where;
+      expect(where.quantity).toEqual({ [require("sequelize").Op.gte]: 5 });
+    });
+
+    it("reports a missing inventory row distinctly from insufficient stock", async () => {
+      database.product.findByPk.mockResolvedValue({
+        id: 1,
+        name: "Ghost",
+        isNegative: false,
+      });
+      database.productVariant.findByPk.mockResolvedValue({
+        get: (key: string) => (key === "isNegative" ? false : "GHOST-XL"),
+      });
+      database.inventory.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateInventory({
+          productId: 1,
+          variantId: 33,
+          warehouseId: 2,
+          quantity: 5,
+          transaction: tx,
+          type: "1",
+        }),
+      ).rejects.toThrow("Inventory not found for variant 33");
 
       expect(database.inventory.decrement).not.toHaveBeenCalled();
     });
@@ -199,24 +235,23 @@ describe("OrderService stock handling with product variants", () => {
 
   describe("updateProductQuantity", () => {
     it("bumps only the product counter for simple products", async () => {
-      const prod = { sold: 5, save: vi.fn().mockResolvedValue(undefined) };
-      database.product.findByPk.mockResolvedValue(prod);
+      // The service uses atomic increment(); Sequelize resolves with
+      // [affectedCount, affectedRows].
+      database.product.increment.mockResolvedValue([{ sold: 7 }]);
+      database.productVariant.increment.mockResolvedValue([{}]);
 
       await service.updateProductQuantity({ quantity: 2, productId: 1, transaction: tx });
 
-      expect(prod.sold).toBe(7);
-      expect(prod.save).toHaveBeenCalled();
-      expect(database.productVariant.findByPk).not.toHaveBeenCalled();
+      expect(database.product.increment).toHaveBeenCalledWith(
+        "sold",
+        { by: 2, where: { id: 1 }, transaction: tx },
+      );
+      expect(database.productVariant.increment).not.toHaveBeenCalled();
     });
 
     it("also bumps the variant counter when a variant sold", async () => {
-      const prod = { sold: 5, save: vi.fn().mockResolvedValue(undefined) };
-      const variant = {
-        get: () => 1,
-        save: vi.fn().mockResolvedValue(undefined),
-      };
-      database.product.findByPk.mockResolvedValue(prod);
-      database.productVariant.findByPk.mockResolvedValue(variant);
+      database.product.increment.mockResolvedValue([{ sold: 7 }]);
+      database.productVariant.increment.mockResolvedValue([{ sold: 3 }]);
 
       await service.updateProductQuantity({
         quantity: 2,
@@ -225,8 +260,17 @@ describe("OrderService stock handling with product variants", () => {
         transaction: tx,
       });
 
-      expect(prod.sold).toBe(7);
-      expect(variant.sold).toBe(3);
+      expect(database.productVariant.increment).toHaveBeenCalledWith(
+        "sold",
+        { by: 2, where: { id: 33 }, transaction: tx },
+      );
+    });
+
+    it("throws when the product increment affects no rows", async () => {
+      database.product.increment.mockResolvedValue([]);
+      await expect(
+        service.updateProductQuantity({ quantity: 2, productId: 999, transaction: tx }),
+      ).rejects.toThrow("Product not found");
     });
   });
 
@@ -261,6 +305,8 @@ describe("OrderService stock handling with product variants", () => {
         .mockResolvedValueOnce({ id: 1, name: "T-Shirt", isNegative: true })
         .mockResolvedValue(prod);
       database.productVariant.findByPk.mockResolvedValue(variant);
+      database.product.increment.mockResolvedValue([{ sold: 1 }]);
+      database.productVariant.increment.mockResolvedValue([{ sold: 1 }]);
 
       await service.createOrderDetails({
         name: "T-Shirt Red XL",

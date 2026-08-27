@@ -54,27 +54,34 @@ import invoice from './invoice'
 import staff from './staff'
 import shift from './shift'
 import setting from './setting'
+import importOrder from './importOrder'
+import permission from './permission'
 // import qr from './qr'
 import { auth } from '#/middleware/authenticate'
+import authorize from '#/middleware/authorize'
 const router = express.Router()
 
 router.use('/auth', authenticate)
 router.use('/vendor', auth, vendorRouter)
-router.use('/orders', auth, orders)
-router.use('/products', auth, product)
-router.use('/providers', auth, provider)
-router.use('/warehouses', auth, warehouse)
-router.use('/categories', auth, categories)
-router.use('/tags', auth, tags)
-router.use('/units', auth, units)
-router.use('/financial', auth, financial)
-router.use('/stats', auth, stats)
-router.use('/history', auth, history)
-router.use('/roles', auth, role)
-router.use('/customers', auth, customer)
-router.use('/invoices', auth, invoice)
-router.use('/staff', auth, staff)
-router.use('/shift', auth, shift)
-router.use('/settings', auth, setting)
+router.use('/orders', auth, authorize('order'), orders)
+router.use('/products', auth, authorize('product'), product)
+router.use('/providers', auth, authorize('provider'), provider)
+router.use('/warehouses', auth, authorize('warehouse'), warehouse)
+router.use('/categories', auth, authorize('category'), categories)
+router.use('/tags', auth, authorize('tag'), tags)
+router.use('/units', auth, authorize('unit'), units)
+router.use('/financial', auth, authorize('financial'), financial)
+router.use('/stats', auth, authorize('dashboard'), stats)
+router.use('/history', auth, authorize('product'), history)
+router.use('/roles', auth, authorize('role'), role)
+router.use('/customers', auth, authorize('customer'), customer)
+router.use('/invoices', auth, authorize('invoice'), invoice)
+router.use('/staff', auth, authorize('staff'), staff)
+// Opening a shift creates it (C); closing an existing one updates it (U).
+router.use('/shift', auth, authorize('shift', { 'POST /close': 'U' }), shift)
+router.use('/settings', auth, authorize('setting'), setting)
+router.use('/import-order', auth, authorize('import-order'), importOrder)
+// Canonical module catalog for role editors & permission sync status.
+router.use('/permissions', auth, permission)
 // router.use('/qr', auth, qr)
 export default router

@@ -1,20 +1,19 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import { settingService, DEFAULT_SETTINGS, IVendorSettings, ICodeFormatMap } from "~/action.server/setting.service";
+import { DEFAULT_SETTINGS, ICodeFormatMap, IVendorSettings, settingService } from "~/action.server/setting.service";
 import { CardItem } from "~/components/card-item";
-import { CheckboxInput } from "~/components/form/checkbox-input";
 import { ErrorComponent } from "~/components/error-component";
+import { CheckboxInput } from "~/components/form/checkbox-input";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
-import { isLocale, Locale, useTranslation } from "~/i18n";
-import { applyTheme, isTheme, useTheme, Theme } from "~/store/theme.store";
-import { useLocale } from "~/store/locale.store";
+import { isLocale, useTranslation } from "~/i18n";
 import { parseCookieFromRequest } from "~/sessions";
+import { useLocale } from "~/store/locale.store";
+import { applyTheme, isTheme, useTheme } from "~/store/theme.store";
 
 export const meta: MetaFunction = () => {
   return [
@@ -60,19 +59,16 @@ export async function action({ request }: ActionFunctionArgs) {
       ...payload,
     });
 
-    return json({
+    return {
       success: true,
       message: "Đã lưu cài đặt",
       data: { settings },
-    });
+    };
   } catch (error: any) {
-    return json(
-      {
-        success: false,
-        message: error.message || "Lưu cài đặt thất bại",
-      },
-      { status: 400 },
-    );
+    return Response.json({
+      success: false,
+      message: error.message || "Lưu cài đặt thất bại",
+    });
   }
 }
 
@@ -307,7 +303,7 @@ export default function GeneralSettings() {
           </section>
 
           <div className="ml-auto">
-            <TMButton htmlType="submit" loading={isLoading} onClick={onSubmit}>
+            <TMButton htmlType="submit" loading={isLoading} onClick={onSubmit} size="sm">
               Lưu cài đặt
             </TMButton>
           </div>

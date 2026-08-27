@@ -1,9 +1,10 @@
 import OrderService from '#/services/order'
+import { getVendorScope } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 export default class OrderController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const resp = await new OrderService().create(req.body)
+      const resp = await new OrderService().create(req.body, getVendorScope(req as any))
       res.status(200).json({
         data: resp
       })
@@ -25,7 +26,10 @@ export default class OrderController {
     try {
       const { id } = req.params
       const { warehouseId } = req.query
-      const resp = await new OrderService().getOrderById({ warehouseId: warehouseId as string, id })
+      const resp = await new OrderService().getOrderById(
+        { warehouseId: warehouseId as string, id },
+        getVendorScope(req as any)
+      )
       res.status(200).json({
         data: resp
       })

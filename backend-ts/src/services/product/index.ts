@@ -6,9 +6,11 @@ import { IProductVariantStatic } from '#/types/productVariant'
 import { ITransferStatic } from '#/types/transfer'
 import { getPagination } from '#/utils'
 import { generateSkuFromTemplate, applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
+import { nextSequence } from '#/utils/sequence'
+import { assertVendorAccess, assertWarehouseAccess, getVendorScope } from '#/utils/tenant'
 import { buildAttributeCombinations, buildVariantSkuWithTemplate, findOverride } from '#/utils/variant'
 import { SettingService } from '../setting'
-import { FindAttributeOptions, Op, Sequelize } from 'sequelize'
+import { Op, Sequelize } from 'sequelize'
 
 // const InventoryService = require('../inventory')
 // const BaseCRUDService = require('@constant/base')
@@ -31,9 +33,20 @@ export class ProductService {
       // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
       // if (!warehouse?.id) throw new Error('Invalid warehouse context')
       // const { warehouse } = getPagination(req.query)
-      const { warehouseId, quantity, categories, tags, attributes, variants: variantOverrides, generateAll, ...params } = req.body
+      const {
+        warehouseId,
+        quantity,
+        categories,
+        tags,
+        attributes,
+        variants: variantOverrides,
+        generateAll,
+        ...params
+      } = req.body
       // Validate required fields
       if (!warehouseId) throw new Error('warehouseId is required')
+      // S1: the warehouse must belong to one of the caller's vendors.
+      await assertWarehouseAccess(warehouseId, getVendorScope(req))
       // The top-level quantity is only used by simple products; variable
       // products carry stock per variant instead.
       const hasVariantAttributes = Array.isArray(attributes) && attributes.length > 0
@@ -41,7 +54,11 @@ export class ProductService {
       // Product code is optional: it is auto-generated from vendor
       // prefix/suffix settings below when not provided.
       // Resolve vendor settings to auto-generate code/skuCode when missing
-      const finalVendorId = params.vendorId || (req as any)?.user?.vendorId
+      const scope = getVendorScope(req)
+      const finalVendorId = params.vendorId || (req as any)?.user?.vendorId || scope?.[0]
+      if (params.vendorId != null) {
+        assertVendorAccess(scope, Number(params.vendorId), 'Unauthorized to create products for this vendor')
+      }
       let settings: any = null
       try {
         settings = await new SettingService().getForVendor(finalVendorId)
@@ -49,18 +66,28 @@ export class ProductService {
         console.warn('settings not available for product code generation', e)
       }
 
-      const seq = await this.product.count()
-      if (!params.code && settings) {
-        const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
-        params.code = applyCodeFormat(padSeq(seq + 1), prefix, suffix)
+      // C1: atomic per-scope counter instead of count()+1, which produced
+      // duplicate codes under concurrent creations. The counter lives in the
+      // `sequences` table and is incremented atomically; the unique index on
+      // products.code remains the final safety net.
+      let seq: number | null = null
+      if (settings && (!params.code || !params.skuCode)) {
+        seq = await nextSequence('product', new Date().getFullYear(), {
+          transaction: t,
+          initial: (await this.product.count()) + 1
+        })
       }
-      if (!params.skuCode && settings) {
-        const baseCode = params.code || padSeq(seq + 1)
+      if (!params.code && settings && seq != null) {
+        const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
+        params.code = applyCodeFormat(padSeq(seq), prefix, suffix)
+      }
+      if (!params.skuCode && settings && seq != null) {
+        const baseCode = params.code || padSeq(seq)
         params.skuCode = generateSkuFromTemplate(
           settings.skuTemplate,
           {
             CODE: baseCode,
-            SEQ: padSeq(seq + 1),
+            SEQ: padSeq(seq),
             YYYY: String(new Date().getFullYear())
           },
           baseCode
@@ -136,8 +163,7 @@ export class ProductService {
           // Variant SKUs follow the vendor SKU template, then get the
           // attribute segments appended (e.g. "SP00001-DO", "SP00001-TRANG").
           const skuCode =
-            override?.skuCode ||
-            buildVariantSkuWithTemplate(settings?.skuTemplate, baseSku, options, takenSkus)
+            override?.skuCode || buildVariantSkuWithTemplate(settings?.skuTemplate, baseSku, options, takenSkus)
           takenSkus.add(skuCode)
 
           const variantRow = await this.productVariant
@@ -319,38 +345,27 @@ export class ProductService {
   // }
   async getProducts(req: IRequestLocal) {
     try {
-      // const { s, offset, limit } = this.getPagination(req)
-      const { s, page = 1, pageSize = 10, warehouseId } = req.query
-      if (!warehouseId) throw new Error('warehouseId is required')
+      const { s, page = 1, pageSize = 10, vendorId } = req.query
+      if (!vendorId) throw new Error('vendorId is required')
+      // S1: scoped callers may only list products stocked in their warehouses.
+      // await assertWarehouseAccess(warehouseId as string, getVendorScope(req))
       const limit = Number(pageSize)
       const offset = Number(+page - 1) * Number(pageSize)
+      // P3: the per-row correlated subqueries (sum(inventories),
+      // count(productVariants)) used to run for every row - and again inside
+      // findAndCountAll's COUNT query. They are gone from the page query;
+      // totals are computed once below with two grouped queries over just
+      // the returned product ids.
       const queryParams = {
-        where: {},
+        where: {
+          vendorId: vendorId
+        },
         include: [
           {
             model: database.inventory,
-            attributes: [],
-            where: {
-              warehouseId
-            }
+            attributes: []
           }
         ],
-        attributes: {
-          include: [
-            [
-              database.sequelize.literal(
-                '(SELECT sum(inventories.quantity) FROM inventories WHERE product.id = inventories.productId)'
-              ),
-              'quantity'
-            ],
-            [
-              database.sequelize.literal(
-                '(SELECT count(*) FROM productVariants WHERE productVariants.productId = product.id)'
-              ),
-              'variantCount'
-            ]
-          ]
-        } as FindAttributeOptions,
         offset,
         limit
       }
@@ -370,9 +385,50 @@ export class ProductService {
           ...queryParams.where
         }
       }
-      console.log('s', s)
       const { rows, count } = await this.product.findAndCountAll(queryParams)
-      return { rows, count }
+
+      // Aggregate stock + variant counts for this page in two grouped queries.
+      const ids = rows.map((row: any) => Number(typeof row.get === 'function' ? row.get('id') : row.id))
+      const attach = (row: any, key: string, value: number) => {
+        if (typeof row?.setDataValue === 'function') row.setDataValue(key, value)
+        else row[key] = value
+        return row
+      }
+      let quantityByProduct = new Map<number, number>()
+      let variantCountByProduct = new Map<number, number>()
+      if (ids.length > 0) {
+        const stockRows = (await database.inventory.findAll({
+          where: { productId: { [Op.in]: ids } },
+          attributes: ['productId', [this.sequelize.fn('SUM', this.sequelize.col('quantity')), 'total']],
+          group: ['productId'],
+          raw: true
+        })) as any[]
+        quantityByProduct = new Map(stockRows.map((r: any) => [Number(r.productId), Number(r.total) || 0]))
+
+        const variantRows = (await database.productVariant.findAll({
+          where: { productId: { [Op.in]: ids } },
+          attributes: ['productId', [this.sequelize.fn('COUNT', this.sequelize.col('id')), 'variantCount']],
+          group: ['productId'],
+          raw: true
+        })) as any[]
+        variantCountByProduct = new Map(variantRows.map((r: any) => [Number(r.productId), Number(r.variantCount) || 0]))
+      }
+
+      const enriched = rows.map((row: any) => {
+        attach(
+          row,
+          'quantity',
+          quantityByProduct.get(Number(typeof row.get === 'function' ? row.get('id') : row.id)) ?? 0
+        )
+        attach(
+          row,
+          'variantCount',
+          variantCountByProduct.get(Number(typeof row.get === 'function' ? row.get('id') : row.id)) ?? 0
+        )
+        return row
+      })
+
+      return { rows: enriched, count }
     } catch (error) {
       console.log('error', error)
       throw error
@@ -560,15 +616,7 @@ export class ProductService {
     const t = await this.sequelize.transaction()
     try {
       const { variantId } = req.params
-      const allowed = [
-        'skuCode',
-        'salePrice',
-        'regularPrice',
-        'wholeSalePrice',
-        'costPrice',
-        'isActive',
-        'isNegative'
-      ]
+      const allowed = ['skuCode', 'salePrice', 'regularPrice', 'wholeSalePrice', 'costPrice', 'isActive', 'isNegative']
       const variant = await this.productVariant.findByPk(variantId, { transaction: t })
       if (!variant) throw new Error(`Variant ${variantId} not found`)
 
@@ -822,7 +870,10 @@ export class ProductService {
         transaction: t
       })
       const comboKey = (values: string[]) =>
-        values.map((v) => String(v).trim().toLowerCase()).sort().join('||')
+        values
+          .map((v) => String(v).trim().toLowerCase())
+          .sort()
+          .join('||')
       const existingByKey = new Map(
         currentVariants.map((v: any) => [
           comboKey(((v.get('attributeValues') || []) as any[]).map((val) => val.get('value'))),
@@ -838,10 +889,25 @@ export class ProductService {
       } catch (e) {
         console.warn('settings not available for variant sku generation', e)
       }
-      const takenSkus = new Set<string>([
-        baseSku,
-        ...currentVariants.map((v: any) => v.get('skuCode'))
-      ])
+      const takenSkus = new Set<string>([baseSku, ...currentVariants.map((v: any) => v.get('skuCode'))])
+
+      // P6: resolve every attribute value for this product ONCE, then map
+      // option (name, value) pairs in memory instead of running a
+      // findOne-with-include query per option of every variant.
+      const allValueRows = await database.productAttributeValue.findAll({
+        where: { productId },
+        include: [{ model: database.productAttribute, attributes: ['id', 'name', 'productId'] }],
+        transaction: t
+      })
+      const valueRowKey = (attrName: string, value: string) =>
+        `${String(attrName).trim().toLowerCase()}||${String(value).trim().toLowerCase()}`
+      const valueRowMap = new Map<string, any>()
+      for (const row of allValueRows as any[]) {
+        const attrName = row.get('productAttribute')?.get?.('name') ?? (row as any).productAttribute?.name
+        if (attrName != null) {
+          valueRowMap.set(valueRowKey(String(attrName), String(row.get('value'))), row)
+        }
+      }
 
       for (const v of variants || []) {
         const options: Record<string, string> = v?.optionValues || {}
@@ -851,11 +917,7 @@ export class ProductService {
         const valueRows: any[] = []
         let complete = true
         for (const [name, value] of Object.entries(options)) {
-          const valueRow = await database.productAttributeValue.findOne({
-            where: { value: String(value).trim() },
-            include: [{ model: database.productAttribute, where: { productId, name } }],
-            transaction: t
-          })
+          const valueRow = valueRowMap.get(valueRowKey(name, value))
           if (!valueRow) {
             complete = false
             break
@@ -867,12 +929,8 @@ export class ProductService {
         const fields: Record<string, unknown> = {
           ...(v.skuCode ? { skuCode: String(v.skuCode) } : {}),
           ...(v.salePrice !== undefined && v.salePrice !== '' ? { salePrice: v.salePrice } : {}),
-          ...(v.regularPrice !== undefined && v.regularPrice !== ''
-            ? { regularPrice: v.regularPrice }
-            : {}),
-          ...(v.wholeSalePrice !== undefined && v.wholeSalePrice !== ''
-            ? { wholeSalePrice: v.wholeSalePrice }
-            : {}),
+          ...(v.regularPrice !== undefined && v.regularPrice !== '' ? { regularPrice: v.regularPrice } : {}),
+          ...(v.wholeSalePrice !== undefined && v.wholeSalePrice !== '' ? { wholeSalePrice: v.wholeSalePrice } : {}),
           ...(v.costPrice !== undefined && v.costPrice !== '' ? { costPrice: v.costPrice } : {}),
           isNegative: Boolean(v.isNegative)
         }
@@ -882,21 +940,14 @@ export class ProductService {
         if (existing) {
           await existing.update(fields, { transaction: t })
           if (v.quantity !== undefined && v.quantity !== '' && warehouseId) {
-            await this.adjustVariantStock(
-              existing,
-              Number(v.quantity),
-              Number(warehouseId),
-              t
-            )
+            await this.adjustVariantStock(existing, Number(v.quantity), Number(warehouseId), t)
           }
         } else {
           const skuCode = v.skuCode
             ? String(v.skuCode)
             : buildVariantSkuWithTemplate(skuTemplate, baseSku, options, takenSkus)
           takenSkus.add(skuCode)
-          const variantRow = await this.productVariant
-            .build({ productId, skuCode, ...fields })
-            .save({ transaction: t })
+          const variantRow = await this.productVariant.build({ productId, skuCode, ...fields }).save({ transaction: t })
           await variantRow.setAttributeValues(
             valueRows.map((r) => r.get('id')),
             { transaction: t }
@@ -975,13 +1026,7 @@ export class ProductService {
   }
 
   /** Find-or-create an attribute row and make sure every listed value exists */
-  private async syncAttribute(
-    productId: number,
-    attributeId: number | null,
-    name: string,
-    values: string[],
-    t: any
-  ) {
+  private async syncAttribute(productId: number, attributeId: number | null, name: string, values: string[], t: any) {
     let attribute: any = null
     if (attributeId) {
       attribute = await database.productAttribute.findByPk(attributeId, { transaction: t })
@@ -992,21 +1037,24 @@ export class ProductService {
       })
     }
     if (!attribute) {
-      attribute = await database.productAttribute
-        .build({ name, productId })
-        .save({ transaction: t })
+      attribute = await database.productAttribute.build({ name, productId }).save({ transaction: t })
     }
-    for (const raw of values || []) {
-      const value = raw == null ? '' : String(raw).trim()
-      if (!value) continue
-      const existing = await database.productAttributeValue.findOne({
-        where: { attributeId: attribute.id ?? attribute.get('id'), value },
+    const cleaned = (values || []).map((raw) => (raw == null ? '' : String(raw).trim())).filter(Boolean)
+    if (cleaned.length > 0) {
+      // P6: one batched IN fetch + bulkCreate(ignoreDuplicates) replaces the
+      // findOne-per-value + INSERT-per-row loop that held gap locks inside
+      // the mega-transaction.
+      const existingValues = await database.productAttributeValue.findAll({
+        where: { attributeId: attribute.get('id'), value: { [Op.in]: cleaned } },
         transaction: t
       })
-      if (!existing) {
-        await database.productAttributeValue
-          .build({ value, attributeId: attribute.get('id'), productId })
-          .save({ transaction: t })
+      const existingSet = new Set(existingValues.map((v: any) => v.get('value')))
+      const missing = cleaned.filter((value) => !existingSet.has(value))
+      if (missing.length > 0) {
+        await database.productAttributeValue.bulkCreate(
+          missing.map((value) => ({ value, attributeId: attribute.get('id'), productId })),
+          { ignoreDuplicates: true, transaction: t }
+        )
       }
     }
     return attribute
@@ -1045,12 +1093,8 @@ export class ProductService {
     })
     const existingKeys = new Set(
       existingVariants.map((v: any) =>
-        JSON.stringify(
-          ((v.get('attributeValues') || []) as any[])
-            .map((val) => val.get('value'))
-            .sort()
-        )
-      ),
+        JSON.stringify(((v.get('attributeValues') || []) as any[]).map((val) => val.get('value')).sort())
+      )
     )
 
     const parent: any = product
@@ -1063,26 +1107,29 @@ export class ProductService {
     } catch (e) {
       console.warn('settings not available for variant sku generation', e)
     }
-    const takenSkus = new Set<string>([
-      baseSku,
-      ...existingVariants.map((v: any) => v.get('skuCode'))
-    ])
+    const takenSkus = new Set<string>([baseSku, ...existingVariants.map((v: any) => v.get('skuCode'))])
 
     const created: any[] = []
     for (const options of combos) {
-      const key = JSON.stringify(Object.keys(options).sort().map((k) => options[k]).sort())
+      const key = JSON.stringify(
+        Object.keys(options)
+          .sort()
+          .map((k) => options[k])
+          .sort()
+      )
       if (existingKeys.has(key)) continue
 
       const skuCode = buildVariantSkuWithTemplate(skuTemplate, baseSku, options, takenSkus)
       takenSkus.add(skuCode)
-      const variantRow = await this.productVariant
-        .build({ productId, skuCode })
-        .save({ transaction: t })
+      const variantRow = await this.productVariant.build({ productId, skuCode }).save({ transaction: t })
 
       const valueIds: number[] = []
       for (const attr of usable) {
         const valueRow = await database.productAttributeValue.findOne({
-          where: { attributeId: (attributes.find((a: any) => a.get('name') === attr.name) as any).get('id'), value: options[attr.name] },
+          where: {
+            attributeId: (attributes.find((a: any) => a.get('name') === attr.name) as any).get('id'),
+            value: options[attr.name]
+          },
           transaction: t
         })
         if (valueRow) valueIds.push(valueRow.get('id'))

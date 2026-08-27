@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { TMButton } from "~/components/tm-button";
+import { FormProvider, useForm } from "react-hook-form";
+import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
-import { cn } from "~/libs/utils";
-import { IRole, IPermission } from "~/types/user";
-import { CardItem } from "~/components/card-item";
+import { TMButton } from "~/components/tm-button";
+import { IRole } from "~/types/user";
+import { Divider } from "../divider";
+import { CheckboxInput } from "../form/checkbox-input";
+import { FormControl } from "../form/form-control";
+import { TMTable } from "../tm-table";
 
 interface IModule {
   key: string;
@@ -29,26 +33,22 @@ interface IPermissionMatrix {
 
 export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps) => {
   const [roleName, setRoleName] = useState(role?.name || "");
-  const [permissionMatrix, setPermissionMatrix] = useState<IPermissionMatrix>(() => {
-    // Initialize from existing role or default to all false
-    const matrix: IPermissionMatrix = {};
-    modules.forEach((module) => {
-      const existingPerm = role?.permissions?.find((p) => p.name === module.key);
-      matrix[module.key] = {
-        C: existingPerm?.C || false,
-        R: existingPerm?.R || false,
-        U: existingPerm?.U || false,
-        D: existingPerm?.D || false,
-      };
-    });
-    return matrix;
-  });
+  // const [permissionMatrix, setPermissionMatrix] = useState<IPermissionMatrix>(() => {
+  //   // Initialize from existing role or default to all false
+  //   const matrix: IPermissionMatrix = {};
+  //   modules.forEach((module) => {
+  //     const existingPerm = role?.permissions?.find((p) => p.name === module.key);
+  //     matrix[module.key] = {
+  //       C: existingPerm?.C || false,
+  //       R: existingPerm?.R || false,
+  //       U: existingPerm?.U || false,
+  //       D: existingPerm?.D || false,
+  //     };
+  //   });
+  //   return matrix;
+  // });
 
-  const handlePermissionChange = (
-    moduleKey: string,
-    action: keyof IPermissionMatrix[string],
-    value: boolean
-  ) => {
+  const handlePermissionChange = (moduleKey: string, action: keyof IPermissionMatrix[string], value: boolean) => {
     setPermissionMatrix((prev) => ({
       ...prev,
       [moduleKey]: {
@@ -81,79 +81,110 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
     setPermissionMatrix(newMatrix);
   };
 
-  const handleSave = () => {
-    if (!roleName.trim()) {
-      alert("Vui lòng nhập tên vai trò");
-      return;
-    }
+  const handleSave = (values) => {
+    // if (!roleName.trim()) {
+    //   alert("Vui lòng nhập tên vai trò");
+    //   return;
+    // }
+    // // Convert matrix to permissions array
+    // const permissions: IPermission[] = [];
+    // let permId = 1;
+    // modules.forEach((module) => {
+    //   const perms = permissionMatrix[module.key];
+    //   if (perms.C || perms.R || perms.U || perms.D) {
+    //     permissions.push({
+    //       id: permId++,
+    //       name: module.key,
+    //       C: perms.C,
+    //       R: perms.R,
+    //       U: perms.U,
+    //       D: perms.D,
+    //     });
+    //   }
+    // });
+    // onSave({
+    //   id: role?.id || 0,
+    //   name: roleName,
+    //   permissions,
+    // });
+    console.log("values", values);
+  };
 
-    // Convert matrix to permissions array
-    const permissions: IPermission[] = [];
-    let permId = 1;
+  // const isModuleChecked = (moduleKey: string) => {
+  //   const perms = permissionMatrix[moduleKey];
+  //   return perms.C && perms.R && perms.U && perms.D;
+  // };
+
+  // const isActionChecked = (action: keyof IPermissionMatrix[string]) => {
+  //   return modules.every((module) => permissionMatrix[module.key][action]);
+  // };
+
+  const getDefaultValues = () => {
+    // Initialize from existing role or default to all false
+    const matrix: IPermissionMatrix = {};
     modules.forEach((module) => {
-      const perms = permissionMatrix[module.key];
-      if (perms.C || perms.R || perms.U || perms.D) {
-        permissions.push({
-          id: permId++,
-          name: module.key,
-          C: perms.C,
-          R: perms.R,
-          U: perms.U,
-          D: perms.D,
-        });
-      }
+      const existingPerm = role?.permissions?.find((p) => p.name === module.key);
+      matrix[module.key] = {
+        C: existingPerm?.C || false,
+        R: existingPerm?.R || false,
+        U: existingPerm?.U || false,
+        D: existingPerm?.D || false,
+      };
     });
-
-    onSave({
-      id: role?.id || 0,
-      name: roleName,
-      permissions,
-    });
+    return matrix;
   };
 
-  const isModuleChecked = (moduleKey: string) => {
-    const perms = permissionMatrix[moduleKey];
-    return perms.C && perms.R && perms.U && perms.D;
-  };
+  const form = useForm({
+    defaultValues: {
+      permissions: getDefaultValues(),
+    },
+  });
 
-  const isActionChecked = (action: keyof IPermissionMatrix[string]) => {
-    return modules.every((module) => permissionMatrix[module.key][action]);
-  };
-
+  console.log("modules", modules);
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">
-            {role ? "Chỉnh sửa vai trò" : "Tạo vai trò mới"}
-          </h2>
-          <p className="text-sm text-gray-600">
-            {role ? "Cập nhật thông tin vai trò và phân quyền" : "Thiết lập vai trò mới với các quyền hạn"}
-          </p>
+    <FormProvider {...form}>
+      <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(handleSave)}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">{role ? "Chỉnh sửa vai trò" : "Tạo vai trò mới"}</h2>
+            <p className="text-sm text-gray-600">
+              {role ? "Cập nhật thông tin vai trò và phân quyền" : "Thiết lập vai trò mới với các quyền hạn"}
+            </p>
+          </div>
+          <TMButton variant="light" onClick={onCancel} size="sm">
+            <Icon name="x" className="w-4 h-4" />
+          </TMButton>
         </div>
-        <TMButton variant="light" onClick={onCancel}>
-          <Icon name="x" className="w-4 h-4" />
-        </TMButton>
-      </div>
 
-      <div className="flex gap-4">
-        <div className="w-64 flex-shrink-0">
-          <CardItem title="Thông tin vai trò" className="p-4">
+        <div className="flex gap-4">
+          <div className="w-64 flex-shrink-0">
+            <h3 className="text-xl font-bold text-gray-800">Thông tin vai trò</h3>
+            <Divider />
             <div className="flex flex-col gap-4">
-              <TextInput
-                label="Tên vai trò"
-                placeholder="Nhập tên vai trò (VD: Admin, Manager...)"
-                value={roleName}
-                onChange={(e: any) => setRoleName(e.target.value)}
-              />
+              <FormControl name="roleName">
+                <TextInput
+                  label="Tên vai trò"
+                  placeholder="Nhập tên vai trò (VD: Admin, Manager...)"
+                  // value={roleName}
+                  // onChange={(e: any) => setRoleName(e.target.value)}
+                />
+              </FormControl>
 
               <div className="p-3 bg-indigo-50 rounded-md">
                 <h4 className="text-sm font-semibold text-indigo-800 mb-2">Ghi chú:</h4>
                 <ul className="text-xs text-indigo-700 space-y-1">
-                  <li>• <strong>C</strong>: Tạo mới</li>
-                  <li>• <strong>R</strong>: Xem danh sách</li>
-                  <li>• <strong>U</strong>: Chỉnh sửa</li>
-                  <li>• <strong>D</strong>: Xóa</li>
+                  <li>
+                    • <strong>C</strong>: Tạo mới
+                  </li>
+                  <li>
+                    • <strong>R</strong>: Xem danh sách
+                  </li>
+                  <li>
+                    • <strong>U</strong>: Chỉnh sửa
+                  </li>
+                  <li>
+                    • <strong>D</strong>: Xóa
+                  </li>
                 </ul>
               </div>
 
@@ -163,13 +194,12 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                 </div>
               )}
             </div>
-          </CardItem>
-        </div>
+          </div>
 
-        <div className="flex-1">
-          <CardItem title="Phân quyền chi tiết" className="p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+          <div className="flex-1">
+            <CardItem title="Phân quyền chi tiết" className="p-0 overflow-hidden">
+              <div className="overflow-x-auto">
+                {/* <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b sticky left-0 bg-gray-50 min-w-[200px]">
@@ -219,19 +249,14 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                         <span className="text-red-600 font-bold">Xóa (D)</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 border-b">
-                      Thao tác
-                    </th>
+                    <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 border-b">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {modules.map((module, index) => (
                     <tr
                       key={module.key}
-                      className={cn(
-                        "hover:bg-gray-50 transition-colors",
-                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      )}
+                      className={cn("hover:bg-gray-50 transition-colors", index % 2 === 0 ? "bg-white" : "bg-gray-50")}
                     >
                       <td className="px-4 py-3 border-b sticky left-0 bg-inherit">
                         <div className="flex items-center gap-2">
@@ -277,37 +302,95 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                         />
                       </td>
                       <td className="px-4 py-3 border-b text-center">
-                        <button
-                          onClick={() => handleSelectAllModule(module.key, true)}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                        <TMButton
+                          onClick={() => handleSelectAllModule(module.key, !isModuleChecked(module.key))}
+                          size="sm"
                         >
-                          Chọn tất cả
-                        </button>
-                        <button
-                          onClick={() => handleSelectAllModule(module.key, false)}
-                          className="text-xs text-gray-600 hover:text-gray-800"
-                        >
-                          Bỏ chọn
-                        </button>
+                          {!isModuleChecked(module.key) ? "Select all" : "Unselect"}
+                        </TMButton>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-          </CardItem>
+              </table> */}
+                <TMTable
+                  scrollable
+                  data={modules}
+                  columns={[
+                    {
+                      title: "Module",
+                      dataIndex: "module",
+                      render: (record) => <span className="font-medium text-gray-800">{record.label}</span>,
+                    },
+                    {
+                      title: <span className="text-indigo-600 font-bold">Tạo (C)</span>,
+                      dataIndex: "module",
+                      render: (record) => (
+                        <FormControl name={`permissions.${record.key}.C`}>
+                          <CheckboxInput />
+                        </FormControl>
+                      ),
+                    },
+                    {
+                      title: <span className="text-blue-600 font-bold">Xem (R)</span>,
+                      dataIndex: "module",
+                      render: (record) => (
+                        <FormControl name={`permissions.${record.key}.R`}>
+                          <CheckboxInput />
+                        </FormControl>
+                      ),
+                    },
+                    {
+                      title: <span className="text-orange-600 font-bold">Sửa (U)</span>,
+                      dataIndex: "module",
+                      render: (record) => (
+                        <FormControl name={`permissions.${record.key}.U`}>
+                          <CheckboxInput />
+                        </FormControl>
+                      ),
+                    },
+                    {
+                      title: <span className="text-red-600 font-bold">Xóa (D)</span>,
+                      dataIndex: "module",
+                      render: (record) => (
+                        <FormControl name={`permissions.${record.key}.D`}>
+                          <CheckboxInput />
+                        </FormControl>
+                      ),
+                    },
+                    {
+                      title: "Thao tác",
+                      dataIndex: "action",
+                      render: (record) => {
+                        return (
+                          <TMButton
+                            // onClick={() => handleSelectAllModule(record.key, !isModuleChecked(record.key))}
+                            size="sm"
+                          >
+                            Select
+                            {/* {!isModuleChecked(record.key) ? "Select all" : "Unselect"} */}
+                          </TMButton>
+                        );
+                      },
+                    },
+                  ]}
+                  rowKey="module"
+                />
+              </div>
+            </CardItem>
+          </div>
         </div>
-      </div>
 
-      <div className="flex justify-end gap-2 pt-4 border-t">
-        <TMButton variant="light" onClick={onCancel}>
-          Hủy
-        </TMButton>
-        <TMButton onClick={handleSave}>
-          <Icon name="save" className="w-4 h-4 mr-2" />
-          Lưu vai trò
-        </TMButton>
-      </div>
-    </div>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <TMButton variant="light" size="sm" onClick={onCancel}>
+            Hủy
+          </TMButton>
+          <TMButton type="submit" size="sm">
+            <Icon name="save" fontSize={16} />
+            <span>Lưu vai trò</span>
+          </TMButton>
+        </div>
+      </form>
+    </FormProvider>
   );
 };

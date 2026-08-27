@@ -1,6 +1,7 @@
 import React, { HTMLInputTypeAttribute, useEffect, useRef, useState } from "react";
 import { Icon } from "~/components/icon";
 import { Portal } from "~/components/portal";
+import { DROPDOWN_PANEL_CLASS, useDropdownPosition } from "~/hooks";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
@@ -42,25 +43,23 @@ export const SelectInput = ({
   onSelect,
   inputSize,
   closeOnSelect = true,
+  required,
   ...rest
 }: ISelectInput & actions) => {
   const wrapper = useRef<HTMLDivElement>(null);
   const dropdown = useRef<HTMLDivElement>(null);
   const skeleton = useRef<HTMLDivElement>(null);
   const [isFocus, setIsFocus] = useState<boolean>(false);
+
+  // Keep the dropdown glued to the input on scroll / resize.
+  useDropdownPosition(isFocus, wrapper, dropdown);
+
   useEffect(() => {
-    let resizeObserver: ResizeObserver;
     if (isFocus) {
-      resizeObserver = new ResizeObserver(() => {
-        handleBounce();
-      });
-      resizeObserver.observe(document.body);
       addFocus();
-      handleBounce();
     } else {
       removeFocus();
     }
-    return () => resizeObserver?.disconnect();
   }, [isFocus]);
 
   useEffect(() => {
@@ -78,23 +77,12 @@ export const SelectInput = ({
     return () => document.removeEventListener("click", handler, false);
   }, [isFocus]);
 
-  const handleBounce = () => {
-    const rect = wrapper.current?.getBoundingClientRect();
-    dropdown.current?.style.setProperty("top", `${rect?.bottom}px`);
-    dropdown.current?.style.setProperty("left", `${rect?.left}px`);
-    dropdown.current?.style.setProperty("height", "auto");
-    dropdown.current?.style.setProperty("z-index", "999");
-    dropdown.current?.style.setProperty("width", `${rect?.width}px`);
-  };
-
   const removeFocus = () => {
     if (skeleton.current) {
       skeleton.current?.classList?.remove("ring-2");
       skeleton.current?.classList?.remove("ring-inset");
       skeleton.current?.classList?.remove("ring-indigo-600");
     }
-    dropdown.current?.style.setProperty("height", "0");
-    dropdown.current?.style.setProperty("z-index", "-1");
   };
   const addFocus = () => {
     if (skeleton.current) {
@@ -109,23 +97,23 @@ export const SelectInput = ({
     }
   };
   const selectedOption = options.find((option) => option.value == rest.value);
-  console.log("selectedOption", selectedOption, options);
-  console.log("rest.value", rest.value);
+
   return (
-    <div className={styles.inputWrapper} ref={wrapper}>
-      <InputLabel label={label} name={name} />
+    <div className={styles.inputWrapper}>
+      <InputLabel label={label} name={name} required={required} />
       <div
-        className={cn("relative rounded-md flex items-center py-1 px-1 w-full", className)}
+        className={cn("relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700", className)}
         onClick={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsFocus(true);
           if (onClick) {
             onClick(e);
           }
         }}
+        ref={wrapper}
       >
         <div
           className={cn(
-            "z-[1] absolute pt-0.5 w-full bg-transparent rounded-md border-0  text-gray-900  placeholder:text-gray-400  text-sm/6 outline-none",
+            "z-1 absolute pt-0.5 w-full bg-transparent rounded-md border-0  text-slate-700 dark:text-slate-300  placeholder:text-gray-400  text-sm/6 outline-none",
             SizeClass[inputSize || "sm"],
           )}
           style={{
@@ -138,7 +126,7 @@ export const SelectInput = ({
         </div>
         <input
           className={cn(
-            "block w-full bg-transparent rounded-md ",
+            "block w-full bg-transparent rounded-md cursor-pointer",
             "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 border border-slate-300 outline-none",
             "text-transparent placeholder:text-gray-400",
             SizeClass[inputSize || "sm"],
@@ -155,21 +143,13 @@ export const SelectInput = ({
         >
           <Icon name="chevron-down" className={cn(" text-indigo-600 w-5 transition-transform ", {})} />
         </m.div>
-        {/* <div
-          className={cn(
-            "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300 -z-[1] bg-white",
-            styles.outline,
-            className,
-          )}
-          ref={skeleton}
-        /> */}
       </div>
 
       <Portal>
         {isFocus && (
           <>
             <m.div
-              className={cn(`rounded-sm mt-2 fixed bg-white border border-slate-100`)}
+              className={DROPDOWN_PANEL_CLASS}
               ref={dropdown}
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -182,14 +162,17 @@ export const SelectInput = ({
                     <span>No options</span>
                   </li>
                 )}
-                {options?.map((item) => {
+                {options?.map((item, index) => {
                   return (
                     <li
                       value={item.value}
                       className={cn(
-                        " px-2 hover:bg-slate-100 cursor-pointer rounded-xs bg-white text-neutral-700/90 hover:text-neutral-900 py-1",
+                        "px-2 cursor-pointer rounded-xs py-1 text-sm",
+                        "bg-white hover:bg-slate-100 dark:bg-transparent dark:hover:bg-slate-500",
+                        "text-neutral-700/90 hover:text-neutral-900 dark:text-slate-300",
                       )}
                       onClick={(e: any) => handleSelect(item)}
+                      key={`${item.label}-${item.value}-${index}`}
                     >
                       <div className="flex gap-2 items-center">
                         <span>{item.label}</span>
@@ -214,11 +197,21 @@ export const SelectInput = ({
   );
 };
 
-const InputLabel = ({ label, name }: { label?: string; name?: string }) => {
+// const InputLabel = ({ label, name }: { label?: string; name?: string }) => {
+//   if (!label) return;
+//   return (
+//     <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900 dark:text-slate-200">
+//       {label}
+//     </label>
+//   );
+// };
+
+const InputLabel = ({ label, name, required }: { label?: string; name?: string; required?: boolean }) => {
   if (!label) return;
   return (
-    <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900">
+    <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900 dark:text-slate-200">
       {label}
+      {required && <span className="text-rose-600"> *</span>}
     </label>
   );
 };

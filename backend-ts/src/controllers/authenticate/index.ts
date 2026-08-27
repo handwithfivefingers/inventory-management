@@ -71,11 +71,14 @@ export default class AuthenticateController {
       if (!resp) throw new Error('User not found')
       const token = await signToken({ id: resp.id, email: resp.email })
       
-      // Set session cookie with user, vendor, and warehouse info
+      // Set session cookie with user, vendor, and warehouse info.
+      // SECURITY: secure=true in production so the cookie never travels
+      // over plain HTTP (set NODE_ENV=production when serving over HTTPS).
       res.cookie('session', token, {
         httpOnly: true,
         maxAge: 3600000 * 24,
-        sameSite: 'lax'
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
       })
       
       res.status(200).json({

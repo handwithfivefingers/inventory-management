@@ -11,17 +11,17 @@ const UserModel = (sequelize: Sequelize) => {
         autoIncrement: true,
         primaryKey: true
       },
-      nickname: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      firstName: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      lastName: {
-        type: DataTypes.STRING
-      },
+      // nickname: {
+      //   type: DataTypes.STRING,
+      //   allowNull: true
+      // },
+      // firstName: {
+      //   type: DataTypes.STRING,
+      //   allowNull: false
+      // },
+      // lastName: {
+      //   type: DataTypes.STRING
+      // },
       email: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -47,9 +47,9 @@ const UserModel = (sequelize: Sequelize) => {
           // The getter logic calculates the value based on other attributes
           return {
             id: this.id,
-            nickname: this.nickname,
-            firstName: this.firstName,
-            lastName: this.lastName,
+            // nickname: this.nickname,
+            // firstName: this.firstName,
+            // lastName: this.lastName,
             email: this.email,
             subscription: this.subscription,
             createdAt: this.createdAt,
@@ -65,7 +65,9 @@ const UserModel = (sequelize: Sequelize) => {
   )
 
   M.associate = (models: any) => {
-    M.belongsToMany(models.role, { through: 'user_role' })
+    // Roles are now owned by Staff (staff.roleId) instead of User.
+    // User -> Staff is 1:N (a user may have staff profiles per vendor).
+    M.belongsTo(models.staff, { foreignKey: 'staffId' })
     M.hasMany(models.vendor, { foreignKey: 'userId' })
   }
   return M

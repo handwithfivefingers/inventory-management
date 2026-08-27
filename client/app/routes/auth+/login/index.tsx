@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate } from "@remix-run/react";
-import { useState } from "react";
+import { Link } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "react-router";
 import { AuthService } from "~/action.client/auth.service";
@@ -9,16 +8,14 @@ import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
-import { WarehouseVendorSelectionModal } from "~/components/warehouse-vendor-selection-modal";
 import { ILoginForm, loginSchema } from "~/constants/schema/login";
 import { useSubmitPromise } from "~/hooks";
 import { ResponseError } from "~/http";
 import { cn } from "~/libs/utils";
 import { commitSession, getSession, parseCookieFromRequest } from "~/sessions";
-import { useUser } from "~/store/user.store";
-import { IVendor } from "~/types/vendor";
-import styles from "./styles.module.scss";
 import { IUser } from "~/types/user";
+import styles from "./styles.module.scss";
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const { token, userId } = await parseCookieFromRequest(request);
   if (token && userId) throw redirect("/");
@@ -26,15 +23,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 function Login() {
-  const navigate = useNavigate();
-  const userStore = useUser();
-  const [showSelectionModal, setShowSelectionModal] = useState(false);
-  const [pendingAuthData, setPendingAuthData] = useState<{
-    vendors?: IVendor[];
-    defaultVendorId?: number | null;
-    defaultWarehouseId?: number | null;
-  } | null>(null);
-
   const formMethods = useForm<ILoginForm>({
     defaultValues: {
       email: "handgod1995@gmail.com",
@@ -49,9 +37,9 @@ function Login() {
 
   const handleSubmit = async (v: ILoginForm) => {
     try {
-      // const resp = await AuthService.login(v);
       const resp = await submit<{ data: IUser }>({ data: JSON.stringify(v) }, { method: "POST" });
       const user = resp.data;
+      console.log("user", user);
       if (!user) {
         toast.danger({
           title: "Đăng nhập thất bại",
@@ -68,36 +56,8 @@ function Login() {
     }
   };
 
-  const handleWarehouseVendorConfirm = (vendorId: number, warehouseId: number) => {
-    // Update user store with selected vendor and warehouse
-    const vendors = pendingAuthData?.vendors || [];
-    const selectedVendor = vendors.find((v) => v.id === vendorId);
-    const selectedWarehouse = selectedVendor?.warehouses?.find((w) => w.id === warehouseId);
-
-    if (selectedVendor) {
-      userStore.setVendor(selectedVendor);
-    }
-    if (selectedWarehouse) {
-      userStore.setWarehouse(selectedWarehouse);
-    }
-
-    setShowSelectionModal(false);
-    toast.success({
-      title: "Đã chọn",
-      message: "Đang chuyển hướng...",
-    });
-    navigate("/", { replace: true });
-  };
-
   return (
     <div className="w-full flex flex-col p-4 gap-4 items-center justify-center h-screen">
-      <WarehouseVendorSelectionModal
-        open={showSelectionModal}
-        vendors={pendingAuthData?.vendors || []}
-        defaultVendorId={pendingAuthData?.defaultVendorId}
-        defaultWarehouseId={pendingAuthData?.defaultWarehouseId}
-        onConfirm={handleWarehouseVendorConfirm}
-      />
       <CardItem
         title="Đăng nhập"
         className={cn("p-4 flex-col gap-2 shadow-xl mx-auto max-w-[400px] w-full flex", styles.box)}
@@ -105,9 +65,7 @@ function Login() {
         <FormProvider {...formMethods}>
           <form onSubmit={formMethods.handleSubmit(handleSubmit)} className="flex flex-col gap-2">
             <FormControl name="email">
-              {(field) => (
-                <TextInput label="Email" {...field} onChange={(e: any) => field.onChange(e.target?.value)} />
-              )}
+              {(field) => <TextInput label="Email" {...field} onChange={(e: any) => field.onChange(e.target?.value)} />}
             </FormControl>
             <FormControl name="password">
               {(field) => (
@@ -120,7 +78,7 @@ function Login() {
               )}
             </FormControl>
 
-            <TMButton htmlType="submit" loading={isLoading} disabled={isLoading || showSelectionModal}>
+            <TMButton htmlType="submit" loading={isLoading} disabled={isLoading}>
               {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
             </TMButton>
 
@@ -144,12 +102,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const data = await request.formData();
     const json = JSON.parse(data.get("data") as string);
     const resp = await AuthService.login(json);
-    console.log("resp", resp);
     if (resp.status !== 200) throw resp;
+    console.log("resp", resp);
     const session = await getSession(request.headers.get("cookie"));
-    const { token, ...user } = resp.data?.data || { id: "" };
+    const loginData = resp.data?.data as IUser & {
+      token?: string;
+      defaultVendorId?: number | null;
+      defaultWarehouseId?: number | null;
+    };
+    const { token, ...user } = loginData || ({ id: "" } as unknown as typeof loginData);
     session.set("token", token as string);
     session.set("userId", user?.id);
+    // Seed the active vendor/warehouse immediately. The first document request
+    // after login runs the layout and page loaders in parallel against this
+    // cookie, so it must already carry a consistent selection — otherwise data
+    // is fetched without a warehouseId and falls back to an arbitrary one.
+    if (!session.get("vendorId") && user?.defaultVendorId) {
+      session.set("vendorId", user.defaultVendorId);
+    }
+    if (!session.get("warehouseId") && user?.defaultWarehouseId) {
+      session.set("warehouseId", user.defaultWarehouseId);
+    }
     return redirect("/", {
       headers: {
         "Set-Cookie": await commitSession(session),

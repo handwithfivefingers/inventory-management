@@ -4,6 +4,7 @@ import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import { ITMButton, TMButton } from "../tm-button";
 import { Portal } from "../portal";
+import { DROPDOWN_PANEL_CLASS, useDropdownPosition } from "~/hooks";
 import { m } from "motion/react";
 interface IDropdownItem {
   label: React.ReactNode;
@@ -20,7 +21,6 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
   useEffect(() => {
     const handler = (e: any) => {
       if (!dropdown.current?.contains(e.target)) {
-        // setIsFocus(false);
         setShow(false);
         return;
       }
@@ -32,32 +32,9 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
     }
     return () => document.removeEventListener("click", handler, false);
   }, [show]);
-  useEffect(() => {
-    let resizeObserver: ResizeObserver;
-    if (show) {
-      resizeObserver = new ResizeObserver(() => {
-        handleBounce();
-      });
-      handleBounce();
-      resizeObserver.observe(document.body);
-    } else {
-      dropdown.current?.style.setProperty("height", "0");
-      dropdown.current?.style.setProperty("z-index", "-1");
-    }
-    return () => resizeObserver?.disconnect();
-  }, [show]);
-  const handleBounce = () => {
-    const rect = wrapper.current?.getBoundingClientRect();
-    if (placement === "left") {
-      dropdown.current?.style.setProperty("left", `${rect?.left}px`);
-    } else {
-      dropdown.current?.style.setProperty("left", `${rect?.right}px`);
-      dropdown.current?.classList.add("!-translate-x-[100%]");
-    }
-    dropdown.current?.style.setProperty("top", `${rect?.bottom}px`);
-    dropdown.current?.style.setProperty("height", "auto");
-    dropdown.current?.style.setProperty("z-index", "999");
-  };
+
+  // Keep the dropdown glued to the trigger on scroll / resize.
+  useDropdownPosition(show, wrapper, dropdown, { align: placement === "left" ? "left" : "right" });
 
   const handleToggle = () => {
     setShow(!show);
@@ -70,7 +47,7 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
       <Portal>
         {show && (
           <m.div
-            className={cn(`rounded-md mt-2 fixed bg-white border border-slate-100 p-1`)}
+            className={cn(DROPDOWN_PANEL_CLASS, "p-1")}
             ref={dropdown}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}

@@ -44,6 +44,9 @@ const db = vi.hoisted(() => {
     "financialRecord",
     "setting",
     "units",
+    "productVariant",
+    "productAttribute",
+    "productAttributeValue",
   ];
   const database: any = {};
   for (const name of models) database[name] = makeModelMock();
@@ -51,6 +54,7 @@ const db = vi.hoisted(() => {
     transaction: vi.fn(),
     literal: vi.fn((v: any) => v),
     col: vi.fn((v: any) => v),
+    fn: vi.fn((f: string, v: any) => ({ f, v })),
     query: vi.fn(),
   };
   return database;
@@ -69,6 +73,11 @@ describe("ProductService", () => {
     vi.clearAllMocks();
     service = new ProductService();
     database.sequelize.transaction.mockResolvedValue(makeTx());
+    // S1: tenant checks resolve the warehouse (platform-admin scope here).
+    database.warehouse.findByPk.mockResolvedValue({ vendorId: 1 });
+    // P3: post-pagination aggregates default to empty result sets.
+    database.inventory.findAll.mockResolvedValue([]);
+    database.productVariant.findAll.mockResolvedValue([]);
   });
 
   describe("create", () => {
@@ -127,6 +136,10 @@ describe("ProductService", () => {
       const transfer = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 20 } };
       database.product.findOne.mockResolvedValue(null);
       database.product.count.mockResolvedValue(4);
+      // C1: counter read-back via LAST_INSERT_ID() -> 5
+      database.sequelize.query.mockImplementation(async (sql: string) => {
+        return String(sql).includes("LAST_INSERT_ID()") ? [[{ seq: 5 }], []] : [[], []];
+      });
       database.product.build.mockReturnValue(product);
       database.inventory.build.mockReturnValue(inventory as any);
       database.transfer.build.mockReturnValue(transfer as any);
@@ -172,12 +185,25 @@ describe("ProductService", () => {
 
   describe("getProducts", () => {
     it("returns rows and count from findAndCountAll", async () => {
-      database.product.findAndCountAll.mockResolvedValue({ rows: [{ id: 1 }], count: 1 });
+      // P3: totals now come from two grouped aggregate queries per page.
+      const row = { id: 1, setDataValue: vi.fn() };
+      database.product.findAndCountAll.mockResolvedValue({ rows: [row], count: 1 });
+      database.inventory.findAll.mockResolvedValue([{ productId: 1, total: 7 }]);
+      database.productVariant.findAll.mockResolvedValue([{ productId: 1, variantCount: 2 }]);
+
       const result = await service.getProducts({
         query: { warehouseId: 1, page: 2, pageSize: 20 },
       } as any);
-      expect(result).toEqual({ rows: [{ id: 1 }], count: 1 });
+
+      expect(result.count).toBe(1);
+      expect(result.rows[0]).toBe(row);
+      expect(row.setDataValue).toHaveBeenCalledWith("quantity", 7);
+      expect(row.setDataValue).toHaveBeenCalledWith("variantCount", 2);
       expect(database.product.findAndCountAll).toHaveBeenCalled();
+      // aggregates are batched IN-queries, not correlated subqueries
+      expect(database.inventory.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { productId: { [Op.in]: [1] } } }),
+      );
     });
 
     it("throws when warehouseId is missing", async () => {

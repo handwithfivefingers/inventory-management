@@ -11,8 +11,10 @@ export interface ITransferModel
   extends Model<InferAttributes<ITransferModel>, InferCreationAttributes<ITransferModel>> {
   id: CreationOptional<number>
   quantity: number
-  type: string
-  warehouseId: ForeignKey<number>
+  type?: string | null
+  status?: string | null
+  fromWarehouseId: ForeignKey<number>
+  toWarehouseId: ForeignKey<number>
   productId: ForeignKey<number>
   /** Nullable: NULL = legacy/simple-product movement */
   variantId?: ForeignKey<number> | null

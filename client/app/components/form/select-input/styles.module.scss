@@ -4,15 +4,6 @@
   & ~ .chevron {
     transform: rotate(0);
   }
-  &:focus {
-    & ~ .outline {
-      @apply ring-2 ring-inset ring-indigo-600 dark:ring-indigo-300/50;
-    }
-    & ~ .chevron {
-      // @apply rotate-90;
-      transform: rotate(90deg);
-    }
-  }
 }
 
 .outline {
@@ -20,7 +11,6 @@
 }
 
 .inputWrapper {
-  margin-bottom: 0.5rem;
   position: relative;
   width: 100%;
   .indicator {

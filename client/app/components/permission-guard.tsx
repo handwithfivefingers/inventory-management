@@ -53,7 +53,9 @@ export const PermissionGuard = ({
   const isAllowed = () => {
     if (requireAdmin && isAdmin) return true;
     if (roles && roles.length > 0 && hasRole) return true;
-    if (permission && hasPermission) return false;
+    // Fix: previously returned `false` here, hiding children even when the
+    // permission WAS granted.
+    if (permission && hasPermission) return true;
     return false;
   };
 

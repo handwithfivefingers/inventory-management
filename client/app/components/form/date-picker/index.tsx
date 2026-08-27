@@ -4,7 +4,8 @@ import { dayjs } from "~/libs/date";
 import { cn } from "~/libs/utils";
 import { Portal } from "~/components/portal";
 import { Icon } from "~/components/icon";
-
+import { DROPDOWN_PANEL_CLASS, useDropdownPosition } from "~/hooks";
+import { m } from "motion/react";
 /** Canonical value format exchanged with forms / APIs. */
 export const DATE_VALUE_FORMAT = "YYYY-MM-DD";
 const DISPLAY_FORMAT = "DD/MM/YYYY";
@@ -61,31 +62,21 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
     const [innerValue, setInnerValue] = useState(defaultValue ?? "");
     const isControlled = value !== undefined;
     const selected = (isControlled ? value : innerValue) ?? "";
-
     const [open, setOpen] = useState(false);
     const [viewMonth, setViewMonth] = useState(() => (toDate(selected) ?? dayjs()).startOf("month"));
-    const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
-
     const wrapperRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
 
-    const syncPanelPosition = useCallback(() => {
-      const rect = wrapperRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setPanelPos({
-        top: rect.bottom + 4,
-        left: Math.max(8, Math.min(rect.left, window.innerWidth - PANEL_WIDTH - 8)),
-      });
-    }, []);
+    // Keep the calendar panel glued to the trigger on scroll / resize.
+    useDropdownPosition(open, wrapperRef, panelRef);
 
     const openPanel = () => {
       if (disabled) return;
       setViewMonth((toDate(selected) ?? dayjs()).startOf("month"));
-      syncPanelPosition();
       setOpen(true);
     };
 
-    // Close on outside click / Escape; keep the panel glued to the trigger on scroll.
+    // Close on outside click / Escape.
     useEffect(() => {
       if (!open) return;
       const onMouseDown = (e: MouseEvent) => {
@@ -98,15 +89,11 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
       };
       document.addEventListener("mousedown", onMouseDown);
       document.addEventListener("keydown", onKeyDown);
-      window.addEventListener("resize", syncPanelPosition);
-      window.addEventListener("scroll", syncPanelPosition, true);
       return () => {
         document.removeEventListener("mousedown", onMouseDown);
         document.removeEventListener("keydown", onKeyDown);
-        window.removeEventListener("resize", syncPanelPosition);
-        window.removeEventListener("scroll", syncPanelPosition, true);
       };
-    }, [open, syncPanelPosition]);
+    }, [open]);
 
     const commit = (date: Dayjs | null) => {
       const next = date ? date.format(DATE_VALUE_FORMAT) : "";
@@ -126,6 +113,12 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
     const selectedDate = toDate(selected);
     const today = dayjs().startOf("day");
 
+    const onKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open ? setOpen(false) : openPanel();
+      }
+    };
     return (
       <div className={cn("flex flex-col relative w-full", className)} ref={ref}>
         {label && (
@@ -141,31 +134,32 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-invalid={!!error}
-          className={cn("relative rounded-md flex items-center min-h-[34px] cursor-pointer select-none", {
-            ["opacity-60 pointer-events-none"]: disabled,
-          })}
+          className={cn(
+            "relative rounded-md flex items-center cursor-pointer select-none bg-slate-50 dark:bg-slate-700",
+            "ring-2 ring-transparent border border-slate-300 transition-all",
+            {
+              ["opacity-60 pointer-events-none"]: disabled,
+              ["ring-red-600"]: !!error,
+              ["ring-indigo-400/30"]: open,
+            },
+          )}
           ref={wrapperRef}
           onClick={() => (open ? setOpen(false) : openPanel())}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              open ? setOpen(false) : openPanel();
-            }
-          }}
+          onKeyDown={onKeyDown}
         >
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2 z-[1]">
-            <span className="text-indigo-900 dark:text-slate-200">
+            <span className="text-slate-500 dark:text-slate-300">
               <Icon name="calendar" fontSize={16} />
             </span>
           </div>
           <span
             className={cn(
-              "block w-full bg-transparent rounded-md border-0 outline-none py-1.5 pl-8 pr-7 text-sm truncate z-1",
-              selected ? "text-gray-900 dark:text-slate-100" : "text-gray-400",
+              "block w-full bg-transparent rounded-md border-0 outline-none py-1 pl-8 pr-7 text-sm truncate z-1 text-slate-700 dark:text-slate-300",
             )}
           >
             {selectedDate ? selectedDate.format(DISPLAY_FORMAT) : placeholder || DISPLAY_FORMAT.toLowerCase()}
           </span>
+
           {clearable && !!selected && !disabled && (
             <button
               type="button"
@@ -179,27 +173,21 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
               <Icon name="x" fontSize={14} />
             </button>
           )}
-          <div
-            className={cn(
-              "absolute rounded-sm left-0 top-0 w-full h-full ring-1 ring-gray-300 -z-[0] bg-white dark:bg-slate-800",
-              {
-                ["ring-2 ring-inset !ring-red-600"]: !!error,
-                ["ring-2 ring-inset ring-indigo-600"]: open,
-              },
-            )}
-          />
         </div>
 
         <Portal>
           {open && (
-            <div
+            <m.div
               role="dialog"
               aria-label={label || "date-picker"}
-              className="fixed z-[999] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg p-2 select-none"
-              style={{ top: panelPos.top, left: panelPos.left, width: PANEL_WIDTH }}
+              className={cn(DROPDOWN_PANEL_CLASS, "[p-2 select-none max-w-[300px]")}
+              style={{ width: PANEL_WIDTH }}
               ref={panelRef}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              <div className="flex items-center justify-between px-1 pb-2 mb-1 border-b border-indigo-600/40">
+              <div className="flex items-center justify-between px-1 pb-2 py-2 border-b border-indigo-600/40">
                 <button
                   type="button"
                   aria-label="Previous month"
@@ -221,7 +209,7 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
                 </button>
               </div>
 
-              <div className="grid grid-cols-7 gap-y-1 text-center text-sm text-slate-500 pb-1">
+              <div className="grid grid-cols-7 gap-y-1 py-2 text-center text-sm text-slate-500">
                 {WEEKDAYS.map((day, i) => (
                   <span key={day} className={cn({ ["text-rose-500"]: i === 0 })}>
                     {day}
@@ -229,7 +217,7 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-y-1">
+              <div className="grid grid-cols-7 gap-y-1 pb-2">
                 {cells.map((date) => {
                   const isSelected = !!selectedDate && date.isSame(selectedDate, "day");
                   const isToday = date.isSame(today, "day");
@@ -257,10 +245,10 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
                   );
                 })}
               </div>
-            </div>
+            </m.div>
           )}
         </Portal>
-        {error && <span className="text-sm text-rose-600">{error}</span>}
+        {/* {error && <span className="text-sm text-rose-600">{error}</span>} */}
       </div>
     );
   },
@@ -314,3 +302,21 @@ export const DateRangePicker = ({
     </div>
   );
 };
+
+// You are operating a 6-process recursive development and testing pipeline. Your task is to process this <input>:
+
+// Execute the 6 processes sequentially. Label each step clearly:
+
+// === PHASE 1: SOLVING THE INPUT ===
+// - PROCESS 1 (Decomposition): Analyze the input. List all implicit constraints, edge cases, and structural requirements.
+// - PROCESS 2 (Drafting): Write the initial code or solution addressing all points from Process 1.
+// - PROCESS 3 (Optimization): Refactor the code from Process 2 for optimal performance, memory efficiency, and readability.
+
+// === PHASE 2: TESTING THE BUILD ===
+// - PROCESS 4 (Functional Testing): Create a test suite to verify the code against standard inputs and mathematical/logical constraints. State the results.
+// - PROCESS 5 (Stress Testing): Create tests for extreme inputs (e.g., empty values, overflow thresholds, type mismatches). State the results.
+
+// === PHASE 3: AUDITING THE SYSTEM ===
+// - PROCESS 6 (The Auditor): Critically evaluate Process 4 and Process 5. Did the tests cover 100% of the logic? Were the test assertions rigorous enough? If any flaws are found in the tests or the original code, force a rewrite here.
+
+// OUTPUT: Provide the final, triple-verified solution and the passing test logs.

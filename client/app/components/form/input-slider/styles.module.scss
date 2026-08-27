@@ -1,0 +1,86 @@
+@reference "tailwindcss";
+
+.inputWrapper {
+  width: auto;
+}
+
+.slider {
+  $track-height: 6px;
+  $thumb-size: 18px;
+
+  width: 100%;
+  height: $thumb-size;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  padding-top: 12px;
+
+  // Track — filled portion is drawn via --progress set inline by the component
+  &::-webkit-slider-runnable-track {
+    height: $track-height;
+    border-radius: 9999px;
+    background: linear-gradient(to right, #4f46e5 var(--progress, 0%), #e2e8f0 var(--progress, 0%));
+  }
+
+  &::-moz-range-track {
+    height: $track-height;
+    border-radius: 9999px;
+    background: linear-gradient(to right, #4f46e5 var(--progress, 0%), #e2e8f0 var(--progress, 0%));
+  }
+
+  // Thumb
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: $thumb-size;
+    height: $thumb-size;
+    margin-top: calc(($track-height - $thumb-size) / 2);
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 2px solid #4f46e5;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+    transition: transform 0.15s ease;
+
+    &:hover {
+      transform: scale(1.15);
+    }
+  }
+
+  &::-moz-range-thumb {
+    width: $thumb-size;
+    height: $thumb-size;
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 2px solid #4f46e5;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+    transition: transform 0.15s ease;
+
+    &:hover {
+      transform: scale(1.15);
+    }
+  }
+
+  &:focus-visible {
+    outline: none;
+
+    &::-webkit-slider-thumb {
+      box-shadow: 0 0 0 4px rgb(99 102 241 / 0.3); // ring-indigo-400/30
+    }
+
+    &::-moz-range-thumb {
+      box-shadow: 0 0 0 4px rgb(99 102 241 / 0.3);
+    }
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+
+    &::-webkit-slider-thumb:hover {
+      transform: none;
+    }
+
+    &::-moz-range-thumb:hover {
+      transform: none;
+    }
+  }
+}

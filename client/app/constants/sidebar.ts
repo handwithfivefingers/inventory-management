@@ -5,6 +5,9 @@ export interface ISidebarChild {
   divider?: boolean;
   /** Exact-match link (e.g. the dashboard "/") */
   index?: boolean;
+  /** Permission module key - the item only renders for users holding the
+   *  module's R permission (mirrors backend-ts/src/constant/modules.ts). */
+  moduleKey?: string;
   /** Optional nested level (e.g. Products inside the Warehouse group) */
   items?: ISidebarChild[];
 }
@@ -15,6 +18,8 @@ export interface ISideBarItem {
   labelKey: string;
   iconName?: string;
   divider?: boolean;
+  /** Permission module key gating this group (defaults: visible if any child is visible) */
+  moduleKey?: string;
   items?: ISidebarChild[];
 }
 
@@ -29,35 +34,40 @@ export const SIDE_BAR: ISideBarItem[] = [
     iconName: "shopping-cart",
     items: [
       {
-        to: "/",
-        index: true,
+        to: "/dashboard",
         labelKey: "sidebar.revenue",
         iconName: "home",
+        moduleKey: "dashboard",
       },
       {
         to: "/orders",
         labelKey: "sidebar.orders",
         iconName: "package",
+        moduleKey: "order",
       },
       {
         to: "/products",
         labelKey: "sidebar.products",
         iconName: "shopping-bag",
+        moduleKey: "product",
       },
       {
         to: "/customers",
         labelKey: "sidebar.customers",
         iconName: "users",
+        moduleKey: "customer",
       },
       {
         to: "/invoices",
         labelKey: "sidebar.invoices",
         iconName: "file-text",
+        moduleKey: "invoice",
       },
       {
         to: "/products/attributes",
         labelKey: "sidebar.attributes",
         iconName: "sliders",
+        moduleKey: "product",
       },
     ],
   },
@@ -69,11 +79,13 @@ export const SIDE_BAR: ISideBarItem[] = [
         to: "/providers",
         labelKey: "sidebar.providers",
         iconName: "git-pull-request",
+        moduleKey: "provider",
       },
       {
         to: "/import-order",
         labelKey: "sidebar.importOrder",
         iconName: "upload",
+        moduleKey: "import-order",
       },
     ],
   },
@@ -85,6 +97,7 @@ export const SIDE_BAR: ISideBarItem[] = [
         to: "/warehouses",
         labelKey: "sidebar.warehouses",
         iconName: "layers",
+        moduleKey: "warehouse",
       },
     ],
   },
@@ -96,16 +109,19 @@ export const SIDE_BAR: ISideBarItem[] = [
         to: "/categories",
         labelKey: "sidebar.categories",
         iconName: "archive",
+        moduleKey: "category",
       },
       {
         to: "/units",
         labelKey: "sidebar.units",
         iconName: "dollar-sign",
+        moduleKey: "unit",
       },
       {
         to: "/tags",
         labelKey: "sidebar.tags",
         iconName: "tag",
+        moduleKey: "tag",
       },
     ],
   },
@@ -117,6 +133,7 @@ export const SIDE_BAR: ISideBarItem[] = [
         to: "/financial",
         labelKey: "sidebar.financial",
         iconName: "bar-chart-2",
+        moduleKey: "financial",
       },
     ],
   },
@@ -129,11 +146,13 @@ export const SIDE_BAR: ISideBarItem[] = [
         to: "/staff",
         labelKey: "sidebar.staff",
         iconName: "users",
+        moduleKey: "staff",
       },
       {
         to: "/shift",
         labelKey: "sidebar.shift",
         iconName: "layers",
+        moduleKey: "shift",
       },
     ],
   },
@@ -146,16 +165,19 @@ export const SIDE_BAR: ISideBarItem[] = [
         to: "/setting/general",
         labelKey: "sidebar.generalSettings",
         iconName: "settings",
+        moduleKey: "setting",
       },
       {
         to: "/setting/payment",
         labelKey: "sidebar.payment",
         iconName: "credit-card",
+        moduleKey: "setting",
       },
       {
         to: "/setting/role",
         labelKey: "sidebar.role",
         iconName: "shield",
+        moduleKey: "role",
       },
     ],
   },
