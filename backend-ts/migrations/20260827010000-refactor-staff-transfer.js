@@ -9,15 +9,6 @@
  *             (directional movement). Keeps productId/variantId/quantity.
  */
 
-const tableExists = async (queryInterface, tableName) => {
-  try {
-    const tables = await queryInterface.showAllTables()
-    return tables.some((t) => (typeof t === 'string' ? t : t.tableName || t.name) === tableName)
-  } catch {
-    return false
-  }
-}
-
 const columnExists = async (queryInterface, table, column) => {
   try {
     const desc = await queryInterface.describeTable(table)
@@ -36,7 +27,14 @@ const addColumnIfMissing = async (queryInterface, table, column, spec) => {
 module.exports = {
   async up(queryInterface, Sequelize) {
     // 1. Ensure `staff` table exists (init migration never created it; sync did)
-
+    const tableExists = async (queryInterface, tableName) => {
+      try {
+        const tables = await queryInterface.showAllTables()
+        return tables.some((t) => (typeof t === 'string' ? t : t.tableName || t.name) === tableName)
+      } catch {
+        return false
+      }
+    }
     if (!(await tableExists(queryInterface, 'staff'))) {
       await queryInterface.createTable('staff', {
         id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
@@ -209,6 +207,14 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
+    const tableExists = async (queryInterface, tableName) => {
+      try {
+        const tables = await queryInterface.showAllTables()
+        return tables.some((t) => (typeof t === 'string' ? t : t.tableName || t.name) === tableName)
+      } catch {
+        return false
+      }
+    }
     // Reverse transfer refactoring: restore warehouseId from fromWarehouseId
     if (await tableExists(queryInterface, 'transfers')) {
       await addColumnIfMissing(queryInterface, 'transfers', 'warehouseId', {

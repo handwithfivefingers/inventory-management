@@ -1,205 +1,267 @@
 import database from '#/database'
-import { IStaffStatic } from '#/types/staff'
+import { ApiError } from '#/response'
 import { getPagination } from '#/utils'
-import { isDuplicateEntryError, nextSequence } from '#/utils/sequence'
+import { nextSequence } from '#/utils/sequence'
 import { Op, Sequelize } from 'sequelize'
+import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
+import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 
+const ALLOWED_STAFF_FIELDS = [
+  'fullName',
+  'gender',
+  'phone',
+  'salary',
+  'hireDate',
+  'status',
+  'address',
+  'roleId'
+] as const
+
+function pickStaffFields(input: any): Record<string, any> {
+  const out: Record<string, any> = {}
+  for (const key of ALLOWED_STAFF_FIELDS) {
+    if (input[key] !== undefined) out[key] = input[key]
+  }
+  return out
+}
+
+interface StaffBodyParams {
+  vendorId?: number
+  roleId: number
+  email: string
+  status: 'active' | 'inactive'
+  gender: 'male' | 'female' | 'other'
+  password?: string
+  code?: string
+  fullName?: string
+  phone?: string
+  salary?: number
+  hireDate?: string | Date
+  address?: string
+}
 export class StaffService {
-  staff: IStaffStatic = database.staff
   sequelize: Sequelize = database.sequelize
-
   async getStaffs(req: any) {
     try {
-      const { offset, limit, warehouseId } = getPagination(req.query)
+      const { offset, limit, vendorId: paginationVendorId } = getPagination(req.query as any)
       const where: any = {}
-      if (warehouseId) where.warehouseId = Number(warehouseId)
+      const vendorId = (req.query as any).vendorId ?? paginationVendorId
+      if (vendorId) where.vendorId = Number(vendorId)
       if (req.query.status) where.status = req.query.status
-      if (req.query.q) where.fullName = { [Op.like]: `%${req.query.q}%` }
-      if (req.query.vendorId) where.vendorId = Number(req.query.vendorId)
+      if (req.query.gender) where.gender = req.query.gender
       if (req.query.roleId) where.roleId = Number(req.query.roleId)
-      const resp = await this.staff.findAndCountAll({
+      if (req.query.q) {
+        const q = `%${req.query.q}%`
+        where[Op.or] = [{ fullName: { [Op.like]: q } }, { code: { [Op.like]: q } }, { phone: { [Op.like]: q } }]
+        ;(where as any).fullName = { [Op.like]: q }
+      }
+
+      const include: any[] = [
+        { model: database.user, attributes: { exclude: ['password', 'parsed', 'secret', 'createdAt', 'updatedAt'] } },
+        {
+          model: database.role,
+          attributes: {
+            exclude: ['createdAt', 'updatedAt', 'vendorId', 'description']
+          },
+          include: {
+            model: database.permission,
+            as: 'permissions',
+            attributes: ['name', 'method'],
+            through: { attributes: [] }
+          } as any
+        }
+        // {
+        //   model: database.vendor,
+        //   attributes: {
+        //     exclude: ['createdAt', 'updatedAt']
+        //   }
+        // }
+      ]
+
+      const resp = await database.staff.findAndCountAll({
         where,
-        include: [
-          { model: database.user },
-          { model: database.warehouse },
-          { model: database.role },
-          { model: database.vendor }
-        ],
+        include,
         offset: Number(offset),
         limit: Number(limit),
         distinct: true,
-        order: [['createdAt', 'DESC']]
+        order: [['createdAt', 'DESC']],
+        attributes: {
+          exclude: ['userId', 'vendorId', 'roleId']
+        },
+        // raw: true,
+        nest: true
       })
       return resp
     } catch (error) {
       console.log('getStaffs error', error)
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
-  async getById(id: string | number) {
+  async getById(id: number) {
     try {
-      return await this.staff.findByPk(id, {
-        include: [
-          { model: database.user },
-          { model: database.warehouse },
-          { model: database.role },
-          { model: database.vendor }
-        ]
-      })
+      const include: any[] = [
+        { model: database.user, attributes: { exclude: ['password', 'parsed', 'secret', 'createdAt', 'updatedAt'] } },
+        {
+          model: database.role,
+          attributes: {
+            exclude: ['createdAt', 'updatedAt', 'vendorId', 'description']
+          },
+          include: {
+            model: database.permission,
+            as: 'permissions',
+            attributes: ['name', 'method'],
+            through: { attributes: [] }
+          } as any
+        }
+        // {
+        //   model: database.vendor,
+        //   attributes: {
+        //     exclude: ['createdAt', 'updatedAt']
+        //   }
+        // }
+      ]
+
+      const row = await database.staff.findByPk(id, { include })
+      if (!row) throw ApiError.from(new Error('Staff not found'), 404)
+      return row.toJSON()
     } catch (error) {
+      if ((error as any)?.statusCode === 404) throw error
       throw error
     }
   }
 
-  async create(body: any) {
+  async create(body: StaffBodyParams) {
     const t = await this.sequelize.transaction()
     try {
-      const { password, createAccount, accountEmail, roleId, vendorId, ...staffData } = body
-      if (!staffData.warehouseId) {
-        throw new Error('warehouseId is required to create staff')
-      }
-      const warehouseIdNum = Number(staffData.warehouseId)
-      if (!Number.isFinite(warehouseIdNum) || warehouseIdNum <= 0) {
-        throw new Error('Invalid warehouseId')
-      }
-      const warehouseRow: any = (database as any).warehouse?.findByPk
-        ? await (database as any).warehouse.findByPk(warehouseIdNum, { transaction: t })
-        : null
-      const expectedVendorId = (warehouseRow as any)?.vendorId ?? null
-      if (vendorId !== undefined && vendorId !== null && String(vendorId).trim() !== '') {
-        const providedVendorId = Number(vendorId)
-        if (expectedVendorId !== null && providedVendorId !== Number(expectedVendorId)) {
-          throw new Error('vendorId does not match warehouse vendorId')
-        }
-      }
-      staffData.warehouseId = warehouseIdNum
-
-      const vendorIdForStaff = vendorId != null && String(vendorId).trim() !== '' ? Number(vendorId) : expectedVendorId
-      const shouldCreateAccount = createAccount === true || (typeof password === 'string' && password.length > 0)
-      const resolvedRoleId = roleId ?? (staffData as any).roleId
-      let roleToAssign: any = null
-
-      let userIdToLink: number | null = null
-
-      if (shouldCreateAccount) {
-        const emailForAccount = String(accountEmail || staffData.email || '').trim()
-        if (!emailForAccount) {
-          throw new Error('Email is required to create login account')
-        }
-        if (!password || String(password).length < 6) {
-          throw new Error('Password must be at least 6 characters')
-        }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForAccount)) {
-          throw new Error('Invalid email format')
-        }
-        const existingUser = await (database as any).user.findOne({
-          where: { email: emailForAccount },
-          transaction: t
-        })
-        if (existingUser) {
-          throw new Error('Email already in use')
-        }
-        if (!resolvedRoleId) {
-          throw new Error('roleId is required to create login account')
-        }
-        roleToAssign = await database.role.findByPk(Number(resolvedRoleId), { transaction: t })
-        if (!roleToAssign) throw new Error('Role not found')
-
-        const fullName = String(staffData.fullName || '').trim()
-        const parts = fullName.split(/\s+/).filter(Boolean)
-        const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : fullName || 'Staff'
-        const lastName = parts.length > 1 ? parts.slice(-1).join(' ') : ''
-
-        const user = await (database as any).user.create(
-          {
-            firstName,
-            lastName,
-            email: emailForAccount,
-            password,
-            nickname: fullName || emailForAccount,
-            subscription: 'free'
-          },
-          { transaction: t }
-        )
-        userIdToLink = (user as any).id
-      } else {
-        if (resolvedRoleId) {
-          roleToAssign = await database.role.findByPk(Number(resolvedRoleId), { transaction: t })
-          if (!roleToAssign) throw new Error('Role not found')
-        }
-        if ((staffData as any).userId) {
-          userIdToLink = Number((staffData as any).userId)
-        }
-      }
-
-      const lastStaff = await this.staff.findOne({
+      const {
+        password,
+        email,
+        roleId,
+        vendorId,
+        phone,
+        gender = 'other',
+        salary,
+        hireDate = null,
+        status,
+        address,
+        fullName
+      } = body
+      if (!password || password?.length < 6) throw new Error('Password must be at least 6 characters')
+      if (!roleId) throw new Error('Role not selected')
+      const count = await database.user.count({ where: { email } })
+      if (count > 0) throw new Error('User already exists')
+      const lastStaff = await database.staff.findOne({
         order: [['id', 'DESC']],
         limit: 1,
         transaction: t
       })
       const initial = Number((lastStaff as any)?.get?.('id') ?? (lastStaff as any)?.id ?? 0) + 1
-      const buildWithCode = async () => {
-        const seq = await nextSequence('staff', null, { transaction: t, initial })
-        const code = `NV-${String(seq).padStart(4, '0')}`
-        const payload: any = { ...staffData, code }
-        if (userIdToLink) payload.userId = userIdToLink
-        else if ((staffData as any).userId) payload.userId = Number((staffData as any).userId)
-        if (vendorIdForStaff) payload.vendorId = Number(vendorIdForStaff)
-        else if (vendorId != null && String(vendorId).trim() !== '') payload.vendorId = Number(vendorId)
-        if (roleToAssign) payload.roleId = Number(roleToAssign.id)
-        else if ((staffData as any).roleId) payload.roleId = Number((staffData as any).roleId)
-        else if (resolvedRoleId) payload.roleId = Number(resolvedRoleId)
-        delete payload.password
-        delete payload.createAccount
-        delete payload.accountEmail
-        return await this.staff.create(payload, { transaction: t } as any)
-      }
-      let createdStaff: any
-      try {
-        createdStaff = await buildWithCode()
-      } catch (error) {
-        if (isDuplicateEntryError(error)) {
-          createdStaff = await buildWithCode()
-        } else {
-          throw error
-        }
-      }
+      const seq = await nextSequence('staff', null, { transaction: t, initial })
+      const code = `NV-${String(seq).padStart(4, '0')}`
 
-      await t.commit()
-      return createdStaff
+      const _user = await database.user.create({ email, password, subscription: 'free' }, { transaction: t })
+
+      const _staff = await database.staff.create(
+        {
+          code,
+          phone,
+          gender,
+          salary: Number(salary),
+          hireDate: hireDate ? new Date(hireDate) : undefined,
+          status,
+          address,
+          fullName: fullName || '',
+          userId: _user.id,
+          roleId: Number(roleId)
+          // vendorId: Number(vendorId)
+        },
+        { transaction: t }
+      )
+
+      await _staff.$set('vendors', Number(vendorId), { transaction: t })
+      console.log(_staff)
+      await (t as any).commit?.()
+      // Invalidate auth cache: new staff -> new vendor/role scope for the user
+      try {
+        await invalidateUserAuthCache(Number(_user.id))
+      } catch {}
+      return _staff.toJSON()
     } catch (error) {
       await t.rollback()
       console.log('staff create error', error)
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
-  async update(id: number, body: any) {
+  async update(id: number, body: Partial<StaffBodyParams>) {
     try {
-      const [affectedRows] = await this.staff.update(body, { where: { id } })
+      const payload: Omit<Partial<StaffBodyParams>, 'hireDate'> & { hireDate?: Date } = pickStaffFields(body)
+      // if ('fullName' in payload && (!payload.fullName || String(payload.fullName).trim() === '')) {
+      //   throw new Error('fullName cannot be empty')
+      // }
+
+      const staff = await database.staff.findByPk(id)
+      if (staff == null) {
+        throw new Error('Staff not found')
+      }
+
+      if (payload.roleId !== undefined) {
+        const r = Number(payload.roleId)
+        if (!Number.isFinite(r) || r <= 0) throw new Error('Invalid roleId')
+        const roleRow = await database.role.findByPk(r)
+        if (!roleRow) throw new Error('Role not found')
+        payload.roleId = r
+      }
+      if (
+        payload.gender !== undefined &&
+        payload.gender !== null &&
+        !['male', 'female', 'other'].includes(payload.gender)
+      ) {
+        throw new Error('Invalid gender')
+      }
+      if (payload.status !== undefined && !['active', 'inactive'].includes(payload.status)) {
+        throw new Error('Invalid status')
+      }
+
+      delete (payload as any).password
+      delete (payload as any).createAccount
+      delete (payload as any).accountEmail
+      delete (payload as any).email
+      delete (payload as any).code
+
+      if (Object.keys(payload).length === 0) {
+        throw new Error('No valid fields to update')
+      }
+      console.log('payload', payload)
+      const [affectedRows] = await database.staff.update(payload, { where: { id } })
+      // Invalidate auth cache for owner user (role/status changes affect permissions & vendor scope)
+      if (affectedRows) {
+        try {
+          const userId = (staff as any).userId ?? (staff as any).get?.('userId')
+          if (userId) await invalidateUserAuthCache(Number(userId))
+        } catch {}
+      }
       return affectedRows
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
   async remove(id: number) {
-    // Keep legacy contract (returns 1 when using mock) while also cleaning linked user when real DB is used
     try {
-      let staff: any = null
-      try {
-        staff = await this.staff.findByPk(id)
-      } catch {
-        // findByPk failure -> fall through to direct destroy (covers mocked rejection tests)
-        staff = null
-      }
+      let staff = await database.staff.findByPk(id)
+      if (!staff) throw new Error('Staff not found')
+      const userIdToInvalidate = (staff as any).userId ?? (staff as any).get?.('userId')
       if (staff && typeof staff.destroy === 'function' && database.sequelize.transaction) {
         const t = await database.sequelize.transaction()
         try {
           if (staff.userId) {
             try {
-              const otherCount = await (this.staff as any).count({ where: { userId: staff.userId, id: { [Op.ne]: id } }, transaction: t })
+              const otherCount = await (database.staff as any).count({
+                where: { userId: staff.userId, id: { [Op.ne]: id } },
+                transaction: t
+              })
               if (otherCount === 0) {
                 await (database as any).user.destroy({ where: { id: staff.userId }, transaction: t })
               }
@@ -207,14 +269,19 @@ export class StaffService {
           }
           await staff.destroy({ transaction: t })
           await (t as any).commit?.()
+          try {
+            if (userIdToInvalidate) await invalidateUserAuthCache(Number(userIdToInvalidate))
+          } catch {}
           return { message: 'Delete successfully' } as any
         } catch (e) {
           await (t as any).rollback?.()
           throw e
         }
       }
-      // Fallback for mocked tests: direct destroy
-      const result = await (this.staff as any).destroy({ where: { id } })
+      const result = await (database.staff as any).destroy({ where: { id } })
+      try {
+        if (userIdToInvalidate) await invalidateUserAuthCache(Number(userIdToInvalidate))
+      } catch {}
       return result
     } catch (error) {
       throw error

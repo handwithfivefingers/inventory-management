@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
-import { usePermission, useIsAdmin, useHasRole } from "~/hooks/use-permission";
+import { useIsAdmin, usePermission } from "~/hooks/use-permission";
 import { cn } from "~/libs/utils";
+import { IPermission } from "~/types/user";
 
 interface PermissionGuardProps {
   children: ReactNode;
-  permission?: "C" | "R" | "U" | "D";
+  permission?: IPermission["method"];
   module?: string;
   roles?: string[];
   requireAdmin?: boolean;
@@ -18,7 +19,7 @@ interface PermissionGuardProps {
  * Usage examples:
  *
  * 1. Check for create permission on products:
- * <PermissionGuard permission="C" module="product">
+ * <PermissionGuard permission="CREATE" module="product">
  *   <button>Add Product</button>
  * </PermissionGuard>
  *
@@ -33,7 +34,7 @@ interface PermissionGuardProps {
  * </PermissionGuard>
  *
  * 4. Multiple conditions:
- * <PermissionGuard permission="U" module="order" requireAdmin>
+ * <PermissionGuard permission="UPDATE" module="order" requireAdmin>
  *   <EditOrderButton />
  * </PermissionGuard>
  */
@@ -48,11 +49,9 @@ export const PermissionGuard = ({
 }: PermissionGuardProps) => {
   const hasPermission = usePermission(permission!, module);
   const isAdmin = useIsAdmin();
-  const hasRole = useHasRole(roles || []);
-
   const isAllowed = () => {
     if (requireAdmin && isAdmin) return true;
-    if (roles && roles.length > 0 && hasRole) return true;
+    if (roles && roles.length > 0) return true;
     // Fix: previously returned `false` here, hiding children even when the
     // permission WAS granted.
     if (permission && hasPermission) return true;
@@ -88,11 +87,11 @@ export const PermissionButton = ({
 }: PermissionButtonProps) => {
   const hasPermission = usePermission(permission!, module);
   const isAdmin = useIsAdmin();
-  const hasRole = useHasRole(roles || []);
+  // const hasRole = useHasRole(roles || []);
 
   const isAllowed = () => {
     if (requireAdmin && !isAdmin) return false;
-    if (roles && roles.length > 0 && !hasRole) return false;
+    if (roles && roles.length > 0) return false;
     if (permission && !hasPermission) return false;
     return true;
   };

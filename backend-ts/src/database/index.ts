@@ -2,6 +2,7 @@
 // const fs = require('fs')
 // const path = require('path')
 import { Sequelize, DataTypes, Transaction } from 'sequelize'
+import { Sequelize as STSequelize, Model as STModel } from 'sequelize-typescript'
 import fs from 'node:fs'
 import path from 'node:path'
 import { IDatabase } from '#/types/database'
@@ -38,13 +39,16 @@ const folderPath = resolveModelsPath()
 // SECURITY: credentials come from env vars (DB_USER / DB_PASSWORD / DB_HOST).
 // The previous hardcoded root/mysql defaults remain ONLY as a local-dev
 // fallback - production must set the DB_* variables.
-const sequelize = new Sequelize(dbName, process.env.DB_USER || 'root', process.env.DB_PASSWORD || 'mysql', {
+// Use sequelize-typescript's Sequelize so @Table decorators are processed.
+// It extends the base Sequelize class - all options remain compatible.
+const sequelize: Sequelize = new STSequelize({
+  database: dbName,
+  username: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'mysql',
   host: process.env.DB_HOST || 'localhost',
   port: Number(process.env.DB_PORT || 3306),
   dialect: 'mysql',
   logging: false,
-  // P1: default pool is max:5 - concurrent transactions queued behind it.
-  // READ COMMITTED avoids stale-repeatable-read surprises under load.
   isolationLevel: Transaction.ISOLATION_LEVELS.READ_COMMITTED,
   pool: {
     max: Number(process.env.DB_POOL_MAX || 20),
@@ -56,8 +60,11 @@ const sequelize = new Sequelize(dbName, process.env.DB_USER || 'root', process.e
     charset: 'utf8',
     collate: 'utf8_general_ci',
     timestamps: true
-  }
+  },
+  // Keep it empty if your load() function feeds models later
+  models: []
 })
+
 const dedupeInvoiceIndexes = async () => {
   // sync({alter:true}) on MySQL creates duplicate UNIQUE indexes for
   // invoiceNumber/code columns (one per boot) until hitting the 64-key limit.
@@ -93,6 +100,7 @@ const dedupeInvoiceIndexes = async () => {
   await dedupeTable('staff', ['PRIMARY', 'staff_code_unique', 'code', 'userId', 'warehouseId'], /^code/)
   await dedupeTable('products', ['PRIMARY', 'products_code_unique', 'code', 'vendorId', 'unitId'], /^code/)
   await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
+  // await dedupeTable('staff_vendor', ['PRIMARY', 'staffId'], /^staffId/)
 }
 
 const database: IDatabase = {
@@ -149,19 +157,71 @@ async function load(): Promise<void> {
       return file.indexOf('.') !== 0 && file !== basename && ['.ts', '.js'].includes(file.slice(-3))
     })
 
+    const stModels: (typeof STModel)[] = []
+
     for (let i = 0; i < listModels.length; i++) {
       const file = listModels[i]
-      const _model = await import(path.join(folderPath, file))
-      const model = _model.default(sequelize, DataTypes)
-      database[model.name] = model
+      const _mod = await import(path.join(folderPath, file))
+      const exported = (_mod.default ?? _mod[Object.keys(_mod)[0]]) as any
+
+      // Detect sequelize-typescript Model subclass (has @Table decorator)
+      const isSTModel =
+        exported?.prototype instanceof STModel || (exported?.prototype && typeof exported?.getTableName === 'function')
+
+      if (isSTModel) {
+        stModels.push(exported)
+      } else if (typeof exported === 'function') {
+        // Legacy define-style factory: (sequelize, DataTypes) => Model
+        try {
+          const model = exported(sequelize, DataTypes)
+          if (model?.name) {
+            database[model.name] = model
+            // also expose capitalized alias for forward compat
+            const cap = model.name.charAt(0).toUpperCase() + model.name.slice(1)
+            if (!database[cap]) database[cap] = model
+          }
+        } catch (e) {
+          console.log(`[load] failed legacy model ${file}:`, e)
+        }
+      }
     }
 
-    Object.keys(database).forEach((modelName) => {
-      if (database[modelName].associate) {
-        database[modelName].associate(database)
+    // Register all sequelize-typescript models at once (resolves cross-FK)
+    if (stModels.length) {
+      ;(sequelize as any).addModels(stModels)
+      // After addModels, models are available via sequelize.models / sequelize.model()
+      for (const M of stModels) {
+        const name = (M as any).name // class name e.g. Unit
+        // modelName option gives lower-case name; prefer that key
+        const modelName = (M as any).getTableName ? (M as any).options?.modelName || (M as any).name : name
+        // Try to retrieve initialized model from sequelize
+        let instance: any
+        try {
+          instance = (sequelize as any).model(M)
+        } catch {
+          instance = M
+        }
+        // Expose under both lower-case (legacy) and class name
+        if (instance) {
+          const lower =
+            String(modelName).toLowerCase() === String(name).toLowerCase() ? String(modelName) : String(modelName)
+          // sequelize-typescript stores modelName as defined; use it
+          const keyLower = String((M as any).options?.modelName || name).toLowerCase()
+          // Actually expose under the canonical lower-case key (e.g. 'unit')
+          const canonical = (M as any).options?.modelName || name.charAt(0).toLowerCase() + name.slice(1)
+          database[canonical] = instance
+          // Keep class-name alias as well
+          if (!database[name]) database[name] = instance
+          // Also expose lower-case fallback
+          const lc = name.charAt(0).toLowerCase() + name.slice(1)
+          if (!database[lc]) database[lc] = instance
+        }
       }
-    })
-    console.log('Table schema loaded successfully')
+    }
+
+    // All associations are now defined via decorators (@BelongsTo, @HasMany, @BelongsToMany, etc.)
+    // No manual associate() calls needed - addModels() already wired them.
+    console.log(`Table schema loaded successfully (${stModels.length} ST)`)
   } catch (error) {
     console.log('error', error)
   }

@@ -138,7 +138,7 @@ export default function RoleManagementRoute() {
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">Quản lý các vai trò và phân quyền trong hệ thống</p>
-            <PermissionGuard permission="C" module="role" requireAdmin>
+            <PermissionGuard permission="CREATE" module="role" requireAdmin>
               <TMButton component={Link} to="./add" size="sm">
                 <Icon name="plus" className="w-4 h-4 mr-2" />
                 Tạo vai trò mới
@@ -195,12 +195,12 @@ export default function RoleManagementRoute() {
                 render: (record: IRole) =>
                   !record?.isSystem && (
                     <div className="flex gap-2">
-                      <PermissionGuard permission="U" module="role" requireAdmin>
+                      <PermissionGuard permission="UPDATE" module="role" requireAdmin>
                         <TMButton component={Link} to={`./${record.id}`} size="sm">
                           <Icon name="edit-2" className="w-4 h-4" />
                         </TMButton>
                       </PermissionGuard>
-                      <PermissionGuard permission="D" module="role" requireAdmin>
+                      <PermissionGuard permission="DELETE" module="role" requireAdmin>
                         {record.name.toLowerCase() !== "admin" && (
                           <button
                             onClick={() => handleDeleteRole(record.id)}

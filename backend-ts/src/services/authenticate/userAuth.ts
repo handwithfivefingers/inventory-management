@@ -4,15 +4,6 @@ import { flattenRolePermissions } from '#/libs/permission'
 
 const { cacheGet, cacheSet } = redisClient
 
-/**
- * Shared per-user auth context loader.
- *
- * Roles are now stored on `staff` (staff.roleId → role → permissions) instead
- * of `user_role`. Each user may have multiple staff profiles (one per vendor);
- * the union of their roles defines the permission set. Vendors are resolved
- * from both `vendors.userId` (owner) and `staff.vendorId` (staff tenant).
- */
-
 export interface IUserAuthContext {
   id: number
   email: string
@@ -30,6 +21,12 @@ export const USER_AUTH_CACHE_TTL = 30
 
 export const userAuthCacheKey = (userId: number) => redisClient.cacheKey('UserAuth', String(userId))
 
+export const invalidateManyUserAuthCache = async (userIds: number[]): Promise<void> => {
+  const unique = Array.from(new Set(userIds.filter((id) => Number.isFinite(id))))
+  if (!unique.length) return
+  await Promise.all(unique.map((id) => invalidateUserAuthCache(id)))
+}
+
 export const invalidateUserAuthCache = async (userId: number): Promise<void> => {
   try {
     await redisClient.cacheDel(userAuthCacheKey(userId))
@@ -38,94 +35,112 @@ export const invalidateUserAuthCache = async (userId: number): Promise<void> => 
   }
 }
 
-const loadFromDatabase = async (userId: number): Promise<IUserAuthContext | null> => {
-  const includes: any[] = []
-  if ((database as any).staff && (database as any).role) {
-    includes.push({
-      model: (database as any).staff,
-      required: false,
-      include: [
-        {
-          model: (database as any).role,
-          include: [
-            {
-              model: (database as any).permission,
-              through: { attributes: ['C', 'R', 'U', 'D'] }
-            }
-          ]
-        }
-      ]
+export const invalidateUsersByRoleId = async (roleId: number): Promise<void> => {
+  if (!Number.isFinite(roleId)) return
+  try {
+    const staffs: any[] = await (database as any).staff.findAll({
+      where: { roleId },
+      attributes: ['userId'],
+      raw: true
     })
-  }
-  if ((database as any).vendor) {
-    includes.push({ model: (database as any).vendor, attributes: ['id'] })
-  }
-  const user: any = await database.user.findOne({
-    where: { id: userId },
-    include: includes.length ? includes : undefined
-  } as any)
-  if (!user) return null
-
-  const staffList: any[] = (user as any).staffs ?? (user as any).staff ?? []
-  let rolesRaw2 = [(staffList as any)?.role]
-  const roles = rolesRaw2.map((role: any) => ({
-    id: role.id,
-    name: role.name,
-    permissions: flattenRolePermissions(role)
-  }))
-
-  // if (staffRoles.length === 0 && Array.isArray((user as any).roles) && (user as any).roles.length) {
-  //   directRoles = (user as any).roles
-  // }
-  // // Legacy fallback: if no staff roles resolved, try the old user_role join
-  // // directly via the join table (keeps owner registration working until a staff row exists).
-  // let legacyRoles: any[] = []
-  // if (staffRoles.length === 0 && directRoles.length === 0) {
-  //   try {
-  //     const rows: any[] = await (database as any).user_role.findAll({ where: { userId }, raw: true })
-  //     if (rows?.length) {
-  //       for (const row of rows) {
-  //         const role: any = await database.role.findOne({
-  //           where: { id: row.roleId },
-  //           include: [{ model: database.permission, through: { attributes: ['C', 'R', 'U', 'D'] } }]
-  //         })
-  //         if (role) legacyRoles.push(role)
-  //       }
-  //     }
-  //   } catch {}
-  // }
-
-  // const allRoles = staffRoles.length ? staffRoles : directRoles.length ? directRoles : legacyRoles
-
-  // const vendorIdsFromUser: number[] = ((user as any).vendors ?? [])
-  //   .map((v: any) => Number(v.get ? v.get('id') : v.id))
-  //   .filter((id: number) => Number.isFinite(id))
-
-  // const vendorIds = Array.from(new Set([...vendorIdsFromUser, ...staffVendorIds]))
-
-  return {
-    id: Number((user as any).id),
-    email: String((user as any).email),
-    roles: roles,
-    vendorIds: (user as any).vendors?.map((v: any) => Number(v.get ? v.get('id') : v.id))
-    // vendorIds,
-    // roles: (allRoles ?? []).map((role: any) => ({
-    //   name: role.get ? role.get('name') : role.name,
-    //   permissions: (role.permissions ?? []).map((p: any) => ({
-    //     name: p.get ? p.get('name') : p.name,
-    //     C: Boolean(p.get ? p.get('C') : p.C),
-    //     R: Boolean(p.get ? p.get('R') : p.R),
-    //     U: Boolean(p.get ? p.get('U') : p.U),
-    //     D: Boolean(p.get ? p.get('D') : p.D)
-    //   }))
-    // }))
+    let userRoleIds: number[] = []
+    try {
+      const rows: any[] = await (database as any).user_role.findAll({
+        where: { roleId },
+        attributes: ['userId'],
+        raw: true
+      })
+      userRoleIds = rows.map((r: any) => Number(r.userId)).filter(Number.isFinite)
+    } catch {
+      // user_role table may not exist in new schema
+    }
+    const ids = [...staffs.map((s: any) => Number(s.userId)), ...userRoleIds]
+    await invalidateManyUserAuthCache(ids)
+  } catch {
+    // best-effort
   }
 }
 
-/**
- * Load the user's auth context (roles + vendors), via the short-TTL cache.
- * Returns null when the user no longer exists.
- */
+const loadFromDatabase = async (userId: number): Promise<IUserAuthContext | null> => {
+  const user: any = await database.user.findByPk(userId)
+  if (!user) return null
+
+  // Staff rows — fetch separately to avoid nested include failures during hybrid decorator migration
+  let staffs: any[] = []
+  try {
+    staffs = await (database as any).staff.findAll({ where: { userId } } as any)
+  } catch {
+    staffs = []
+  }
+
+  // Roles with permissions for each staff.roleId
+  const roleIds = staffs
+    .map((s: any) => (s.get ? s.get('roleId') : s.roleId))
+    .filter((id: any) => Number.isFinite(Number(id)))
+  let roleRows: any[] = []
+  if (roleIds.length) {
+    try {
+      roleRows = await (database as any).role.findAll({
+        where: { id: roleIds },
+        include: [{ model: (database as any).permission, as: 'permissions', through: { attributes: [] } } as any]
+      } as any)
+    } catch {
+      // Fallback without permissions include if association not ready
+      roleRows = await (database as any).role.findAll({ where: { id: roleIds } } as any)
+    }
+  }
+  const roleById = new Map(roleRows.map((r: any) => [Number(r.get ? r.get('id') : r.id), r]))
+  const roles = staffs
+    .map((s: any) => roleById.get(Number(s.get ? s.get('roleId') : s.roleId)))
+    .filter(Boolean)
+    .map((role: any) => ({
+      id: role.get ? role.get('id') : role.id,
+      name: role.get ? role.get('name') : role.name,
+      permissions: flattenRolePermissions(role)
+    }))
+
+  // Vendors owned via vendors.userId
+  let ownedIds: number[] = []
+  try {
+    const ownedVendors: any[] = await (database as any).vendor.findAll({ where: { userId } } as any)
+    ownedIds = ownedVendors.map((v: any) => Number(v.get ? v.get('id') : v.id)).filter(Number.isFinite)
+  } catch {
+    ownedIds = []
+  }
+
+  // Vendors via staff_vendor M:N (simple, no association needed)
+  let staffVendorIds: number[] = []
+  if (staffs.length) {
+    try {
+      const staffIds = staffs.map((s: any) => Number(s.get ? s.get('id') : s.id))
+      const [rows] = (await (database as any).sequelize.query(
+        `SELECT vendorId FROM staff_vendor WHERE staffId IN (:ids)`,
+        { replacements: { ids: staffIds } }
+      )) as any
+      staffVendorIds = (rows as any[]).map((r: any) => Number(r.vendorId)).filter(Number.isFinite)
+    } catch {
+      // Fallback to ORM include if raw query fails (table not yet created)
+      try {
+        const withVendors: any[] = await (database as any).staff.findAll({
+          where: { userId },
+          include: [{ model: (database as any).vendor, as: 'vendors', through: { attributes: [] } } as any]
+        } as any)
+        staffVendorIds = withVendors
+          .flatMap((s: any) => (s.vendors ?? []).map((v: any) => Number(v.get ? v.get('id') : v.id)))
+          .filter(Number.isFinite)
+      } catch {}
+    }
+  }
+  const vendorIds = Array.from(new Set([...ownedIds, ...staffVendorIds]))
+
+  return {
+    id: Number(user.get ? user.get('id') : user.id),
+    email: String(user.get ? user.get('email') : user.email),
+    roles,
+    vendorIds
+  }
+}
+
 export const loadUserAuthContext = async (userId: number): Promise<IUserAuthContext | null> => {
   if (!userId) return null
   const key = userAuthCacheKey(userId)

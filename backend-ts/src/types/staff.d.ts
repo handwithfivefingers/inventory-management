@@ -14,13 +14,11 @@ export interface IStaffModel extends Model<InferAttributes<IStaffModel>, InferCr
   fullName: string
   gender?: 'male' | 'female' | 'other' | null
   phone?: string | null
-  email?: string | null
   salary?: number | null
   hireDate?: Date | null
   status: 'active' | 'inactive'
   address?: string | null
   userId?: ForeignKey<number> | null
-  vendorId?: ForeignKey<number> | null
   roleId?: ForeignKey<number> | null
   // warehouseId?: ForeignKey<number> | null
 }

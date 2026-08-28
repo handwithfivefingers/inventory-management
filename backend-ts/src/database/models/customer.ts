@@ -1,56 +1,45 @@
-import { ICustomerModel, ICustomerStatic } from '#/types/customer'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript'
+import { Vendor } from './vendor'
+import { Invoice } from './invoice'
 
-const CustomerModel = (sequelize: Sequelize) => {
-  const M = <ICustomerStatic>sequelize.define<ICustomerModel>(
-    'customer',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      code: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      phone: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      email: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      address: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      taxCode: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      vendorId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'customers'
-    }
-  )
+@Table({ tableName: 'customers', modelName: 'customer', timestamps: true })
+export class Customer extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
-    M.hasMany(models.invoice, { foreignKey: 'customerId' })
-  }
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare code: string | null
 
-  return M
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare name: string
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare phone: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare email: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare address: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare taxCode: string | null
+
+  @ForeignKey(() => Vendor)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare vendorId: number | null
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Vendor)
+  declare vendor: Vendor
+
+  @HasMany(() => Invoice)
+  declare invoices: Invoice[]
 }
 
-export default CustomerModel
+export default Customer

@@ -6,7 +6,13 @@ import { PermissionGuard } from "~/components/permission-guard";
 import { IInvoice } from "~/types/invoice";
 import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
-import { IReceipt, IPrinterConfig, printReceiptToDevice, getReceiptColumns, stripDiacritics } from "~/libs/device-print";
+import {
+  IReceipt,
+  IPrinterConfig,
+  printReceiptToDevice,
+  getReceiptColumns,
+  stripDiacritics,
+} from "~/libs/device-print";
 import { useState } from "react";
 import { useTranslation } from "~/i18n";
 import { ReceiptPrinter, loadPrinterSettings } from "~/components/receipt-printer";
@@ -131,14 +137,14 @@ export default function InvoiceDetail() {
               🖨 {t("invoices.detail.print")}
             </TMButton>
             {data.status === "draft" && (
-              <PermissionGuard permission="U" module="invoice">
+              <PermissionGuard permission="UPDATE" module="invoice">
                 <TMButton size="sm" to={`${data.id}/edit`} component={Link}>
                   {t("common.edit")}
                 </TMButton>
               </PermissionGuard>
             )}
             {data.status === "issued" && (
-              <PermissionGuard permission="U" module="invoice">
+              <PermissionGuard permission="UPDATE" module="invoice">
                 <TMButton size="sm" onClick={handleMarkAsPaid}>
                   {t("invoices.markAsPaid")}
                 </TMButton>

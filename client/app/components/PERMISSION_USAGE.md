@@ -17,7 +17,7 @@ The permission system allows you to control access to features and routes based 
 import { PermissionGuard } from "~/components/permission-guard";
 
 // Show button only if user has create permission for products
-<PermissionGuard permission="C" module="product">
+<PermissionGuard permission="CREATE" module="product">
   <button>Tạo sản phẩm mới</button>
 </PermissionGuard>
 
@@ -32,7 +32,7 @@ import { PermissionGuard } from "~/components/permission-guard";
 </PermissionGuard>
 
 // Combine conditions
-<PermissionGuard permission="U" module="order" requireAdmin>
+<PermissionGuard permission="UPDATE" module="order" requireAdmin>
   <EditOrderButton />
 </PermissionGuard>
 ```
@@ -75,12 +75,12 @@ function MyComponent() {
 import { PermissionButton } from "~/components/permission-guard";
 
 // Button disabled if no permission
-<PermissionButton permission="C" module="product">
+<PermissionButton permission="CREATE" module="product">
   Create Product
 </PermissionButton>
 
 // Button hidden if no permission
-<PermissionButton permission="C" module="product" hideIfNoPermission>
+<PermissionButton permission="CREATE" module="product" hideIfNoPermission>
   Create Product
 </PermissionButton>
 ```
@@ -139,15 +139,15 @@ Permissions should follow this naming convention:
 
 ### Product Management
 ```tsx
-<PermissionGuard permission="C" module="product">
+<PermissionGuard permission="CREATE" module="product">
   <Button>Add Product</Button>
 </PermissionGuard>
 
-<PermissionGuard permission="U" module="product">
+<PermissionGuard permission="UPDATE" module="product">
   <Button>Edit Product</Button>
 </PermissionGuard>
 
-<PermissionGuard permission="D" module="product">
+<PermissionGuard permission="DELETE" module="product">
   <Button>Delete Product</Button>
 </PermissionGuard>
 ```

@@ -85,25 +85,25 @@ export default function Products() {
             />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
                   <TMButton component={Link} to={"./add"} size="sm">
                     <Icon name="plus" fontSize={16} />
                     <span>{t("common.add")}</span>
                   </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
                   <TMButton component={Link} to={"./add"} size="sm">
                     <Icon name="file-plus" fontSize={16} />
                     <span>{t("common.importExcel")}</span>
                   </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
                   <TMButton component={Link} to={"./add"} size="sm">
                     <Icon name="file-text" fontSize={16} />
                     <span>{t("common.exportExcel")}</span>
                   </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module={MODULE_ENUM.product} requireAdmin>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
                   <TMButton component={Link} to={"./add"} size="sm">
                     <Icon name="bar-chart-2" fontSize={16} />
                     <span>{t("common.printBarcode")}</span>

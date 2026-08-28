@@ -1,6 +1,8 @@
 import { ERROR } from '#/constant/message'
 import database from '#/database'
 import { getCtxUser } from '#/libs'
+import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
+import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { IVendorStatic } from '#/types/vendor'
 import { Request } from 'express'
 import { Sequelize } from 'sequelize'
@@ -25,6 +27,9 @@ export default class VendorService {
       )
 
       await t.commit()
+      try {
+        await invalidateUserAuthCache(Number(user.id))
+      } catch {}
       return {
         vendor: _vendor
       }

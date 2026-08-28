@@ -55,17 +55,14 @@ describe("AuthenticateService", () => {
       vendors: [{ id: 1, name: "Vendor1" }],
     });
 
-    it("returns the user with roles and vendors", async () => {
-      const base = { id: 1 };
+    it("returns the user with roles, vendors and resolved defaults", async () => {
       const user = buildUser();
-      database.user.findOne
-        .mockResolvedValueOnce(base)
-        .mockResolvedValueOnce(user);
+      database.user.findOne.mockResolvedValue(user);
 
       const req: any = { locals: { id: 1, email: "a@b.com" } };
       const result = await service.get(req);
 
-      expect(database.user.findOne).toHaveBeenCalledTimes(2);
+      expect(database.user.findOne).toHaveBeenCalledTimes(1);
       expect(result).toEqual({
         ...user.parsed,
         roles: [
@@ -78,20 +75,85 @@ describe("AuthenticateService", () => {
             permissions: [],
           },
         ],
-        vendors: user.vendors,
+        vendors: [{ id: 1, name: "Vendor1", warehouses: [] }],
+        defaultVendorId: 1,
+        defaultWarehouseId: null,
       });
     });
 
-    it("throws when the base user is not found", async () => {
-      database.user.findOne.mockResolvedValueOnce(null);
+    it("throws when the user is not found", async () => {
+      database.user.findOne.mockResolvedValue(null);
       const req: any = { locals: { id: 1, email: "a@b.com" } };
       await expect(service.get(req)).rejects.toThrow("User or password not valid");
     });
 
-    it("throws when the full user is not found", async () => {
-      database.user.findOne.mockResolvedValueOnce({ id: 1 }).mockResolvedValueOnce(null);
+    it("resolves roles from staff and computes defaults from warehouses", async () => {
+      const user = {
+        parsed: { id: 1, email: "a@b.com" },
+        staffs: [{ role: { id: 3, name: "Manager", permissions: [{ id: 2, name: "order", C: true }] } }],
+        vendors: [
+          {
+            id: 5,
+            name: "V",
+            warehouses: [
+              { id: 9, name: "W", isMain: false },
+              { id: 10, name: "WM", isMain: true },
+            ],
+          },
+        ],
+      };
+      database.user.findOne.mockResolvedValue(user);
       const req: any = { locals: { id: 1, email: "a@b.com" } };
-      await expect(service.get(req)).rejects.toThrow("User or password not valid");
+      const result = await service.get(req);
+
+      expect(database.user.findOne).toHaveBeenCalledTimes(1);
+      expect(result.roles).toEqual([
+        {
+          id: 3,
+          name: "Manager",
+          description: undefined,
+          vendorId: undefined,
+          isGlobal: undefined,
+          permissions: [{ id: 2, name: "order", C: true, R: false, U: false, D: false }],
+        },
+      ]);
+      expect(result.vendors[0].warehouses).toHaveLength(2);
+      expect(result.defaultVendorId).toBe(5);
+      expect(result.defaultWarehouseId).toBe(10); // main warehouse wins
+    });
+
+    it("handles a user with no vendors or roles (defaults resolve to null)", async () => {
+      const user = {
+        parsed: { id: 7, email: "empty@b.com" },
+        vendors: undefined,
+        roles: undefined,
+      };
+      database.user.findOne.mockResolvedValue(user);
+      const req: any = { locals: { id: 7, email: "empty@b.com" } };
+      const result = await service.get(req);
+
+      expect(result.roles).toEqual([]);
+      expect(result.vendors).toEqual([]);
+      expect(result.defaultVendorId).toBeNull();
+      expect(result.defaultWarehouseId).toBeNull();
+    });
+
+    it("merges roles across multiple staff profiles", async () => {
+      const user = {
+        parsed: { id: 8, email: "multi@b.com" },
+        staffs: [
+          { role: { id: 1, name: "Owner", permissions: [{ id: 1, name: "user", R: true }] } },
+          { role: { id: 2, name: "Staff", permissions: [{ id: 2, name: "order", C: true }] } },
+        ],
+        vendors: [],
+      };
+      database.user.findOne.mockResolvedValue(user);
+      const req: any = { locals: { id: 8, email: "multi@b.com" } };
+      const result = await service.get(req);
+
+      expect(result.roles).toHaveLength(2);
+      expect(result.roles.map((r: any) => r.name)).toEqual(["Owner", "Staff"]);
+      expect(result.defaultVendorId).toBeNull();
     });
   });
 

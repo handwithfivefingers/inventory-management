@@ -6,7 +6,7 @@ import { IWareHouse } from "~/types/warehouse";
 
 interface IUserState {
   user?: IUser;
-  roles?: IRole[];
+  role?: IRole[];
   vendors?: IVendor[];
   activeVendor?: IVendor;
   activeWarehouse?: IWareHouse;
@@ -40,7 +40,7 @@ type Actions = {
 
 const initialState: IUserState = {
   user: undefined,
-  roles: undefined,
+  role: undefined,
   vendors: undefined,
   activeVendor: undefined,
   activeWarehouse: undefined,
@@ -56,16 +56,13 @@ const useUser = create<IUserState & Actions>()(
     ...initialState,
     syncAuth: ({ user, roles, vendors, selectedVendorId, selectedWarehouseId }) =>
       set((state) => {
-        const nextRoles = roles ?? user.roles ?? state.roles;
+        const nextRoles = roles ?? user.role ?? state.role;
         const nextVendors = vendors ?? user.vendors ?? state.vendors;
-
         const hasSelection = !!state.activeVendor;
-
         // Preserve the current selection if it is still valid for the new data.
         // On a fresh load (no current selection) honor the persisted cookie
         // choice so the displayed vendor matches what server-side fetches use.
-        const fallbackVendor =
-          nextVendors?.find((v) => v.id === selectedVendorId) ?? nextVendors?.[0];
+        const fallbackVendor = nextVendors?.find((v) => v.id === selectedVendorId) ?? nextVendors?.[0];
         const activeVendor =
           hasSelection && nextVendors?.some((v) => v.id === state.activeVendor!.id)
             ? state.activeVendor
@@ -81,8 +78,7 @@ const useUser = create<IUserState & Actions>()(
           activeWarehouse = state.activeWarehouse;
         } else if (activeVendor) {
           activeWarehouse =
-            activeVendor.warehouses?.find((w) => w.id === selectedWarehouseId) ??
-            pickDefaultWarehouse(activeVendor);
+            activeVendor.warehouses?.find((w) => w.id === selectedWarehouseId) ?? pickDefaultWarehouse(activeVendor);
         }
 
         return {
@@ -93,8 +89,7 @@ const useUser = create<IUserState & Actions>()(
           activeWarehouse,
         };
       }),
-    setVendor: (vendor) =>
-      set(() => ({ activeVendor: vendor, activeWarehouse: pickDefaultWarehouse(vendor) })),
+    setVendor: (vendor) => set(() => ({ activeVendor: vendor, activeWarehouse: pickDefaultWarehouse(vendor) })),
     setWarehouse: (warehouse) => set(() => ({ activeWarehouse: warehouse })),
     reset: () => set(initialState),
   })),

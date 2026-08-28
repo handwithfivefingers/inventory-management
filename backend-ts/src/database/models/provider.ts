@@ -1,88 +1,38 @@
-// const { DataTypes } = require("sequelize");
-// const Provider = (sequelize) => {
-//   const Model = sequelize.define(
-//     "provider",
-//     {
-//       id: {
-//         type: DataTypes.INTEGER,
-//         autoIncrement: true,
-//         primaryKey: true,
-//       },
-//       name: {
-//         type: DataTypes.STRING,
-//         required: true,
-//         allowNull: false,
-//       },
-//       phone: {
-//         type: DataTypes.STRING,
-//         allowNull: true,
-//       },
-//       address: {
-//         type: DataTypes.STRING,
-//         allowNull: true,
-//       },
-//       email: {
-//         type: DataTypes.STRING,
-//         allowNull: true,
-//       },
-//     },
-//     {
-//       timestamps: true,
-//     }
-//   );
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Vendor } from './vendor'
 
-//   Model.associate = (models) => {
-//     // Model.hasMany(models.order, { foreignKey: "providerId" });
-//     Model.belongsTo(models.vendor, { foreignKey: "vendorId" });
-//   };
-//   return Model;
-// };
+@Table({ tableName: 'providers', modelName: 'provider', timestamps: true })
+export class Provider extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-// module.exports = Provider;
+  @Column(DataType.STRING)
+  declare name: string
 
-import { IProviderModel, IProviderStatic } from '#/types/provider'
-import { DataTypes, Sequelize } from 'sequelize'
+  @Column(DataType.STRING)
+  declare description: string
 
-const ProviderModel = (sequelize: Sequelize) => {
-  const M = <IProviderStatic>sequelize.define<IProviderModel>(
-    'provider',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING
-      },
-      description: {
-        type: DataTypes.STRING
-      },
-      phone: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      address: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      email: {
-        type: DataTypes.STRING,
-        allowNull: true
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'providers'
-    }
-  )
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare phone: string | null
 
-  M.associate = (models: any) => {
-    // M.belongsToMany(models.permission, { through: 'role_permission' })
-    // M.belongsToMany(models.user, { through: 'user_role' })
-    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
-  }
-  return M
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare address: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare email: string | null
+
+  @ForeignKey(() => Vendor)
+  @Column(DataType.INTEGER)
+  declare vendorId: number | null
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Vendor)
+  declare vendor: Vendor
 }
 
-export default ProviderModel
+export default Provider

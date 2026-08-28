@@ -1,76 +1,55 @@
-import { IUserModel, IUserStatic } from '#/types/user'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, HasOne, HasMany } from 'sequelize-typescript'
 import bcrypt from 'bcryptjs'
+import { Staff } from './staff'
+import { Vendor } from './vendor'
 
-const UserModel = (sequelize: Sequelize) => {
-  const M = <IUserStatic>sequelize.define<IUserModel>(
-    'user',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      // nickname: {
-      //   type: DataTypes.STRING,
-      //   allowNull: true
-      // },
-      // firstName: {
-      //   type: DataTypes.STRING,
-      //   allowNull: false
-      // },
-      // lastName: {
-      //   type: DataTypes.STRING
-      // },
-      email: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: 'email'
-      },
-      password: {
-        type: DataTypes.STRING,
-        set(value: string) {
-          this.setDataValue('password', bcrypt.hashSync(value, 10))
-        }
-      },
-      subscription: {
-        type: DataTypes.ENUM,
-        values: ['free', 'paid'],
-        defaultValue: 'free'
-      },
-      secret: {
-        type: DataTypes.STRING
-      },
-      parsed: {
-        type: DataTypes.VIRTUAL, // Define as a virtual attribute
-        get() {
-          // The getter logic calculates the value based on other attributes
-          return {
-            id: this.id,
-            // nickname: this.nickname,
-            // firstName: this.firstName,
-            // lastName: this.lastName,
-            email: this.email,
-            subscription: this.subscription,
-            createdAt: this.createdAt,
-            updatedAt: this.updatedAt
-          }
-        }
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'users'
+@Table({ tableName: 'users', modelName: 'user', timestamps: true })
+export class User extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
+
+  @Column({ type: DataType.STRING, allowNull: false, unique: 'email' })
+  declare email: string
+
+  @Column({
+    type: DataType.STRING,
+    set(value: string) {
+      this.setDataValue('password', bcrypt.hashSync(value, 10))
     }
-  )
+  })
+  declare password: string
 
-  M.associate = (models: any) => {
-    // Roles are now owned by Staff (staff.roleId) instead of User.
-    // User -> Staff is 1:N (a user may have staff profiles per vendor).
-    M.belongsTo(models.staff, { foreignKey: 'staffId' })
-    M.hasMany(models.vendor, { foreignKey: 'userId' })
-  }
-  return M
+  @Column({ type: DataType.ENUM('free', 'paid'), defaultValue: 'free' })
+  declare subscription: string
+
+  @Column(DataType.STRING)
+  declare secret: string
+
+  @Column({
+    type: DataType.VIRTUAL,
+    get() {
+      return {
+        id: (this as any).id,
+        email: (this as any).email,
+        subscription: (this as any).subscription,
+        createdAt: (this as any).createdAt,
+        updatedAt: (this as any).updatedAt
+      }
+    }
+  })
+  declare parsed: any
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @HasOne(() => Staff)
+  declare staff: Staff
+
+  @HasMany(() => Vendor)
+  declare vendors: Vendor[]
 }
 
-export default UserModel
+export default User

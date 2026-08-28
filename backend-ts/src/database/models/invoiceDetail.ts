@@ -1,63 +1,49 @@
-import { IInvoiceDetailModel, IInvoiceDetailStatic } from '#/types/invoiceDetail'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Invoice } from './invoice'
+import { Product } from './product'
 
-const InvoiceDetailModel = (sequelize: Sequelize) => {
-  const M = <IInvoiceDetailStatic>sequelize.define<IInvoiceDetailModel>(
-    'invoiceDetail',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      invoiceId: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-      productId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      quantity: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-      unitPrice: {
-        type: DataTypes.BIGINT,
-        allowNull: false
-      },
-      discount: {
-        type: DataTypes.BIGINT,
-        allowNull: false,
-        defaultValue: 0
-      },
-      taxRate: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0
-      },
-      taxAmount: {
-        type: DataTypes.BIGINT,
-        allowNull: false,
-        defaultValue: 0
-      },
-      subtotal: {
-        type: DataTypes.BIGINT,
-        allowNull: false
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'invoiceDetails'
-    }
-  )
+@Table({ tableName: 'invoiceDetails', modelName: 'invoiceDetail', timestamps: true })
+export class InvoiceDetail extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.invoice, { foreignKey: 'invoiceId' })
-    M.belongsTo(models.product, { foreignKey: 'productId' })
-  }
+  @ForeignKey(() => Invoice)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare invoiceId: number
 
-  return M
+  @ForeignKey(() => Product)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare productId: number | null
+
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare quantity: number
+
+  @Column({ type: DataType.BIGINT, allowNull: false })
+  declare unitPrice: number
+
+  @Column({ type: DataType.BIGINT, allowNull: false, defaultValue: 0 })
+  declare discount: number
+
+  @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
+  declare taxRate: number
+
+  @Column({ type: DataType.BIGINT, allowNull: false, defaultValue: 0 })
+  declare taxAmount: number
+
+  @Column({ type: DataType.BIGINT, allowNull: false })
+  declare subtotal: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Invoice)
+  declare invoice: Invoice
+
+  @BelongsTo(() => Product)
+  declare product: Product
 }
 
-export default InvoiceDetailModel
+export default InvoiceDetail

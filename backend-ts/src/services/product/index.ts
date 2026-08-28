@@ -1,16 +1,21 @@
 import database from '#/database'
+import Category from '#/database/models/category'
+import Inventory from '#/database/models/inventory'
+import Product from '#/database/models/product'
+import ProductAttribute from '#/database/models/productAttribute'
+import ProductAttributeValue from '#/database/models/productAttributeValue'
+import ProductVariant from '#/database/models/productVariant'
+import Tag from '#/database/models/tag'
+import Transfer from '#/database/models/transfer'
+import Unit from '#/database/models/units'
 import { IRequestLocal } from '#/types/common'
-import { IInventoryStatic } from '#/types/inventory'
-import { IProductStatic } from '#/types/product'
-import { IProductVariantStatic } from '#/types/productVariant'
-import { ITransferStatic } from '#/types/transfer'
-import { getPagination } from '#/utils'
-import { generateSkuFromTemplate, applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
+import { applyCodeFormat, generateSkuFromTemplate, getCodeFormat, padSeq } from '#/utils/code-generator'
 import { nextSequence } from '#/utils/sequence'
 import { assertVendorAccess, assertWarehouseAccess, getVendorScope } from '#/utils/tenant'
 import { buildAttributeCombinations, buildVariantSkuWithTemplate, findOverride } from '#/utils/variant'
-import { SettingService } from '../setting'
 import { Op, Sequelize } from 'sequelize'
+import { SettingService } from '../setting'
+import { ApiError } from '#/response'
 
 // const InventoryService = require('../inventory')
 // const BaseCRUDService = require('@constant/base')
@@ -22,17 +27,10 @@ import { Op, Sequelize } from 'sequelize'
 // const XLSX = require('xlsx')
 
 export class ProductService {
-  product: IProductStatic = database.product
-  inventory: IInventoryStatic = database.inventory
-  transfer: ITransferStatic = database.transfer
-  productVariant: IProductVariantStatic = database.productVariant
   sequelize: Sequelize = database.sequelize
   async create(req: IRequestLocal) {
     const t = await this.sequelize.transaction()
     try {
-      // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
-      // if (!warehouse?.id) throw new Error('Invalid warehouse context')
-      // const { warehouse } = getPagination(req.query)
       const {
         warehouseId,
         quantity,
@@ -74,7 +72,7 @@ export class ProductService {
       if (settings && (!params.code || !params.skuCode)) {
         seq = await nextSequence('product', new Date().getFullYear(), {
           transaction: t,
-          initial: (await this.product.count()) + 1
+          initial: (await Product.count()) + 1
         })
       }
       if (!params.code && settings && seq != null) {
@@ -95,7 +93,7 @@ export class ProductService {
       }
 
       // Check for existing product
-      const existing = await this.product.findOne({
+      const existing = await Product.findOne({
         where: { code: params.code }
       })
 
@@ -105,15 +103,17 @@ export class ProductService {
       //   transaction: t,
       //   include: [this.db.category, this.db.tag, this.db.unit]
       // })
-      const _prod = await this.product.build(params)
+      const _prod = await Product.build(params)
       await _prod.save({ transaction: t })
 
       console.log('_prod', _prod, categories)
       if (categories) {
-        await _prod.setCategories(categories, { transaction: t })
+        // await _prod.setCategories(categories, { transaction: t })
+        await _prod.$set('categories', categories, { transaction: t })
       }
       if (tags) {
-        await _prod.setTags(tags, { transaction: t })
+        // await _prod.setTags(tags, { transaction: t })
+        await _prod.$set('tags', tags, { transaction: t })
       }
       // const inventoryInstance = await new InventoryService().createInstance(
       //   {
@@ -166,44 +166,38 @@ export class ProductService {
             override?.skuCode || buildVariantSkuWithTemplate(settings?.skuTemplate, baseSku, options, takenSkus)
           takenSkus.add(skuCode)
 
-          const variantRow = await this.productVariant
-            .build({
-              productId: _prod.id,
-              skuCode,
-              salePrice: override?.salePrice ?? null,
-              regularPrice: override?.regularPrice ?? null,
-              wholeSalePrice: override?.wholeSalePrice ?? null,
-              costPrice: override?.costPrice ?? null,
-              isNegative: Boolean(override?.isNegative) || false
-            })
-            .save({ transaction: t })
+          const variantRow = await ProductVariant.build({
+            productId: _prod.id,
+            skuCode,
+            salePrice: override?.salePrice ?? null,
+            regularPrice: override?.regularPrice ?? null,
+            wholeSalePrice: override?.wholeSalePrice ?? null,
+            costPrice: override?.costPrice ?? null,
+            isNegative: Boolean(override?.isNegative) || false
+          }).save({ transaction: t })
 
           const valueIds = Object.keys(options)
             .map((name) => valueKeyToId.get(`${name}::${options[name]}`))
             .filter(Boolean)
-          await variantRow.setAttributeValues(valueIds as number[], { transaction: t })
-
+          // await variantRow.setAttributeValues(valueIds as number[], { transaction: t })
+          await variantRow.$set('attributeValues', valueIds as number[], { transaction: t })
           // Opening stock per variant (defaults to 0 when not provided)
           const variantQuantity = Number(override?.quantity ?? 0)
           let inventoryRow: any = null
           if (variantQuantity !== 0) {
-            inventoryRow = await this.inventory
-              .build({
-                warehouseId,
-                quantity: variantQuantity,
-                productId: _prod.id,
-                variantId: variantRow.id
-              })
-              .save({ transaction: t })
-            await this.transfer
-              .build({
-                warehouseId,
-                quantity: variantQuantity,
-                productId: _prod.id,
-                variantId: variantRow.id,
-                type: '0'
-              })
-              .save({ transaction: t })
+            inventoryRow = await Inventory.build({
+              warehouseId,
+              quantity: variantQuantity,
+              productId: _prod.id,
+              variantId: variantRow.id
+            }).save({ transaction: t })
+            await Transfer.build({
+              fromWarehouseId: warehouseId,
+              quantity: variantQuantity,
+              productId: _prod.id,
+              variantId: variantRow.id,
+              type: '0'
+            }).save({ transaction: t })
           }
 
           createdVariants.push({
@@ -213,14 +207,14 @@ export class ProductService {
         }
       } else {
         // Simple product: single product-level stock row + opening IN transfer
-        const _inv = this.inventory.build({
+        const _inv = Inventory.build({
           warehouseId,
           quantity,
           productId: _prod.id
         })
 
-        const _trans = this.transfer.build({
-          warehouseId,
+        const _trans = Transfer.build({
+          fromWarehouseId: warehouseId,
           productId: _prod.id,
           quantity,
           type: '0'
@@ -243,119 +237,12 @@ export class ProductService {
       throw new Error(`Product creation failed: ${error}`)
     }
   }
-  // async importProduct(req) {
-  //   try {
-  //     const file = req.file
-  //     const workbook = XLSX.readFile(file.path)
 
-  //     const sheets = workbook.SheetNames
-  //     const data = []
-
-  //     for (let sheet of sheets) {
-  //       data.push(...XLSX.utils.sheet_to_json(workbook.Sheets[sheet]))
-  //     }
-  //     for (let { id, unit, ...item } of data) {
-  //       await this.create({ ...item, warehouseId: req.body.warehouse })
-  //     }
-  //     fs.unlinkSync(req.file.path)
-  //     return { message: 'Ready', data }
-  //   } catch (error) {
-  //     console.log('IMPORt PRODUCT ERROR ', error)
-  //     fs.unlinkSync(req.file.path)
-  //     await t.rollback()
-  //     throw error
-  //   }
-  // }
-
-  // /**
-  //  * @description Update a product in a warehouse
-  //  * @param {Object} params - contains update product information
-  //  * @param {number} params.id - product ID
-  //  * @param {number} params.warehouseId - warehouse ID
-  //  * @param {Object} params.data - contains product data to update
-  //  * @returns {Promise<void>} - a Promise that resolves when product is updated
-  //  */
-  // async updateProduct(req) {
-  //   const t = await this.sequelize.transaction()
-  //   try {
-  //     const id = req.params.id
-  //     const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
-  //     const data = req.body
-  //     // Find the product by ID
-  //     const currentProduct = await this.db.product.findByPk(id)
-
-  //     // Update the product
-  //     await currentProduct.update(data, { transaction: t })
-
-  //     // Update categories
-  //     if (data.categories) {
-  //       await currentProduct.setCategories(data.categories, { transaction: t })
-  //     }
-
-  //     // Update tags
-  //     if (data.tags) {
-  //       await currentProduct.setTags(data.tags, { transaction: t })
-  //     }
-
-  //     // Update unit
-  //     if (data.unit) {
-  //       await currentProduct.setUnit(data.unit, { transaction: t })
-  //     }
-
-  //     // Find the inventory of the product in the warehouse
-  //     const inven = await new InventoryService().findOne({
-  //       where: {
-  //         productId: id,
-  //         warehouseId: warehouse.id
-  //       }
-  //     })
-
-  //     // Calculate the next quantity
-  //     const nextQuantity = inven.quantity - data.quantity
-
-  //     // Store - current -> store have 200 , update current quan is 190 -> sold 10
-  //     // if > 0 -> SELLING / EXPORT
-  //     // if < 0 -> IMPORT
-  //     if (nextQuantity !== 0) {
-  //       // Update the inventory quantity
-  //       inven.quantity = data.quantity
-  //       await inven.save({ transaction: t })
-  //       // Create a new transfer
-  //       await new TransferService().createInstance(
-  //         {
-  //           warehouseId: warehouse.id,
-  //           productId: id,
-  //           quantity: nextQuantity,
-  //           type: nextQuantity > 0 ? '1' : '0'
-  //         },
-  //         { transaction: t }
-  //       )
-  //     }
-
-  //     // Delete the product from the Redis cache
-  //     const key = cacheKey('Product', id)
-  //     await cacheDel(key)
-  //     await t.commit()
-  //     return true
-  //   } catch (error) {
-  //     console.log('UPDATE PRODUCT ERROR ', error)
-  //     await t.rollback()
-  //     throw error
-  //   }
-  // }
   async getProducts(req: IRequestLocal) {
     try {
       const { s, page = 1, pageSize = 10, vendorId } = req.query
-      if (!vendorId) throw new Error('vendorId is required')
-      // S1: scoped callers may only list products stocked in their warehouses.
-      // await assertWarehouseAccess(warehouseId as string, getVendorScope(req))
       const limit = Number(pageSize)
       const offset = Number(+page - 1) * Number(pageSize)
-      // P3: the per-row correlated subqueries (sum(inventories),
-      // count(productVariants)) used to run for every row - and again inside
-      // findAndCountAll's COUNT query. They are gone from the page query;
-      // totals are computed once below with two grouped queries over just
-      // the returned product ids.
       const queryParams = {
         where: {
           vendorId: vendorId
@@ -371,6 +258,7 @@ export class ProductService {
       }
       if (s) {
         queryParams.where = {
+          // @ts-ignore
           [Op.or]: {
             name: {
               [Op.startsWith]: s
@@ -385,7 +273,7 @@ export class ProductService {
           ...queryParams.where
         }
       }
-      const { rows, count } = await this.product.findAndCountAll(queryParams)
+      const { rows, count } = await Product.findAndCountAll(queryParams)
 
       // Aggregate stock + variant counts for this page in two grouped queries.
       const ids = rows.map((row: any) => Number(typeof row.get === 'function' ? row.get('id') : row.id))
@@ -397,7 +285,7 @@ export class ProductService {
       let quantityByProduct = new Map<number, number>()
       let variantCountByProduct = new Map<number, number>()
       if (ids.length > 0) {
-        const stockRows = (await database.inventory.findAll({
+        const stockRows = (await Inventory.findAll({
           where: { productId: { [Op.in]: ids } },
           attributes: ['productId', [this.sequelize.fn('SUM', this.sequelize.col('quantity')), 'total']],
           group: ['productId'],
@@ -405,7 +293,7 @@ export class ProductService {
         })) as any[]
         quantityByProduct = new Map(stockRows.map((r: any) => [Number(r.productId), Number(r.total) || 0]))
 
-        const variantRows = (await database.productVariant.findAll({
+        const variantRows = (await ProductVariant.findAll({
           where: { productId: { [Op.in]: ids } },
           attributes: ['productId', [this.sequelize.fn('COUNT', this.sequelize.col('id')), 'variantCount']],
           group: ['productId'],
@@ -431,98 +319,55 @@ export class ProductService {
       return { rows: enriched, count }
     } catch (error) {
       console.log('error', error)
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
   async getProductById(req: IRequestLocal) {
     try {
-      // const key = cacheKey('Product', params.id)
-      // const { vendor, warehouse } = this.getActiveWarehouseAndVendor(req)
-      // const response = await productCacheItem({
-      //   key,
-      //   callback: () => {
-      //     return this.product.findOne({
-      //       where: {
-      //         id: params.id,
-      //         '$inventories.warehouseId$': warehouse.id
-      //       },
-      //       include: [
-      //         { model: this.db.inventory, attributes: [] },
-      //         {
-      //           model: this.db.category,
-      //           attributes: ['id', 'name'],
-      //           through: {
-      //             attributes: []
-      //           }
-      //         },
-      //         {
-      //           model: this.db.tag,
-      //           attributes: ['id', 'name'],
-      //           through: {
-      //             attributes: []
-      //           }
-      //         },
-      //         {
-      //           model: this.db.unit,
-      //           attributes: ['id', 'name']
-      //         }
-      //       ],
-      //       attributes: {
-      //         include: [
-      //           [this.sequelize.col('inventories.quantity'), 'quantity'],
-      //           [this.sequelize.col('unit.id'), 'unitId'],
-      //           [this.sequelize.col('unit.name'), 'unitName']
-      //         ]
-      //       }
-      //     })
-      //   }
-      // })
-      // return response
       const params = req.params
-      return this.product.findOne({
+      return Product.findOne({
         where: {
           id: params.id
-          // '$inventories.warehouseId$': warehouse.id
         },
         include: [
-          { model: database.inventory, attributes: [] },
+          { model: Inventory, attributes: [] },
           {
-            model: database.category,
+            model: Category,
             attributes: ['id', 'name'],
             through: {
               attributes: []
             }
           },
           {
-            model: database.tag,
+            model: Tag,
             attributes: ['id', 'name'],
             through: {
               attributes: []
             }
           },
           {
-            model: database.unit,
+            model: Unit,
             attributes: ['id', 'name']
           },
           {
-            model: database.productAttribute,
+            model: ProductAttribute,
             as: 'attributes',
             attributes: ['id', 'name'],
             include: [
               {
-                model: database.productAttributeValue,
+                model: ProductAttributeValue,
                 as: 'values',
                 attributes: ['id', 'value']
               }
             ]
           },
           {
-            model: this.productVariant,
+            model: ProductVariant,
             as: 'variants',
             include: [
               {
-                model: database.productAttributeValue,
+                model: ProductAttributeValue,
                 as: 'attributeValues',
                 attributes: ['id', 'value'],
                 through: { attributes: [] },
@@ -541,7 +386,7 @@ export class ProductService {
         }
       })
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -561,7 +406,7 @@ export class ProductService {
       }
       if (warehouseId) inventoryInclude.where = { warehouseId }
 
-      return await this.productVariant.findAndCountAll({
+      return await ProductVariant.findAndCountAll({
         where: { productId },
         include: [
           {
@@ -581,7 +426,7 @@ export class ProductService {
         order: [['id', 'ASC']]
       })
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -591,18 +436,18 @@ export class ProductService {
    */
   async listAttributes(req: IRequestLocal) {
     try {
-      return await database.productAttribute.findAll({
+      return await ProductAttribute.findAll({
         include: [
-          { model: database.productAttributeValue, as: 'values' },
+          { model: ProductAttributeValue, as: 'values' },
           {
-            model: database.product,
+            model: Product,
             attributes: ['id', 'name', 'skuCode']
           }
         ],
         order: [['id', 'ASC']]
       })
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -617,7 +462,7 @@ export class ProductService {
     try {
       const { variantId } = req.params
       const allowed = ['skuCode', 'salePrice', 'regularPrice', 'wholeSalePrice', 'costPrice', 'isActive', 'isNegative']
-      const variant = await this.productVariant.findByPk(variantId, { transaction: t })
+      const variant = await ProductVariant.findByPk(variantId, { transaction: t })
       if (!variant) throw new Error(`Variant ${variantId} not found`)
 
       const data: Record<string, unknown> = {}
@@ -639,7 +484,7 @@ export class ProductService {
       return variant
     } catch (error) {
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -651,15 +496,15 @@ export class ProductService {
     const t = await this.sequelize.transaction()
     try {
       const { variantId } = req.params
-      const variant = await this.productVariant.findByPk(variantId, { transaction: t })
+      const variant = await ProductVariant.findByPk(variantId, { transaction: t })
       if (!variant) throw new Error(`Variant ${variantId} not found`)
-      await this.inventory.destroy({ where: { variantId: variant.id }, transaction: t })
+      await Inventory.destroy({ where: { variantId: variant.id }, transaction: t })
       await variant.destroy({ transaction: t })
       await t.commit()
       return true
     } catch (error) {
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -677,7 +522,7 @@ export class ProductService {
         order: [['id', 'ASC']]
       })
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -694,7 +539,7 @@ export class ProductService {
       if (!productId) throw new Error('product id is required')
       if (!name || !String(name).trim()) throw new Error('attribute name is required')
 
-      const product = await this.product.findByPk(productId, { transaction: t })
+      const product = await Product.findByPk(productId, { transaction: t })
       if (!product) throw new Error(`Product ${productId} not found`)
 
       await this.syncAttribute(productId, null, String(name).trim(), values || [], t)
@@ -705,7 +550,7 @@ export class ProductService {
       return { createdVariants: created.length }
     } catch (error) {
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -750,13 +595,13 @@ export class ProductService {
         await this.syncAttribute(productId, attributeId, attribute.get('name'), values, t)
       }
 
-      const product = await this.product.findByPk(productId, { transaction: t })
+      const product = await Product.findByPk(productId, { transaction: t })
       await this.backfillVariants(productId, product as any, t)
       await t.commit()
       return { removedValues: removedValueIds.length }
     } catch (error) {
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -775,7 +620,7 @@ export class ProductService {
       return true
     } catch (error) {
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -805,7 +650,7 @@ export class ProductService {
         warehouseId
       } = req.body || {}
       if (!productId) throw new Error('product id is required')
-      const product = await this.product.findByPk(productId, { transaction: t })
+      const product = await Product.findByPk(productId, { transaction: t })
       if (!product) throw new Error(`Product ${productId} not found`)
 
       // 1) Attributes removed in the editor take their variants with them
@@ -851,14 +696,14 @@ export class ProductService {
 
       // 4) Variants explicitly removed in manual mode
       for (const rawId of removedVariantIds || []) {
-        const variant = await this.productVariant.findByPk(Number(rawId), { transaction: t })
+        const variant = await ProductVariant.findByPk(Number(rawId), { transaction: t })
         if (!variant) continue
-        await this.inventory.destroy({ where: { variantId: variant.get('id') }, transaction: t })
+        await Inventory.destroy({ where: { variantId: variant.get('id') }, transaction: t })
         await variant.destroy({ transaction: t })
       }
 
       // 5) Upsert listed variants: update existing combinations, create picked ones
-      const currentVariants = await this.productVariant.findAll({
+      const currentVariants = await ProductVariant.findAll({
         where: { productId },
         include: [
           {
@@ -947,30 +792,31 @@ export class ProductService {
             ? String(v.skuCode)
             : buildVariantSkuWithTemplate(skuTemplate, baseSku, options, takenSkus)
           takenSkus.add(skuCode)
-          const variantRow = await this.productVariant.build({ productId, skuCode, ...fields }).save({ transaction: t })
-          await variantRow.setAttributeValues(
+          const variantRow = await ProductVariant.build({ productId, skuCode, ...fields }).save({ transaction: t })
+          // await variantRow.setAttributeValues(
+          //   valueRows.map((r) => r.get('id')),
+          //   { transaction: t }
+          // )
+          await variantRow.$set(
+            'attributeValues',
             valueRows.map((r) => r.get('id')),
             { transaction: t }
           )
           const quantity = Number(v.quantity ?? 0)
           if (quantity !== 0 && warehouseId) {
-            await this.inventory
-              .build({
-                warehouseId,
-                quantity,
-                productId,
-                variantId: variantRow.get('id')
-              })
-              .save({ transaction: t })
-            await this.transfer
-              .build({
-                warehouseId,
-                quantity,
-                productId,
-                variantId: variantRow.get('id'),
-                type: '0'
-              })
-              .save({ transaction: t })
+            await Inventory.build({
+              warehouseId,
+              quantity,
+              productId,
+              variantId: variantRow.get('id')
+            }).save({ transaction: t })
+            await Transfer.build({
+              fromWarehouseId: warehouseId,
+              quantity,
+              productId,
+              variantId: variantRow.get('id'),
+              type: '0'
+            }).save({ transaction: t })
           }
         }
       }
@@ -979,7 +825,7 @@ export class ProductService {
       return true
     } catch (error) {
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -999,29 +845,30 @@ export class ProductService {
 
   /** Set a variant's stock to `target` in a warehouse, logging the delta as a transfer */
   private async adjustVariantStock(variant: any, target: number, warehouseId: number, t: any) {
-    const row: any = await this.inventory.findOne({
+    const row: any = await Inventory.findOne({
       where: { productId: variant.get('productId'), variantId: variant.get('id'), warehouseId },
       transaction: t
     })
     const current = Number(row?.get('quantity') ?? 0)
     const delta = target - current
     if (!row && target !== 0) {
-      await this.inventory
-        .build({ warehouseId, quantity: target, productId: variant.get('productId'), variantId: variant.get('id') })
-        .save({ transaction: t })
+      await Inventory.build({
+        warehouseId,
+        quantity: target,
+        productId: variant.get('productId'),
+        variantId: variant.get('id')
+      }).save({ transaction: t })
     } else if (row) {
       await row.update({ quantity: target }, { transaction: t })
     }
     if (delta !== 0) {
-      await this.transfer
-        .build({
-          warehouseId,
-          quantity: Math.abs(delta),
-          productId: variant.get('productId'),
-          variantId: variant.get('id'),
-          type: delta > 0 ? '0' : '1'
-        })
-        .save({ transaction: t })
+      await Transfer.build({
+        fromWarehouseId: warehouseId,
+        quantity: Math.abs(delta),
+        productId: variant.get('productId'),
+        variantId: variant.get('id'),
+        type: delta > 0 ? '0' : '1'
+      }).save({ transaction: t })
     }
   }
 
@@ -1080,7 +927,7 @@ export class ProductService {
     if (usable.length === 0) return []
 
     const combos = buildAttributeCombinations(usable)
-    const existingVariants = await this.productVariant.findAll({
+    const existingVariants = await ProductVariant.findAll({
       where: { productId },
       include: [
         {
@@ -1121,7 +968,7 @@ export class ProductService {
 
       const skuCode = buildVariantSkuWithTemplate(skuTemplate, baseSku, options, takenSkus)
       takenSkus.add(skuCode)
-      const variantRow = await this.productVariant.build({ productId, skuCode }).save({ transaction: t })
+      const variantRow = await ProductVariant.build({ productId, skuCode }).save({ transaction: t })
 
       const valueIds: number[] = []
       for (const attr of usable) {
@@ -1134,7 +981,7 @@ export class ProductService {
         })
         if (valueRow) valueIds.push(valueRow.get('id'))
       }
-      await variantRow.setAttributeValues(valueIds, { transaction: t })
+      await variantRow.$set('attributeValues', valueIds, { transaction: t })
       created.push(variantRow)
     }
     return created
@@ -1142,7 +989,7 @@ export class ProductService {
 
   /** Remove variants linked to any of the given attribute-value ids */
   private async deleteVariantsByValueIds(productId: number, valueIds: number[], t: any) {
-    const variants = await this.productVariant.findAll({
+    const variants = await ProductVariant.findAll({
       where: { productId },
       include: [
         {

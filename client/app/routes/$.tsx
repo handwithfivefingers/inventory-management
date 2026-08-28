@@ -13,10 +13,7 @@ export function ErrorBoundary() {
   return (
     <div className="container mx-auto h-screen flex items-center justify-center">
       <div>
-        <CardItem
-          title="Whoops!"
-          className="flex w-full flex-col items-center justify-center gap-8 rounded-md p-8 w-80"
-        >
+        <CardItem title="Whoops!" className="flex flex-col items-center justify-center gap-8 rounded-md p-8 w-80">
           {/* <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-600 text-slate-600 ">
             <TbHelpCircle className="h-8 w-8 stroke-[1.5px] text-slate-600" />
           </div> */}

@@ -5,11 +5,9 @@
 
 import database from '#/database'
 import { ICategoryModel, ICategoryStatic } from '#/types/category'
-import { IRequestLocal } from '#/types/common'
-import { SettingService } from '../setting'
 import { applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
-import { getPagination } from '#/utils'
 import { Optional, Sequelize } from 'sequelize'
+import { SettingService } from '../setting'
 
 export class CategoriesService {
   category: ICategoryStatic = database.category

@@ -11,13 +11,7 @@ const db = vi.hoisted(() => {
 
 vi.mock('#/database', () => ({ default: db }))
 
-import {
-  getVendorScope,
-  canAccessVendor,
-  assertVendorAccess,
-  vendorWhere,
-  assertWarehouseAccess
-} from '../tenant'
+import { getVendorScope, canAccessVendor, assertVendorAccess, vendorWhere, assertWarehouseAccess } from '../tenant'
 import { Op } from 'sequelize'
 
 describe('tenant scoping helpers (S1)', () => {
@@ -29,12 +23,12 @@ describe('tenant scoping helpers (S1)', () => {
       expect(getVendorScope({ locals: {} } as any)).toBeNull()
     })
 
-    it('returns the normalized vendor id list from req.locals', () => {
-      expect(getVendorScope({ locals: { vendorIds: ['1', 2] } } as any)).toEqual([1, 2])
+    it('returns the normalized vendor id list from req.user', () => {
+      expect(getVendorScope({ user: { vendorIds: ['1', 2] } } as any)).toEqual([1, 2])
     })
 
     it('keeps an empty array as an explicit deny-all scope', () => {
-      expect(getVendorScope({ locals: { vendorIds: [] } } as any)).toEqual([])
+      expect(getVendorScope({ user: { vendorIds: [] } } as any)).toEqual([])
     })
   })
 

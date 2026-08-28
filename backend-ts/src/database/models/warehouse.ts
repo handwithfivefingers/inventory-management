@@ -1,53 +1,54 @@
-import { IWarehouseModel, IWarehouseStatic } from '#/types/warehouse'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, HasMany } from 'sequelize-typescript'
+import { Vendor } from './vendor'
+import { Inventory } from './inventory'
+import { OrderDetail } from './orderDetail'
+import { Transfer } from './transfer'
+import { Order } from './order'
 
-const Warehouse = (sequelize: Sequelize) => {
-  const Model = <IWarehouseStatic>sequelize.define<IWarehouseModel>(
-    'warehouse',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      phone: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      address: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      email: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      isMain: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
-      },
-      vendorId: {
-        type: DataTypes.INTEGER
-      }
-    },
-    {
-      // Other model options go here
-      timestamps: true,
-      tableName: 'warehouses'
-    }
-  )
-  Model.associate = (models) => {
-    Model.hasMany(models.inventory, { foreignKey: 'warehouseId' })
-    Model.hasMany(models.orderDetail, { foreignKey: 'warehouseId' })
-    Model.hasMany(models.transfer, { foreignKey: 'fromWarehouseId', as: 'outgoingTransfers' })
-    Model.hasMany(models.transfer, { foreignKey: 'toWarehouseId', as: 'incomingTransfers' })
-    Model.hasMany(models.order, { foreignKey: 'warehouseId' })
-  }
-  return Model
+@Table({ tableName: 'warehouses', modelName: 'warehouse', timestamps: true })
+export class Warehouse extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
+
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare name: string
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare phone: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare address: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare email: string | null
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare isMain: boolean
+
+  @ForeignKey(() => Vendor)
+  @Column(DataType.INTEGER)
+  declare vendorId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @HasMany(() => Inventory)
+  declare inventories: Inventory[]
+
+  @HasMany(() => OrderDetail)
+  declare orderDetails: OrderDetail[]
+
+  @HasMany(() => Transfer, { foreignKey: 'fromWarehouseId', as: 'outgoingTransfers' })
+  declare outgoingTransfers: Transfer[]
+
+  @HasMany(() => Transfer, { foreignKey: 'toWarehouseId', as: 'incomingTransfers' })
+  declare incomingTransfers: Transfer[]
+
+  @HasMany(() => Order)
+  declare orders: Order[]
 }
 
 export default Warehouse

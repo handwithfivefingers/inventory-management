@@ -58,7 +58,7 @@ import { usePermission } from "~/hooks/use-permission";
 
 ### Step 2: Wrap Action Buttons
 ```tsx
-<PermissionGuard permission="C" module="product">
+<PermissionGuard permission="CREATE" module="product">
   <TMButton component={Link} to="/products/add">
     Thêm
   </TMButton>

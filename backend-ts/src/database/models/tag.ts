@@ -1,30 +1,27 @@
-import { ITagModel, ITagStatic } from '#/types/tag'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsToMany } from 'sequelize-typescript'
+import { Vendor } from './vendor'
+import { Product } from './product'
 
-const Tag = (sequelize: Sequelize) => {
-  const Model = <ITagStatic>sequelize.define<ITagModel>(
-    'tag',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      vendorId: DataTypes.INTEGER
-    },
-    {
-      timestamps: true,
-      tableName: 'tags'
-    }
-  )
-  Model.associate = (models) => {
-    Model.belongsToMany(models.product, { through: 'product_tags' })
-  }
-  return Model
+@Table({ tableName: 'tags', modelName: 'tag', timestamps: true })
+export class Tag extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
+
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare name: string
+
+  @ForeignKey(() => Vendor)
+  @Column(DataType.INTEGER)
+  declare vendorId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsToMany(() => Product, { through: 'product_tags', foreignKey: 'tagId', otherKey: 'productId' })
+  declare products: Product[]
 }
 
 export default Tag

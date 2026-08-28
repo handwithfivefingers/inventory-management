@@ -1,59 +1,61 @@
-import { IOrderModel, IOrderStatic } from '#/types/order'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript'
+import { Provider } from './provider'
+import { Vendor } from './vendor'
+import { Warehouse } from './warehouse'
+import { OrderDetail } from './orderDetail'
 
-const OrderModel = (sequelize: Sequelize) => {
-  const M = <IOrderStatic>sequelize.define<IOrderModel>(
-    'order',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      code: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      VAT: {
-        type: DataTypes.INTEGER
-      },
-      paid: {
-        type: DataTypes.BIGINT
-      },
-      surcharge: {
-        type: DataTypes.BIGINT
-      },
-      price: {
-        type: DataTypes.BIGINT
-      },
-      paymentType: {
-        type: DataTypes.ENUM,
-        values: ['cash', 'transfer', 'credit'],
-        defaultValue: 'cash'
-      },
-      providerId: {
-        type: DataTypes.INTEGER
-      },
-      warehouseId: {
-        type: DataTypes.INTEGER
-      },
-      vendorId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'orders'
-    }
-  )
+@Table({ tableName: 'orders', modelName: 'order', timestamps: true })
+export class Order extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.hasMany(models.orderDetail, { foreignKey: 'orderId' })
-    M.belongsTo(models.provider, { foreignKey: 'providerId' })
-    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
-  }
-  return M
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare code: string | null
+
+  @Column(DataType.INTEGER)
+  declare VAT: number
+
+  @Column(DataType.BIGINT)
+  declare paid: number
+
+  @Column(DataType.BIGINT)
+  declare surcharge: number
+
+  @Column(DataType.BIGINT)
+  declare price: number
+
+  @Column({ type: DataType.ENUM('cash', 'transfer', 'credit'), defaultValue: 'cash' })
+  declare paymentType: string
+
+  @ForeignKey(() => Provider)
+  @Column(DataType.INTEGER)
+  declare providerId: number
+
+  @ForeignKey(() => Warehouse)
+  @Column(DataType.INTEGER)
+  declare warehouseId: number
+
+  @ForeignKey(() => Vendor)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare vendorId: number | null
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @HasMany(() => OrderDetail)
+  declare orderDetails: OrderDetail[]
+
+  @BelongsTo(() => Provider)
+  declare provider: Provider
+
+  @BelongsTo(() => Warehouse)
+  declare warehouse: Warehouse
+
+  @BelongsTo(() => Vendor)
+  declare vendor: Vendor
 }
 
-export default OrderModel
+export default Order

@@ -1,28 +1,26 @@
-import { IUnitModel, IUnitStatic } from '#/types/unit'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Vendor } from './vendor'
 
-const Unit = (sequelize: Sequelize) => {
-  const Model = <IUnitStatic>sequelize.define<IUnitModel>(
-    'unit',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      vendorId: DataTypes.INTEGER
-    },
-    {
-      timestamps: true,
-      tableName: 'units'
-    }
-  )
-  Model.associate = (models) => {}
-  return Model
+@Table({ tableName: 'units', modelName: 'unit', timestamps: true })
+export class Unit extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
+
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare name: string
+
+  @ForeignKey(() => Vendor)
+  @Column(DataType.INTEGER)
+  declare vendorId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Vendor)
+  declare vendor: Vendor
 }
 
 export default Unit

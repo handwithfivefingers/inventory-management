@@ -1,52 +1,61 @@
-import { RoleModel, RoleStatic } from '#/types/role'
-import { DataTypes, Sequelize } from 'sequelize'
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+  ForeignKey,
+  BelongsTo,
+  HasMany,
+  BelongsToMany
+} from 'sequelize-typescript'
+import { Vendor } from './vendor'
+import { Permission } from './permission'
+import { RolePermission } from './role_permission'
+import { Staff } from './staff'
 
-const RoleModel = (sequelize: Sequelize) => {
-  const M = <RoleStatic>sequelize.define<RoleModel>(
-    'role',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING
-      },
-      description: {
-        type: DataTypes.STRING
-      },
-      vendorId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      isGlobal: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
-      },
-      isSystem: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-        comment: 'System default role - cannot be deleted'
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'roles'
-    }
-  )
+@Table({ tableName: 'roles', modelName: 'role', timestamps: true })
+export class Role extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsToMany(models.permission, {
-      through: models.role_permission,
-      foreignKey: 'roleId',
-      otherKey: 'permissionId'
-    })
-    M.hasMany(models.staff, { foreignKey: 'roleId' })
-    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
-  }
+  @Column(DataType.STRING)
+  declare name: string
 
-  return M
+  @Column(DataType.STRING)
+  declare description: string
+
+  @ForeignKey(() => Vendor)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare vendorId: number | null
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare isGlobal: boolean
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false, comment: 'System default role - cannot be deleted' })
+  declare isSystem: boolean
+
+  @Column({ type: DataType.BOOLEAN, defaultValue: false, comment: 'System Role' })
+  declare isAdmin: boolean
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Vendor)
+  declare vendor: Vendor
+
+  @BelongsToMany(() => Permission, () => RolePermission)
+  declare permissions: Permission[]
+
+  @HasMany(() => RolePermission)
+  declare rolePermissions: RolePermission[]
+
+  @HasMany(() => Staff)
+  declare staffs: Staff[]
 }
 
-export default RoleModel
+export default Role

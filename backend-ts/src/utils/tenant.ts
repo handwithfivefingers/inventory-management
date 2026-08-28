@@ -5,7 +5,7 @@ import { Op } from 'sequelize'
  * Multi-tenant (vendor) scoping helpers.
  *
  * `auth` resolves the caller's vendor ids once per request into
- * `req.locals.vendorIds`. Services then MUST scope every read/write by
+ * `req.user.vendorIds`. Services then MUST scope every read/write by
  * those ids. A user with NO vendor rows is a platform-level account
  * (e.g. seeded admin) and is intentionally unrestricted - represented as
  * `null` so call sites can distinguish "no scope" from "empty scope".

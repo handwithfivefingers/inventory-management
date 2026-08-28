@@ -1,4 +1,4 @@
-import { Link, useRevalidator } from "@remix-run/react";
+import { Link } from "@remix-run/react";
 import { useState } from "react";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
@@ -6,7 +6,6 @@ import { Icon } from "~/components/icon";
 import { PermissionGuard } from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
-import { useSubmitPromise } from "~/hooks";
 import { useIsAdmin, usePermission } from "~/hooks/use-permission";
 import { IRole } from "~/types/user";
 
@@ -67,13 +66,13 @@ export const RoleManagement = ({ initialData = [] }: IRoleManagementProps) => {
   }
 
   // Filter roles
-  // const filteredRoles = roles.filter((role) => role.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredRoles = role.filter((role) => role.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-600">Quản lý các vai trò và phân quyền trong hệ thống</p>
-        <PermissionGuard permission="C" module="role" requireAdmin>
+        <PermissionGuard permission="CREATE" module="role" requireAdmin>
           <TMButton component={Link} to="./add" size="sm">
             <Icon name="plus" className="w-4 h-4 mr-2" />
             Tạo vai trò mới
@@ -135,12 +134,12 @@ export const RoleManagement = ({ initialData = [] }: IRoleManagementProps) => {
               render: (record: IRole) =>
                 !record?.isSystem && (
                   <div className="flex gap-2">
-                    <PermissionGuard permission="U" module="role" requireAdmin>
+                    <PermissionGuard permission="UPDATE" module="role" requireAdmin>
                       <TMButton component={Link} to={`./${record.id}`} size="sm">
                         <Icon name="edit-2" className="w-4 h-4" />
                       </TMButton>
                     </PermissionGuard>
-                    <PermissionGuard permission="D" module="role" requireAdmin>
+                    <PermissionGuard permission="DELETE" module="role" requireAdmin>
                       {record.name.toLowerCase() !== "admin" && (
                         <button
                           onClick={() => handleDeleteRole(record.id)}

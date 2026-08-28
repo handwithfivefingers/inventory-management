@@ -1,38 +1,47 @@
-import { IVendorModel, IVendorStatic } from '#/types/vendor'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany, BelongsToMany } from 'sequelize-typescript'
+import { User } from './user'
+import { Warehouse } from './warehouse'
+import { Category } from './category'
+import { Tag } from './tag'
+import { Unit } from './units'
+import { Staff } from './staff'
+import { StaffVendor } from './staff_vendor'
 
-const VendorModel = (sequelize: Sequelize) => {
-  const M = <IVendorStatic>sequelize.define<IVendorModel>(
-    'vendor',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING
-      },
-      userId: {
-        type: DataTypes.INTEGER
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'vendors'
-    }
-  )
+@Table({ tableName: 'vendors', modelName: 'vendor', timestamps: true })
+export class Vendor extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.user, { foreignKey: 'userId' })
-    // Many
-    M.hasMany(models.warehouse, { foreignKey: 'vendorId' })
-    M.hasMany(models.category, { foreignKey: 'vendorId' })
-    M.hasMany(models.tag, { foreignKey: 'vendorId' })
-    M.hasMany(models.unit, { foreignKey: 'vendorId' })
-    M.hasMany(models.staff, { foreignKey: 'vendorId' })
-  }
-  return M
+  @Column(DataType.STRING)
+  declare name: string
+
+  @ForeignKey(() => User)
+  @Column(DataType.INTEGER)
+  declare userId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => User)
+  declare user: User
+
+  @HasMany(() => Warehouse)
+  declare warehouses: Warehouse[]
+
+  @HasMany(() => Category)
+  declare categories: Category[]
+
+  @HasMany(() => Tag)
+  declare tags: Tag[]
+
+  @HasMany(() => Unit)
+  declare units: Unit[]
+
+  @BelongsToMany(() => Staff, () => StaffVendor)
+  declare staffs: Staff[]
 }
 
-export default VendorModel
+export default Vendor

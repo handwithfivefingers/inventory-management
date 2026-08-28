@@ -51,10 +51,10 @@ export default function WareHouses() {
                 <PermissionGuard requireAdmin>
                   <TMButton>{t("common.importExcel")}</TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module="warehouse">
+                <PermissionGuard permission="READ" module="warehouse">
                   <TMButton>{t("common.exportExcel")}</TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module="warehouse">
+                <PermissionGuard permission="READ" module="warehouse">
                   <TMButton>{t("common.printBarcode")}</TMButton>
                 </PermissionGuard>
               </div>

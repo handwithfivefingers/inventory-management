@@ -52,19 +52,19 @@ export default function Products() {
             <TextInput placeholder={t("providers.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard permission="R" module={MODULE_ENUM.provider} requireAdmin>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
                   <TMButton variant="light" size="sm" component={Link} to="/providers/add">
                     <Icon name="plus" fontSize={16} />
                     {t("common.add")}
                   </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module={MODULE_ENUM.provider} requireAdmin>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
                   <TMButton size="sm">
                     <Icon name="file-plus" fontSize={16} />
                     {t("common.importExcel")}
                   </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="R" module={MODULE_ENUM.provider} requireAdmin>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
                   <TMButton size="sm">
                     <Icon name="file-text" fontSize={16} />
                     {t("common.exportExcel")}

@@ -1,32 +1,28 @@
-// categoryId: ForeignKey<number>
-// productId: ForeignKey<number>
-// createdAt: CreationOptional<Date>
-// updatedAt: CreationOptional<Date>
-import { IProductCategoryModel, IProductCategoryStatic } from '#/types/product_category'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Product } from './product'
+import { Category } from './category'
 
-const ProductCategory = (sequelize: Sequelize) => {
-  const M = <IProductCategoryStatic>sequelize.define<IProductCategoryModel>(
-    'product_category', // reflect to table name product_categories
-    {
-      categoryId: {
-        type: DataTypes.INTEGER
-      },
-      productId: {
-        type: DataTypes.INTEGER
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'product_categories'
-    }
-  )
+@Table({ tableName: 'product_categories', modelName: 'product_category', timestamps: true })
+export class ProductCategory extends Model {
+  @ForeignKey(() => Category)
+  @Column(DataType.INTEGER)
+  declare categoryId: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.product, { foreignKey: 'productId' })
-    M.belongsTo(models.category, { foreignKey: 'categoryId' })
-  }
-  return M
+  @ForeignKey(() => Product)
+  @Column(DataType.INTEGER)
+  declare productId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Product)
+  declare product: Product
+
+  @BelongsTo(() => Category)
+  declare category: Category
 }
 
 export default ProductCategory

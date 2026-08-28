@@ -75,7 +75,7 @@ describe("handleErrors", () => {
     vi.clearAllMocks();
   });
 
-  it("captures the error via Sentry and responds with 400 + empty json", () => {
+  it("captures the error via Sentry and responds with 400 + structured json", () => {
     const json = vi.fn();
     const res = { status: vi.fn(() => ({ json })) } as any;
     const error = new Error("fail");
@@ -85,7 +85,7 @@ describe("handleErrors", () => {
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(captureException).toHaveBeenCalledWith(error);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(json).toHaveBeenCalledWith({});
+    expect(json).toHaveBeenCalledWith({ error: "fail", status: 400 });
   });
 
   it("captures the error via Sentry even when the error has no message", () => {
@@ -93,6 +93,34 @@ describe("handleErrors", () => {
     const res = { status: vi.fn(() => ({ json })) } as any;
     response.handleErrors({} as Request, res, {} as Error);
     expect(captureException).toHaveBeenCalledTimes(1);
-    expect(json).toHaveBeenCalledWith({});
+    expect(json).toHaveBeenCalledWith({ error: "Internal Server Error", status: 400 });
+  });
+
+  it("respects ApiError status and serializes via toJSON", () => {
+    const apiErr = new ApiError("not found", 404);
+
+    // legacy signature (req, res, err)
+    const jsonLegacy = vi.fn();
+    const resLegacy = { status: vi.fn(() => ({ json: jsonLegacy })) } as any;
+    response.handleErrors({} as Request, resLegacy, apiErr as unknown as Error);
+    expect(resLegacy.status).toHaveBeenCalledWith(404);
+    expect(jsonLegacy).toHaveBeenCalledWith({ error: "not found", status: 404 });
+
+    // standard Express signature (err, req, res, next)
+    const json2 = vi.fn();
+    const res2 = { status: vi.fn(() => ({ json: json2 })) } as any;
+    response.handleErrors(apiErr, {} as Request, res2, (() => {}) as any);
+    expect(json2).toHaveBeenCalledWith({ error: "not found", status: 404 });
+  });
+
+  it("returns generic message for 500 server errors", () => {
+    const json = vi.fn();
+    const res = { status: vi.fn(() => ({ json })) } as any;
+    const err = new ApiError("leaked stack", 500);
+
+    response.handleErrors(err, {} as Request, res, (() => {}) as any);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(json).toHaveBeenCalledWith({ error: "Internal Server Error", status: 500 });
   });
 });

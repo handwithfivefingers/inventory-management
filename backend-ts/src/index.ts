@@ -8,7 +8,6 @@ import morgan from 'morgan'
 import Redis from './configs/redis'
 import database from './database'
 import cors from 'cors'
-import PermissionSyncService from '#/services/permissionSync'
 
 const port = process.env.PORT ?? 3000
 class App {
@@ -49,22 +48,7 @@ class App {
       new SentryInstance().profiler.startProfiler()
       database
         .load()
-        .then(async () => {
-          // CRITICAL ORDER: the one-time hybrid data migration (flags moved
-          // from `permissions` onto `role_permissions`) must run BEFORE
-          // sync({alter:true}), which would otherwise drop the legacy
-          // columns - and the grants inside them.
-          await new PermissionSyncService().migrateLegacyIfNeeded()
-        })
         .then(() => database.sync())
-        .then(async () => {
-          // Ensure the catalog matches the module registry and Admin roles
-          // keep full access to any newly introduced modules.
-          const result = await new PermissionSyncService().sync()
-          if (result.createdPermissions || result.linkedAdminPermissions) {
-            console.log('permission sync:', result)
-          }
-        })
         .catch((error: unknown) => {
           console.error('database Sync error:', error)
         })

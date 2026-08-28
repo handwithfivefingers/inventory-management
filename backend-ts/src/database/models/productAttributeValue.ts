@@ -1,48 +1,43 @@
-import {
-  IProductAttributeModel,
-  IProductAttributeValueModel,
-  IProductAttributeValueStatic
-} from '#/types/productAttribute'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, BelongsToMany } from 'sequelize-typescript'
+import { Product } from './product'
+import { ProductAttribute } from './productAttribute'
+import { ProductVariant } from './productVariant'
 
-const ProductAttributeValueModel = (sequelize: Sequelize) => {
-  const M = <IProductAttributeValueStatic>sequelize.define<IProductAttributeValueModel>(
-    'productAttributeValue',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      value: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      attributeId: DataTypes.INTEGER,
-      productId: DataTypes.INTEGER
-    },
-    {
-      timestamps: true,
-      tableName: 'productAttributeValues',
-      indexes: [
-        {
-          unique: true,
-          fields: ['attributeId', 'value']
-        }
-      ]
-    }
-  )
+@Table({
+  tableName: 'productAttributeValues',
+  modelName: 'productAttributeValue',
+  timestamps: true,
+  indexes: [{ unique: true, fields: ['attributeId', 'value'] }]
+})
+export class ProductAttributeValue extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.product, { foreignKey: 'productId' })
-    M.belongsTo(models.productAttribute, { foreignKey: 'attributeId' })
-    M.belongsToMany(models.productVariant, {
-      through: 'product_variant_attribute_values',
-      foreignKey: 'attributeValueId',
-      otherKey: 'variantId'
-    })
-  }
-  return M
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare value: string
+
+  @ForeignKey(() => ProductAttribute)
+  @Column(DataType.INTEGER)
+  declare attributeId: number
+
+  @ForeignKey(() => Product)
+  @Column(DataType.INTEGER)
+  declare productId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Product)
+  declare product: Product
+
+  @BelongsTo(() => ProductAttribute)
+  declare attribute: ProductAttribute
+
+  @BelongsToMany(() => ProductVariant, { through: 'product_variant_attribute_values', foreignKey: 'attributeValueId', otherKey: 'variantId' })
+  declare variants: ProductVariant[]
 }
 
-export default ProductAttributeValueModel
+export default ProductAttributeValue

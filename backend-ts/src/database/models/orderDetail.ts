@@ -1,55 +1,59 @@
-import { IOrderDetailModel, IOrderDetailStatic } from '#/types/orderDetail'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Order } from './order'
+import { Product } from './product'
+import { Warehouse } from './warehouse'
+import { ProductVariant } from './productVariant'
 
-const OrderDetailModel = (sequelize: Sequelize) => {
-  const M = <IOrderDetailStatic>sequelize.define<IOrderDetailModel>(
-    'orderDetail',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      quantity: {
-        type: DataTypes.INTEGER
-      },
-      price: {
-        type: DataTypes.BIGINT
-      },
-      buyPrice: {
-        type: DataTypes.BIGINT
-      },
-      note: {
-        type: DataTypes.STRING
-      },
-      warehouseId: {
-        type: DataTypes.INTEGER
-      },
-      productId: {
-        type: DataTypes.INTEGER
-      },
-      // Nullable for simple products; set when a specific variant was ordered.
-      variantId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      orderId: {
-        type: DataTypes.INTEGER
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'orderDetails'
-    }
-  )
+@Table({ tableName: 'orderDetails', modelName: 'orderDetail', timestamps: true })
+export class OrderDetail extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.order, { foreignKey: 'orderId' })
-    M.belongsTo(models.product, { foreignKey: 'productId' })
-    M.belongsTo(models.warehouse, { foreignKey: 'warehouseId' })
-    M.belongsTo(models.productVariant, { foreignKey: 'variantId' })
-  }
-  return M
+  @Column(DataType.INTEGER)
+  declare quantity: number
+
+  @Column(DataType.BIGINT)
+  declare price: number
+
+  @Column(DataType.BIGINT)
+  declare buyPrice: number
+
+  @Column(DataType.STRING)
+  declare note: string
+
+  @ForeignKey(() => Warehouse)
+  @Column(DataType.INTEGER)
+  declare warehouseId: number
+
+  @ForeignKey(() => Product)
+  @Column(DataType.INTEGER)
+  declare productId: number
+
+  @ForeignKey(() => ProductVariant)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare variantId: number | null
+
+  @ForeignKey(() => Order)
+  @Column(DataType.INTEGER)
+  declare orderId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Order)
+  declare order: Order
+
+  @BelongsTo(() => Product)
+  declare product: Product
+
+  @BelongsTo(() => Warehouse)
+  declare warehouse: Warehouse
+
+  @BelongsTo(() => ProductVariant)
+  declare variant: ProductVariant
 }
 
-export default OrderDetailModel
+export default OrderDetail

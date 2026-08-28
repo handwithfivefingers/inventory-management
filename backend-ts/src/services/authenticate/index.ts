@@ -2,22 +2,18 @@ import Redis from '#/configs/redis'
 import { ERROR } from '#/constant/message'
 import { getModule } from '#/constant/modules'
 import database from '#/database'
-import { buildFullPermissions, flattenRolePermissions } from '#/libs/permission'
+import Permission from '#/database/models/permission'
+import Role from '#/database/models/role'
+import Staff from '#/database/models/staff'
+import User from '#/database/models/user'
+import Vendor from '#/database/models/vendor'
+import Warehouse from '#/database/models/warehouse'
+import { buildFullPermissions } from '#/libs/permission'
 import { ApiError } from '#/response'
-import { RoleStatic } from '#/types/role'
-import { IUserStatic } from '#/types/user'
-import { IVendorStatic } from '#/types/vendor'
-import { IWarehouseStatic } from '#/types/warehouse'
+import { IStaffModel } from '#/types/staff'
 import bcrypt from 'bcryptjs'
-import { Request } from 'express'
 import { Sequelize } from 'sequelize'
 
-interface IRequestLocal extends Request {
-  locals: {
-    id: number
-    email: string
-  }
-}
 const { cacheDel, cacheGet, cacheSet, cacheKey } = Redis
 
 interface IRegister {
@@ -35,181 +31,110 @@ interface LoginResponse {
   subscription: 'free' | 'pro'
   createdAt: Date
   updatedAt: Date
-  roles: RoleStatic[]
-  vendors: IVendorStatic[]
+  roles: Role[]
+  vendors: Vendor[]
 }
 
 export default class AuthenticateService {
-  user: IUserStatic = database['user']
-  role: RoleStatic = database.role
-  vendor: IVendorStatic = database.vendor
-  warehouse: IWarehouseStatic = database.warehouse
   sequelize: Sequelize = database.sequelize
   constructor() {}
-
-  async get(req: IRequestLocal): Promise<any> {
+  async get(id: number): Promise<any> {
     try {
-      // Get user email from request locals (set by auth middleware)
-      const userEmail = req.locals.email
-
-      // Cache only the base user record (cheap lookup). Roles/permissions and
-      // vendors are fetched live on every call so that permission or vendor
-      // changes are reflected immediately in `getMe` instead of being stale
-      // for up to 24h (a fresh `getMe` must re-verify the current permissions).
-      // Note: a distinct key (`User:base`) is used so it never collides with
-      // the full object cached by `login`.
-      const base = await this.user.findOne({
-        where: { id: req.locals.id }
-      })
-      // const base = await cacheItem({
-      //   key: cacheKey('User:base', userEmail),
-      //   callback: async () => {
-      //     const user = await this.user.findOne({
-      //       where: { id: req.locals.id }
-      //     })
-      //     if (!user) throw new Error(ERROR.USR_NOT_VALID)
-      //     return user
-      //   }
-      // })
-
-      if (!base) throw new Error(ERROR.USR_NOT_VALID)
-
-      const user: any = await this.user.findOne({
-        where: { id: (base as any).id },
+      const user: any = await User.findByPk(id, {
         include: [
           {
-            model: database.staff,
-            required: false,
+            model: Staff,
             include: [
               {
-                model: database.role,
+                model: Role,
+                attributes: {
+                  exclude: ['createdAt', 'updatedAt', 'description']
+                },
                 include: {
-                  model: database.permission,
-                  through: { attributes: ['C', 'R', 'U', 'D'] }
+                  model: Permission,
+                  as: 'permissions',
+                  attributes: ['id', 'name', 'method'],
+                  through: { attributes: [] }
+                } as any
+              },
+              {
+                model: Vendor,
+                as: 'vendors',
+                include: {
+                  model: Warehouse
                 } as any
               }
             ]
-          },
-          {
-            model: database.vendor,
-            include: {
-              model: database.warehouse
-            } as any
           }
-        ]
+        ],
+        attributes: {
+          exclude: ['createdAt', 'updatedAt']
+        },
+        logging: console.log
       })
-
       if (!user) throw new Error(ERROR.USR_NOT_VALID)
-
-      const staffList: any[] = (user as any).staffs ?? (user as any).staff ?? []
-
-      let rolesRaw2 = [(staffList as any)?.role]
-      const roles = rolesRaw2.map((role: any) => ({
-        id: role.id,
-        name: role.name,
-        permissions: flattenRolePermissions(role)
+      const staff = user.staff
+      const vendors = staff.vendors.map((v: Vendor & { warehouses: Warehouse[] }) => ({
+        id: v.id,
+        name: v.name,
+        warehouses: v?.warehouses?.map((w: Warehouse) => ({
+          id: w.id,
+          name: w.name,
+          isMain: w.isMain
+        }))
       }))
+      console.log(JSON.stringify(user.toJSON(), null, 2))
 
-      const response = {
-        ...(user as any).parsed,
-        roles,
-        vendors: (user as any).vendors
-      }
-      return response
-    } catch (err) {
-      console.log('error', err)
-      throw err
+      return { ...user.parsed, ...staff.parsed, vendors, role: user.staff.role } as LoginResponse
+
+      // const roles = this.resolveUserRoles(user).map((role) => this.mapRole(role))
+      // const vendors = this.mapVendors(user.vendors)
+      // const { defaultVendorId, defaultWarehouseId } = this.resolveDefaults(user.vendors)
+
+      // return {
+      //   ...(user as any).parsed,
+      //   roles,
+      //   vendors,
+      //   defaultVendorId,
+      //   defaultWarehouseId
+      // }
+    } catch (error) {
+      throw ApiError.from(error, 400)
     }
   }
 
-  async login(req: Request): Promise<LoginResponse> {
+  async login({
+    email,
+    password
+  }: {
+    email: string
+    password: string
+  }): Promise<Omit<LoginResponse, 'roles' | 'vendors'>> {
     try {
-      const { email, password } = req.body
       // Use cache to store user data
       const cacheKeyStr = cacheKey('User', email)
 
-      const user: any = await this.user.findOne({
+      const user: any = await User.findOne({
         where: { email },
         include: [
           {
-            model: database.staff,
-            required: false,
-            include: [
-              {
-                model: database.role,
-                include: {
-                  model: database.permission,
-                  through: { attributes: ['C', 'R', 'U', 'D'] }
-                } as any
-              }
-            ]
-          },
-          {
-            model: database.vendor,
-            include: {
-              model: database.warehouse
-            } as any
+            model: Staff
           }
         ]
       })
-
       if (!user) throw new Error(ERROR.USR_NOT_VALID)
-      // Verify password if not already verified in cache callback
       if (!user.password) throw new Error(ERROR.USR_NOT_VALID)
       const isMatchPassword = await bcrypt.compare(password, user.password)
       if (!isMatchPassword) {
-        // Clear cache on failed login
         await cacheDel(cacheKeyStr)
         throw new Error(ERROR.USR_NOT_VALID)
       }
-
-      // Build response with roles, permissions, vendors, and warehouses
-      // Roles now come from staff profiles (staff.role).
-      const userData = user.parsed
-      const staffList: any[] = (user as any).staffs ?? (user as any).staff ?? []
-      let rolesRaw2 = [(staffList as any)?.role as RoleStatic]
-      const roles = rolesRaw2.map((role: any) => ({
-        id: role.id,
-        name: role.name,
-        permissions: flattenRolePermissions(role)
-      }))
-
-      // Build vendors with warehouses list
-      const vendors = (user as any).vendors?.map((vendor: any) => ({
-        id: vendor.id,
-        name: vendor.name,
-        warehouses: vendor.warehouses?.map((w: any) => ({
-          id: w.id,
-          name: w.name,
-          isMain: w.isMain,
-          address: w.address,
-          phone: w.phone,
-          email: w.email
-        }))
-      }))
-
-      // Select default warehouse: prioritize isMain, then first warehouse
-      let defaultWarehouseId: number | null = null
-      let defaultVendorId: number | null = null
-
-      if (vendors && vendors.length > 0) {
-        defaultVendorId = vendors[0].id
-        const firstVendor = vendors[0]
-        if (firstVendor.warehouses && firstVendor.warehouses.length > 0) {
-          const mainWarehouse = firstVendor.warehouses.find((w: any) => w.isMain)
-          defaultWarehouseId = mainWarehouse ? mainWarehouse.id : firstVendor.warehouses[0].id
-        }
+      if (user.staff.status !== 'active') {
+        await cacheDel(cacheKeyStr)
+        throw new Error(ERROR.USR_INACTIVE)
       }
-
-      const response = {
-        ...userData,
-        roles,
-        vendors,
-        defaultVendorId,
-        defaultWarehouseId
-      }
-      console.log('response', response)
-      return response as LoginResponse
+      const staff = user.staff.parsed as IStaffModel
+      return { ...user.parsed, ...staff, role: user.staff.role } as Omit<LoginResponse, 'roles' | 'vendors'>
     } catch (error) {
       console.log('LOGIN ERROR >> error', error)
       throw new ApiError(error as any)
@@ -219,106 +144,108 @@ export default class AuthenticateService {
   async register(params: IRegister) {
     const t = await this.sequelize.transaction()
     try {
-      // Hash password
-      // const hash_password = await bcrypt.hash(params.password, 10)
-      // Create user
-      const { vendor, warehouse, ...user } = params
-      const userBuilder = await this.user.build(params as any)
-
-      // const user = await this.user.create(parsed)
-      const usr = await userBuilder.save({
-        transaction: t
-      })
-
-      // Provision the owner role exactly once per account lifetime: verified
-      // against the join table itself (not the unloaded association), so
-      // re-invoking registration-like flows can never duplicate roles.
-      const existingRoleCount = await (database as any).user_role.count({
-        where: { userId: usr.id },
-        transaction: t
-      })
-      let userRole: any = null
-      if (!existingRoleCount) {
-        userRole = await usr.createRole({ name: 'Admin', isGlobal: true }, { transaction: t })
-        userRole = await this.role.findByPk(userRole.id, { transaction: t })
-        if (!userRole) throw new Error(ERROR.USR_NOT_VALID)
-
-        // Hybrid model: link the SHARED permission catalog onto the role with
-        // full C/R/U/D join flags - never duplicate catalog rows.
-        const fullPermissions = buildFullPermissions()
-        for (const grant of fullPermissions) {
-          const [catalogRow] = await database.permission.findOrCreate({
-            where: { name: grant.name },
-            defaults: { name: grant.name, description: getModule(grant.name)?.description },
-            transaction: t
-          })
-          await (database as any).role_permission.create(
-            {
-              roleId: userRole.id,
-              permissionId: catalogRow.id,
-              C: grant.C,
-              R: grant.R,
-              U: grant.U,
-              D: grant.D
-            },
-            { transaction: t }
-          )
-        }
-        userRole.permissions = fullPermissions
-      }
-
-      const vendorBuilder = this.vendor.build({ name: vendor, userId: usr.id })
-      const vendorModel = await vendorBuilder.save({
-        transaction: t
-      })
-      const warehouseBuilder = this.warehouse.build({
-        name: warehouse || 'Main Warehouse',
-        isMain: true,
-        vendorId: vendorModel.id,
-        email: 'example@example.com', // Provide a value for the email property
-        phone: '1234567890', // Provide a value for the phone property
-        address: '123 Main St' // Provide a value for the address property
-      })
-
-      await warehouseBuilder.save({
-        transaction: t
-      })
-
+      console.log('params', params)
+      const user = await this.createUser(params, t)
+      const vendor = await this.createVendorEntity(params.vendor, user.id, t)
+      const warehouse = await this.createWarehouseEntity(params.warehouse, t)
+      const staff = await this.createStaffEntity(t)
+      await vendor.$set('warehouses', [warehouse], { transaction: t })
+      await user.$set('staff', staff, { transaction: t })
+      await staff.$set('vendors', [vendor], { transaction: t })
+      staff.roleId = 1
+      await staff.save({ transaction: t })
       const result = {
-        ...usr.parsed,
-        vendor: vendorModel,
-        warehouses: [warehouseBuilder],
-        roles: userRole ? [userRole] : []
+        ...user.parsed,
+        vendor,
+        warehouses: [warehouse]
+        // roles: ownerRole ? [ownerRole] : []
       }
-
       await t.commit()
-
-      // Cache the new user data
-      // const cacheKeyStr = cacheKey('User', params.email)
-      // const userData = {
-      //   ...usr.parsed,
-      //   vendors: [
-      //     {
-      //       ...vendorModel.dataValues,
-      //       warehouses: [warehouseBuilder.dataValues]
-      //     }
-      //   ],
-      //   roles: [
-      //     {
-      //       ...userRole.dataValues,
-      //       permissions: [permission.dataValues]
-      //     }
-      //   ]
-      // }
-      // await cacheSet(cacheKeyStr, userData, 3600 * 24)
-
       return result
     } catch (error) {
       await t.rollback()
-      throw new ApiError(error as any)
+      throw ApiError.from(error)
     }
   }
 
+  private async createUser(params: IRegister, transaction: any) {
+    console.log('Create user')
+    const { vendor, warehouse, email, password, ...userAttrs } = params
+    // Password is hashed by the User model setter (bcrypt.hashSync) - no manual hash here
+    const usr = User.build({ email, password })
+    return usr.save({ transaction })
+  }
+
+  // private async provisionOwnerRole(user: any, transaction: any) {
+  //   // Lifetime-once guarantee: check the join table itself, not unloaded associations
+  //   // const existingRoleCount = await .count({
+  //   //   where: { userId: user.id },
+  //   //   transaction
+  //   // })
+  //   // if (existingRoleCount) return null
+  //   // let role = await user.createRole({ name: 'Admin', isGlobal: true }, { transaction })
+  //   // role = await Role.findByPk(role.id, { transaction })
+  //   // if (!role) throw new Error(ERROR.USR_NOT_VALID)
+  //   // await this.linkFullPermissions(role, transaction)
+  //   // return role
+  // }
+
+  // private async linkFullPermissions(role: any, transaction: any) {
+  //   // Hybrid model: reuse shared permission catalog rows, grant full C/R/U/D via join table
+  //   const fullPermissions = buildFullPermissions()
+  //   for (const grant of fullPermissions) {
+  //     const [catalogRow] = await database.permission.findOrCreate({
+  //       where: { name: grant.name },
+  //       defaults: { name: grant.name, description: getModule(grant.name)?.description },
+  //       transaction
+  //     })
+  //     await (database as any).role_permission.create(
+  //       {
+  //         roleId: role.id,
+  //         permissionId: catalogRow.id,
+  //         C: grant.C,
+  //         R: grant.R,
+  //         U: grant.U,
+  //         D: grant.D
+  //       },
+  //       { transaction }
+  //     )
+  //   }
+  //   role.permissions = fullPermissions
+  // }
+
+  private async createVendorEntity(name: string, userId: number, transaction: any) {
+    console.log('Create vendo')
+    const builder = Vendor.build({ name, userId })
+    return builder.save({ transaction })
+  }
+
+  private async createWarehouseEntity(name: string | undefined, transaction: any) {
+    console.log('Create warehouse')
+    const builder = database.warehouse.build({
+      name: name || 'Main Warehouse',
+      isMain: true,
+      email: 'example@example.com',
+      phone: '1234567890',
+      address: '123 Main St'
+    })
+    await builder.save({ transaction })
+    return builder
+  }
+
+  private async createStaffEntity(transaction: any) {
+    console.log('Create staff')
+    const builder = Staff.build({
+      // userId,
+      fullName: 'Admin',
+      email: 'example@example.com',
+      phone: '1234567890',
+      code: 'NV-0001',
+      gender: 'other',
+      status: 'active'
+    })
+    return builder.save({ transaction })
+  }
   /**
    * Clear user cache by email
    */

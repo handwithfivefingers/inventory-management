@@ -1,5 +1,5 @@
 import { RoleController } from '#/controllers/role'
-import express, { NextFunction, Response, Request } from 'express'
+import express from 'express'
 const Router = express.Router()
 
 // Public routes (with auth)
@@ -7,7 +7,6 @@ const Router = express.Router()
 Router.get('/', new RoleController().get)
 // @ts-ignore
 Router.get('/:id', new RoleController().getById)
-// CRUD operations
 // @ts-ignore
 Router.post('/create', new RoleController().create)
 // @ts-ignore

@@ -1,5 +1,8 @@
 {
   "extends": "@tsconfig/node22/tsconfig.json",
+  "target": "es6", // or a more recent ecmascript version
+  "experimentalDecorators": true,
+  "emitDecoratorMetadata": true,
   "compilerOptions": {
     "target": "ES2020",
     "module": "nodenext",
@@ -7,6 +10,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "outDir": "./dist",
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "#/*": ["src/*"]

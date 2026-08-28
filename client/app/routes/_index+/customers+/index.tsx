@@ -96,7 +96,7 @@ export default function Customers() {
               }}
               className="max-w-xs"
             />
-            <PermissionGuard permission="C" module="customer">
+            <PermissionGuard permission="CREATE" module="customer">
               <Link to="add">
                 <TMButton>{t("customers.create")}</TMButton>
               </Link>
@@ -117,21 +117,22 @@ export default function Customers() {
                   width: 200,
                   render: (item: ICustomer) => (
                     <div className="flex gap-2">
-                      <PermissionGuard permission="R" module="customer">
+                      <PermissionGuard permission="READ" module="customer">
                         <Link to={`${item.id}`} className="text-blue-600 hover:underline">
                           {t("common.view")}
                         </Link>
                       </PermissionGuard>
-                      <PermissionGuard permission="U" module="customer">
+                      <PermissionGuard permission="UPDATE" module="customer">
                         <Link to={`${item.id}/edit`} className="text-orange-600 hover:underline">
                           {t("common.edit")}
                         </Link>
                       </PermissionGuard>
-                      <PermissionGuard permission="D" module="customer">
+                      <PermissionGuard permission="DELETE" module="customer">
                         <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:underline">
                           {t("common.delete")}
                         </button>
-                      </PermissionGuard>                    </div>
+                      </PermissionGuard>{" "}
+                    </div>
                   ),
                 },
               ]}

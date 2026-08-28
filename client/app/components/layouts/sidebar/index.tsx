@@ -1,14 +1,14 @@
 import { Link, useLocation } from "@remix-run/react";
+import { m } from "motion/react";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Icon } from "~/components/icon";
 import { ISidebarChild, ISideBarItem, SIDE_BAR } from "~/constants/sidebar";
 import { checkPermission } from "~/hooks/use-permission";
-import { useUser } from "~/store/user.store";
 import { useTranslation } from "~/i18n";
 import { cn } from "~/libs/utils";
+import { usePermissionStore } from "~/store/permission.store";
 import { BaseProps } from "~/types/common";
 import { IRole } from "~/types/user";
-import { m } from "motion/react";
 interface ISidebarItem extends BaseProps {
   to?: string;
   label: string;
@@ -38,29 +38,22 @@ const hasActiveDescendant = (items: ISidebarChild[] | undefined, pathname: strin
     item.items?.length ? hasActiveDescendant(item.items, pathname) : isRouteActive(pathname, item.to),
   );
 
-/**
- * Pure visibility rule: a sidebar entry renders only when the user holds the
- * module's Read permission (exact module-key match, mirroring the backend
- * authorize() checks). Items without a moduleKey are always visible.
- */
-const isVisible = (item: ISidebarChild | ISideBarItem, roles: IRole[] | undefined): boolean =>
-  !item.moduleKey || checkPermission(roles, item.moduleKey, "R");
-
 /** Filter any level of entries down to what the user may see. */
-const filterVisible = <T extends ISidebarChild | ISideBarItem>(items: T[], roles: IRole[] | undefined): T[] =>
-  items.filter((item) => isVisible(item, roles));
+const filterVisible = <T extends ISidebarChild | ISideBarItem>(items: T[], role?: IRole | undefined): T[] => {
+  return items.filter((item) => !item.moduleKey || (role && checkPermission(role, item.moduleKey, "READ")));
+};
 
 export const Sidebar = () => {
   const { t } = useTranslation();
-  const { user } = useUser();
+  const role = usePermissionStore();
 
   // Requirement 4: group headers remain visible even when the user lacks
   // permission for all children - only the children are filtered.
   const visibleGroups = useMemo(() => {
     return SIDE_BAR.map((group) =>
-      group.items?.length ? { ...group, items: filterVisible(group.items, user?.roles) } : group,
+      group.items?.length ? { ...group, items: filterVisible(group.items, role) } : group,
     );
-  }, [user?.roles]);
+  }, [role]);
 
   return (
     <div className="flex flex-col h-full flex-1 p-2 rounded-md gap-1 overflow-auto scrollbar">

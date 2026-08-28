@@ -1,86 +1,67 @@
-import { IProductVariantModel, IProductVariantStatic } from '#/types/productVariant'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany, BelongsToMany } from 'sequelize-typescript'
+import { Product } from './product'
+import { Inventory } from './inventory'
+import { Transfer } from './transfer'
+import { ProductAttributeValue } from './productAttributeValue'
 
-const ProductVariantModel = (sequelize: Sequelize) => {
-  const M = <IProductVariantStatic>sequelize.define<IProductVariantModel>(
-    'productVariant',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      productId: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-      code: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      skuCode: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      // Prices are nullable: when missing the parent product's price applies
-      salePrice: {
-        type: DataTypes.BIGINT,
-        allowNull: true
-      },
-      regularPrice: {
-        type: DataTypes.BIGINT,
-        allowNull: true
-      },
-      wholeSalePrice: {
-        type: DataTypes.BIGINT,
-        allowNull: true
-      },
-      costPrice: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      sold: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        defaultValue: 0
-      },
-      isActive: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true
-      },
-      // Per-variant "allow negative stock" flag; overrides the parent
-      // product's isNegative for this specific combination.
-      isNegative: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'productVariants',
-      indexes: [
-        {
-          unique: true,
-          fields: ['productId', 'skuCode']
-        }
-      ]
-    }
-  )
+@Table({
+  tableName: 'productVariants',
+  modelName: 'productVariant',
+  timestamps: true,
+  indexes: [{ unique: true, fields: ['productId', 'skuCode'] }]
+})
+export class ProductVariant extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.product, { foreignKey: 'productId' })
-    M.hasMany(models.inventory, { foreignKey: 'variantId' })
-    M.hasMany(models.transfer, { foreignKey: 'variantId' })
-    M.belongsToMany(models.productAttributeValue, {
-      through: 'product_variant_attribute_values',
-      foreignKey: 'variantId',
-      otherKey: 'attributeValueId',
-      as: 'attributeValues'
-    })
-  }
-  return M
+  @ForeignKey(() => Product)
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare productId: number
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare code: string | null
+
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare skuCode: string
+
+  @Column({ type: DataType.BIGINT, allowNull: true })
+  declare salePrice: number | null
+
+  @Column({ type: DataType.BIGINT, allowNull: true })
+  declare regularPrice: number | null
+
+  @Column({ type: DataType.BIGINT, allowNull: true })
+  declare wholeSalePrice: number | null
+
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare costPrice: number | null
+
+  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
+  declare sold: number
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  declare isActive: boolean
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
+  declare isNegative: boolean
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Product)
+  declare product: Product
+
+  @HasMany(() => Inventory)
+  declare inventories: Inventory[]
+
+  @HasMany(() => Transfer)
+  declare transfers: Transfer[]
+
+  @BelongsToMany(() => ProductAttributeValue, { through: 'product_variant_attribute_values', foreignKey: 'variantId', otherKey: 'attributeValueId' })
+  declare attributeValues: ProductAttributeValue[]
 }
 
-export default ProductVariantModel
+export default ProductVariant

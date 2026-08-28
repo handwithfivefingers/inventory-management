@@ -1,17 +1,10 @@
 import { ERROR } from '#/constant/message'
 import { verifyToken } from '#/libs/token'
 import { loadUserAuthContext } from '#/services/authenticate/userAuth'
+import { IRequestLocal } from '#/types/common'
 import { captureException } from '@sentry/node'
 import { NextFunction, Request, Response } from 'express'
 
-interface IRequest extends Request {
-  locals: Record<any, any>
-  user?: {
-    id: number
-    email: string
-    vendorId: number | null
-  }
-}
 interface ITokenPayload {
   email: string
   id: number
@@ -21,35 +14,32 @@ interface ITokenPayload {
 
 /**
  * Resolves the authenticated user ONCE per request:
- * - `req.locals.id/email` - identity (used by authorize)
- * - `req.locals.vendorIds` - the vendors the caller owns. This is the
+ * - `req.user.id/email` - identity (used by authorize)
+ * - `req.user.vendorIds` - the vendors the caller owns. This is the
  *   multi-tenant scope every service MUST filter by (see utils/tenant.ts).
  * - `req.user` - convenience shape `{ id, email, vendorId }` for services
  *   that read a single primary vendor.
  */
-const auth: any = async (req: IRequest, res: Response, next: NextFunction) => {
+const auth: any = async (req: IRequestLocal, res: Response, next: NextFunction) => {
   try {
     const session = req.cookies?.['session']
     if (!session) throw new Error(ERROR.UNAUTHORIZED)
     const payload = verifyToken<ITokenPayload>(session)
     if (!payload) throw new Error(ERROR.UNAUTHORIZED)
-
-    // Single cached load of user + roles + vendors (shared with authorize).
     const context = await loadUserAuthContext(payload.id)
     if (!context) throw new Error(ERROR.UNAUTHORIZED)
-    req.locals = {
+    req.user = {
       email: context.email,
       id: context.id,
       vendorIds: context.vendorIds,
-      roles: context.roles
-    }
-    req.user = {
-      id: context.id,
-      email: context.email,
+      roles: context.roles,
       vendorId: context.vendorIds[0] ?? null
     }
+    console.log('---------- Auth Guard Middleware next')
+
     next()
   } catch (error) {
+    console.log('---------- Auth Guard Middleware catched')
     ;(error as Error & { status?: number }).status = 401
     captureException(error)
     next(error)

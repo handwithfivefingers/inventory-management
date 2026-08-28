@@ -1,40 +1,3 @@
-// const { auth } = require("@src/middleware/authenticate");
-// const { userInfoMiddleware } = require("@src/middleware/userInformation");
-// const express = require("express");
-// const route = express.Router();
-
-// route.use("/auth", require("./authenticate"));
-
-// route.use("/permission", require("./permission"));
-
-// route.use("/role", require("./role"));
-
-// route.use("/products", require("./product"));
-
-// route.use("/vendors", auth, require("./vendor"));
-
-// route.use("/warehouses", auth, require("./warehouse"));
-
-// route.use("/providers", auth, require("./provider"));
-
-// route.use("/orders", auth, require("./orders"));
-
-// route.use("/import-order", auth, require("./importOrder"));
-
-// route.use("/categories", auth, require("./categories"));
-
-// route.use("/tags", auth, require("./tags"));
-
-// route.use("/units", auth, require("./units"));
-
-// route.use("/financial", auth, require("./financial"));
-
-// route.use("/history", auth, require("./history"));
-
-// route.use("/qr", require("./vietqr"));
-
-// module.exports = route;
-// import Router from '#/core/router'
 import express from 'express'
 import authenticate from './authenticate'
 import vendorRouter from './vendor'
@@ -55,33 +18,34 @@ import staff from './staff'
 import shift from './shift'
 import setting from './setting'
 import importOrder from './importOrder'
-import permission from './permission'
 // import qr from './qr'
 import { auth } from '#/middleware/authenticate'
 import authorize from '#/middleware/authorize'
+import permission from './permission'
+import { vendorGuard } from '#/middleware/vendorGuard'
 const router = express.Router()
 
 router.use('/auth', authenticate)
-router.use('/vendor', auth, vendorRouter)
-router.use('/orders', auth, authorize('order'), orders)
-router.use('/products', auth, authorize('product'), product)
-router.use('/providers', auth, authorize('provider'), provider)
-router.use('/warehouses', auth, authorize('warehouse'), warehouse)
-router.use('/categories', auth, authorize('category'), categories)
-router.use('/tags', auth, authorize('tag'), tags)
-router.use('/units', auth, authorize('unit'), units)
-router.use('/financial', auth, authorize('financial'), financial)
-router.use('/stats', auth, authorize('dashboard'), stats)
-router.use('/history', auth, authorize('product'), history)
-router.use('/roles', auth, authorize('role'), role)
-router.use('/customers', auth, authorize('customer'), customer)
-router.use('/invoices', auth, authorize('invoice'), invoice)
-router.use('/staff', auth, authorize('staff'), staff)
+router.use('/vendor', auth, vendorGuard, vendorRouter)
+router.use('/orders', auth, vendorGuard, authorize('order'), orders)
+router.use('/products', auth, vendorGuard, authorize('product'), product)
+router.use('/providers', auth, vendorGuard, authorize('provider'), provider)
+router.use('/warehouses', auth, vendorGuard, authorize('warehouse'), warehouse)
+router.use('/categories', auth, vendorGuard, authorize('category'), categories)
+router.use('/tags', auth, vendorGuard, authorize('tag'), tags)
+router.use('/units', auth, vendorGuard, authorize('unit'), units)
+router.use('/financial', auth, vendorGuard, authorize('financial'), financial)
+router.use('/stats', auth, vendorGuard, authorize('dashboard'), stats)
+router.use('/history', auth, vendorGuard, authorize('product'), history)
+router.use('/roles', auth, vendorGuard, authorize('role'), role)
+router.use('/customers', auth, vendorGuard, authorize('customer'), customer)
+router.use('/invoices', auth, vendorGuard, authorize('invoice'), invoice)
+router.use('/staff', auth, vendorGuard, authorize('staff'), staff)
 // Opening a shift creates it (C); closing an existing one updates it (U).
-router.use('/shift', auth, authorize('shift', { 'POST /close': 'U' }), shift)
-router.use('/settings', auth, authorize('setting'), setting)
-router.use('/import-order', auth, authorize('import-order'), importOrder)
+router.use('/shift', auth, vendorGuard, authorize('shift', { 'POST /close': 'U' }), shift)
+router.use('/settings', auth, vendorGuard, authorize('setting'), setting)
+router.use('/import-order', auth, vendorGuard, authorize('import-order'), importOrder)
+router.use('/permission', auth, vendorGuard, authorize('permission'), permission)
 // Canonical module catalog for role editors & permission sync status.
-router.use('/permissions', auth, permission)
 // router.use('/qr', auth, qr)
 export default router

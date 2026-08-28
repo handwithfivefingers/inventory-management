@@ -1,22 +1,16 @@
 import { Redis } from '#/configs/redis'
 import database from '#/database'
 import { cacheDel, cacheItem, cacheKey } from '#/services/authenticate/cache'
+import { IRequestLocal } from '#/types/common'
 import { NextFunction, Request, Response } from 'express'
-
-interface IRequestLocal extends Request {
-  locals: {
-    id: number
-    email: string
-  }
-}
 
 /**
  * Update user profile with cache invalidation
  */
 export async function updateUserProfile(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
   try {
-    const userId = req.locals.id
-    const userEmail = req.locals.email
+    const userId = req.user?.id
+    const userEmail = req.user?.email
     const updates = req.body
 
     // Update user in database
@@ -76,8 +70,8 @@ export async function updateUserProfile(req: IRequestLocal, res: Response, next:
  */
 export async function updateUserRoles(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
   try {
-    const userId = req.locals.id
-    const userEmail = req.locals.email
+    const userId = req.user.id
+    const userEmail = req.user.email
     const { roleIds } = req.body
 
     const user = await database.user.findByPk(userId, {

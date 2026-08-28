@@ -1,20 +1,13 @@
 import { PermissionAction } from '#/constant/modules'
 import { flattenRoles, hasPermission, resolveAction } from '#/libs/permission'
 import { loadUserAuthContext } from '#/services/authenticate/userAuth'
+import { IRequestLocal } from '#/types/common'
 import { NextFunction, Request, Response } from 'express'
-
-interface IRequest extends Request {
-  locals?: {
-    id: number
-    email: string
-    [key: string]: any
-  }
-}
 
 /**
  * Per-request authorization middleware factory.
  *
- * Must run AFTER `auth` (which populates `req.locals.id`). The user's role +
+ * Must run AFTER `auth` (which populates `req.user.id`). The user's role +
  * permissions come from the SHARED short-TTL cache (`loadUserAuthContext`),
  * so auth and authorize together hit the database at most once per TTL
  * window instead of twice per request.
@@ -24,15 +17,12 @@ interface IRequest extends Request {
  * and can be overridden per route, e.g.:
  *   authorize('shift', { 'POST /close': 'U' })
  */
-const authorize = (
-  module: string,
-  overrides: Record<string, PermissionAction> = {}
-) => {
+const authorize = (module: string, overrides: Record<string, PermissionAction> = {}) => {
   if (!module) throw new Error('authorize() requires a module name')
 
-  return async (req: IRequest, res: Response, next: NextFunction): Promise<void> => {
+  return async (req: IRequestLocal, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = req.locals?.id
+      const userId = req.user?.id
       if (!userId) {
         res.status(401).json({ error: 'Unauthorized' })
         return
@@ -60,7 +50,7 @@ const authorize = (
       // Reuse the cached context loaded by `auth` when present; otherwise
       // (e.g. routes wired without `auth`) load it via the shared loader.
       const context =
-        (Array.isArray(req.locals?.roles) ? ({ ...(req.locals as any) } as any) : null) ??
+        (Array.isArray(req.user?.roles) ? ({ ...(req.user as any) } as any) : null) ??
         (await loadUserAuthContext(userId))
 
       if (!context) {

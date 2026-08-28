@@ -12,6 +12,7 @@ export interface PermissionModel
   id: CreationOptional<number>
   name: string
   description?: string | null
+  method: 'CREATE' | 'READ' | 'UPDATE' | 'DELETE'
 }
 
 export type IPermissionStatic = typeof Model & { associate: (models: any) => void } & {

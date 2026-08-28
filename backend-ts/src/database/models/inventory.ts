@@ -1,39 +1,42 @@
-import { IInventoryModel, IInventoryStatic } from '#/types/inventory'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Warehouse } from './warehouse'
+import { Product } from './product'
+import { ProductVariant } from './productVariant'
 
-const InventoryModel = (sequelize: Sequelize) => {
-  const M = <IInventoryStatic>sequelize.define<IInventoryModel>(
-    'inventory',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      quantity: {
-        type: DataTypes.INTEGER
-      },
-      productId: DataTypes.INTEGER,
-      // Nullable: NULL means product-level (simple product) stock,
-      // a value targets one specific variant of the product.
-      variantId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      warehouseId: DataTypes.INTEGER
-    },
-    {
-      timestamps: true,
-      tableName: 'inventories'
-    }
-  )
+@Table({ tableName: 'inventories', modelName: 'inventory', timestamps: true })
+export class Inventory extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.warehouse, { foreignKey: 'warehouseId' })
-    M.belongsTo(models.product, { foreignKey: 'productId' })
-    M.belongsTo(models.productVariant, { foreignKey: 'variantId' })
-  }
-  return M
+  @Column(DataType.INTEGER)
+  declare quantity: number
+
+  @ForeignKey(() => Product)
+  @Column(DataType.INTEGER)
+  declare productId: number
+
+  @ForeignKey(() => ProductVariant)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare variantId: number | null
+
+  @ForeignKey(() => Warehouse)
+  @Column(DataType.INTEGER)
+  declare warehouseId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Warehouse)
+  declare warehouse: Warehouse
+
+  @BelongsTo(() => Product)
+  declare product: Product
+
+  @BelongsTo(() => ProductVariant)
+  declare variant: ProductVariant
 }
 
-export default InventoryModel
+export default Inventory

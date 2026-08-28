@@ -14,7 +14,7 @@ export default class StaffController {
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params
-      const resp = await new StaffService().getById(id)
+      const resp = await new StaffService().getById(+id)
       res.status(200).json({ data: resp })
       return
     } catch (error) {
@@ -23,7 +23,8 @@ export default class StaffController {
   }
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const resp = await new StaffService().create(req.body)
+      const { vendorId } = req.query
+      const resp = await new StaffService().create({ vendorId, ...req.body })
       res.status(200).json({ data: resp })
       return
     } catch (error) {

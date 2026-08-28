@@ -1,32 +1,30 @@
-import { IProductAttributeModel, IProductAttributeStatic } from '#/types/productAttribute'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript'
+import { Product } from './product'
+import { ProductAttributeValue } from './productAttributeValue'
 
-const ProductAttributeModel = (sequelize: Sequelize) => {
-  const M = <IProductAttributeStatic>sequelize.define<IProductAttributeModel>(
-    'productAttribute',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      productId: DataTypes.INTEGER
-    },
-    {
-      timestamps: true,
-      tableName: 'productAttributes'
-    }
-  )
+@Table({ tableName: 'productAttributes', modelName: 'productAttribute', timestamps: true })
+export class ProductAttribute extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.product, { foreignKey: 'productId' })
-    M.hasMany(models.productAttributeValue, { foreignKey: 'attributeId', as: 'values' })
-  }
-  return M
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare name: string
+
+  @ForeignKey(() => Product)
+  @Column(DataType.INTEGER)
+  declare productId: number
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Product)
+  declare product: Product
+
+  @HasMany(() => ProductAttributeValue)
+  declare values: ProductAttributeValue[]
 }
 
-export default ProductAttributeModel
+export default ProductAttribute

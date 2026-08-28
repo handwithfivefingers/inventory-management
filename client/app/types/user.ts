@@ -4,10 +4,7 @@ import { IWareHouse } from "./warehouse";
 export interface IPermission {
   id: number;
   name: string;
-  C: boolean;
-  R: boolean;
-  U: boolean;
-  D: boolean;
+  method: "CREATE" | "READ" | "UPDATE" | "DELETE";
 }
 
 export interface IRole {
@@ -15,6 +12,7 @@ export interface IRole {
   name: string;
   isSystem?: boolean;
   isGlobal?: boolean;
+  isAdmin?: boolean;
   permissions: IPermission[];
 }
 
@@ -25,7 +23,7 @@ export interface IUser {
   lastName: string;
   nickname?: string;
   subscription?: string;
-  roles?: IRole[];
+  role?: IRole[];
   vendors?: IVendor[];
   defaultVendorId?: number | null;
   defaultWarehouseId?: number | null;

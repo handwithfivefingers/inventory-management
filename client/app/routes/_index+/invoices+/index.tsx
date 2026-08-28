@@ -153,12 +153,12 @@ export default function Invoices() {
                 <option value="cancelled">{t("invoices.status.cancelled")}</option>
               </select> */}
             </div>
-            <PermissionGuard permission="C" module="invoice" requireAdmin>
+            <PermissionGuard permission="CREATE" module="invoice" requireAdmin>
               <TMButton component={Link} to={"./add"} size="sm">
                 <Icon name="plus" fontSize={16} />
                 {t("invoices.create")}
               </TMButton>
-              {/* <PermissionGuard permission="C" module="invoice" requireAdmin>
+              {/* <PermissionGuard permission="CREATE" module="invoice" requireAdmin>
               <Link to="add"> */}
               {/* <TMButton>{t("invoices.create")}</TMButton> */}
               {/* </Link> */}
@@ -210,18 +210,14 @@ export default function Invoices() {
                   render: (item: IInvoice) => (
                     // stopPropagation so clicking an action doesn't also trigger the row navigation
                     <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                      <PermissionGuard permission="R" module="invoice" requireAdmin>
-                        <Link
-                          to={`${item.id}`}
-                          title={t("common.view")}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
+                      <PermissionGuard permission="READ" module="invoice" requireAdmin>
+                        <Link to={`${item.id}`} title={t("common.view")} className="text-blue-600 hover:text-blue-800">
                           <Icon name="eye" fontSize={16} />
                         </Link>
                       </PermissionGuard>
                       {item.status === "draft" && (
                         <>
-                          <PermissionGuard permission="U" module="invoice" requireAdmin>
+                          <PermissionGuard permission="UPDATE" module="invoice" requireAdmin>
                             <Link
                               to={`${item.id}/edit`}
                               title={t("common.edit")}
@@ -230,7 +226,7 @@ export default function Invoices() {
                               <Icon name="edit-2" fontSize={16} />
                             </Link>
                           </PermissionGuard>
-                          <PermissionGuard permission="D" module="invoice" requireAdmin>
+                          <PermissionGuard permission="DELETE" module="invoice" requireAdmin>
                             <button
                               onClick={() => handleDelete(item.id)}
                               title={t("common.delete")}
@@ -242,7 +238,7 @@ export default function Invoices() {
                         </>
                       )}
                       {item.status === "issued" && (
-                        <PermissionGuard permission="U" module="invoice" requireAdmin>
+                        <PermissionGuard permission="UPDATE" module="invoice" requireAdmin>
                           <button
                             onClick={() => handleUpdateStatus(item.id, "paid")}
                             title={t("invoices.markAsPaid")}

@@ -2,6 +2,7 @@ import { LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { commitSession, destroySession, parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  console.log("Coming Root Loader");
   const { cookie, session, userId } = await parseCookieFromRequest(request);
   try {
     if (!userId) {

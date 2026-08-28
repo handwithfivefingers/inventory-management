@@ -1,11 +1,8 @@
 import Redis from '#/configs/redis'
+import { IRequestLocal } from '#/types/common'
 const { cacheGet, cacheKey } = Redis
 
-interface IRequest extends Request {
-  locals: Record<any, any>
-}
-
-export const getCtxUser = async (req: IRequest) => {
-  const usr = await cacheGet(cacheKey('User', req.locals.email))
+export const getCtxUser = async (req: IRequestLocal) => {
+  const usr = await cacheGet(cacheKey('User', req.user.email))
   return usr
 }

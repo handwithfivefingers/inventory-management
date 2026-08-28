@@ -19,7 +19,8 @@ import ioredis from 'ioredis'
 export class Redis {
   redis: ioredis
   constructor() {
-    this.redis = new ioredis(`redis://localhost:6379`, {
+    const url = process.env.REDIS_URL || `redis://localhost:6379`
+    this.redis = new ioredis(url, {
       enableOfflineQueue: false,
       retryStrategy: () => 5000
     })

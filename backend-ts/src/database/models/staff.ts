@@ -1,92 +1,91 @@
-import { IStaffModel, IStaffStatic } from '#/types/staff'
-import { DataTypes, Sequelize } from 'sequelize'
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+  ForeignKey,
+  BelongsTo,
+  BelongsToMany,
+  HasMany
+} from 'sequelize-typescript'
+import { User } from './user'
+import { Role } from './role'
+import { Vendor } from './vendor'
+import { StaffVendor } from './staff_vendor'
+import { Shift } from './shift'
+import { FinancialRecord } from './financialRecord'
 
-const StaffModel = (sequelize: Sequelize) => {
-  const M = <IStaffStatic>sequelize.define<IStaffModel>(
-    'staff',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      code: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
-        comment: 'Employee code, e.g. NV-0001'
-      },
-      fullName: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      gender: {
-        type: DataTypes.ENUM,
-        values: ['male', 'female', 'other'],
-        allowNull: true
-      },
-      phone: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      // email: {
-      //   type: DataTypes.STRING,
-      //   allowNull: true
-      // },
-      salary: {
-        type: DataTypes.BIGINT,
-        allowNull: true
-      },
-      hireDate: {
-        type: DataTypes.DATEONLY,
-        allowNull: true
-      },
-      status: {
-        type: DataTypes.ENUM,
-        values: ['active', 'inactive'],
-        allowNull: false,
-        defaultValue: 'active'
-      },
-      address: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      userId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        comment: 'FK -> users.id (auth account)'
-      },
-      vendorId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        comment: 'Tenant vendor'
-      },
-      roleId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        comment: 'FK -> roles.id'
-      }
-      // warehouseId: {
-      //   type: DataTypes.INTEGER,
-      //   allowNull: true
-      // }
-    },
-    {
-      timestamps: true,
-      tableName: 'staff'
+@Table({ tableName: 'staff', modelName: 'staff', timestamps: true })
+export class Staff extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
+
+  @Column({ type: DataType.STRING, allowNull: false, comment: 'Employee code, e.g. NV-0001' })
+  declare code: string
+
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare fullName: string
+
+  @Column({ type: DataType.ENUM('male', 'female', 'other'), allowNull: true })
+  declare gender: 'male' | 'female' | 'other' | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare phone: string | null
+
+  @Column({ type: DataType.BIGINT, allowNull: true })
+  declare salary: number | null
+
+  @Column({ type: DataType.DATEONLY, allowNull: true })
+  declare hireDate: Date | null
+
+  @Column({ type: DataType.ENUM('active', 'inactive'), allowNull: false, defaultValue: 'active' })
+  declare status: 'active' | 'inactive'
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare address: string | null
+
+  @ForeignKey(() => User)
+  @Column({ type: DataType.INTEGER, allowNull: true, comment: 'FK -> users.id (auth account)' })
+  declare userId: number | null
+
+  @ForeignKey(() => Role)
+  @Column({ type: DataType.INTEGER, allowNull: true, comment: 'FK -> roles.id' })
+  declare roleId: number | null
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  get parsed() {
+    return {
+      staffId: (this as any).id,
+      code: (this as any).code,
+      fullName: (this as any).fullName,
+      gender: (this as any).gender,
+      phone: (this as any).phone,
+      status: (this as any).status,
+      address: (this as any).address
     }
-  )
-
-  M.associate = (models: any) => {
-    M.belongsTo(models.user, { foreignKey: 'userId' })
-    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
-    M.belongsTo(models.role, { foreignKey: 'roleId' })
-    // M.belongsTo(models.warehouse, { foreignKey: 'warehouseId' })
-    // Many
-    M.hasMany(models.shift, { foreignKey: 'staffId' })
-    M.hasMany(models.financialRecord, { foreignKey: 'staffId' })
   }
-  return M
+
+  @BelongsTo(() => User)
+  declare user: User
+
+  @BelongsTo(() => Role)
+  declare role: Role
+
+  @BelongsToMany(() => Vendor, () => StaffVendor)
+  declare vendors: Vendor[]
+
+  @HasMany(() => Shift)
+  declare shifts: Shift[]
+
+  @HasMany(() => FinancialRecord)
+  declare financialRecords: FinancialRecord[]
 }
 
-export default StaffModel
+export default Staff

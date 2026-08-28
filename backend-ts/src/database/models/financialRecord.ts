@@ -1,75 +1,55 @@
-import { IFinancialRecordModel, IFinancialRecordStatic } from '#/types/financialRecord'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Staff } from './staff'
+import { Warehouse } from './warehouse'
 
-const FinancialRecordModel = (sequelize: Sequelize) => {
-  const M = <IFinancialRecordStatic>sequelize.define<IFinancialRecordModel>(
-    'financialRecord',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      code: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        comment: 'Voucher code, e.g. PT-00001 (revenue) / PC-00001 (expense)'
-      },
-      type: {
-        type: DataTypes.ENUM,
-        values: ['revenue', 'expense'],
-        allowNull: false,
-        comment: 'revenue: phiếu thu, expense: phiếu chi'
-      },
-      category: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'other',
-        comment: 'sale | import | salary | rent | other'
-      },
-      amount: {
-        type: DataTypes.BIGINT,
-        allowNull: false,
-        defaultValue: 0
-      },
-      note: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      relatedType: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        comment: 'order | importOrder | shift'
-      },
-      relatedId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      staffId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      warehouseId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      transactionDate: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW
-      }
-    },
-    {
-      timestamps: true,
-      tableName: 'financial_records'
-    }
-  )
+@Table({ tableName: 'financial_records', modelName: 'financialRecord', timestamps: true })
+export class FinancialRecord extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-  M.associate = (models: any) => {
-    M.belongsTo(models.staff, { foreignKey: 'staffId' })
-    M.belongsTo(models.warehouse, { foreignKey: 'warehouseId' })
-  }
-  return M
+  @Column({ type: DataType.STRING, allowNull: false, comment: 'Voucher code, e.g. PT-00001 (revenue) / PC-00001 (expense)' })
+  declare code: string
+
+  @Column({ type: DataType.ENUM('revenue', 'expense'), allowNull: false, comment: 'revenue: phiếu thu, expense: phiếu chi' })
+  declare type: 'revenue' | 'expense'
+
+  @Column({ type: DataType.STRING, allowNull: false, defaultValue: 'other', comment: 'sale | import | salary | rent | other' })
+  declare category: string
+
+  @Column({ type: DataType.BIGINT, allowNull: false, defaultValue: 0 })
+  declare amount: number
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare note: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true, comment: 'order | importOrder | shift' })
+  declare relatedType: string | null
+
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare relatedId: number | null
+
+  @ForeignKey(() => Staff)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare staffId: number | null
+
+  @ForeignKey(() => Warehouse)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare warehouseId: number | null
+
+  @Column({ type: DataType.DATE, allowNull: false, defaultValue: DataType.NOW })
+  declare transactionDate: Date
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsTo(() => Staff)
+  declare staff: Staff
+
+  @BelongsTo(() => Warehouse)
+  declare warehouse: Warehouse
 }
 
-export default FinancialRecordModel
+export default FinancialRecord

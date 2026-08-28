@@ -1,55 +1,46 @@
 import database from '#/database'
-import { getModule, isModuleKey, MODULE_KEYS_LIST } from '#/constant/modules'
-import { flattenRolePermissions } from '#/libs/permission'
+import { ApiError } from '#/response'
+import { invalidateUsersByRoleId, invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { RoleStatic } from '#/types/role'
 import { NextFunction, Request, Response } from 'express'
-import { Sequelize, Op } from 'sequelize'
+import { Op, Sequelize } from 'sequelize'
 
+type METHOD = 'CREATE' | 'READ' | 'UPDATE' | 'DELETE'
 interface IPermissionInput {
-  id?: number
   name: string
-  C: boolean
-  R: boolean
-  U: boolean
-  D: boolean
+  ids: METHOD[]
 }
 
 interface IRoleInput {
+  id: number
+  vendorId: number
   name: string
   description?: string
-  vendorId?: number | null
   isGlobal?: boolean
   permissions?: IPermissionInput[]
 }
+interface RoleUpdateParams {
+  id: number
+  vendorId: number
+  name: string
+  description?: string
+  permissions?: IPermissionInput[]
+}
 
-/**
- * Validate + normalize a permission payload against the canonical module
- * registry. Unknown module keys are rejected so the permission catalog can
- * never drift from what the backend actually enforces; CRUD flags are
- * clamped to real booleans.
- */
-export const sanitizePermissions = (permissions?: IPermissionInput[]) => {
-  if (!permissions?.length) return []
-  return permissions.map((permission) => {
-    const name = String(permission.name ?? '').trim().toLowerCase()
-    if (!isModuleKey(name)) {
-      throw new Error(
-        `Unknown permission module "${permission.name}". Allowed modules: ${MODULE_KEYS_LIST.join(', ')}`
-      )
-    }
-    return {
-      name,
-      description: getModule(name)?.description,
-      C: permission.C === true,
-      R: permission.R === true,
-      U: permission.U === true,
-      D: permission.D === true
-    }
-  })
+interface GetRoleByIdResponse {
+  id: number
+  vendorId: number
+  name: string
+  description: string
+  isGlobal: boolean
+  isSystem: boolean
+  createdAt: string
+  updatedAt: string
+  permissions: { id: number; name: string; method: METHOD }[]
 }
 
 export class RoleService {
-  model: RoleStatic
+  model: Role
   sequelize: Sequelize | undefined
   constructor() {
     this.model = database.role
@@ -63,53 +54,57 @@ export class RoleService {
    */
   async getRoles(vendorId?: number | null) {
     try {
+      if (!vendorId) throw new Error('Vendor is required')
       const where: any = {}
-
-      // Filter by vendor: show vendor-specific roles + global roles
-      if (vendorId) {
-        where[Op.or] = [
-          { vendorId },
-          { isGlobal: true }
-        ]
-      }
-
-      const _roles = await this.model.findAll({
+      where[Op.or] = [{ vendorId }, { isGlobal: true }]
+      const _roles = await database.role.findAll({
         where,
-        include: {
-          model: database.permission,
-          through: { attributes: ['C', 'R', 'U', 'D'] }
-        } as any,
-        order: [['id', 'ASC']]
+        attributes: {
+          include: [[database.sequelize.fn('COUNT', database.sequelize.col('permissions.id')), 'permissionCount']]
+        },
+        include: [
+          {
+            model: database.permission,
+            as: 'permissions',
+            attributes: [],
+            through: { attributes: [] }
+          }
+        ],
+        group: ['role.id'],
+        order: [['id', 'ASC']],
+        raw: true
       })
-      return _roles.map((role: any) => ({
-        ...role.toJSON(),
-        permissions: flattenRolePermissions(role)
-      }))
+      return _roles
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
   /**
    * Get role by ID (permissions flattened, see getRoles).
    */
-  async getRoleById(id: number) {
+  async getRoleById({ id, vendorId }: { id: number; vendorId: number }): Promise<GetRoleByIdResponse> {
     try {
-      const role = await this.model.findByPk(id, {
-        include: {
-          model: database.permission,
-          through: { attributes: ['C', 'R', 'U', 'D'] }
-        } as any
+      // vendorId filter must allow global roles (vendorId IS NULL)
+      const where: any = vendorId ? { id, [Op.or]: [{ vendorId }, { isGlobal: true }] } : { id }
+      // if you want strict per-vendor: use { id, vendorId } instead
+      const role = await database.role.findOne({
+        where,
+        include: [
+          {
+            model: database.permission,
+            as: 'permissions',
+            attributes: ['id', 'name', 'method'],
+            through: { attributes: [] }
+          } as any
+        ]
       })
       if (!role) {
         throw new Error('Role not found')
       }
-      return {
-        ...(role as any).toJSON(),
-        permissions: flattenRolePermissions(role as any)
-      }
+      return { ...role.toJSON() }
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -117,103 +112,101 @@ export class RoleService {
    * Grant a set of sanitized permissions on a role by linking the shared
    * catalog rows with per-role C/R/U/D join flags.
    */
-  private async grantPermissions(roleId: number, permissions: ReturnType<typeof sanitizePermissions>, t?: any) {
-    for (const grant of permissions) {
-      const [catalogRow] = await database.permission.findOrCreate({
-        where: { name: grant.name },
-        defaults: { name: grant.name, description: grant.description },
-        transaction: t
-      })
-      await (database as any).role_permission.create(
-        {
-          roleId,
-          permissionId: catalogRow.id,
-          C: grant.C,
-          R: grant.R,
-          U: grant.U,
-          D: grant.D
-        },
-        { transaction: t }
-      )
-    }
-  }
+  // private async grantPermissions(roleId: number, permissions: ReturnType<typeof sanitizePermissions>, t?: any) {
+  //   for (const grant of permissions) {
+  //     const [catalogRow] = await database.permission.findOrCreate({
+  //       where: { name: grant.name },
+  //       defaults: { name: grant.name, description: grant.description },
+  //       transaction: t
+  //     })
+  //     await (database as any).role_permission.create(
+  //       {
+  //         roleId,
+  //         permissionId: catalogRow.id,
+  //         C: grant.C,
+  //         R: grant.R,
+  //         U: grant.U,
+  //         D: grant.D
+  //       },
+  //       { transaction: t }
+  //     )
+  //   }
+  // }
 
   /**
    * Create new role with permissions
    */
-  async create(...[req, res, next]: [Request, Response, NextFunction]) {
-    const { name, description, permissions }: IRoleInput = req.body
+  async create({
+    name,
+    description,
+    vendorId,
+    permissions
+  }: IRoleInput): Promise<Omit<GetRoleByIdResponse, 'permissions'>> {
     const t = await this.sequelize?.transaction()
-    console.log('req.body', req.body)
     try {
-      const _role = await this.model.create(
+      const _role = await database.role.create(
         {
           name,
           description,
-          vendorId: req.body.vendorId || null,
-          isGlobal: req.body.isGlobal || false
+          vendorId: vendorId || null,
+          isGlobal: false,
+          isSystem: false
         },
         {
           transaction: t
         }
       )
 
-      if (permissions && permissions.length > 0) {
-        await this.grantPermissions((_role as any).id, sanitizePermissions(permissions), t)
+      if (permissions !== undefined) {
+        const permissionIds = permissions
+          .map((p) => p.ids)
+          .flat()
+          .filter((n) => Number.isFinite(n))
+        await (_role as any).setPermissions(permissionIds, { transaction: t })
       }
 
       await t?.commit()
 
-      // Return role with permissions
-      const roleWithPermissions = await this.getRoleById(_role.id)
-
-      return {
-        role: roleWithPermissions
-      }
+      return _role.toJSON() as Omit<GetRoleByIdResponse, 'permissions'>
     } catch (error) {
-      console.log('error', error)
       await t?.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
   /**
-   * Update role and permissions
+   * Update role and permissions - supports direct `permissions` via belongsToMany
+   * without touching `role_permissions` manually.
    */
-  async update(...[req, res, next]: [Request, Response, NextFunction]) {
-    const { id } = req.params
-    const { name, description, permissions }: IRoleInput = req.body
+  async update({ id, vendorId, name, description, permissions }: RoleUpdateParams): Promise<GetRoleByIdResponse> {
     const t = await this.sequelize?.transaction()
-
     try {
-      const role = await this.model.findByPk(id)
-      if (!role) {
-        throw new Error('Role not found')
+      const role = await database.role.findOne({ where: { id, vendorId } })
+      if (!role) throw new Error('Role not found')
+      if (name !== undefined || description !== undefined) {
+        await role.update({ name, description } as any, { transaction: t })
       }
-
-      // Update role info
-      await role.update({ name, description }, { transaction: t })
-
-      // Replace the permission set: clear the join rows, then re-link the
-      // catalog with the submitted flags.
-      const sanitized = sanitizePermissions(permissions)
-      await (database as any).role_permission.destroy({
-        where: { roleId: Number(id) },
-        transaction: t
-      })
-      await this.grantPermissions(Number(id), sanitized, t)
+      if (permissions !== undefined) {
+        const permissionIds = permissions
+          .map((p) => p.ids)
+          .flat()
+          .filter((n) => Number.isFinite(n))
+        await (role as any).setPermissions(permissionIds, { transaction: t })
+      }
 
       await t?.commit()
 
-      // Return updated role with permissions
-      const updatedRole = await this.getRoleById(Number(id))
+      // Permissions changed -> invalidate all users holding this role
+      try {
+        await invalidateUsersByRoleId(Number(id))
+      } catch {}
 
-      return {
-        role: updatedRole
-      }
+      const updatedRole = await this.getRoleById({ id: Number(id), vendorId: Number(vendorId) })
+      return updatedRole as GetRoleByIdResponse
     } catch (error) {
+      console.log('error', error)
       await t?.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -225,7 +218,7 @@ export class RoleService {
     const t = await this.sequelize?.transaction()
 
     try {
-      const role = await this.model.findByPk(id)
+      const role = await database.role.findByPk(id)
       if (!role) {
         throw new Error('Role not found')
       }
@@ -248,6 +241,10 @@ export class RoleService {
 
       await t?.commit()
 
+      try {
+        await invalidateUsersByRoleId(Number(role.id))
+      } catch {}
+
       return {
         message: 'Role deleted successfully'
       }
@@ -269,7 +266,7 @@ export class RoleService {
 
     try {
       const user = await database.user.findByPk(userId)
-      const role = await this.model.findByPk(roleId)
+      const role = await database.role.findByPk(roleId)
 
       if (!user) {
         throw new Error('User not found')
@@ -302,13 +299,24 @@ export class RoleService {
         await (existing as any).destroy({ transaction: t })
       }
 
-      await database.user_role.create({
-        userId,
-        roleId,
-        vendorId: resolvedVendorId
-      }, { transaction: t })
+      await database.user_role.create(
+        {
+          userId,
+          roleId,
+          vendorId: resolvedVendorId
+        },
+        { transaction: t }
+      )
 
       await t?.commit()
+
+      try {
+        await invalidateUserAuthCache(Number(userId))
+        if (existing) {
+          const oldRoleId = (existing as any).roleId ?? (existing as any).get?.('roleId')
+          if (oldRoleId) await invalidateUsersByRoleId(Number(oldRoleId))
+        }
+      } catch {}
 
       return {
         message: 'Role assigned successfully',
@@ -335,6 +343,11 @@ export class RoleService {
 
       await database.user_role.destroy({ where, transaction: t })
       await t?.commit()
+
+      try {
+        await invalidateUserAuthCache(Number(userId))
+        await invalidateUsersByRoleId(Number(roleId))
+      } catch {}
 
       return {
         message: 'Role removed successfully'

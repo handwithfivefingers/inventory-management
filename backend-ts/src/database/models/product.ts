@@ -1,90 +1,93 @@
-import { IProductModel, IProductStatic } from '#/types/product'
-import { DataTypes, Sequelize } from 'sequelize'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany, BelongsToMany } from 'sequelize-typescript'
+import { Category } from './category'
+import { ProductCategory } from './product_category'
+import { Tag } from './tag'
+import { ProductVariant } from './productVariant'
+import { ProductAttribute } from './productAttribute'
+import { Inventory } from './inventory'
+import { OrderDetail } from './orderDetail'
+import { Transfer } from './transfer'
+import { Unit } from './units'
+import { Vendor } from './vendor'
 
-const ProductModel = (sequelize: Sequelize) => {
-  const M = <IProductStatic>sequelize.define<IProductModel>(
-    'product',
-    {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      code: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      skuCode: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      description: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      salePrice: {
-        type: DataTypes.BIGINT,
-        allowNull: true
-      },
-      regularPrice: {
-        type: DataTypes.BIGINT,
-        allowNull: true
-      },
-      wholeSalePrice: {
-        type: DataTypes.BIGINT,
-        allowNull: true
-      },
-      costPrice: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      sold: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        defaultValue: 0
-      },
-      isNegative: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: false
-      },
-      // Product image URL (single image for now)
-      image: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      unitId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-      vendorId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      }
-    },
+@Table({ tableName: 'products', modelName: 'product', timestamps: true })
+export class Product extends Model {
+  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  declare id: number
 
-    {
-      timestamps: true,
-      tableName: 'products'
-    }
-  )
+  @Column({ type: DataType.STRING, allowNull: false })
+  declare name: string
 
-  M.associate = (models: any) => {
-    M.belongsToMany(models.category, { through: 'product_category' })
-    M.hasMany(models.inventory, { foreignKey: 'productId' })
-    M.hasMany(models.orderDetail, { foreignKey: 'productId' })
-    M.hasMany(models.transfer, { foreignKey: 'productId' })
-    M.belongsToMany(models.tag, { through: 'product_tags' })
-    M.hasMany(models.productVariant, { foreignKey: 'productId', as: 'variants' })
-    M.hasMany(models.productAttribute, { foreignKey: 'productId', as: 'attributes' })
-    M.belongsTo(models.unit, { foreignKey: 'unitId' })
-    M.belongsTo(models.vendor, { foreignKey: 'vendorId' })
-  }
-  return M
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare code: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare skuCode: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare description: string | null
+
+  @Column({ type: DataType.BIGINT, allowNull: true })
+  declare salePrice: number | null
+
+  @Column({ type: DataType.BIGINT, allowNull: true })
+  declare regularPrice: number | null
+
+  @Column({ type: DataType.BIGINT, allowNull: true })
+  declare wholeSalePrice: number | null
+
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare costPrice: number | null
+
+  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
+  declare sold: number
+
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
+  declare isNegative: boolean
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare image: string | null
+
+  @ForeignKey(() => Unit)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare unitId: number | null
+
+  @ForeignKey(() => Vendor)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare vendorId: number | null
+
+  @CreatedAt
+  declare createdAt: Date
+
+  @UpdatedAt
+  declare updatedAt: Date
+
+  @BelongsToMany(() => Category, () => ProductCategory)
+  declare categories: Category[]
+
+  @HasMany(() => Inventory)
+  declare inventories: Inventory[]
+
+  @HasMany(() => OrderDetail)
+  declare orderDetails: OrderDetail[]
+
+  @HasMany(() => Transfer)
+  declare transfers: Transfer[]
+
+  @BelongsToMany(() => Tag, { through: 'product_tags', foreignKey: 'productId', otherKey: 'tagId' })
+  declare tags: Tag[]
+
+  @HasMany(() => ProductVariant, { foreignKey: 'productId', as: 'variants' })
+  declare variants: ProductVariant[]
+
+  @HasMany(() => ProductAttribute, { foreignKey: 'productId', as: 'attributes' })
+  declare attributes: ProductAttribute[]
+
+  @BelongsTo(() => Unit)
+  declare unit: Unit
+
+  @BelongsTo(() => Vendor)
+  declare vendor: Vendor
 }
 
-export default ProductModel
+export default Product
