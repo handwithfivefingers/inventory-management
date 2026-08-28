@@ -19,8 +19,8 @@ import { ReceiptPrinter, loadPrinterSettings } from "~/components/receipt-printe
 import { CardItem } from "~/components/card-item";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie } = await parseCookieFromRequest(request);
-  const resp = await invoiceService.getInvoiceById({ id: params.id as string, cookie });
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
+  const resp = await invoiceService.getInvoiceById({ id: params.id as string, cookie, vendorId });
 
   return {
     invoice: (resp.data as any)?.data ?? resp.data,
@@ -28,7 +28,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie } = await parseCookieFromRequest(request);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const id = Number(formData.get("id"));
 
@@ -37,6 +37,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       id,
       status: formData.get("status") as any,
       cookie,
+      vendorId,
     });
     return new Response(null, { status: 200 });
   } catch (error: any) {

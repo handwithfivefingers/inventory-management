@@ -100,7 +100,7 @@ module.exports = {
           paymentType: Math.random() < 0.6 ? 'cash' : 'transfer',
           providerId: pick(providerPool).id,
           warehouseId: wh.id,
-          vendorId: wh.vendorId,
+          vendorId: 1,
           createdAt,
           updatedAt: createdAt
         })

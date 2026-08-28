@@ -19,15 +19,24 @@ const customerService = {
     return http.get<{ data: ICustomer[]; total: number }>(API_PATH.customers + "?" + qs.toString(), { Cookie });
   },
 
-  getCustomerById: ({ id, cookie: Cookie }: { id: number | string; cookie: string }) => {
-    return http.get<{ data: ICustomer }>(`${API_PATH.customers}/${id}`, { Cookie });
+  getCustomerById: ({
+    id,
+    cookie: Cookie,
+    vendorId,
+  }: {
+    id: number | string;
+    cookie: string;
+    vendorId?: string | number;
+  }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return http.get<{ data: ICustomer }>(`${API_PATH.customers}/${id}${qs}`, { Cookie });
   },
 
   createCustomer: ({ cookie: Cookie, ...data }: { cookie: string } & ICustomerCreate) => {
     return http.post<ICustomer, Omit<ICustomerCreate, "vendorId"> & { vendorId?: number | string }>(
-      API_PATH.customers,
+      API_PATH.customers + `?vendorId=${data.vendorId}`,
       data,
-      { Cookie }
+      { Cookie },
     );
   },
 
@@ -35,8 +44,9 @@ const customerService = {
     return http.put<ICustomer, Record<string, any>>(`${API_PATH.customers}/${id}`, data, { Cookie });
   },
 
-  deleteCustomer: ({ id, cookie: Cookie }: { id: number; cookie: string }) => {
-    return http.delete<{ message: string }>(`${API_PATH.customers}/${id}`, { Cookie });
+  deleteCustomer: ({ id, cookie: Cookie, vendorId }: { id: number; cookie: string; vendorId?: string | number }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return http.delete<{ message: string }>(`${API_PATH.customers}/${id}${qs}`, { Cookie });
   },
 };
 

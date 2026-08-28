@@ -43,12 +43,13 @@ export const meta: MetaFunction = () => {
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { id } = params;
-  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   if (!id) throw new Error("Không tìm thấy đơn hàng");
   const response = await orderService.getOrderById({
     id,
     cookie,
     warehouseId,
+    vendorId,
   });
   return response.data;
 };
@@ -56,7 +57,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const intent = formData.get("intent");
-  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
 
   try {
     if (intent === "create-invoice") {
@@ -65,6 +66,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         orderId: Number(params.id),
         status: "draft",
         cookie,
+        vendorId,
         ...(warehouseId ? { warehouseId: Number(warehouseId) } : {}),
       });
       return { invoiceId: resp?.data?.data?.id ?? resp?.data?.id };
@@ -77,6 +79,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       id: params.id as string,
       ...dataJson,
       cookie,
+      vendorId,
     });
     return { ok: true };
   } catch (error: any) {

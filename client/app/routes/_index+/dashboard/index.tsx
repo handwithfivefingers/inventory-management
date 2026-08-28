@@ -19,14 +19,14 @@ import "./styles.scss";
 import { SelectInput } from "~/components/form/select-input";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const days = url.searchParams.get("days") || "7";
   const from = url.searchParams.get("from") || "";
   const to = url.searchParams.get("to") || "";
   const groupBy = url.searchParams.get("groupBy") || "";
   try {
-    const resp = await statsService.getDashboard({ cookie, warehouseId, days, from, to, groupBy });
+    const resp = await statsService.getDashboard({ cookie, warehouseId, vendorId, days, from, to, groupBy });
     return {
       stats: resp.data?.data ?? null,
       days: Number(days),

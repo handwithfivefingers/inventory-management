@@ -14,17 +14,22 @@ const categoryService = {
     );
   },
   create: ({ cookie, ...params }: ICategoryParams & { cookie: string }) => {
-    console.log("cookie, ...params", cookie, params);
     return HTTPService.getInstance().post(API_PATH.categories, params, { Cookie: cookie });
   },
-  getById: ({ id, cookie }: { id: string | number } & { cookie: string }) => {
-    const params = new URLSearchParams({});
-    return HTTPService.getInstance().get<ICategory>(API_PATH.categories + "/" + id + "?" + params.toString(), {
+  getById: ({ id, cookie, vendorId }: { id: string | number; cookie: string; vendorId: string | number }) => {
+    const params = new URLSearchParams({
+      vendorId: `${vendorId}`,
+    });
+    const qs = params.toString();
+    return HTTPService.getInstance().get<ICategory>(API_PATH.categories + "/" + id + (qs ? "?" + qs : ""), {
       Cookie: cookie,
     });
   },
-  update: ({ id, cookie, ...params }: ICategoryParams & { cookie: string }) => {
-    return HTTPService.getInstance().post(`${API_PATH.categories}/${id}`, params, { Cookie: cookie });
+  update: ({ id, cookie, vendorId, ...params }: ICategoryParams & { cookie: string; vendorId?: string | number }) => {
+    const qs = new URLSearchParams({
+      vendorId: `${vendorId}`,
+    });
+    return HTTPService.getInstance().post(`${API_PATH.categories}/${id}?${qs.toString()}`, params, { Cookie: cookie });
   },
 };
 

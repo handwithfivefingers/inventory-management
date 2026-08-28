@@ -6,9 +6,20 @@ const API_PATH = {
   history: "/history",
 };
 const historyService = {
-  getProductHistory: ({ id, warehouseId, cookie }: { id: string; warehouseId: string[]; cookie: string }) => {
+  getProductHistory: ({
+    id,
+    warehouseId,
+    cookie,
+    vendorId,
+  }: {
+    id: string;
+    warehouseId: string[];
+    cookie: string;
+    vendorId?: string | number;
+  }) => {
     const qs = new URLSearchParams({});
     for (const item of warehouseId) qs.append("warehouseId", item);
+    if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") qs.set("vendorId", `${vendorId}`);
     return HTTPService.getInstance().get<{ data: IProduct[] }>(API_PATH.history + `/${id}?${qs.toString()}`, {
       Cookie: cookie,
     });

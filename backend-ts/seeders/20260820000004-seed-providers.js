@@ -20,10 +20,9 @@ const PROVIDERS = [
 module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date()
-    const vendors = await queryInterface.sequelize.query(
-      "SELECT id FROM vendors WHERE name LIKE 'SEED-%'",
-      { type: Sequelize.QueryTypes.SELECT }
-    )
+    const vendors = await queryInterface.sequelize.query("SELECT id FROM vendors WHERE name LIKE 'SEED-%'", {
+      type: Sequelize.QueryTypes.SELECT
+    })
     if (!vendors.length) throw new Error('seed-providers: run the vendors seeder first.')
 
     const rows = PROVIDERS.map((p, i) => ({
@@ -32,7 +31,8 @@ module.exports = {
       phone: '090' + Math.floor(1000000 + Math.random() * 8999999),
       address: p.address,
       email: `provider${i}@example.com`,
-      vendorId: vendors[i % vendors.length].id,
+      // vendorId: vendors[i % vendors.length].id,
+      vendorId: 1,
       createdAt: now,
       updatedAt: now
     }))
@@ -40,10 +40,6 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.bulkDelete(
-      'providers',
-      { name: { [require('sequelize').Op.like]: 'SEED-%' } },
-      {}
-    )
+    await queryInterface.bulkDelete('providers', { name: { [require('sequelize').Op.like]: 'SEED-%' } }, {})
   }
 }

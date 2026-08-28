@@ -16,13 +16,14 @@ import { parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { cookie, warehouseId } = await parseCookieFromRequest(request);
+    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || "1";
     const pageSize = params.get("pageSize") || "10";
     const resp = await staffService.get({
       warehouseId: warehouseId as string,
+      vendorId,
       page,
       pageSize,
       cookie,
@@ -137,10 +138,10 @@ export function ErrorBoundary() {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
-    const { cookie } = await parseCookieFromRequest(request);
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const staffId = formData.get("staffId") as string;
-    const response = await staffService.remove(staffId, cookie);
+    const response = await staffService.remove(staffId, cookie, vendorId);
     return Response.json(response, { status: 200 });
   } catch (error) {
     return Response.json(error, { status: 400 });

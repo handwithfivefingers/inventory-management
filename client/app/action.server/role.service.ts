@@ -38,8 +38,9 @@ export const roleService = {
   /**
    * Get role by ID
    */
-  getRoleById: async ({ cookie, id }: IRoleServiceParams & { id: number }) => {
-    return HTTPService.getInstance().get<{ data: IRole }>(`${API_PATH.roles}/${id}`, { cookie });
+  getRoleById: async ({ cookie, id, vendorId }: IRoleServiceParams & { id: number; vendorId?: string | number }) => {
+    const qs = vendorId ? `?vendorId=${vendorId}` : "";
+    return HTTPService.getInstance().get<{ data: IRole }>(`${API_PATH.roles}/${id}${qs}`, { cookie });
   },
 
   /**
@@ -78,9 +79,10 @@ export const roleService = {
   /**
    * Update role
    */
-  updateRole: async ({ cookie, id, name, description, permissions }: IUpdateRoleParams) => {
+  updateRole: async ({ cookie, id, name, description, permissions, vendorId }: IUpdateRoleParams) => {
+    const qs = vendorId ? `?vendorId=${vendorId}` : "";
     return HTTPService.getInstance().put(
-      `${API_PATH.roles}/${id}`,
+      `${API_PATH.roles}/${id}${qs}`,
       { name, description, permissions },
       { Cookie: cookie },
     );

@@ -448,11 +448,11 @@ const ImagePreview = () => {
 };
 
 export const action = async ({ request }: any) => {
-  const { warehouseId, cookie } = await parseCookieFromRequest(request);
+  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
-  const bodyData = { ...dataJson, warehouseId, cookie };
+  const bodyData = { ...dataJson, warehouseId, vendorId, cookie };
   const resp = await productService.createProduct(bodyData);
   return resp;
 };

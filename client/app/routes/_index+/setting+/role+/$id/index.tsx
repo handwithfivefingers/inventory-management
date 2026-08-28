@@ -46,8 +46,8 @@ export const meta: MetaFunction = () => {
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   if (!params.id) throw redirect("/setting/role");
   try {
-    const { cookie } = await parseCookieFromRequest(request);
-    const response = await roleService.getRoleById({ cookie, id: Number(params.id) });
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
+    const response = await roleService.getRoleById({ cookie, id: Number(params.id), vendorId });
     // HTTPService.get returns { data, status } where data is the JSON body { data: IRole }
     // On error status !==200, throw.
     if (response.status !== 200) {
@@ -62,7 +62,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { cookie } = await parseCookieFromRequest(request);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const id = Number(params.id);
   if (!id) return json({ error: "Missing id" }, { status: 400 });
   try {
@@ -80,6 +80,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     const result = await roleService.updateRole({
       cookie,
       id,
+      vendorId,
       name: parsed.name,
       description: parsed.name,
       permissions,

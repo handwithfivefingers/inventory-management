@@ -31,8 +31,9 @@ module.exports = {
     const rows = []
     for (let i = 0; i < VENDOR_COUNT; i++) {
       rows.push({
+        id: i,
         name: `SEED-${VENDOR_NAMES[i % VENDOR_NAMES.length]}`,
-        userId: pick(userIds),
+        userId: 1,
         createdAt: now,
         updatedAt: now
       })
@@ -41,10 +42,6 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.bulkDelete(
-      'vendors',
-      { name: { [require('sequelize').Op.like]: 'SEED-%' } },
-      {}
-    )
+    await queryInterface.bulkDelete('vendors', { name: { [require('sequelize').Op.like]: 'SEED-%' } }, {})
   }
 }

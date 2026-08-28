@@ -14,6 +14,7 @@ import { TextInput } from "~/components/form/text-input";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { financialSchema } from "~/constants/schema/financial";
+import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 
 export const meta: MetaFunction = () => {
@@ -116,9 +117,10 @@ export default function FinancialAdd() {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const form = await request.formData();
     const data = form.get("data") as string;
-    const resp = await financialService.createVoucher(JSON.parse(data));
+    const resp = await financialService.createVoucher(JSON.parse(data), { cookie, vendorId });
     return resp;
   } catch (error) {
     return { status: 400, error: (error as any).message };

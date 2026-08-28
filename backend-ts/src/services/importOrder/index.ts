@@ -5,6 +5,8 @@ import OrderService from '../order'
 import { assertVendorAccess, assertWarehouseAccess, getVendorScope } from '#/utils/tenant'
 import { Op, Sequelize } from 'sequelize'
 import { getPagination } from '#/utils'
+import Order from '#/database/models/order'
+import Product from '#/database/models/product'
 
 export class ImportOrderService {
   order: IOrderStatic = database.order
@@ -45,21 +47,15 @@ export class ImportOrderService {
     vendorScope: Parameters<typeof assertWarehouseAccess>[1] = null
   ) {
     try {
-      const resp = await this.order.findOne({
+      const resp = await Order.findOne({
         where: { id, providerId: { [Op.ne]: null } } as any,
-        include: [
-          { model: database.orderDetail, include: database.product },
-          { model: database.provider }
-        ]
+        include: [{ model: database.orderDetail, include: [Product] }, { model: database.provider }]
       })
       if (resp) {
         // S1: scoped callers may only read their own vendors' imports.
-        assertVendorAccess(
-          vendorScope,
-          (resp as any).vendorId,
-          'Unauthorized to read this import order'
-        )
+        assertVendorAccess(vendorScope, (resp as any).vendorId, 'Unauthorized to read this import order')
       }
+      console.log('Import Order getById', resp)
       return resp
     } catch (error) {
       throw error

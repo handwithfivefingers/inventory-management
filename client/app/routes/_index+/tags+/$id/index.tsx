@@ -117,12 +117,13 @@ const EditForm = ({ name, id }: { name: string; id: Partial<string | number> }) 
 };
 
 export const action = async ({ request, params }: any) => {
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const { id } = params;
   const formData = await request.formData();
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson.data, id };
-  const resp = await tagsService.update(bodyData);
+  const resp = await tagsService.update({ ...bodyData, vendorId, cookie } as any);
   if (resp.status === 200) {
     return redirect(`/tags`, 302);
   }

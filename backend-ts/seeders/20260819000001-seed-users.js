@@ -17,10 +17,11 @@ module.exports = {
     const now = new Date()
     await queryInterface.bulkInsert('users', [
       {
+        id: 1,
         nickname: 'SEED Owner',
         firstName: 'Seed',
         lastName: 'Owner',
-        email: 'seed-owner@example.com',
+        email: 'handgod1995@example.com',
         password: bcrypt.hashSync('password123', 10),
         subscription: 'free',
         createdAt: now,
@@ -31,10 +32,6 @@ module.exports = {
 
   async down(queryInterface) {
     // Vendors reference users with ON DELETE SET NULL, so deleting the user is safe.
-    await queryInterface.bulkDelete(
-      'users',
-      { email: 'seed-owner@example.com' },
-      {}
-    )
+    await queryInterface.bulkDelete('users', { email: 'seed-owner@example.com' }, {})
   }
 }

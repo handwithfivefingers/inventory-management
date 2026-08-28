@@ -18,7 +18,7 @@ import { parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { cookie, warehouseId } = await parseCookieFromRequest(request);
+    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || "1";
@@ -41,11 +41,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const [currentReport, previousReport] = await Promise.all([
       financialService.getReport({
         warehouseId: warehouseId as string,
+        vendorId,
         ...rangeQuery,
         cookie,
       }),
       financialService.getReport({
         warehouseId: warehouseId as string,
+        vendorId,
         from: previousFrom.format("YYYY-MM-DD"),
         to: previousTo.format("YYYY-MM-DD"),
         cookie,
@@ -54,6 +56,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const resp = await financialService.getVouchers({
       warehouseId: warehouseId as string,
+      vendorId,
       page,
       pageSize,
       type,

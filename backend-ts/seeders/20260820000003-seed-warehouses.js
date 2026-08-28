@@ -13,10 +13,9 @@ const CITIES = ['Hà Nội', 'TP.HCM', 'Đà Nẵng', 'Cần Thơ', 'Hải Phòn
 module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date()
-    const vendors = await queryInterface.sequelize.query(
-      "SELECT id FROM vendors WHERE name LIKE 'SEED-%'",
-      { type: Sequelize.QueryTypes.SELECT }
-    )
+    const vendors = await queryInterface.sequelize.query("SELECT id FROM vendors WHERE name LIKE 'SEED-%'", {
+      type: Sequelize.QueryTypes.SELECT
+    })
     if (!vendors.length) throw new Error('seed-warehouses: run the vendors seeder first.')
 
     const rows = []
@@ -41,10 +40,6 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.bulkDelete(
-      'warehouses',
-      { name: { [require('sequelize').Op.like]: 'SEED-%' } },
-      {}
-    )
+    await queryInterface.bulkDelete('warehouses', { name: { [require('sequelize').Op.like]: 'SEED-%' } }, {})
   }
 }

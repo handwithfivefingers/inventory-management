@@ -11,15 +11,12 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
 import { IUnitSchema, unitSchema } from "~/constants/schema/units";
-import { getSession, getSessionValues } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  // const session = await getSession(request.headers.get("Cookie"));
-  // const vendorId = session.get("vendor");
-  const cookie = request.headers.get("cookie") as string;
-  const { vendorId } = await getSessionValues(cookie);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const id = params.id as string;
-  const resp = await unitsService.getById({ id: Number(id), vendor: vendorId as string, cookie });
+  const resp = await unitsService.getById({ id: Number(id), vendorId: vendorId as string, cookie });
   return resp;
 };
 
@@ -116,12 +113,13 @@ const EditForm = ({ name, id }: IUnitSchema) => {
 };
 
 export const action = async ({ request, params }: any) => {
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const { id } = params;
   const formData = await request.formData();
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson.data, id };
-  const resp = await unitsService.update(bodyData);
+  const resp = await unitsService.update({ ...bodyData, vendorId, cookie } as any);
   if (resp.status === 200) {
     return redirect(`/units`, 302);
   }

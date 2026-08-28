@@ -16,7 +16,7 @@ import { useTranslation } from "~/i18n";
  * This page lists orders so the user can pick one to invoice.
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -24,6 +24,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const resp = await orderService.getOrders({
     cookie,
     warehouseId,
+    vendorId,
     page,
     pageSize: "10",
   });
@@ -36,7 +37,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const orderId = Number(formData.get("orderId"));
 
@@ -45,6 +46,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       orderId,
       status: "draft", // starts as a temp invoice
       cookie,
+      vendorId,
       ...(warehouseId ? { warehouseId: Number(warehouseId) } : {}),
     });
     return { invoiceId: resp?.data?.data?.id ?? resp?.data?.id };

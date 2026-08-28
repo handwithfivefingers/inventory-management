@@ -144,9 +144,10 @@ export default function OrderItem() {
         // price: total,
         // paid: totalPaid,
       };
-      const resp = await submit({ data: JSON.stringify(params) }, { method: "POST" });
-      toast.success({ title: "Created", message: "Tạo đơn hàng thành công" });
-      return resp;
+      const resp = await submit<{ status: number }>({ data: JSON.stringify(params) }, { method: "POST" });
+      console.log("onSubmit Create Order", resp);
+      if (resp.status === 200) return toast.success({ title: "Created", message: "Tạo đơn hàng thành công" });
+      throw resp;
     } catch (err) {
       console.log("error", err);
       toast.danger({ title: "Error", message: "Tạo đơn hàng thất bại" });
@@ -282,14 +283,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
-  const { warehouseId, cookie } = await parseCookieFromRequest(request);
+  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
   const params = {
     ...dataJson,
     warehouseId,
+    vendorId,
     cookie,
   };
   const resp = await orderService.createOrder(params);
-  return resp;
+  // return resp;
+  if (resp.status === 201) {
+    return Response.json({ resp, status: 200 });
+  }
+  return Response.json({ ...resp, status: 400 }, { status: 400 });
 };
 export function ErrorBoundary() {
   return <ErrorComponent />;

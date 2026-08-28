@@ -36,6 +36,7 @@ export interface IDashboardStats {
 
 export interface IDashboardQueryParams {
   cookie?: string;
+  vendorId?: string | number;
   days?: string | number;
   /** "YYYY-MM-DD"; overrides `days` when provided with `to`. */
   from?: string;

@@ -12,14 +12,13 @@ import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { productSchema } from "~/constants/schema/product";
 import { dayjs } from "~/libs/date";
-import { getSessionValues } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const cookie = request.headers.get("Cookie") as string;
-  const { vendorId } = await getSessionValues(cookie);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const { id } = params;
-  const resp = await categoryService.getById({ id, vendorId, cookie } as any);
+  const resp = await categoryService.getById({ id: id as string, vendorId, cookie });
   return resp;
 };
 
@@ -157,12 +156,13 @@ const EditForm = ({ name, id }: Partial<ICategory>) => {
 };
 
 export const action = async ({ request, params }: any) => {
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const { id } = params;
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson.data, id };
-  const resp = await categoryService.update(bodyData);
+  const resp = await categoryService.update({ ...bodyData, vendorId, cookie });
   if (resp.status === 200) {
     return redirect(`/categories`, 302);
   }

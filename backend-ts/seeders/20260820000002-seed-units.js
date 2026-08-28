@@ -21,7 +21,7 @@ module.exports = {
       'units',
       units.map((name) => ({
         name: `SEED-${name}`,
-        vendorId: pick(vendorIds),
+        vendorId: 1,
         createdAt: now,
         updatedAt: now
       }))
@@ -29,10 +29,6 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.bulkDelete(
-      'units',
-      { name: { [require('sequelize').Op.like]: 'SEED-%' } },
-      {}
-    )
+    await queryInterface.bulkDelete('units', { name: { [require('sequelize').Op.like]: 'SEED-%' } }, {})
   }
 }

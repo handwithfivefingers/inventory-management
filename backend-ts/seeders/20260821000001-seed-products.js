@@ -33,68 +33,120 @@ module.exports = {
         category: 'Electronics',
         unit: 'Cái',
         items: [
-          'Tai nghe Bluetooth', 'Loa di động', 'Sạc dự phòng', 'Bàn phím cơ',
-          'Chuột không dây', 'Webcam HD', 'Màn hình 24 inch', 'Router Wifi',
-          'Cáp HDMI', 'Ổ cứng di động', 'Tai nghe gaming', 'Camera an ninh'
+          'Tai nghe Bluetooth',
+          'Loa di động',
+          'Sạc dự phòng',
+          'Bàn phím cơ',
+          'Chuột không dây',
+          'Webcam HD',
+          'Màn hình 24 inch',
+          'Router Wifi',
+          'Cáp HDMI',
+          'Ổ cứng di động',
+          'Tai nghe gaming',
+          'Camera an ninh'
         ]
       },
       {
         category: 'Stationery',
         unit: 'Quyển',
         items: [
-          'Sổ tay A5', 'Bút bi', 'Bút chì', 'Giấy A4', 'Ghim bấm',
-          'Băng keo', 'Thước kẻ', 'Tẩy', 'File hồ sơ', 'Bút highlight'
+          'Sổ tay A5',
+          'Bút bi',
+          'Bút chì',
+          'Giấy A4',
+          'Ghim bấm',
+          'Băng keo',
+          'Thước kẻ',
+          'Tẩy',
+          'File hồ sơ',
+          'Bút highlight'
         ]
       },
       {
         category: 'Kitchen',
         unit: 'Cái',
         items: [
-          'Nồi cơm điện', 'Ấm siêu tốc', 'Chảo chống dính', 'Bình giữ nhiệt',
-          'Dao nhà bếp', 'Thớt gỗ', 'Ly thủy tinh', 'Hộp đựng thực phẩm',
-          'Máy xay sinh tố', 'Đĩa sứ'
+          'Nồi cơm điện',
+          'Ấm siêu tốc',
+          'Chảo chống dính',
+          'Bình giữ nhiệt',
+          'Dao nhà bếp',
+          'Thớt gỗ',
+          'Ly thủy tinh',
+          'Hộp đựng thực phẩm',
+          'Máy xay sinh tố',
+          'Đĩa sứ'
         ]
       },
       {
         category: 'Beverage',
         unit: 'Chai',
         items: [
-          'Nước khoáng', 'Nước tăng lực', 'Trà xanh đóng chai', 'Cà phê lon',
-          'Nước ép trái cây', 'Sữa tươi', 'Nước dừa', 'Bia tươi',
-          'Soda chanh', 'Trà sữa', 'Nước yến', 'Rượu vang'
+          'Nước khoáng',
+          'Nước tăng lực',
+          'Trà xanh đóng chai',
+          'Cà phê lon',
+          'Nước ép trái cây',
+          'Sữa tươi',
+          'Nước dừa',
+          'Bia tươi',
+          'Soda chanh',
+          'Trà sữa',
+          'Nước yến',
+          'Rượu vang'
         ]
       },
       {
         category: 'Cleaning',
         unit: 'Chai',
         items: [
-          'Nước rửa chén', 'Nước lau sàn', 'Xà phòng giặt', 'Nước tẩy javen',
-          'Khăn lau đa năng', 'Bình xịt khử khuẩn', 'Bột giặt', 'Nước rửa tay'
+          'Nước rửa chén',
+          'Nước lau sàn',
+          'Xà phòng giặt',
+          'Nước tẩy javen',
+          'Khăn lau đa năng',
+          'Bình xịt khử khuẩn',
+          'Bột giặt',
+          'Nước rửa tay'
         ]
       },
       {
         category: 'Personal Care',
         unit: 'Cái',
         items: [
-          'Kem đánh răng', 'Bàn chải', 'Dầu gội', 'Sữa tắm', 'Lăn khử mùi',
-          'Kem dưỡng da', 'Bông tắm', 'Khẩu trang', 'Nước hoa', 'Máy cạo râu'
+          'Kem đánh răng',
+          'Bàn chải',
+          'Dầu gội',
+          'Sữa tắm',
+          'Lăn khử mùi',
+          'Kem dưỡng da',
+          'Bông tắm',
+          'Khẩu trang',
+          'Nước hoa',
+          'Máy cạo râu'
         ]
       },
       {
         category: 'Food',
         unit: 'Gói',
         items: [
-          'Mì tôm', 'Gạo thơm', 'Đường tinh luyện', 'Nước mắm', 'Tương ớt',
-          'Bánh quy', 'Snack khoai tây', 'Cà phê hạt', 'Sữa bột', 'Dầu ăn'
+          'Mì tôm',
+          'Gạo thơm',
+          'Đường tinh luyện',
+          'Nước mắm',
+          'Tương ớt',
+          'Bánh quy',
+          'Snack khoai tây',
+          'Cà phê hạt',
+          'Sữa bột',
+          'Dầu ăn'
         ]
       },
       {
         category: 'Tools',
         unit: 'Cái',
-        items: [
-          'Tua vít', 'Kìm cắt', 'Búa', 'Thước cuộn', 'Máy khoan',
-          'Cưa tay', 'Kéo cắt sắt', 'Đèn pin'
-        ]
+        items: ['Tua vít', 'Kìm cắt', 'Búa', 'Thước cuộn', 'Máy khoan', 'Cưa tay', 'Kéo cắt sắt', 'Đèn pin']
       }
     ]
 
@@ -127,7 +179,8 @@ module.exports = {
           costPrice,
           sold: 0,
           unitId: pick(unitIds),
-          vendorId: vendorIds[productIndex % vendorIds.length],
+          // vendorId: vendorIds[productIndex % vendorIds.length],
+          vendorId: 1,
           createdAt: now,
           updatedAt: now
         })

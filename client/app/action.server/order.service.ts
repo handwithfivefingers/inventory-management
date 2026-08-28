@@ -28,6 +28,7 @@ interface IOrderCreateParams {
   paymentType: "cash" | "transfer" | "credit";
   warehouseId: number | string;
   cookie: string;
+  vendorId: string;
 }
 
 const orderService = {
@@ -43,11 +44,15 @@ const orderService = {
       Cookie: cookie,
     });
   },
-  createOrder: ({ cookie, ...params }: IOrderCreateParams) => {
-    return HTTPService.getInstance().post(API_PATH.orderCreate, params, { Cookie: cookie });
+  createOrder: ({ cookie, vendorId, ...params }: IOrderCreateParams & { vendorId: string }) => {
+    return HTTPService.getInstance().post(API_PATH.orderCreate + `?vendorId=${vendorId}`, params, {
+      Cookie: cookie,
+    });
   },
   updateOrder: ({ id, cookie, ...params }: IOrderCreateParams & { id: string | number; cookie: string }) => {
-    return HTTPService.getInstance().put(`${API_PATH.orders}/${id}`, params, { Cookie: cookie });
+    return HTTPService.getInstance().put(`${API_PATH.orders}/${id}?vendorId=${params.vendorId}`, params, {
+      Cookie: cookie,
+    });
   },
 };
 

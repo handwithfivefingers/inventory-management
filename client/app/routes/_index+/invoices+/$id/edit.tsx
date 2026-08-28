@@ -14,12 +14,12 @@ import { formatCurrency } from "~/libs/format-currency";
 import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie } = await parseCookieFromRequest(request);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
 
   const [invoiceResp, customersResp, productsResp] = await Promise.all([
-    invoiceService.getInvoiceById({ id: params.id as string, cookie }),
-    customerService.getCustomers({ cookie, pageSize: "100" }),
-    productService.getProducts({ cookie, pageSize: "100" }),
+    invoiceService.getInvoiceById({ id: params.id as string, cookie, vendorId }),
+    customerService.getCustomers({ cookie, vendorId, pageSize: "100" }),
+    productService.getProducts({ cookie, vendorId, pageSize: "100" }),
   ]);
 
   return {
@@ -30,11 +30,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { cookie } = await parseCookieFromRequest(request);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const data = await request.json();
 
   try {
-    await invoiceService.updateInvoice({ id: Number(params.id), cookie, ...data });
+    await invoiceService.updateInvoice({ id: Number(params.id), cookie, vendorId, ...data });
     return { ok: true };
   } catch (error: any) {
     return { error: error.message || "Cập nhật hóa đơn thất bại" };

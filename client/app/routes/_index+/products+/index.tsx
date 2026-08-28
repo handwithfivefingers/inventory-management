@@ -177,15 +177,15 @@ export default function Products() {
   );
 }
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { warehouseId, cookie } = await parseCookieFromRequest(request);
+  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
   const form = await request.formData();
   // Variant listing for the order flow: POST /products with variantOf=<productId>
   const variantOf = form.get("variantOf");
   if (variantOf) {
-    return productService.getProductVariants({ id: variantOf as string, cookie, warehouseId });
+    return productService.getProductVariants({ id: variantOf as string, cookie, warehouseId, vendorId });
   }
   const s = form.get("s") || "";
-  return productService.getProducts({ s: s as string, warehouseId, page: "1", pageSize: "10", cookie });
+  return productService.getProducts({ s: s as string, warehouseId, vendorId, page: "1", pageSize: "10", cookie });
 };
 
 export function ErrorBoundary() {

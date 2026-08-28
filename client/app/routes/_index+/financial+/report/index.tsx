@@ -15,12 +15,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // const cookie = request.headers.get("Cookie") as string;
     // const session = await getSession(cookie);
     // const warehouseId = session.get("warehouseId");
-    const { cookie, warehouseId } = await parseCookieFromRequest(request);
+    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const from = url.searchParams.get("from") || "";
     const to = url.searchParams.get("to") || "";
     const resp = await financialService.getReport({
       warehouseId: warehouseId as string,
+      vendorId,
       from,
       to,
       cookie,

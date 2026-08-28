@@ -5,12 +5,14 @@ import { shiftService } from "~/action.server/shift.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { dayjs } from "~/libs/date";
+import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 
-export const loader = async ({ params }: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   try {
     const { id } = params;
-    const resp = await shiftService.getById(id as string);
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
+    const resp = await shiftService.getById(id as string, { cookie, vendorId });
     return { data: resp.data?.data ?? null };
   } catch (error) {
     throw new Response("error", { status: 404 });

@@ -96,12 +96,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     } catch (settingsError) {
       console.error("Failed to load settings, using defaults", settingsError);
     }
-
-    // Return what is actually in the session after seeding above. The locally
-    // destructured `vendorId`/`warehouseId` were read from the incoming cookie
-    // *before* seeding, so on a fresh login they are still empty — returning
-    // them would make the UI fall back to a different warehouse than the one
-    // server-side loaders use.
     const resolvedVendorId = session.get("vendorId") ?? vendorId;
     const resolvedWarehouseId = session.get("warehouseId") ?? warehouseId;
     // `vendors` travel inside `user` (single source of truth) - no duplication.
@@ -122,13 +116,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     );
   } catch (error) {
-    // throw redirect("/auth/login", {
-    //   headers: {
-    //     "Set-Cookie": await destroySession(session),
-    //   },
-    // });
     return Response.json(
-      { error: error.message },
+      { error },
       {
         headers: {
           "Set-Cookie": await destroySession(session),

@@ -12,7 +12,8 @@ import { useTranslation } from "~/i18n";
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   try {
     const { id } = params;
-    const resp = await importOrderService.getOrderById(id as string);
+    const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
+    const resp = await importOrderService.getOrderById(id as string, { cookie, vendorId });
     return {
       data: resp.data?.data ?? null,
     };
@@ -28,6 +29,7 @@ export const meta: MetaFunction = () => {
 export default function ImportOrderDetail() {
   const { data } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
+  console.log("resp", data.orderDetails);
   if (!data) return <div className="p-4">{t("common.noData")}</div>;
   return (
     <div className="w-full flex flex-col p-4 gap-4">
@@ -53,7 +55,7 @@ export default function ImportOrderDetail() {
         <TMTable
           columns={[
             { title: t("importOrder.stt"), dataIndex: "id", width: 80, render: (_r: any, i) => Number(i) + 1 },
-            { title: t("importOrder.product"), dataIndex: "name" },
+            { title: t("importOrder.product"), dataIndex: "name", render: (r: any) => r.product.name },
             {
               title: t("importOrder.total"),
               dataIndex: "buyPrice",

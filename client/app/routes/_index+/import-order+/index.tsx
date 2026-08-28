@@ -15,15 +15,14 @@ import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const cookie = request.headers.get("Cookie") as string;
-    const session = await getSession(cookie);
-    const warehouseId = session.get("warehouseId");
+    const { cookie, warehouseId, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || "1";
     const pageSize = params.get("pageSize") || "10";
     const resp = await importOrderService.getOrders({
       warehouseId: warehouseId as string,
+      vendorId,
       page,
       pageSize,
       cookie,
@@ -46,6 +45,7 @@ export const meta: MetaFunction = () => {
 
 export default function ImportOrder() {
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
+  console.log("data", data);
   const navigate = useNavigate();
   const { t } = useTranslation();
   return (
@@ -67,29 +67,39 @@ export default function ImportOrder() {
           </div>
           <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn flex-1">
             <TMTable
+              scrollable
               columns={[
-                {
-                  title: t("importOrder.stt"),
-                  dataIndex: "id",
-                  width: 80,
-                  render: (_record, i) => (page - 1) * pageSize + Number(i) + 1,
-                },
+                // {
+                //   title: t("importOrder.stt"),
+                //   dataIndex: "id",
+                //   width: 80,
+                //   render: (_record, i) => (page - 1) * pageSize + Number(i) + 1,
+                // },
                 {
                   title: t("importOrder.provider"),
                   dataIndex: "provider",
                   render: (record) => record.provider?.name || "-",
                 },
                 {
-                  title: t("importOrder.total"),
+                  title: t("importOrder.quantity"),
                   dataIndex: "paid",
                   render: (record) => (
-                    <NumericFormat value={record.paid} displayType={"text"} thousandSeparator="," />
+                    <NumericFormat
+                      value={record.orderDetails?.reduce((o, c) => (o += c.quantity), 0)}
+                      displayType={"text"}
+                      thousandSeparator=","
+                    />
                   ),
+                },
+                {
+                  title: t("importOrder.total"),
+                  dataIndex: "paid",
+                  render: (record) => <NumericFormat value={record.paid} displayType={"text"} thousandSeparator="," />,
                 },
                 {
                   title: t("importOrder.staff"),
                   dataIndex: "staffName",
-                  render: (record) => record["staffName"] || t("importOrder.defaultStaff"),
+                  render: (record) => record?.["staffName"] || t("importOrder.defaultStaff"),
                 },
                 {
                   title: t("common.createdAt"),

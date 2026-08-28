@@ -94,9 +94,10 @@ export function ErrorBoundary() {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
+    const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
     const formData = await request.formData();
     const data = JSON.parse(Object.fromEntries(formData)?.data as string);
-    const resp = await providerService.create(data);
+    const resp = await providerService.create({ ...data, vendorId, cookie });
     return json(resp);
   } catch (error) {
     return json(

@@ -18,11 +18,11 @@ import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { id } = params;
-  const { cookie } = await parseCookieFromRequest(request);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   if (!id) return redirect("/providers");
-  const resp = await providerService.getProviderById({ id, cookie });
+  const resp = await providerService.getProviderById({ id, cookie, vendorId });
   if (resp.status !== 200) throw new Response("Provider not found", { status: resp.status });
-  return resp;
+  return resp.data;
 };
 
 export const meta: MetaFunction = () => {
@@ -31,6 +31,7 @@ export const meta: MetaFunction = () => {
 
 export default function ProviderItem() {
   const { data } = useLoaderData<typeof loader>();
+  console.log("data", data);
   const navigate = useNavigate();
   const { t } = useTranslation();
   const formMethods = useForm<ProviderUpdateSchema>({
@@ -97,9 +98,10 @@ export function ErrorBoundary() {
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   try {
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = JSON.parse(Object.fromEntries(formData)?.data as string);
-    const resp = await providerService.update({ ...data, id: params.id });
+    const resp = await providerService.update({ ...data, id: params.id, vendorId, cookie });
     return json(resp);
   } catch (error) {
     return json({ error: (error as any)?.message }, { status: 400 });

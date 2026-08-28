@@ -5,14 +5,14 @@ import { CardItem } from "~/components/card-item";
 import { TMButton } from "~/components/tm-button";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
+  const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const id = params.id;
 
   if (!id) {
     throw new Response("Not found", { status: 404 });
   }
 
-  const resp = await customerService.getCustomerById({ id, cookie });
+  const resp = await customerService.getCustomerById({ id, cookie, vendorId });
   return resp.data?.data ?? null;
 };
 

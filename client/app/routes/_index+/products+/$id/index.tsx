@@ -30,19 +30,19 @@ import { ICategory } from "~/types/category";
 import { IProduct, IProductAttribute, IProductAttributeValue, IProductVariant } from "~/types/product";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { warehouseId, cookie } = await parseCookieFromRequest(request);
+  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
   const { id } = params;
   if (!id || !warehouseId) throw new Error("Không tìm thấy sản phẩm");
-  const resp = await productService.getProductById({ id, cookie, warehouseId });
+  const resp = await productService.getProductById({ id, cookie, warehouseId, vendorId });
   // The detail query doesn't join variant inventories; the variants endpoint
   // does (scoped to the active warehouse), so prefer it for stock display.
-  const variantsResp = await productService.getProductVariants({ id, cookie, warehouseId });
+  const variantsResp = await productService.getProductVariants({ id, cookie, warehouseId, vendorId });
   const productData = resp.data?.data;
   const data = {
     ...productData,
     variants: variantsResp.data?.data?.length ? variantsResp.data.data : productData?.variants,
   };
-  const history = await historyService.getProductHistory({ id: id as string, warehouseId: [warehouseId], cookie });
+  const history = await historyService.getProductHistory({ id: id as string, warehouseId: [warehouseId], cookie, vendorId });
   return { data, history: history.data };
 };
 
@@ -610,7 +610,7 @@ const HistoryList = ({ history }: { history: IProduct[] }) => {
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { warehouseId, cookie } = await parseCookieFromRequest(request);
+  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
   const { id } = params;
   if (!id) throw new Error("Không tìm thấy sản phẩm");
   const formData = await request.formData();
@@ -624,7 +624,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   switch (formData.get("_action")) {
     case "syncVariants": {
       const payload = JSON.parse((formData.get("payload") as string) || "{}");
-      return productService.syncProductVariants({ id, cookie, warehouseId, ...payload });
+      return productService.syncProductVariants({ id, cookie, warehouseId, vendorId, ...payload });
     }
     case "updateVariant": {
       const variantId = formData.get("variantId") as string | null;
@@ -675,7 +675,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   const data = (await formData.get("data")) as string;
   const dataJson = JSON.parse(data);
-  const bodyData = { ...dataJson.data, warehouseId, cookie };
+  const bodyData = { ...dataJson.data, warehouseId, vendorId, cookie };
   const resp = await productService.updateProduct(bodyData);
   return resp;
 };

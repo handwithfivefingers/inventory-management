@@ -72,14 +72,16 @@ module.exports = {
             })
           }
           for (const module of MODULES) {
-            const records = METHODS.map((m) => ({
-              name: module,
-              description: null,
-              method: m,
-              createdAt: now,
-              updatedAt: now
-            }))
-            await queryInterface.bulkInsert('permissions', records)
+            for (const m of METHODS) {
+              await queryInterface.sequelize
+                .query(
+                  'INSERT IGNORE INTO `permissions` (`name`,`description`,`method`,`createdAt`,`updatedAt`) VALUES (:name,:description,:method,:createdAt,:updatedAt)',
+                  {
+                    replacements: { name: module, description: null, method: m, createdAt: now, updatedAt: now },
+                  }
+                )
+                .catch(() => {});
+            }
           }
         }
       } catch (error) {

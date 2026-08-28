@@ -12,10 +12,9 @@ export const meta: MetaFunction = () => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, warehouseId } = await parseCookieFromRequest(request);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   if (!cookie) throw new Error("Unauthorized");
-  void warehouseId;
-  const resp = await productService.getAttributes({ cookie });
+  const resp = await productService.getAttributes({ cookie, vendorId });
   return { data: resp.data?.data || [] };
 };
 

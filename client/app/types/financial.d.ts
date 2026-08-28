@@ -28,6 +28,7 @@ export interface IFinancialReport {
 }
 
 export interface IFinancialQueryParams extends BaseQueryParams {
+  vendorId?: string | number;
   warehouseId?: string;
   type?: string;
   category?: string;

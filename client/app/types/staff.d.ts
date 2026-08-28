@@ -19,6 +19,7 @@ export interface IStaff {
 }
 
 export interface IStaffQueryParams extends BaseQueryParams {
+  vendorId?: string | number;
   warehouseId?: string;
   status?: string;
   q?: string;

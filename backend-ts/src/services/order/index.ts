@@ -11,6 +11,12 @@ import { TransferService } from '../transfer'
 import { SettingService } from '../setting'
 import { applyCodeFormat, getCodeFormat } from '#/utils/code-generator'
 import { Request } from 'express'
+import Inventory from '#/database/models/inventory'
+import ProductVariant from '#/database/models/productVariant'
+import Order from '#/database/models/order'
+import OrderDetail from '#/database/models/orderDetail'
+import Product from '#/database/models/product'
+import FinancialRecord from '#/database/models/financialRecord'
 interface IOrderCreateParams {
   price?: number | string
   VAT?: number | string
@@ -63,27 +69,15 @@ interface ICreateTransferParams {
   type?: string
 }
 export default class OrderService {
-  order: IOrderStatic = database.order
-  orderDetail: IOrderDetailStatic = database.orderDetail
-  inventory: IInventoryStatic = database.inventory
-  product: IProductStatic = database.product
-  financialRecord: IFinancialRecordStatic = database.financialRecord
   sequelize = database.sequelize
 
   async create(
-    {
-      VAT,
-      surcharge,
-      paymentType,
-      warehouseId,
-      providerId,
-      orderDetails,
-      type = '1',
-      vendorId
-    }: IOrderCreateParams,
+    { VAT, surcharge, paymentType, warehouseId, providerId, orderDetails, type = '1', vendorId }: IOrderCreateParams,
     /** Multi-tenant scope from auth middleware (null = platform admin). */
     vendorScope: TVendorScope = null
   ) {
+    // Imports (providerId set) are inbound stock (type '0'), sales are outbound ('1')
+    if (providerId != null) type = '0';
     // Tenant check: the warehouse must belong to one of the caller's vendors
     // and any explicitly requested vendorId must be within scope.
     const warehouseVendorId = await assertWarehouseAccess(warehouseId, vendorScope)
@@ -91,7 +85,9 @@ export default class OrderService {
       assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized to create orders for this vendor')
     }
     const effectiveVendorId =
-      vendorId != null ? Number(vendorId) : warehouseVendorId ?? (vendorScope && vendorScope.length ? vendorScope[0] : null)
+      vendorId != null
+        ? Number(vendorId)
+        : (warehouseVendorId ?? (vendorScope && vendorScope.length ? vendorScope[0] : null))
 
     const totalPrice = orderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
     const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
@@ -114,7 +110,7 @@ export default class OrderService {
     try {
       // Calculate the total price of the order details and add the surcharge
 
-      const orderBuilder = this.order.build(orderParams as Optional<IOrderModel, 'id'>)
+      const orderBuilder = Order.build(orderParams as Optional<IOrderModel, 'id'>)
 
       const p = await orderBuilder.save({ transaction: t })
 
@@ -182,7 +178,7 @@ export default class OrderService {
     ...orderDetail
   }: IOrderDetailCreateParams) {
     try {
-      const orderDetailBuilder = this.orderDetail.build({
+      const orderDetailBuilder = OrderDetail.build({
         quantity,
         warehouseId,
         orderId,
@@ -193,7 +189,7 @@ export default class OrderService {
       })
 
       await orderDetailBuilder.save({ transaction })
-      await this.updateInventory({ quantity, productId, warehouseId, transaction })
+      await this.updateInventory({ quantity, productId, variantId: variantId ?? null, warehouseId, transaction, type })
       await this.updateProductQuantity({ quantity, productId, transaction })
       await this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
 
@@ -230,7 +226,7 @@ export default class OrderService {
     let allowNegative = false
     let insufficientStockLabel: string | null = null
     if (operator === 'decrement') {
-      const product = await this.product.findByPk(productId, { transaction })
+      const product = await Product.findByPk(productId, { transaction })
       if (!product) {
         throw new Error(`Product ${productId} not found`)
       }
@@ -238,7 +234,7 @@ export default class OrderService {
       allowNegative = Boolean((product as any).isNegative)
       let variant: any = null
       if (!allowNegative && variantId != null) {
-        variant = await database.productVariant.findByPk(variantId, { transaction })
+        variant = await ProductVariant.findByPk(variantId, { transaction })
         if (!variant) {
           throw new Error(`Variant ${variantId} not found`)
         }
@@ -246,27 +242,25 @@ export default class OrderService {
         allowNegative = Boolean(variant.get('isNegative'))
       } else if (variantId != null) {
         // Variant only needed for the error label; keep the existing message shape
-        variant = await database.productVariant.findByPk(variantId, { transaction })
+        variant = await ProductVariant.findByPk(variantId, { transaction })
         if (variant) label = `${label} [${variant.get('skuCode')}]`
       }
       if (!allowNegative) {
         // C2 (TOCTOU): the availability check is part of the atomic write
         // below (`quantity >= requested` in the decrement WHERE clause), so
         // two concurrent sales cannot both pass a stale read and oversell.
-        const inventoryRow = await this.inventory.findOne({
+        const inventoryRow = await Inventory.findOne({
           where: stockWhere,
           transaction
         })
         if (!inventoryRow) {
-          throw new Error(
-            variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found'
-          )
+          throw new Error(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
         }
         insufficientStockLabel = `${label}`
       }
     }
 
-    const inventory: any = this.inventory
+    const inventory: any = Inventory
     const [affectedRows] = await inventory[operator]('quantity', {
       by: quantity,
       where:
@@ -294,8 +288,8 @@ export default class OrderService {
    */
   async updateProductQuantity({ quantity, productId, variantId, transaction }: IProductUpdateParams) {
     try {
-      // const prod = await this.product.findByPk(productId)
-      const [prod] = await this.product.increment('sold', {
+      // const prod = await Product.findByPk(productId)
+      const [prod] = await Product.increment('sold', {
         by: quantity,
         where: { id: productId },
         transaction
@@ -305,12 +299,12 @@ export default class OrderService {
       // await prod.save({ transaction })
       // Keep the per-variant sold counter in sync when a specific variant sold
       if (variantId != null) {
-        // const variant = await database.productVariant.findByPk(variantId, { transaction })
+        // const variant = await ProductVariant.findByPk(variantId, { transaction })
         // if (variant) {
         //   variant.sold = Number(variant.get('sold') ?? 0) + quantity
         //   await variant.save({ transaction })
         // }
-        const [variant] = await database.productVariant.increment('sold', {
+        const [variant] = await ProductVariant.increment('sold', {
           by: quantity,
           where: { id: variantId },
           transaction
@@ -364,7 +358,7 @@ export default class OrderService {
       const prefix = isImport ? 'PC' : 'PT'
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       const code = `${prefix}-${datePart}-${order.id}`
-      await this.financialRecord.create(
+      await FinancialRecord.create(
         {
           code,
           type: isImport ? 'expense' : 'revenue',
@@ -405,7 +399,7 @@ export default class OrderService {
         throw new Error('Order details are required')
       }
 
-      const order = await this.order.findByPk(id, { transaction: t })
+      const order = await Order.findByPk(id, { transaction: t })
       if (!order) {
         throw new Error('Order not found')
       }
@@ -420,7 +414,7 @@ export default class OrderService {
       const keyOf = (item: { productId: number; variantId?: number | null }) =>
         `${item.productId}-${item.variantId ?? 'x'}`
 
-      const oldDetails = await this.orderDetail.findAll({
+      const oldDetails = await OrderDetail.findAll({
         where: { orderId: order.id },
         transaction: t
       })
@@ -441,6 +435,9 @@ export default class OrderService {
         })
       }
 
+      // Infer effective type: provider orders are imports (type '0')
+      const effectiveType = (order as any).providerId != null ? '0' : type
+
       // Apply stock adjustments for the difference (delta > 0 means more goods
       // leave for a sale; delta < 0 means goods come back)
       const allKeys = new Set([...oldQtyMap.keys(), ...newQtyMap.keys()])
@@ -453,7 +450,7 @@ export default class OrderService {
         const ref = newQtyMap.get(key) ?? oldQtyMap.get(key)!
         // For sales ('1'): increase => export more, decrease => return stock.
         // For imports ('0'): the opposite.
-        const adjustmentType = type === '0' ? (delta > 0 ? '0' : '1') : delta > 0 ? '1' : '0'
+        const adjustmentType = effectiveType === '0' ? (delta > 0 ? '0' : '1') : delta > 0 ? '1' : '0'
         await this.updateInventory({
           productId: ref.productId,
           variantId: ref.variantId,
@@ -462,12 +459,21 @@ export default class OrderService {
           transaction: t,
           type: adjustmentType
         })
+        // Keep history (transfers) in sync with inventory movements
+        await this.createTransfer({
+          productId: ref.productId,
+          variantId: ref.variantId ?? null,
+          warehouseId,
+          quantity: Math.abs(delta),
+          transaction: t,
+          type: adjustmentType
+        })
       }
 
       // Replace the order detail rows
-      await this.orderDetail.destroy({ where: { orderId: order.id }, transaction: t })
+      await OrderDetail.destroy({ where: { orderId: order.id }, transaction: t })
       for (const item of orderDetails) {
-        await this.orderDetail.create(
+        await OrderDetail.create(
           {
             orderId: order.id,
             warehouseId,
@@ -530,7 +536,7 @@ export default class OrderService {
       // S1: vendor filter must be within the caller's vendor scope; scoped
       // users without an explicit filter only ever see their own vendors.
       if (vendorId) {
-        assertVendorAccess(scope, Number(vendorId), 'Unauthorized to read this vendor\'s orders')
+        assertVendorAccess(scope, Number(vendorId), "Unauthorized to read this vendor's orders")
         where.vendorId = Number(vendorId)
       } else if (scope !== null) {
         where.vendorId = { [Op.in]: scope }
@@ -547,7 +553,7 @@ export default class OrderService {
         distinct: true, // Prevents wrong count / join fan-out with hasMany include
         separate: false
       }
-      const resp = await this.order.findAndCountAll(queryParams)
+      const resp = await Order.findAndCountAll(queryParams)
       return resp
     } catch (error) {
       console.warn('error', error)
@@ -576,7 +582,7 @@ export default class OrderService {
     try {
       // S1: the caller may only read orders inside warehouses they own.
       await assertWarehouseAccess(warehouseId, vendorScope)
-      const resp = await this.order.findOne({
+      const resp = await Order.findOne({
         where: {
           id: id,
           warehouseId: warehouseId
@@ -585,7 +591,7 @@ export default class OrderService {
           {
             model: database.orderDetail,
             include: {
-              model: database.product,
+              model: Product,
               attributes: []
             }
           }

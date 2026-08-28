@@ -11,15 +11,14 @@ import { PermissionGuard } from "~/components/permission-guard";
 import { getSession } from "~/sessions";
 import { ICustomer } from "~/types/customer";
 import { useTranslation } from "~/i18n";
+import { Icon } from "~/components/icon";
 
 interface IFilter {
   s?: string;
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
-  const session = await getSession(cookie);
-  const vendorId = session.get("vendorId");
+  const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -44,12 +43,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
+  const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const formData = await request.formData();
   const id = Number(formData.get("id"));
 
   try {
-    await customerService.deleteCustomer({ id, cookie });
+    await customerService.deleteCustomer({ id, cookie, vendorId });
     return new Response(null, { status: 200 });
   } catch (error: any) {
     return { error: error.message || "Delete failed" };
@@ -86,7 +85,7 @@ export default function Customers() {
     <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem title={t("customers.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
-          <div className="flex gap-2 shrink-0 justify-between items-center">
+          <div className="flex gap-2 shrink-0 justify-between items-center p-1">
             <TextInput
               placeholder={t("customers.searchPlaceholder")}
               value={filter.s}
@@ -94,44 +93,50 @@ export default function Customers() {
                 const value = v.target.value;
                 setFilter({ s: value });
               }}
-              className="max-w-xs"
+              className="max-w-sm w-full"
             />
             <PermissionGuard permission="CREATE" module="customer">
-              <Link to="add">
-                <TMButton>{t("customers.create")}</TMButton>
-              </Link>
+              <TMButton component={Link} to="add" size="sm">
+                <Icon name="plus" fontSize={16} />
+                {t("customers.create")}
+              </TMButton>
             </PermissionGuard>
           </div>
 
           <div className="flex-1 overflow-auto">
             <TMTable
+              scrollable
               columns={[
-                { title: t("customers.id"), dataIndex: "id", width: 60 },
+                // { title: t("customers.id"), dataIndex: "id", width: 60 },
                 { title: t("customers.name"), dataIndex: "name", width: 200 },
                 { title: t("customers.phone"), dataIndex: "phone", width: 150 },
-                { title: t("customers.email"), dataIndex: "email", width: 200 },
-                { title: t("customers.taxCode"), dataIndex: "taxCode", width: 150 },
+                { title: t("customers.email"), dataIndex: "email" },
+                { title: t("customers.taxCode"), dataIndex: "taxCode" },
                 {
                   title: t("common.actions"),
                   dataIndex: "actions",
-                  width: 200,
+                  width: 120,
                   render: (item: ICustomer) => (
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <PermissionGuard permission="READ" module="customer">
-                        <Link to={`${item.id}`} className="text-blue-600 hover:underline">
-                          {t("common.view")}
-                        </Link>
+                        <TMButton component={Link} to={`${item.id}`} size="sm" className="py-2">
+                          <Icon name="eye" fontSize={12} />
+                        </TMButton>
                       </PermissionGuard>
                       <PermissionGuard permission="UPDATE" module="customer">
-                        <Link to={`${item.id}/edit`} className="text-orange-600 hover:underline">
-                          {t("common.edit")}
-                        </Link>
+                        <TMButton component={Link} to={`${item.id}/edit`} size="sm" className="py-2">
+                          <Icon name="edit" fontSize={12} />
+                        </TMButton>
                       </PermissionGuard>
                       <PermissionGuard permission="DELETE" module="customer">
-                        <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:underline">
-                          {t("common.delete")}
-                        </button>
-                      </PermissionGuard>{" "}
+                        <TMButton
+                          size="sm"
+                          onClick={() => handleDelete(item.id)}
+                          className="py-2 text-red-500 bg-red-500/20"
+                        >
+                          <Icon name="trash" fontSize={12} />
+                        </TMButton>
+                      </PermissionGuard>
                     </div>
                   ),
                 },

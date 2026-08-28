@@ -9,7 +9,7 @@ import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { useSubmitPromise } from "~/hooks";
-import { getSessionValues } from "~/sessions";
+import { getSessionValues, parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
@@ -88,16 +88,12 @@ const CategoryForm = () => {
   );
 };
 export const action = async ({ request }: any) => {
-  console.log("action");
-  const cookie = request.headers.get("Cookie") as string;
-  const { vendorId } = await getSessionValues(cookie);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const data = await formData.get("data");
-  console.log("data", data);
   const dataJson = JSON.parse(data);
   dataJson.vendorId = vendorId;
   const resp = await categoryService.create({ ...dataJson, cookie });
-  // return resp;
   return resp;
 };
 export function ErrorBoundary() {

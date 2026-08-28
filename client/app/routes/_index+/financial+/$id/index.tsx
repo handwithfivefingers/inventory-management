@@ -5,14 +5,14 @@ import { financialService } from "~/action.server/financial.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   try {
-    const cookie = request.headers.get("Cookie") as string;
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const { id } = params;
-    const resp = await financialService.getVoucherById(id as string);
+    const resp = await financialService.getVoucherById(id as string, { cookie, vendorId });
     return {
       data: resp.data?.data ?? null,
     };

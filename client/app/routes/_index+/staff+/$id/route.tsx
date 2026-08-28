@@ -17,9 +17,9 @@ import { parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   try {
-    const { cookie } = await parseCookieFromRequest(request);
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const { id } = params;
-    const resp = await staffService.getById(id as string, cookie);
+    const resp = await staffService.getById(id as string, cookie, vendorId);
     return { data: resp.data?.data ?? null, id };
   } catch (error) {
     throw new Response("error", { status: 404 });
@@ -164,10 +164,11 @@ export default function StaffDetail() {
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   try {
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const { id } = params;
     const form = await request.formData();
     const data = form.get("data") as string;
-    const resp = await staffService.update(id as string, JSON.parse(data));
+    const resp = await staffService.update(id as string, { ...JSON.parse(data), cookie, vendorId });
     return resp;
   } catch (error) {
     return { status: 400, error: (error as any).message };

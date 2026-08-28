@@ -16,7 +16,7 @@ import { parseCookieFromRequest } from "~/sessions";
 import { IProvider } from "~/types/provider";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, session, vendorId } = await parseCookieFromRequest(request);
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -25,7 +25,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     page,
     pageSize,
     cookie,
-    vendor: vendorId as string,
+    vendorId: vendorId as string,
     isProvider: true,
   });
   return {

@@ -13,22 +13,20 @@ import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const cookie = request.headers.get("Cookie") as string;
-    const session = await getSession(cookie);
-    const warehouseId = session.get("warehouseId");
+    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const page = url.searchParams.get("page") || "1";
     const pageSize = url.searchParams.get("pageSize") || "10";
 
     const [current, list, staffs] = await Promise.all([
-      shiftService.getCurrent(warehouseId as string),
-      shiftService.get({ warehouseId: warehouseId as string, page, pageSize, cookie }),
-      staffService.get({ warehouseId: warehouseId as string, page: "1", pageSize: "100", cookie }),
+      shiftService.getCurrent(warehouseId as string, { cookie, vendorId }),
+      shiftService.get({ warehouseId: warehouseId as string, vendorId, page, pageSize, cookie }),
+      staffService.get({ warehouseId: warehouseId as string, vendorId, page: "1", pageSize: "100", cookie }),
     ]);
 
     return {

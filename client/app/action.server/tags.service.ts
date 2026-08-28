@@ -12,14 +12,16 @@ const tagsService = {
     const qs = new URLSearchParams(searchParams as any);
     return HTTPService.getInstance().get<{ data: ITag[]; total: number }>(API_PATH.tags + "?" + qs.toString(), { Cookie });
   },
-  update: ({ id, cookie: Cookie, ...params }: ITagParams) => {
-    return HTTPService.getInstance().post(`${API_PATH.tags}/${id}`, params, { Cookie });
+  update: ({ id, cookie: Cookie, vendorId, ...params }: ITagParams & { vendorId?: string | number }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return HTTPService.getInstance().post(`${API_PATH.tags}/${id}${qs}`, params, { Cookie });
   },
   create: ({ cookie: Cookie, ...params }: ITagParams) => {
     return HTTPService.getInstance().post(API_PATH.tags, params, { Cookie });
   },
   getById: ({
     id,
+    vendorId,
     cookie: Cookie,
   }: {
     id: Partial<string | number>;
@@ -27,7 +29,9 @@ const tagsService = {
     cookie: string;
   }) => {
     const params = new URLSearchParams({});
-    return HTTPService.getInstance().get<ITag>(API_PATH.tags + "/" + id + "?" + params.toString(), { Cookie });
+    if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") params.set("vendorId", `${vendorId}`);
+    const qs = params.toString();
+    return HTTPService.getInstance().get<ITag>(API_PATH.tags + "/" + id + (qs ? "?" + qs : ""), { Cookie });
   },
 };
 

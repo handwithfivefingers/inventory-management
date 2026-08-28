@@ -56,7 +56,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const cookie = request.headers.get("cookie") as string;
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const id = Number(formData.get("id"));
   const intent = formData.get("intent");
@@ -67,9 +67,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         id,
         status: formData.get("status") as any,
         cookie,
+        vendorId,
       });
     } else {
-      await invoiceService.deleteInvoice({ id, cookie });
+      await invoiceService.deleteInvoice({ id, cookie, vendorId });
     }
     return new Response(null, { status: 200 });
   } catch (error: any) {
