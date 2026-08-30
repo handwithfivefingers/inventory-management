@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, HasMany } from 'sequelize-typescript'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript'
 import { Vendor } from './vendor'
 import { Inventory } from './inventory'
 import { OrderDetail } from './orderDetail'
@@ -34,6 +34,9 @@ export class Warehouse extends Model {
 
   @UpdatedAt
   declare updatedAt: Date
+
+  @BelongsTo(() => Vendor, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
+  declare vendor: Vendor
 
   @HasMany(() => Inventory)
   declare inventories: Inventory[]

@@ -44,7 +44,8 @@ export default class AuthenticateController {
   async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const resp = await new AuthenticateService().register(req.body)
-      return res.status(200).json(resp)
+      res.status(200).json(resp)
+      return
     } catch (error) {
       next(error)
     }

@@ -1,4 +1,15 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany, BelongsToMany } from 'sequelize-typescript'
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+  ForeignKey,
+  BelongsTo,
+  HasMany,
+  BelongsToMany
+} from 'sequelize-typescript'
 import { User } from './user'
 import { Warehouse } from './warehouse'
 import { Category } from './category'
@@ -15,6 +26,9 @@ export class Vendor extends Model {
   @Column(DataType.STRING)
   declare name: string
 
+  @Column(DataType.STRING)
+  declare niche: string
+
   @ForeignKey(() => User)
   @Column(DataType.INTEGER)
   declare userId: number
@@ -25,7 +39,7 @@ export class Vendor extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => User)
+  @BelongsTo(() => User, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare user: User
 
   @HasMany(() => Warehouse)

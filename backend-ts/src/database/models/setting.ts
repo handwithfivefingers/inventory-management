@@ -74,7 +74,7 @@ export class Setting extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Vendor)
+  @BelongsTo(() => Vendor, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare vendor: Vendor
 }
 

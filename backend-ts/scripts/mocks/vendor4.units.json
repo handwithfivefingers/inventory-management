@@ -1,0 +1,8 @@
+[
+  { "name": "Cái", "vendorId": 4 },
+  { "name": "Hộp", "vendorId": 4 },
+  { "name": "Thùng", "vendorId": 4 },
+  { "name": "Chai", "vendorId": 4 },
+  { "name": "Gói", "vendorId": 4 },
+  { "name": "Kg", "vendorId": 4 }
+]

@@ -130,7 +130,11 @@ export default function RoleId() {
 
   const handleSelectAllModule = (moduleKey: string) => {
     const checked = !isModuleChecked(moduleKey);
-    form.setValue(`permissions.${moduleKey}` as any, { C: checked, R: checked, U: checked, D: checked }, { shouldDirty: true, shouldValidate: true });
+    form.setValue(
+      `permissions.${moduleKey}` as any,
+      { C: checked, R: checked, U: checked, D: checked },
+      { shouldDirty: true, shouldValidate: true },
+    );
   };
 
   const onSubmit = async (values: RoleFormValues) => {
@@ -168,10 +172,18 @@ export default function RoleId() {
               <div className="p-3 bg-indigo-50 rounded-md">
                 <h4 className="text-sm font-semibold text-indigo-800 mb-2">Ghi chú:</h4>
                 <ul className="text-xs text-indigo-700 space-y-1">
-                  <li>• <strong>C</strong>: Tạo mới</li>
-                  <li>• <strong>R</strong>: Xem danh sách</li>
-                  <li>• <strong>U</strong>: Chỉnh sửa</li>
-                  <li>• <strong>D</strong>: Xóa</li>
+                  <li>
+                    • <strong>C</strong>: Tạo mới
+                  </li>
+                  <li>
+                    • <strong>R</strong>: Xem danh sách
+                  </li>
+                  <li>
+                    • <strong>U</strong>: Chỉnh sửa
+                  </li>
+                  <li>
+                    • <strong>D</strong>: Xóa
+                  </li>
                 </ul>
               </div>
             </div>
@@ -191,7 +203,7 @@ export default function RoleId() {
                       render: (record) => <span className="font-medium text-gray-800">{record.label}</span>,
                     },
                     {
-                      title: <span className="text-indigo-600 font-bold">Tạo (C)</span>,
+                      title: <span className="text-primary font-bold">Tạo (C)</span>,
                       dataIndex: "module",
                       render: (record) => (
                         <FormControl name={`permissions.${record.key}.C`}>

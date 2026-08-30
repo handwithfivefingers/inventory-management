@@ -194,9 +194,9 @@ const CollapsibleGroup = ({
       {/* Group header */}
       <div
         className={cn(
-          "py-1 transition-all rounded-md flex gap-2 justify-between cursor-pointer pr-3 text-indigo-950 hover:text-indigo-600 dark:hover:text-slate-800/80 dark:text-slate-200",
+          "py-1 transition-all rounded-md flex gap-2 justify-between cursor-pointer pr-3 text-indigo-950 hover:text-primary dark:hover:text-slate-800/80 dark:text-slate-200",
           {
-            ["text-indigo-600 dark:text-slate-200"]: containsActive,
+            ["text-primary dark:text-slate-200"]: containsActive,
             // Nested headers align their icon with sibling link icons
             ["ml-6"]: level > 0,
           },
@@ -211,7 +211,7 @@ const CollapsibleGroup = ({
         <div className="flex gap-2 px-2 items-center">
           <Icon
             name={iconName || "chevron-down"}
-            className={cn("min-w-7 px-[5px] dark:text-slate-200", containsActive ? "text-indigo-600" : undefined)}
+            className={cn("min-w-7 px-[5px] dark:text-slate-200", containsActive ? "text-primary" : undefined)}
           />
           <div className="flex-shrink-0 text-sm">{label}</div>
         </div>
@@ -237,7 +237,7 @@ const CollapsibleGroup = ({
           {/* Every level indents by pl-10 and draws its own guide line */}
           <div className="relative flex flex-col gap-0.5 py-1 pl-10">
             <div
-              className="absolute w-[1px] bg-indigo-600 dark:bg-slate-200 rounded-full left-7 mask-linear-[180deg,transparent_5%,black,transparent_95%]"
+              className="absolute w-[1px] bg-primary dark:bg-slate-200 rounded-full left-7 mask-linear-[180deg,transparent_5%,black,transparent_95%]"
               style={{ height: `calc(100% - ${ROW_HEIGHT / 2}px)` }}
             />
             {children}
@@ -259,9 +259,9 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: Omit
       {isChildren && (
         <div
           className={cn(
-            "w-1 h-1 ring-[2px] ring-indigo-600 dark:ring-slate-200 rounded-full absolute -left-[11px] top-1/2 -translate-x-1/2 -translate-y-1/2",
+            "w-1 h-1 ring-[2px] ring-primary dark:ring-slate-200 rounded-full absolute -left-[11px] top-1/2 -translate-x-1/2 -translate-y-1/2",
             {
-              ["bg-indigo-600"]: isActive,
+              ["bg-primary"]: isActive,
               ["bg-slate-200"]: !isActive,
             },
           )}
@@ -272,19 +272,19 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: Omit
           <Icon
             name={iconName}
             className={cn("min-w-7 px-[5px] text-indigo-950 dark:text-slate-200", {
-              ["text-indigo-600 dark:text-slate-200"]: isActive,
+              ["text-primary dark:text-slate-200"]: isActive,
             })}
           />
         )}
         <div
           className={cn("text-indigo-950 dark:text-slate-200 text-sm", {
-            ["text-indigo-600 dark:text-slate-200"]: isActive,
+            ["text-primary dark:text-slate-200"]: isActive,
           })}
         >
           {label}
         </div>
         <div
-          className={cn("absolute top-0 right-1 w-[3px] bg-indigo-600 dark:bg-indigo-50 z-10 h-full rounded-md", {
+          className={cn("absolute top-0 right-1 w-[3px] bg-primary dark:bg-indigo-50 z-10 h-full rounded-md", {
             ["hidden"]: !isActive,
           })}
         />

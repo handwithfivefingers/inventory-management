@@ -10,6 +10,7 @@ interface Props {
   /** Increment/decrement amount (e.g. settings.moneyStep for pricing) */
   step?: number;
   label?: string;
+  required?: boolean;
 }
 
 /**
@@ -31,6 +32,7 @@ export const NumberStepper = forwardRef<HTMLDivElement, Props>(
           onValueChange={(v) => onValueChange?.(v)}
           disabled={disabled}
           style={{ margin: 0 }}
+          required
         />
         {/* Fixed height so the +/- buttons align with the input only,
             instead of stretching over the label area above it */}

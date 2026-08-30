@@ -72,10 +72,10 @@ export class Staff extends Model {
     }
   }
 
-  @BelongsTo(() => User)
+  @BelongsTo(() => User, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare user: User
 
-  @BelongsTo(() => Role)
+  @BelongsTo(() => Role, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare role: Role
 
   @BelongsToMany(() => Vendor, () => StaffVendor)

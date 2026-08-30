@@ -21,6 +21,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (token && userId) throw redirect("/");
   return {};
 }
+export const meta = [
+  {
+    title: "Đăng nhập với Stockly",
+  },
+];
 
 function Login() {
   const formMethods = useForm<ILoginForm>({
@@ -39,7 +44,6 @@ function Login() {
     try {
       const resp = await submit<{ data: IUser }>({ data: JSON.stringify(v) }, { method: "POST" });
       const user = resp.data;
-      console.log("user", user);
       if (!user) {
         toast.danger({
           title: "Đăng nhập thất bại",
@@ -85,7 +89,7 @@ function Login() {
             <div>
               <div className="text-sm text-center py-2">
                 <span>Bạn chưa có tài khoản? </span>
-                <Link to="/auth/register" className="text-indigo-600 dark:text-white underline underline-offset-2">
+                <Link to="/auth/register" className="text-primary dark:text-white underline underline-offset-2">
                   Đăng kí ngay
                 </Link>
               </div>
@@ -103,7 +107,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const json = JSON.parse(data.get("data") as string);
     const resp = await AuthService.login(json);
     if (resp.status !== 200) throw resp;
-    console.log("resp", resp);
     const session = await getSession(request.headers.get("cookie"));
     const loginData = resp.data?.data as IUser & {
       token?: string;

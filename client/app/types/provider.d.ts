@@ -30,6 +30,7 @@ export interface IImportOrder {
   createdAt?: string;
   provider?: IProvider;
   orderDetails?: any[];
+  staffName?: string;
 }
 export interface IOrderDetails {
   productId: number | string;

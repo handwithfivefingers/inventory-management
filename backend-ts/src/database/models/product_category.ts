@@ -18,10 +18,10 @@ export class ProductCategory extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare product: Product
 
-  @BelongsTo(() => Category)
+  @BelongsTo(() => Category, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare category: Category
 }
 

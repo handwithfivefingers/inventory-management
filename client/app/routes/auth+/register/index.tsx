@@ -21,6 +21,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (userId) return redirect("/");
   return {};
 }
+export const meta = [
+  {
+    title: "Đăng ký tài khoản - Stockly",
+  },
+];
 
 export default function Register() {
   const formMethods = useForm<RegisterType>({
@@ -45,10 +50,13 @@ export default function Register() {
 
   const onSubmit = async (values: RegisterType) => {
     try {
-      const response = await submit<{ status: number; error?: Error }>({ ...values }, { method: "POST" });
+      const response = await submit<{ status: number; error?: Error }>(
+        { data: JSON.stringify(values) },
+        { method: "POST" },
+      );
       if (response.status !== 200) throw response.error;
       toast.success({ message: REGISTER_MESSAGE.SUCCESS, title: "Thành công" });
-      navigate("/login");
+      navigate("/auth/login");
     } catch (error) {
       console.log("error", error);
       if ((error as Error).name === "SequelizeUniqueConstraintError") {
@@ -138,25 +146,25 @@ export default function Register() {
             <div className="col-span-2 py-2">
               <div className="text-sm text-center">
                 <span>Bạn đã có tài khoản? </span>
-                <Link to="/auth/login" className="text-indigo-600">
+                <Link to="/auth/login" className="text-primary">
                   Đăng nhập
                 </Link>
               </div>
             </div>
             <div className="flex items-center flex-row col-span-2">
-              <div className="bg-indigo-600 h-0.5 w-full" />
+              <div className="bg-primary h-0.5 w-full" />
               <span className="text-center text-sm flex-shrink-0 px-4 w-full">Đăng kí với</span>
-              <div className="bg-indigo-600 h-0.5 w-full" />
+              <div className="bg-primary h-0.5 w-full" />
             </div>
             <div className="flex flex-row justify-center gap-8 col-span-2">
               <div className="p-2 rounded-md bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition-all">
-                <Icon name="facebook" className="text-indigo-600" />
+                <Icon name="facebook" className="text-primary" />
               </div>
               <div className="p-2 rounded-md bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition-all">
-                <Icon name="instagram" className="text-indigo-600" />
+                <Icon name="instagram" className="text-primary" />
               </div>
               <div className="p-2 rounded-md bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition-all">
-                <Icon name="mail" className="text-indigo-600 " />
+                <Icon name="mail" className="text-primary " />
               </div>
             </div>
           </form>

@@ -20,7 +20,7 @@ export class ProductAttribute extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare product: Product
 
   @HasMany(() => ProductAttributeValue)

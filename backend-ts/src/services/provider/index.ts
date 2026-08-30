@@ -51,18 +51,16 @@ export class ProviderService {
   //     throw error
   //   }
   // }
-  async getProvider(req: IRequestLocal) {
+  async getProvider({ offset, limit, vendorId }: { offset?: number; limit?: number; vendorId: number }) {
     try {
-      // const { vendor } = this.getActiveWarehouseAndVendor(req)
-      // const { limit, offset } = this.getPagination(req)
-      const { limit = 10, offset = 0, vendor } = req.query
       const queryParams = {
-        where: {},
+        where: {
+          vendorId
+        },
         limit: Number(limit),
         offset: Number(offset),
         distinct: true
       }
-      if (vendor) queryParams.where = { ...queryParams.where, vendorId: vendor }
       const resp = await this.provider.findAndCountAll(queryParams)
       return resp
     } catch (error) {

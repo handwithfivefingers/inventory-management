@@ -43,16 +43,16 @@ export class OrderDetail extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Order)
+  @BelongsTo(() => Order, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare order: Order
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare product: Product
 
-  @BelongsTo(() => Warehouse)
+  @BelongsTo(() => Warehouse, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare warehouse: Warehouse
 
-  @BelongsTo(() => ProductVariant)
+  @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare variant: ProductVariant
 }
 

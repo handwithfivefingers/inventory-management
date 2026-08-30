@@ -17,10 +17,9 @@ export interface IRegisterParams {
   password: string;
   vendor: string;
   warehouse: string;
-  firstName?: string;
-  lastName?: string;
+  fullName?: string;
   confirmPassword?: string;
-  nickname?: string;
+  niche?: string;
 }
 
 export interface IRegisterResponse {

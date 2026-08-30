@@ -31,7 +31,9 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
         )}
         <div className={cn("relative rounded-md flex items-center ")}>
           <div
-            className="rounded-full w-9 bg-white border-indigo-600 border-[2px] h-5 relative cursor-pointer"
+            className={cn("rounded-full w-9 bg-white border-[2px] h-5 relative cursor-pointer border-slate-400", {
+              ["border-primary"]: value,
+            })}
             onClick={() => inputRef.current?.click()}
           >
             <input
@@ -44,9 +46,9 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
             />
             <span
               className={cn(
-                "w-3.5 h-3.5 bg-slate-500 shadow-xl flex items-center justify-center rounded-full absolute top-1/2 left-0 transform  -translate-y-1/2 translate-x-0.5 transition-all",
+                "w-3.5 h-3.5 bg-slate-400 shadow-xl flex items-center justify-center rounded-full absolute top-1/2 left-0 transform  -translate-y-1/2 translate-x-0.5 transition-all",
                 {
-                  "translate-x-[calc(100%+2px)] bg-indigo-600": value,
+                  "translate-x-[calc(100%+2px)] bg-primary": value,
                 },
               )}
             />

@@ -39,16 +39,16 @@ export class Transfer extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Warehouse, { foreignKey: 'fromWarehouseId', as: 'fromWarehouse' })
+  @BelongsTo(() => Warehouse, { foreignKey: 'fromWarehouseId', as: 'fromWarehouse', onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare fromWarehouse: Warehouse
 
-  @BelongsTo(() => Warehouse, { foreignKey: 'toWarehouseId', as: 'toWarehouse' })
+  @BelongsTo(() => Warehouse, { foreignKey: 'toWarehouseId', as: 'toWarehouse', onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare toWarehouse: Warehouse
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare product: Product
 
-  @BelongsTo(() => ProductVariant)
+  @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare variant: ProductVariant
 }
 

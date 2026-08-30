@@ -35,7 +35,7 @@ export class Customer extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Vendor)
+  @BelongsTo(() => Vendor, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare vendor: Vendor
 
   @HasMany(() => Invoice)

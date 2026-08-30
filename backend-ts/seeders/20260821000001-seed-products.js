@@ -1,195 +1,66 @@
 'use strict'
 
 /**
- * Seed products.
+ * Seed products — DEPRECATED for vendor 4 flow.
  *
- * Generates 80 products across several categories with realistic VND pricing.
- * Foreign keys `unitId` / `vendorId` are optional, so we pick random existing
- * rows from `units` / `vendors` if they exist, otherwise leave them NULL.
+ * Direct bulkInsert bypasses ProductService.create, so it does NOT create
+ * inventory rows, transfer history (type 0 IN), nor enforce code/sku generation.
+ * That breaks the verification chain:
+ *   product create via API -> inventory SUM, transfer type 0, history, category/tag linkage.
  *
- * `code` is prefixed with `SEED-` so the `down` method can clean up safely.
+ * For the requested flow, products MUST be created via the API.
+ * See: scripts/mocks/vendor4.products.json + scripts/e2e-vendor4-api.ts
+ *
+ * This seeder is kept as a no-op (idempotent skip). To force legacy seed, set
+ * env ALLOW_LEGACY_PRODUCT_SEED=1.
  */
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    const now = new Date()
-
-    // Products are owned by a vendor (distributed round-robin) and may use a unit.
-    const [units, vendors] = await Promise.all([
-      queryInterface.sequelize.query('SELECT id FROM units', { type: Sequelize.QueryTypes.SELECT }),
-      queryInterface.sequelize.query("SELECT id FROM vendors WHERE name LIKE 'SEED-%'", {
+    if (process.env.ALLOW_LEGACY_PRODUCT_SEED === '1') {
+      console.log('[seed-products] ALLOW_LEGACY_PRODUCT_SEED=1 -> running legacy bulkInsert (no inventory/transfer)')
+      const now = new Date()
+      const [units] = await Promise.all([
+        queryInterface.sequelize.query('SELECT id FROM units', { type: Sequelize.QueryTypes.SELECT })
+      ])
+      const unitIds = units.map((u) => u.id)
+      const pick = (arr) => (arr.length ? arr[Math.floor(Math.random() * arr.length)] : null)
+      const round100 = (n) => Math.round(n / 100) * 100
+      const CATALOG = [
+        { category: 'Electronics', items: ['Tai nghe Bluetooth', 'Loa di động'] },
+        { category: 'Beverage', items: ['Nước khoáng', 'Sữa tươi'] }
+      ]
+      const [{ maxId }] = await queryInterface.sequelize.query('SELECT MAX(id) AS maxId FROM products', {
         type: Sequelize.QueryTypes.SELECT
       })
-    ])
-    const unitIds = units.map((u) => u.id)
-    const vendorIds = vendors.map((v) => v.id)
-    if (!vendorIds.length) throw new Error('seed-products: run the vendors seeder first.')
-    const pick = (arr) => (arr.length ? arr[Math.floor(Math.random() * arr.length)] : null)
-    const round100 = (n) => Math.round(n / 100) * 100
-
-    // product catalog: category -> { unit, items }
-    const CATALOG = [
-      {
-        category: 'Electronics',
-        unit: 'Cái',
-        items: [
-          'Tai nghe Bluetooth',
-          'Loa di động',
-          'Sạc dự phòng',
-          'Bàn phím cơ',
-          'Chuột không dây',
-          'Webcam HD',
-          'Màn hình 24 inch',
-          'Router Wifi',
-          'Cáp HDMI',
-          'Ổ cứng di động',
-          'Tai nghe gaming',
-          'Camera an ninh'
-        ]
-      },
-      {
-        category: 'Stationery',
-        unit: 'Quyển',
-        items: [
-          'Sổ tay A5',
-          'Bút bi',
-          'Bút chì',
-          'Giấy A4',
-          'Ghim bấm',
-          'Băng keo',
-          'Thước kẻ',
-          'Tẩy',
-          'File hồ sơ',
-          'Bút highlight'
-        ]
-      },
-      {
-        category: 'Kitchen',
-        unit: 'Cái',
-        items: [
-          'Nồi cơm điện',
-          'Ấm siêu tốc',
-          'Chảo chống dính',
-          'Bình giữ nhiệt',
-          'Dao nhà bếp',
-          'Thớt gỗ',
-          'Ly thủy tinh',
-          'Hộp đựng thực phẩm',
-          'Máy xay sinh tố',
-          'Đĩa sứ'
-        ]
-      },
-      {
-        category: 'Beverage',
-        unit: 'Chai',
-        items: [
-          'Nước khoáng',
-          'Nước tăng lực',
-          'Trà xanh đóng chai',
-          'Cà phê lon',
-          'Nước ép trái cây',
-          'Sữa tươi',
-          'Nước dừa',
-          'Bia tươi',
-          'Soda chanh',
-          'Trà sữa',
-          'Nước yến',
-          'Rượu vang'
-        ]
-      },
-      {
-        category: 'Cleaning',
-        unit: 'Chai',
-        items: [
-          'Nước rửa chén',
-          'Nước lau sàn',
-          'Xà phòng giặt',
-          'Nước tẩy javen',
-          'Khăn lau đa năng',
-          'Bình xịt khử khuẩn',
-          'Bột giặt',
-          'Nước rửa tay'
-        ]
-      },
-      {
-        category: 'Personal Care',
-        unit: 'Cái',
-        items: [
-          'Kem đánh răng',
-          'Bàn chải',
-          'Dầu gội',
-          'Sữa tắm',
-          'Lăn khử mùi',
-          'Kem dưỡng da',
-          'Bông tắm',
-          'Khẩu trang',
-          'Nước hoa',
-          'Máy cạo râu'
-        ]
-      },
-      {
-        category: 'Food',
-        unit: 'Gói',
-        items: [
-          'Mì tôm',
-          'Gạo thơm',
-          'Đường tinh luyện',
-          'Nước mắm',
-          'Tương ớt',
-          'Bánh quy',
-          'Snack khoai tây',
-          'Cà phê hạt',
-          'Sữa bột',
-          'Dầu ăn'
-        ]
-      },
-      {
-        category: 'Tools',
-        unit: 'Cái',
-        items: ['Tua vít', 'Kìm cắt', 'Búa', 'Thước cuộn', 'Máy khoan', 'Cưa tay', 'Kéo cắt sắt', 'Đèn pin']
+      let nextId = (maxId || 0) + 1
+      const products = []
+      for (const group of CATALOG) {
+        for (const item of group.items) {
+          const costPrice = round100(10000 + Math.random() * 490000)
+          const salePrice = round100(costPrice * 1.4)
+          products.push({
+            id: nextId++,
+            name: item,
+            code: `SEED-${String(nextId).padStart(4, '0')}`,
+            skuCode: `SKU-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+            description: `${group.category} - ${item}`,
+            salePrice,
+            regularPrice: round100(salePrice * 1.1),
+            wholeSalePrice: round100(costPrice * 1.15),
+            costPrice,
+            sold: 0,
+            unitId: pick(unitIds),
+            vendorId: 4,
+            createdAt: now,
+            updatedAt: now
+          })
+        }
       }
-    ]
-
-    // Determine starting id so we never collide with existing rows.
-    const [{ maxId }] = await queryInterface.sequelize.query('SELECT MAX(id) AS maxId FROM products', {
-      type: Sequelize.QueryTypes.SELECT
-    })
-    let nextId = (maxId || 0) + 1
-    let productIndex = 0
-
-    const products = []
-    for (const group of CATALOG) {
-      for (const item of group.items) {
-        const costPrice = round100(10000 + Math.random() * 490000) // 10k - 500k
-        const salePrice = round100(costPrice * (1.2 + Math.random() * 0.6)) // margin 20% - 80%
-        const regularPrice = round100(salePrice * 1.1)
-        const wholeSalePrice = round100(costPrice * (1.1 + Math.random() * 0.2))
-        const code = `SEED-${String(nextId).padStart(4, '0')}`
-        const skuCode = `SKU-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-
-        products.push({
-          id: nextId,
-          name: `${item}`,
-          code,
-          skuCode,
-          description: `${group.category} - ${item}`,
-          salePrice,
-          regularPrice,
-          wholeSalePrice,
-          costPrice,
-          sold: 0,
-          unitId: pick(unitIds),
-          // vendorId: vendorIds[productIndex % vendorIds.length],
-          vendorId: 1,
-          createdAt: now,
-          updatedAt: now
-        })
-        nextId++
-        productIndex++
-      }
+      if (products.length) await queryInterface.bulkInsert('products', products)
+      return
     }
-
-    await queryInterface.bulkInsert('products', products)
+    console.log('[seed-products] SKIP - products must be created via API to generate inventory/transfer/history. See scripts/e2e-vendor4-api.ts')
   },
 
   async down(queryInterface) {

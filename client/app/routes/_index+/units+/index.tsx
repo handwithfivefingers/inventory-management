@@ -7,9 +7,9 @@ import { TextInput } from "~/components/form/text-input";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { dayjs } from "~/libs/date";
-import { getSession, getSessionValues, parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
+import { dayjs } from "~/libs/date";
+import { parseCookieFromRequest } from "~/sessions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);

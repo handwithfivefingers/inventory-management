@@ -35,7 +35,7 @@ export const TMModal = ({ children, open = false, maskOnClose = true, close, wid
             }}
           >
             {title && (
-              <div className="flex border-indigo-600 border-b-2  px-4 py-3 items-center">
+              <div className="flex border-primary border-b-2  px-4 py-3 items-center">
                 <h2 className="text-lg/4">{title}</h2>
               </div>
             )}{" "}

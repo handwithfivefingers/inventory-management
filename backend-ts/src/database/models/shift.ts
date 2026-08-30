@@ -51,10 +51,10 @@ export class Shift extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Staff)
+  @BelongsTo(() => Staff, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare staff: Staff
 
-  @BelongsTo(() => Warehouse)
+  @BelongsTo(() => Warehouse, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare warehouse: Warehouse
 }
 

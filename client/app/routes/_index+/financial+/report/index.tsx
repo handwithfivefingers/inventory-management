@@ -58,7 +58,7 @@ export default function FinancialReport() {
     { key: "importCost", label: t("financial.importCost"), value: report.importCost, color: "text-red-500" },
     { key: "otherExpense", label: t("financial.otherExpense"), value: report.otherExpense, color: "text-red-500" },
     { key: "totalExpense", label: t("financial.totalExpense"), value: report.totalExpense, color: "text-red-500" },
-    { key: "netProfit", label: t("financial.netProfit"), value: report.netProfit, color: "text-indigo-600 font-bold" },
+    { key: "netProfit", label: t("financial.netProfit"), value: report.netProfit, color: "text-primary font-bold" },
     { key: "vatCollected", label: t("financial.vatCollected"), value: report.vatCollected, color: "text-blue-500" },
   ];
 

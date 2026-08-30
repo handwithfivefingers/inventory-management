@@ -13,7 +13,7 @@ export const CardItem = ({ className, title, children }: ICardItem) => {
         className || "",
       )}
     >
-      <div className="border-b border-indigo-600 dark:border-slate-400 font-semibold text-xl pb-2">{title}</div>
+      <div className="border-b border-primary dark:border-slate-400 font-semibold text-xl pb-2">{title}</div>
       {children}
     </div>
   );

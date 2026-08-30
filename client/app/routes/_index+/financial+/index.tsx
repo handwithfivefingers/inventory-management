@@ -284,7 +284,7 @@ const SummaryCard = ({
         className={cn("text-xl font-semibold", {
           ["text-green-600"]: variant === "green",
           ["text-red-600"]: variant === "red",
-          ["text-indigo-600"]: variant === "indigo",
+          ["text-primary"]: variant === "indigo",
         })}
       >
         {value}

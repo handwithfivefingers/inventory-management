@@ -174,7 +174,7 @@ describe("PermissionButton Component", () => {
 
     const button = screen.getByRole("button", { name: /create/i });
     expect(button).not.toBeDisabled();
-    expect(button).toHaveClass("bg-indigo-600");
+    expect(button).toHaveClass("bg-primary");
   });
 
   it("should render disabled button when user lacks permission", () => {

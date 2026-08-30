@@ -56,8 +56,9 @@ export default function Orders() {
               </div>
             </div>
           </div>
-          <div className="flex flex-1 gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
+          <div className="flex flex-1 gap-2 flex-col items-end overflow-hidden">
             <TMTable
+              scrollable
               columns={[
                 {
                   title: "STT",
@@ -67,7 +68,7 @@ export default function Orders() {
                 {
                   title: "Tên khách hàng",
                   dataIndex: "customerName",
-                  render: (record) => record.customerName || "Khách lẻ",
+                  render: (record) => record?.customerName || "Khách lẻ",
                 },
                 {
                   title: "Tổng tiền",

@@ -66,7 +66,7 @@ export const InputSlider = forwardRef<HTMLInputElement, IInputSlider>(
               {required && <span className="text-rose-600"> *</span>}
             </label>
           )}
-          <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+          <span className="text-sm font-medium text-primary dark:text-indigo-400">
             {currentValue}
             {suffix}
           </span>

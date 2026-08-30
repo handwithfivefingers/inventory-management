@@ -1,8 +1,20 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript'
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+  ForeignKey,
+  BelongsTo,
+  HasMany
+} from 'sequelize-typescript'
 import { Provider } from './provider'
 import { Vendor } from './vendor'
 import { Warehouse } from './warehouse'
 import { OrderDetail } from './orderDetail'
+import Staff from './staff'
+import Customer from './customer'
 
 @Table({ tableName: 'orders', modelName: 'order', timestamps: true })
 export class Order extends Model {
@@ -39,6 +51,14 @@ export class Order extends Model {
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare vendorId: number | null
 
+  @ForeignKey(() => Staff)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare staffId: number | null
+
+  @ForeignKey(() => Customer)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare customerId: number | null
+
   @CreatedAt
   declare createdAt: Date
 
@@ -48,14 +68,20 @@ export class Order extends Model {
   @HasMany(() => OrderDetail)
   declare orderDetails: OrderDetail[]
 
-  @BelongsTo(() => Provider)
+  @BelongsTo(() => Provider, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare provider: Provider
 
-  @BelongsTo(() => Warehouse)
+  @BelongsTo(() => Warehouse, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare warehouse: Warehouse
 
-  @BelongsTo(() => Vendor)
+  @BelongsTo(() => Vendor, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare vendor: Vendor
+
+  @BelongsTo(() => Customer, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  declare customer: Customer
+
+  @BelongsTo(() => Staff, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  declare staff: Staff
 }
 
 export default Order

@@ -20,11 +20,6 @@ const PROVIDERS = [
 module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date()
-    const vendors = await queryInterface.sequelize.query("SELECT id FROM vendors WHERE name LIKE 'SEED-%'", {
-      type: Sequelize.QueryTypes.SELECT
-    })
-    if (!vendors.length) throw new Error('seed-providers: run the vendors seeder first.')
-
     const rows = PROVIDERS.map((p, i) => ({
       name: `SEED-${p.name}`,
       description: p.description,
@@ -32,7 +27,7 @@ module.exports = {
       address: p.address,
       email: `provider${i}@example.com`,
       // vendorId: vendors[i % vendors.length].id,
-      vendorId: 1,
+      vendorId: 4,
       createdAt: now,
       updatedAt: now
     }))

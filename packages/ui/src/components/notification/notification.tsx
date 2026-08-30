@@ -16,7 +16,7 @@ const variants: Record<INotificationVariant, string> = {
   success: "bg-green-500",
   error: "bg-red-500",
   warning: "bg-yellow-500",
-  info: "bg-indigo-600",
+  info: "bg-primary",
 };
 
 export type NotificationAction = {};
@@ -61,7 +61,7 @@ export const Notification = (props: INotification) => {
         "fixed shadow-xl animate__animated animate__faster animate__fadeInDown",
         "fixed shadow-xl bg-white dark:bg-slate-800/80",
         placements[props.placement || "top-right"],
-        styles.notification
+        styles.notification,
       )}
       id={`toast_${props.id}`}
       ref={divRef}

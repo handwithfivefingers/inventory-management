@@ -108,7 +108,7 @@ export const PermissionButton = ({
       disabled={disabled || !allowed}
       className={cn(
         "px-4 py-2 rounded-md font-medium transition-colors",
-        allowed ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-gray-300 text-gray-500 cursor-not-allowed",
+        allowed ? "bg-primary text-white hover:bg-indigo-700" : "bg-gray-300 text-gray-500 cursor-not-allowed",
       )}
     >
       {children}

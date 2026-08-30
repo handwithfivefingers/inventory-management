@@ -18,10 +18,10 @@ export class RolePermission extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Role)
+  @BelongsTo(() => Role, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare role: Role
 
-  @BelongsTo(() => Permission)
+  @BelongsTo(() => Permission, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare permission: Permission
 }
 

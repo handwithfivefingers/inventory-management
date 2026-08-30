@@ -81,17 +81,18 @@ export const SelectInput = ({
     if (skeleton.current) {
       skeleton.current?.classList?.remove("ring-2");
       skeleton.current?.classList?.remove("ring-inset");
-      skeleton.current?.classList?.remove("ring-indigo-600");
+      skeleton.current?.classList?.remove("ring-primary");
     }
   };
   const addFocus = () => {
     if (skeleton.current) {
       skeleton.current?.classList?.add("ring-2");
       skeleton.current?.classList?.add("ring-inset");
-      skeleton.current?.classList?.add("ring-indigo-600");
+      skeleton.current?.classList?.add("ring-primary");
     }
   };
   const handleSelect = (option: any) => {
+    if (option?.disabled) return;
     if (onSelect) {
       onSelect?.(option.value, option);
     }
@@ -141,7 +142,7 @@ export const SelectInput = ({
             rotate: isFocus ? 180 : 0,
           }}
         >
-          <Icon name="chevron-down" className={cn(" text-indigo-600 w-5 transition-transform ", {})} />
+          <Icon name="chevron-down" className={cn(" text-primary w-5 transition-transform ", {})} />
         </m.div>
       </div>
 
@@ -163,13 +164,15 @@ export const SelectInput = ({
                   </li>
                 )}
                 {options?.map((item, index) => {
+                  const isDisabled = !!item.disabled;
                   return (
                     <li
                       value={item.value}
                       className={cn(
-                        "px-2 cursor-pointer rounded-xs py-1 text-sm",
-                        "bg-white hover:bg-slate-100 dark:bg-transparent dark:hover:bg-slate-500",
-                        "text-neutral-700/90 hover:text-neutral-900 dark:text-slate-300",
+                        "px-2 rounded-xs py-1 text-sm flex justify-between items-center",
+                        isDisabled
+                          ? "opacity-40 cursor-not-allowed bg-slate-50 text-slate-400"
+                          : "cursor-pointer bg-white hover:bg-slate-100 dark:bg-transparent dark:hover:bg-slate-500 text-neutral-700/90 hover:text-neutral-900 dark:text-slate-300",
                       )}
                       onClick={(e: any) => handleSelect(item)}
                       key={`${item.label}-${item.value}-${index}`}
@@ -185,6 +188,7 @@ export const SelectInput = ({
                           <Icon name="check" fontSize={16} />
                         </div>
                       </div>
+                      {isDisabled && <span className="text-xs text-slate-400">Đã dùng</span>}
                     </li>
                   );
                 })}

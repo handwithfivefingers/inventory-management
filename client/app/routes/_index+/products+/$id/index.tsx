@@ -34,16 +34,27 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { id } = params;
   if (!id || !warehouseId) throw new Error("Không tìm thấy sản phẩm");
   const resp = await productService.getProductById({ id, cookie, warehouseId, vendorId });
-  // The detail query doesn't join variant inventories; the variants endpoint
-  // does (scoped to the active warehouse), so prefer it for stock display.
+  if (resp.status !== 200) throw new Error("Không tìm thấy sản phẩm");
   const variantsResp = await productService.getProductVariants({ id, cookie, warehouseId, vendorId });
   const productData = resp.data?.data;
   const data = {
     ...productData,
     variants: variantsResp.data?.data?.length ? variantsResp.data.data : productData?.variants,
   };
-  const history = await historyService.getProductHistory({ id: id as string, warehouseId: [warehouseId], cookie, vendorId });
-  return { data, history: history.data };
+  const history = await historyService.getProductHistory({
+    id: id as string,
+    warehouseId: [warehouseId],
+    cookie,
+    vendorId,
+  });
+  const suggestedAttributes = await productService
+    .getAttributes({ cookie, vendorId })
+    .catch(() => ({ data: { data: [] } } as any));
+  return {
+    data,
+    history: history.data,
+    suggestedAttributes: (suggestedAttributes as any)?.data?.data || (suggestedAttributes as any)?.data || [],
+  };
 };
 
 export const meta: MetaFunction = () => {
@@ -148,7 +159,7 @@ const VariantsManager = ({
     const attrs = (serverAttributes || []).map((a) => ({
       id: a.id,
       name: a.name,
-      values: ((a.values || []) as IProductAttributeValue[]).map((v) => v.value).join(", "),
+      values: ((a.values || []) as IProductAttributeValue[]).map((v) => ({ label: v.value, value: v.value })),
     }));
     const variants = serverVariants.map((v) => ({
       variantId: v.id,
@@ -196,10 +207,15 @@ const VariantsManager = ({
       .map((a: any) => ({
         ...(a?.id ? { id: a.id } : {}),
         name: (a?.name || "").trim(),
-        values: (a?.values || "")
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean),
+        values: Array.isArray(a?.values)
+          ? (a.values as any[])
+              .map((o: any) => (typeof o === "string" ? o : o?.value ?? o?.label ?? ""))
+              .map((s: string) => String(s).trim())
+              .filter(Boolean)
+          : String(a?.values || "")
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter(Boolean),
       }))
       .filter((a: any) => a.name && a.values.length > 0);
     const deletedAttributeIds = defaults.attributeIds.filter(

@@ -14,6 +14,8 @@ import { dayjs } from "~/libs/date";
 import { getLoaderRequestQuery } from "~/libs/utils";
 import { parseCookieFromRequest } from "~/sessions";
 import { IWareHouse } from "~/types/warehouse";
+import { Icon } from "~/components/icon";
+import { MODULE_ENUM } from "~/constants/modules";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
@@ -35,27 +37,20 @@ export default function WareHouses() {
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  console.log(`{ data, total, page, pageSize }`, { data, total, page, pageSize });
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem title={t("warehouses.title")} className="p-4 h-full">
         <div className="flex gap-2 flex-col h-full overflow-hidden">
-          <div className="flex gap-2">
+          <div className="flex gap-2 p-1">
             <TextInput placeholder={t("warehouses.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard requireAdmin>
-                  <Link to={`./add`}>
-                    <TMButton>{t("common.add")}</TMButton>
-                  </Link>
-                </PermissionGuard>
-                <PermissionGuard requireAdmin>
-                  <TMButton>{t("common.importExcel")}</TMButton>
-                </PermissionGuard>
-                <PermissionGuard permission="READ" module="warehouse">
-                  <TMButton>{t("common.exportExcel")}</TMButton>
-                </PermissionGuard>
-                <PermissionGuard permission="READ" module="warehouse">
-                  <TMButton>{t("common.printBarcode")}</TMButton>
+                <PermissionGuard permission="READ" module={MODULE_ENUM.warehouse} requireAdmin>
+                  <TMButton component={Link} to={"./add"} size="sm">
+                    <Icon name="plus" fontSize={16} />
+                    <span>{t("common.add")}</span>
+                  </TMButton>
                 </PermissionGuard>
               </div>
             </div>

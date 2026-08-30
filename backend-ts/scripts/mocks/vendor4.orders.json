@@ -1,0 +1,1030 @@
+[
+  {
+    "kind": "sale-variant",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 5,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-05T23:43:00",
+    "orderDetails": [
+      {
+        "productIndex": 0,
+        "variantSku": "AO-DO-M",
+        "quantity": 2,
+        "warehouseId": 5,
+        "note": "variant sale 0"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale-variant",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-11T14:14:00",
+    "orderDetails": [
+      {
+        "productIndex": 1,
+        "variantSku": "SNEAKER-TRANG-39",
+        "quantity": 1,
+        "warehouseId": 5,
+        "note": "variant sale 1"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-29T14:17:00",
+    "orderDetails": [
+      {
+        "productIndex": 35,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-2-0"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-08T13:13:00",
+    "orderDetails": [
+      {
+        "productIndex": 48,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-3-0"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 8,
+    "surcharge": 0,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-27T00:07:00",
+    "orderDetails": [
+      {
+        "productIndex": 6,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-4-0"
+      },
+      {
+        "productIndex": 24,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-4-1"
+      },
+      {
+        "productIndex": 22,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-4-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-15T01:05:00",
+    "orderDetails": [
+      {
+        "productIndex": 5,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-5-0"
+      },
+      {
+        "productIndex": 18,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-5-1"
+      },
+      {
+        "productIndex": 56,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-5-2"
+      },
+      {
+        "productIndex": 36,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-5-3"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-18T23:22:00",
+    "orderDetails": [
+      {
+        "productIndex": 24,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-6-0"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 5,
+    "surcharge": 10000,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-14T02:59:00",
+    "orderDetails": [
+      {
+        "productIndex": 44,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-7-0"
+      },
+      {
+        "productIndex": 38,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-7-1"
+      },
+      {
+        "productIndex": 34,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-7-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-11T05:58:00",
+    "orderDetails": [
+      {
+        "productIndex": 53,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-8-0"
+      },
+      {
+        "productIndex": 14,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-8-1"
+      },
+      {
+        "productIndex": 51,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-8-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 5,
+    "surcharge": 0,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-29T09:27:00",
+    "orderDetails": [
+      {
+        "productIndex": 13,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-9-0"
+      },
+      {
+        "productIndex": 25,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-9-1"
+      },
+      {
+        "productIndex": 9,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-9-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-21T11:38:00",
+    "orderDetails": [
+      {
+        "productIndex": 23,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-10-0"
+      },
+      {
+        "productIndex": 8,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-10-1"
+      },
+      {
+        "productIndex": 31,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-10-2"
+      },
+      {
+        "productIndex": 48,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-10-3"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 8,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-15T05:27:00",
+    "orderDetails": [
+      {
+        "productIndex": 38,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-11-0"
+      },
+      {
+        "productIndex": 33,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-11-1"
+      },
+      {
+        "productIndex": 35,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-11-2"
+      },
+      {
+        "productIndex": 43,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-11-3"
+      }
+    ],
+    "route": "/import-order/"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 5,
+    "surcharge": 0,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-08T20:34:00",
+    "orderDetails": [
+      {
+        "productIndex": 32,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-12-0"
+      },
+      {
+        "productIndex": 32,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-12-1"
+      },
+      {
+        "productIndex": 55,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-12-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-18T14:56:00",
+    "orderDetails": [
+      {
+        "productIndex": 38,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-13-0"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-07T05:42:00",
+    "orderDetails": [
+      {
+        "productIndex": 15,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-14-0"
+      },
+      {
+        "productIndex": 15,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-14-1"
+      },
+      {
+        "productIndex": 5,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-14-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-16T03:25:00",
+    "orderDetails": [
+      {
+        "productIndex": 16,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-15-0"
+      },
+      {
+        "productIndex": 55,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-15-1"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-29T13:35:00",
+    "orderDetails": [
+      {
+        "productIndex": 28,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-16-0"
+      },
+      {
+        "productIndex": 28,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-16-1"
+      },
+      {
+        "productIndex": 15,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-16-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 5,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-17T00:04:00",
+    "orderDetails": [
+      {
+        "productIndex": 0,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-17-0"
+      },
+      {
+        "productIndex": 45,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-17-1"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-05T16:42:00",
+    "orderDetails": [
+      {
+        "productIndex": 13,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-18-0"
+      },
+      {
+        "productIndex": 8,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-18-1"
+      },
+      {
+        "productIndex": 36,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-18-2"
+      },
+      {
+        "productIndex": 15,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-18-3"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-10T05:34:00",
+    "orderDetails": [
+      {
+        "productIndex": 55,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-19-0"
+      },
+      {
+        "productIndex": 43,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-19-1"
+      },
+      {
+        "productIndex": 3,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-19-2"
+      },
+      {
+        "productIndex": 46,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-19-3"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-05T12:59:00",
+    "orderDetails": [
+      {
+        "productIndex": 29,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-20-0"
+      },
+      {
+        "productIndex": 55,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-20-1"
+      },
+      {
+        "productIndex": 28,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-20-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 0,
+    "surcharge": 10000,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-23T02:18:00",
+    "orderDetails": [
+      {
+        "productIndex": 31,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-21-0"
+      },
+      {
+        "productIndex": 13,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-21-1"
+      },
+      {
+        "productIndex": 57,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-21-2"
+      },
+      {
+        "productIndex": 10,
+        "quantity": 4,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-21-3"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-03T10:37:00",
+    "orderDetails": [
+      {
+        "productIndex": 9,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-22-0"
+      },
+      {
+        "productIndex": 18,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-22-1"
+      },
+      {
+        "productIndex": 3,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-22-2"
+      },
+      {
+        "productIndex": 47,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-22-3"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 0,
+    "surcharge": 20000,
+    "paymentType": "cash",
+    "createdAt": "2026-08-12T10:25:00",
+    "orderDetails": [
+      {
+        "productIndex": 3,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-23-0"
+      },
+      {
+        "productIndex": 5,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-23-1"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 0,
+    "surcharge": 10000,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-13T15:13:00",
+    "orderDetails": [
+      {
+        "productIndex": 37,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-24-0"
+      },
+      {
+        "productIndex": 2,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-24-1"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-31T03:36:00",
+    "orderDetails": [
+      {
+        "productIndex": 25,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-25-0"
+      },
+      {
+        "productIndex": 42,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-25-1"
+      },
+      {
+        "productIndex": 29,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-25-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 0,
+    "surcharge": 0,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-14T20:10:00",
+    "orderDetails": [
+      {
+        "productIndex": 32,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-26-0"
+      },
+      {
+        "productIndex": 8,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-26-1"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 5,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-06T04:47:00",
+    "orderDetails": [
+      {
+        "productIndex": 39,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-27-0"
+      },
+      {
+        "productIndex": 0,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-27-1"
+      },
+      {
+        "productIndex": 19,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-27-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "sale",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": null,
+    "VAT": 10,
+    "surcharge": 0,
+    "paymentType": "cash",
+    "createdAt": "2026-08-05T11:40:00",
+    "orderDetails": [
+      {
+        "productIndex": 18,
+        "quantity": 5,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-28-0"
+      },
+      {
+        "productIndex": 13,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-28-1"
+      },
+      {
+        "productIndex": 13,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-28-2"
+      }
+    ],
+    "route": "/orders/create"
+  },
+  {
+    "kind": "import",
+    "warehouseId": 5,
+    "vendorId": 4,
+    "providerId": 4,
+    "VAT": 5,
+    "surcharge": 10000,
+    "paymentType": "transfer",
+    "createdAt": "2026-08-28T05:00:00",
+    "orderDetails": [
+      {
+        "productIndex": 2,
+        "quantity": 1,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-29-0"
+      },
+      {
+        "productIndex": 21,
+        "quantity": 2,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-29-1"
+      },
+      {
+        "productIndex": 40,
+        "quantity": 3,
+        "price": null,
+        "buyPrice": null,
+        "warehouseId": 5,
+        "note": "mock-29-2"
+      }
+    ],
+    "route": "/import-order/"
+  }
+]

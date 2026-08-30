@@ -1,0 +1,18 @@
+@reference "tailwindcss";
+.input {
+  z-index: 1;
+  & ~ .chevron {
+    transform: rotate(0);
+  }
+}
+
+.outline {
+  z-index: 0;
+}
+
+.inputWrapper {
+  position: relative;
+  width: 100%;
+  .indicator {
+  }
+}

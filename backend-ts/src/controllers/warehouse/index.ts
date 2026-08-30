@@ -41,4 +41,26 @@ export class WarehouseController {
       next(error)
     }
   }
+  async update(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      const id = req.params.id as string
+      if (!id) throw new Error('id is required')
+      const vendorId = (req.query.vendorId as string) || (req.body.vendorId as string) || (req as any).vendorId
+      const { name, email, address, phone, isMain } = req.body
+      const resp = await new WarehouseService().update({
+        id,
+        vendorId: vendorId ? Number(vendorId) as any : undefined,
+        name,
+        email,
+        address,
+        phone,
+        isMain
+      } as any)
+      res.status(200).json({ data: resp })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
 }

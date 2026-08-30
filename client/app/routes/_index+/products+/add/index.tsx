@@ -23,6 +23,9 @@ import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { parseCookieFromRequest } from "~/sessions";
+import { DatePicker } from "~/components/form/date-picker";
+import { Icon } from "~/components/icon";
+import { ErrorComponent } from "~/components/error-component";
 
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
@@ -32,16 +35,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { vendorId, cookie } = await parseCookieFromRequest(request);
   const query = { vendorId: vendorId as string, page: "1", pageSize: "999", cookie };
   // Categories, units and tags are all selectable on the product form
-  const [categories, units, tags] = await Promise.all([
+  const [categories, units, tags, suggestedAttributes] = await Promise.all([
     categoryService.get(query),
     unitsService.get(query),
     tagsService.get(query),
+    productService.getAttributes({ cookie, vendorId }).catch(() => ({ data: { data: [] } } as any)),
   ]);
 
   return {
     categories: categories.data,
     units: units.data,
     tags: tags.data,
+    suggestedAttributes: (suggestedAttributes as any)?.data?.data || (suggestedAttributes as any)?.data || [],
   };
 };
 
@@ -94,13 +99,19 @@ export default function ProductItem() {
     const payload: Record<string, unknown> = { ...v };
     // Attribute matrix -> backend payload; combinations are generated on both
     // sides so only rows with typed overrides are sent explicitly.
+    // values is now Option[] {label,value}
     const draftAttrs = (v.variantAttributes || [])
-      .map((a) => ({
+      .map((a: any) => ({
         name: (a?.name || "").trim(),
-        values: (a?.values || "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
+        values: Array.isArray(a?.values)
+          ? (a.values as any[])
+              .map((o: any) => (typeof o === "string" ? o : o?.value ?? o?.label ?? ""))
+              .map((s: string) => String(s).trim())
+              .filter(Boolean)
+          : String(a?.values || "")
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
       }))
       .filter((a) => a.name && a.values.length > 0);
 
@@ -205,11 +216,13 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
   // parent-level fields are locked as soon as an attribute is defined.
   const form = useFormContext();
   const watchedAttrs = (form.watch("variantAttributes") || []) as any[];
-  const hasVariantAttrs = watchedAttrs.some((a) => (a?.name || "").trim() && (a?.values || "").trim());
+  const hasVariantAttrs = watchedAttrs.some(
+    (a) => (a?.name || "").trim() && (Array.isArray(a?.values) ? a.values.length > 0 : String(a?.values || "").trim()),
+  );
   return (
-    <div className="py-4 gap-4 w-full grid grid-cols-5">
+    <div className="py-4 w-full flex gap-2">
       {/* Image column */}
-      <div className="col-span-2 flex flex-col gap-2">
+      <div className="w-full max-w-xs flex flex-col gap-2">
         <ImagePreview />
         <FormControl name="image">
           {(field) => (
@@ -224,7 +237,7 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
       </div>
 
       {/* Fields column */}
-      <div className="col-span-3 grid grid-cols-12 gap-4 h-fit">
+      <div className="grid grid-cols-12 gap-4 h-fit">
         <div className="col-span-12">
           <FormControl name="name">
             <TextInput label={t("product.name")} required />
@@ -253,11 +266,12 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
           </FormControl>
         </div>
 
-        <div className="col-span-6">
+        <div className="col-span-4">
           <FormControl name="costPrice">
             {(field) => {
               return (
                 <NumberStepper
+                  required
                   label={t("product.costPrice")}
                   disabled={hasVariantAttrs}
                   value={field.value as any}
@@ -268,7 +282,7 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="col-span-4">
           <FormControl name="regularPrice">
             {(field) => {
               return (
@@ -283,7 +297,7 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="col-span-4">
           <FormControl name="salePrice">
             {(field) => {
               return (
@@ -298,7 +312,7 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="col-span-4">
           <FormControl name="wholeSalePrice">
             {(field) => {
               return (
@@ -313,26 +327,11 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
-          <FormControl name="expiredAt">
-            {(field) => {
-              return (
-                <NumberInput
-                  label={t("product.expiredAt")}
-                  value={field.value as any}
-                  onValueChange={(v) => {
-                    field.onChange(v.value);
-                  }}
-                />
-              );
-            }}
-          </FormControl>
-        </div>
-        <div className="col-span-2">
+        <div className="col-span-4">
           <FormControl name="VAT">
             {(field) => {
               return (
-                <NumberInput
+                <NumberStepper
                   label="VAT(%)"
                   value={field.value as any}
                   onValueChange={(v) => {
@@ -343,7 +342,15 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
             }}
           </FormControl>
         </div>
+
         <div className="col-span-4">
+          <FormControl name="expiredAt">
+            {(field) => {
+              return <DatePicker label={t("product.expiredAt")} {...field} />;
+            }}
+          </FormControl>
+        </div>
+        <div className="col-span-12 flex gap-4">
           <FormControl name="quantity">
             {(field) => {
               return (
@@ -356,23 +363,24 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
               );
             }}
           </FormControl>
+          <div className="flex items-end pb-2">
+            <FormControl name="isNegative">
+              {(field) => {
+                return (
+                  <CheckboxInput
+                    label={t("product.allowNegative")}
+                    disabled={hasVariantAttrs}
+                    checked={!!field.value}
+                    {...field}
+                    // onChange={(e: any) => field.onChange(e.target.checked)}
+                  />
+                );
+              }}
+            </FormControl>
+          </div>
         </div>
-        <div className="col-span-6 flex items-end pb-2">
-          <FormControl name="isNegative">
-            {(field) => {
-              return (
-                <CheckboxInput
-                  label={t("product.allowNegative")}
-                  disabled={hasVariantAttrs}
-                  checked={!!field.value}
-                  {...field}
-                  // onChange={(e: any) => field.onChange(e.target.checked)}
-                />
-              );
-            }}
-          </FormControl>
-        </div>
-        <div className="col-span-6">
+
+        <div className="col-span-4">
           <FormControl name="unit">
             {(field) => {
               return (
@@ -386,7 +394,7 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="col-span-4">
           <FormControl name="categories">
             {(field) => {
               return (
@@ -400,7 +408,7 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="col-span-4">
           <FormControl name="tags">
             {(field) => {
               return (
@@ -416,7 +424,7 @@ const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
         </div>
         <div className="col-span-12">
           <FormControl name="description">
-            <TextInput label={t("product.note")} />
+            <TextInput label={t("product.note")} multiline rows={3} />
           </FormControl>
         </div>
       </div>
@@ -430,8 +438,8 @@ const ImagePreview = () => {
   const image = form.watch("image") as string | undefined;
   if (!image) {
     return (
-      <div className="w-full aspect-square rounded-lg bg-slate-50 border border-dashed flex items-center justify-center text-sm text-slate-400">
-        URL
+      <div className="w-full aspect-square rounded-lg bg-slate-50 border-3 border-dashed flex items-center justify-center text-sm text-slate-400">
+        <Icon name="image" fontSize={100} />
       </div>
     );
   }
@@ -456,3 +464,7 @@ export const action = async ({ request }: any) => {
   const resp = await productService.createProduct(bodyData);
   return resp;
 };
+
+export function ErrorBoundary() {
+  return <ErrorComponent />;
+}

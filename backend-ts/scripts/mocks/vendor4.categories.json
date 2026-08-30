@@ -1,0 +1,8 @@
+[
+  { "name": "Đồ Uống", "code": "CAT-DU" },
+  { "name": "Thực Phẩm", "code": "CAT-TP" },
+  { "name": "Điện Tử", "code": "CAT-DT" },
+  { "name": "Văn Phòng Phẩm", "code": "CAT-VPP" },
+  { "name": "Gia Dụng", "code": "CAT-GD" },
+  { "name": "Best Seller", "code": "CAT-BS" }
+]

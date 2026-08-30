@@ -2,7 +2,7 @@ import { PermissionAction } from '#/constant/modules'
 import { flattenRoles, hasPermission, resolveAction } from '#/libs/permission'
 import { loadUserAuthContext } from '#/services/authenticate/userAuth'
 import { IRequestLocal } from '#/types/common'
-import { NextFunction, Request, Response } from 'express'
+import { NextFunction, Response } from 'express'
 
 /**
  * Per-request authorization middleware factory.
@@ -17,7 +17,7 @@ import { NextFunction, Request, Response } from 'express'
  * and can be overridden per route, e.g.:
  *   authorize('shift', { 'POST /close': 'U' })
  */
-const authorize = (module: string, overrides: Record<string, PermissionAction> = {}) => {
+const authorize: any = (module: string, overrides: Record<string, PermissionAction> = {}) => {
   if (!module) throw new Error('authorize() requires a module name')
 
   return async (req: IRequestLocal, res: Response, next: NextFunction): Promise<void> => {

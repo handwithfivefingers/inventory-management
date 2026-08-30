@@ -1,3 +1,3 @@
 export const Divider = () => {
-  return <div className="border-b border-indigo-600 my-2" />;
+  return <div className="border-b border-primary my-2" />;
 };

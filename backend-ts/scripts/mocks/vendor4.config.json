@@ -1,0 +1,8 @@
+{
+  "vendorId": 4,
+  "warehouseId": 5,
+  "staffId": 5,
+  "providerId": 4,
+  "customerId": 2,
+  "note": "Fixed tenant context for vendor 4 flow. These IDs must exist in DB (migrated + seeded vendors/warehouses). Warehouse 5 must belong to vendor 4, provider 4 & customer 2 are looked up but default to these IDs."
+}

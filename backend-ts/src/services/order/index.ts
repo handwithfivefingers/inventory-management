@@ -1,22 +1,18 @@
 import database from '#/database'
-import { IRequestLocal } from '#/types/common'
-import { IInventoryStatic } from '#/types/inventory'
-import { IOrderModel, IOrderStatic } from '#/types/order'
-import { IOrderDetailStatic } from '#/types/orderDetail'
-import { IFinancialRecordStatic } from '#/types/financialRecord'
-import { IProductStatic } from '#/types/product'
-import { assertVendorAccess, assertWarehouseAccess, getVendorScope, TVendorScope } from '#/utils/tenant'
-import { IncludeOptions, Op, Optional, Transaction } from 'sequelize'
-import { TransferService } from '../transfer'
-import { SettingService } from '../setting'
-import { applyCodeFormat, getCodeFormat } from '#/utils/code-generator'
-import { Request } from 'express'
+import FinancialRecord from '#/database/models/financialRecord'
 import Inventory from '#/database/models/inventory'
-import ProductVariant from '#/database/models/productVariant'
 import Order from '#/database/models/order'
 import OrderDetail from '#/database/models/orderDetail'
 import Product from '#/database/models/product'
-import FinancialRecord from '#/database/models/financialRecord'
+import ProductVariant from '#/database/models/productVariant'
+import { IRequestLocal } from '#/types/common'
+import { applyCodeFormat, getCodeFormat } from '#/utils/code-generator'
+import { assertVendorAccess, assertWarehouseAccess, getVendorScope, TVendorScope } from '#/utils/tenant'
+import { Request } from 'express'
+import { IncludeOptions, Op, Optional, Transaction } from 'sequelize'
+import { SettingService } from '../setting'
+import { TransferService } from '../transfer'
+import { getPagination } from '#/utils'
 interface IOrderCreateParams {
   price?: number | string
   VAT?: number | string
@@ -28,6 +24,10 @@ interface IOrderCreateParams {
   warehouseId: number | string
   providerId: number | string
   vendorId?: number | string
+  staffId?: number
+  customerId?: number
+  createdAt?: string | Date
+  transactionDate?: string | Date
 }
 interface IOrderDetailCreateParams {
   name: string
@@ -57,6 +57,7 @@ interface IProductUpdateParams {
   productId: number
   variantId?: number | null
   transaction: Transaction
+  type?: string
 }
 interface ICreateTransferParams {
   transaction: Transaction
@@ -72,12 +73,25 @@ export default class OrderService {
   sequelize = database.sequelize
 
   async create(
-    { VAT, surcharge, paymentType, warehouseId, providerId, orderDetails, type = '1', vendorId }: IOrderCreateParams,
+    {
+      VAT,
+      surcharge,
+      paymentType,
+      warehouseId,
+      providerId,
+      orderDetails,
+      type = '1',
+      vendorId,
+      staffId,
+      customerId,
+      createdAt,
+      transactionDate
+    }: IOrderCreateParams,
     /** Multi-tenant scope from auth middleware (null = platform admin). */
     vendorScope: TVendorScope = null
   ) {
     // Imports (providerId set) are inbound stock (type '0'), sales are outbound ('1')
-    if (providerId != null) type = '0';
+    if (providerId != null) type = '0'
     // Tenant check: the warehouse must belong to one of the caller's vendors
     // and any explicitly requested vendorId must be within scope.
     const warehouseVendorId = await assertWarehouseAccess(warehouseId, vendorScope)
@@ -92,14 +106,24 @@ export default class OrderService {
     const totalPrice = orderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
     const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
 
-    const orderParams: Partial<Omit<IOrderModel, 'id'>> = {
+    const orderParams: Partial<Omit<Order, 'id'>> & { createdAt?: Date; updatedAt?: Date } = {
       VAT: Number(VAT),
       surcharge: Number(surcharge),
       paid: totalPaid,
       price: totalPrice,
       paymentType,
       warehouseId: Number(warehouseId),
-      vendorId: effectiveVendorId
+      vendorId: effectiveVendorId,
+      staffId,
+      customerId
+    }
+    // Allow caller (e.g. e2e-vendor4) to backdate orders across 01/08-31/08
+    if (createdAt) {
+      const d = new Date(createdAt)
+      if (!isNaN(d.getTime())) {
+        ;(orderParams as any).createdAt = d
+        ;(orderParams as any).updatedAt = d
+      }
     }
 
     if (providerId) {
@@ -110,9 +134,18 @@ export default class OrderService {
     try {
       // Calculate the total price of the order details and add the surcharge
 
-      const orderBuilder = Order.build(orderParams as Optional<IOrderModel, 'id'>)
+      const orderBuilder = Order.build(orderParams as Optional<Order, 'id'>)
 
       const p = await orderBuilder.save({ transaction: t })
+
+      // If a custom createdAt was supplied, force it (sequelize may overwrite on save)
+      if ((orderParams as any).createdAt) {
+        const d = (orderParams as any).createdAt as Date
+        await p.update({ createdAt: d, updatedAt: d } as any, { transaction: t })
+        // Keep transfer/history timestamps aligned with the order date
+        // (transfers are created inside createOrderDetails with transaction: t, defaulting to now;
+        // we patch them post-create if needed)
+      }
 
       // Generate the order code from the vendor's prefix/suffix settings
       let code = await this.getOrderCode(String(p.id), String(effectiveVendorId ?? ''))
@@ -137,7 +170,12 @@ export default class OrderService {
       await this.createFinancialVoucher({
         order: p,
         warehouseId: Number(warehouseId),
-        transaction: t
+        transaction: t,
+        transactionDate: transactionDate
+          ? new Date(transactionDate as any)
+          : createdAt
+            ? new Date(createdAt as any)
+            : undefined
       })
 
       // Commit the transaction
@@ -175,6 +213,7 @@ export default class OrderService {
     type,
     note,
     transaction,
+
     ...orderDetail
   }: IOrderDetailCreateParams) {
     try {
@@ -190,7 +229,7 @@ export default class OrderService {
 
       await orderDetailBuilder.save({ transaction })
       await this.updateInventory({ quantity, productId, variantId: variantId ?? null, warehouseId, transaction, type })
-      await this.updateProductQuantity({ quantity, productId, transaction })
+      await this.updateProductQuantity({ quantity, productId, variantId: variantId ?? null, transaction, type })
       await this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
 
       // return Promise.all([
@@ -286,24 +325,18 @@ export default class OrderService {
    * @param {Transaction} params.transaction - transaction object
    * @returns {Promise<void>} - a Promise that resolves when product is updated
    */
-  async updateProductQuantity({ quantity, productId, variantId, transaction }: IProductUpdateParams) {
+  async updateProductQuantity({ quantity, productId, variantId, transaction, type }: IProductUpdateParams) {
     try {
-      // const prod = await Product.findByPk(productId)
+      // FIX: sold should only track SALES (type '1' = OUT). Imports (type '0' = IN) must NOT affect sold.
+      // Previously every orderDetail (including imports) incremented sold, causing sold=42 for product 4 (20+20+2) instead of 2.
+      if (type === '0') return
       const [prod] = await Product.increment('sold', {
         by: quantity,
         where: { id: productId },
         transaction
       })
       if (!prod) throw new Error('Product not found')
-      // prod.sold = prod.sold + quantity
-      // await prod.save({ transaction })
-      // Keep the per-variant sold counter in sync when a specific variant sold
       if (variantId != null) {
-        // const variant = await ProductVariant.findByPk(variantId, { transaction })
-        // if (variant) {
-        //   variant.sold = Number(variant.get('sold') ?? 0) + quantity
-        //   await variant.save({ transaction })
-        // }
         const [variant] = await ProductVariant.increment('sold', {
           by: quantity,
           where: { id: variantId },
@@ -313,6 +346,24 @@ export default class OrderService {
       }
     } catch (error) {
       throw error
+    }
+  }
+
+  /**
+   * Adjust sold counter by delta (positive = more sold, negative = returned).
+   * No-op for imports (type '0').
+   */
+  private async adjustSoldByDelta(params: IProductUpdateParams & { delta: number }) {
+    const { delta, type, productId, variantId, transaction } = params
+    if (delta === 0) return
+    if (type === '0') return // imports don't affect sold
+    const by = Math.abs(delta)
+    const operator = delta > 0 ? 'increment' : 'decrement'
+    const [affected] = await (Product as any)[operator]('sold', { by, where: { id: productId }, transaction })
+    if (!affected) throw new Error('Product not found for sold adjustment')
+    if (variantId != null) {
+      const [vAffected] = await (ProductVariant as any)[operator]('sold', { by, where: { id: variantId }, transaction })
+      if (!vAffected) throw new Error('Variant not found for sold adjustment')
     }
   }
 
@@ -347,16 +398,19 @@ export default class OrderService {
   async createFinancialVoucher({
     order,
     warehouseId,
-    transaction
+    transaction,
+    transactionDate
   }: {
-    order: IOrderModel
+    order: Order
     warehouseId: number
     transaction: Transaction
+    transactionDate?: Date
   }) {
     try {
       const isImport = order.providerId != null
       const prefix = isImport ? 'PC' : 'PT'
-      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const base = transactionDate ?? (order as any).createdAt ?? new Date()
+      const datePart = new Date(base).toISOString().slice(0, 10).replace(/-/g, '')
       const code = `${prefix}-${datePart}-${order.id}`
       await FinancialRecord.create(
         {
@@ -367,7 +421,7 @@ export default class OrderService {
           relatedType: isImport ? 'importOrder' : 'order',
           relatedId: order.id,
           warehouseId,
-          transactionDate: new Date()
+          transactionDate: transactionDate ?? (order as any).createdAt ?? new Date()
         } as any,
         { transaction }
       )
@@ -468,6 +522,18 @@ export default class OrderService {
           transaction: t,
           type: adjustmentType
         })
+        // Keep sold in sync for SALES only (imports don't affect sold)
+        // delta >0 means more sold, delta <0 means returned
+        if (effectiveType !== '0') {
+          await this.adjustSoldByDelta({
+            productId: ref.productId,
+            variantId: ref.variantId ?? null,
+            quantity: Math.abs(delta),
+            delta,
+            type: effectiveType,
+            transaction: t,
+          })
+        }
       }
 
       // Replace the order detail rows
@@ -520,9 +586,8 @@ export default class OrderService {
 
   async getOrders(req: Request) {
     try {
-      const params = req.query
-      const { offset = 0, limit = 10, warehouseId, isProvider, vendorId } = params
-
+      const { warehouseId, isProvider, vendorId } = req.query
+      const { offset, limit } = getPagination(req.query)
       // S1: warehouseId comes from the query string - verify it belongs to one
       // of the caller's vendors before using it as a filter.
       const scope = getVendorScope(req as any)
@@ -530,9 +595,10 @@ export default class OrderService {
       await assertWarehouseAccess(warehouseId as string, scope)
 
       const where: any = {
-        warehouseId: warehouseId as string
-        // providerId: isProvider ? { [Op.ne]: null } : { [Op.eq]: null }
+        warehouseId: warehouseId as string,
+        providerId: isProvider ? { [Op.ne]: null } : { [Op.eq]: null }
       }
+
       // S1: vendor filter must be within the caller's vendor scope; scoped
       // users without an explicit filter only ever see their own vendors.
       if (vendorId) {

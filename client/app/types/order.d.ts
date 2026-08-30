@@ -6,6 +6,7 @@ export interface IOrderDetails {
   note?: string;
 }
 export interface IOrder {
+  id: number;
   orderDetails: IOrderDetails[];
   price?: number | string;
   VAT?: number | string;
@@ -16,4 +17,6 @@ export interface IOrder {
   providerId: number | string;
   createdAt: string;
   updatedAt: string;
+  staffName?: string;
+  customerName?: string;
 }

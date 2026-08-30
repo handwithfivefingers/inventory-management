@@ -20,9 +20,9 @@ const variants: IButtonVariants = {
     "bg-main-700 dark:bg-main-300/20 outline outline-transparent  focus:outline-main-300 active:outline-main-300 text-white dark:text-slate-200",
   secondary: "bg-slate-300 outline outline-transparent  active:outline-indigo-200 text-indigo-950 dark:text-slate-200",
   light:
-    "bg-indigo-100 outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:bg-slate-700",
+    "bg-indigo-100 outline outline-transparent  active:outline-indigo-200 text-primary dark:text-slate-200 dark:bg-slate-700",
   ghost:
-    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:dark:bg-transparent",
+    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-primary dark:text-slate-200 dark:dark:bg-transparent",
 };
 
 const sizes: IButtonSizes = {

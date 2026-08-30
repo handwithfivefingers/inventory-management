@@ -16,7 +16,12 @@ export class ProviderController {
   async getProvider(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const { count, rows } = await new ProviderService().getProvider(req as IRequestLocal)
+      const { limit = 10, offset = 0, vendorId } = req.query
+      const { count, rows } = await new ProviderService().getProvider({
+        limit: Number(limit),
+        offset: Number(offset),
+        vendorId: Number(vendorId)
+      })
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {

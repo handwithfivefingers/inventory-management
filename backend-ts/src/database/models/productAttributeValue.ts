@@ -30,10 +30,10 @@ export class ProductAttributeValue extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare product: Product
 
-  @BelongsTo(() => ProductAttribute)
+  @BelongsTo(() => ProductAttribute, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare attribute: ProductAttribute
 
   @BelongsToMany(() => ProductVariant, { through: 'product_variant_attribute_values', foreignKey: 'attributeValueId', otherKey: 'variantId' })

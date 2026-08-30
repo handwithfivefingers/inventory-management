@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsToMany } from 'sequelize-typescript'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, BelongsToMany } from 'sequelize-typescript'
 import { Vendor } from './vendor'
 import { Product } from './product'
 import { ProductCategory } from './product_category'
@@ -23,6 +23,9 @@ export class Category extends Model {
 
   @UpdatedAt
   declare updatedAt: Date
+
+  @BelongsTo(() => Vendor, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
+  declare vendor: Vendor
 
   @BelongsToMany(() => Product, () => ProductCategory)
   declare products: Product[]

@@ -74,16 +74,16 @@ export class Invoice extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Order)
+  @BelongsTo(() => Order, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare order: Order
 
-  @BelongsTo(() => Customer)
+  @BelongsTo(() => Customer, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare customer: Customer
 
-  @BelongsTo(() => Vendor)
+  @BelongsTo(() => Vendor, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare vendor: Vendor
 
-  @BelongsTo(() => Warehouse)
+  @BelongsTo(() => Warehouse, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare warehouse: Warehouse
 
   @HasMany(() => InvoiceDetail)

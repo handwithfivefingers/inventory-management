@@ -211,9 +211,9 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={isActionChecked("C")}
                           onChange={(e) => handleSelectAllActions("C", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
-                        <span className="text-indigo-600 font-bold">Tạo (C)</span>
+                        <span className="text-primary font-bold">Tạo (C)</span>
                       </div>
                     </th>
                     <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 border-b">
@@ -222,7 +222,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={isActionChecked("R")}
                           onChange={(e) => handleSelectAllActions("R", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
                         <span className="text-blue-600 font-bold">Xem (R)</span>
                       </div>
@@ -233,7 +233,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={isActionChecked("U")}
                           onChange={(e) => handleSelectAllActions("U", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
                         <span className="text-orange-600 font-bold">Sửa (U)</span>
                       </div>
@@ -244,7 +244,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={isActionChecked("D")}
                           onChange={(e) => handleSelectAllActions("D", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
                         <span className="text-red-600 font-bold">Xóa (D)</span>
                       </div>
@@ -264,7 +264,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                             type="checkbox"
                             checked={isModuleChecked(module.key)}
                             onChange={(e) => handleSelectAllModule(module.key, e.target.checked)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                           />
                           <span className="font-medium text-gray-800">{module.label}</span>
                         </div>
@@ -274,7 +274,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={permissionMatrix[module.key].C}
                           onChange={(e) => handlePermissionChange(module.key, "C", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
                       </td>
                       <td className="px-4 py-3 border-b text-center">
@@ -282,7 +282,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={permissionMatrix[module.key].R}
                           onChange={(e) => handlePermissionChange(module.key, "R", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
                       </td>
                       <td className="px-4 py-3 border-b text-center">
@@ -290,7 +290,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={permissionMatrix[module.key].U}
                           onChange={(e) => handlePermissionChange(module.key, "U", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
                       </td>
                       <td className="px-4 py-3 border-b text-center">
@@ -298,7 +298,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                           type="checkbox"
                           checked={permissionMatrix[module.key].D}
                           onChange={(e) => handlePermissionChange(module.key, "D", e.target.checked)}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-primary focus:ring-indigo-500"
                         />
                       </td>
                       <td className="px-4 py-3 border-b text-center">
@@ -323,7 +323,7 @@ export const RoleEditor = ({ role, modules, onSave, onCancel }: IRoleEditorProps
                       render: (record) => <span className="font-medium text-gray-800">{record.label}</span>,
                     },
                     {
-                      title: <span className="text-indigo-600 font-bold">Tạo (C)</span>,
+                      title: <span className="text-primary font-bold">Tạo (C)</span>,
                       dataIndex: "module",
                       render: (record) => (
                         <FormControl name={`permissions.${record.key}.C`}>

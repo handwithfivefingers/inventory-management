@@ -148,14 +148,14 @@ export const OrderForm = ({
                 <span>{t("importOrder.orderTotal")} </span>
                 <NumberInput value={`${totalPaid}`} displayType="text" />
               </div>
-              <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
+              <div className="h-[2px] border-t border-primary dark:border-slate-400 my-2" />
               <div className="w-96 flex justify-between font-bold">
                 <span>{t("importOrder.totalPayable")}</span> <NumberInput value={`${totalPaid}`} displayType="text" />
               </div>
               <div className="w-96 flex justify-between">
                 <span>{t("importOrder.paid")}</span> <NumberInput value={`${totalPaid}`} displayType="text" />
               </div>
-              <div className="h-[2px] border-t border-indigo-600 dark:border-slate-400 my-2" />
+              <div className="h-[2px] border-t border-primary dark:border-slate-400 my-2" />
               <div className="w-96 flex justify-end">
                 <TMButton htmlType="submit" size="md" variant="light" loading={isLoading}>
                   {submitLabel || t("importOrder.createOrder")}

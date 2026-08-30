@@ -108,9 +108,9 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
           onClick={() => setIsOpen(!isOpen)}
           className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm bg-white hover:bg-indigo-50 border border-indigo-200 rounded-md transition-colors"
         >
-          <Icon name="package" className="w-4 h-4 text-indigo-600" />
+          <Icon name="package" className="w-4 h-4 text-primary" />
           <span className="max-w-[150px] truncate">{name || "Select"}</span>
-          <Icon name="chevron-down" className="w-4 h-4 text-indigo-600" />
+          <Icon name="chevron-down" className="w-4 h-4 text-primary" />
         </button>
 
         <Portal>

@@ -51,7 +51,7 @@ export class ProductVariant extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare product: Product
 
   @HasMany(() => Inventory)

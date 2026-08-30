@@ -1,0 +1,1134 @@
+[
+  {
+    "name": "Áo Thun Cotton",
+    "salePrice": 199000,
+    "regularPrice": 220000,
+    "costPrice": 120000,
+    "wholeSalePrice": 150000,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Best Seller"
+    ],
+    "tagNames": [
+      "Hot"
+    ],
+    "attributes": [
+      {
+        "name": "Màu",
+        "values": [
+          "Đỏ",
+          "Xanh"
+        ]
+      },
+      {
+        "name": "Size",
+        "values": [
+          "M",
+          "L"
+        ]
+      }
+    ],
+    "generateAll": true,
+    "variants": [
+      {
+        "optionValues": {
+          "Màu": "Đỏ",
+          "Size": "M"
+        },
+        "skuCode": "AO-DO-M",
+        "salePrice": 199000,
+        "quantity": 15
+      },
+      {
+        "optionValues": {
+          "Màu": "Xanh",
+          "Size": "L"
+        },
+        "skuCode": "AO-XANH-L",
+        "salePrice": 209000,
+        "quantity": 8
+      },
+      {
+        "optionValues": {
+          "Màu": "Đỏ",
+          "Size": "L"
+        },
+        "skuCode": "AO-DO-L",
+        "salePrice": 199000,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "name": "Giày Sneaker",
+    "salePrice": 550000,
+    "regularPrice": 650000,
+    "costPrice": 350000,
+    "wholeSalePrice": 450000,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Đôi",
+    "categoryNames": [
+      "Best Seller"
+    ],
+    "tagNames": [
+      "New",
+      "Premium"
+    ],
+    "attributes": [
+      {
+        "name": "Màu",
+        "values": [
+          "Trắng",
+          "Đen"
+        ]
+      },
+      {
+        "name": "Size",
+        "values": [
+          "39",
+          "40",
+          "41"
+        ]
+      }
+    ],
+    "generateAll": false,
+    "variants": [
+      {
+        "optionValues": {
+          "Màu": "Trắng",
+          "Size": "39"
+        },
+        "skuCode": "SNEAKER-TRANG-39",
+        "salePrice": 550000,
+        "quantity": 12
+      },
+      {
+        "optionValues": {
+          "Màu": "Đen",
+          "Size": "40"
+        },
+        "skuCode": "SNEAKER-DEN-40",
+        "salePrice": 550000,
+        "quantity": 9
+      }
+    ]
+  },
+  {
+    "name": "Tai nghe Bluetooth",
+    "salePrice": 62200,
+    "regularPrice": 68400,
+    "costPrice": 36400,
+    "wholeSalePrice": 41200,
+    "quantity": 150,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Sale",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Loa di động",
+    "salePrice": 703400,
+    "regularPrice": 773700,
+    "costPrice": 484100,
+    "wholeSalePrice": 533800,
+    "quantity": 52,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "New",
+      "Sale"
+    ]
+  },
+  {
+    "name": "Sạc dự phòng",
+    "salePrice": 296500,
+    "regularPrice": 326200,
+    "costPrice": 207600,
+    "wholeSalePrice": 238600,
+    "quantity": 141,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Bàn phím cơ",
+    "salePrice": 347400,
+    "regularPrice": 382100,
+    "costPrice": 270800,
+    "wholeSalePrice": 326200,
+    "quantity": 74,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Sale",
+      "Eco"
+    ]
+  },
+  {
+    "name": "Chuột không dây",
+    "salePrice": 634100,
+    "regularPrice": 697500,
+    "costPrice": 494200,
+    "wholeSalePrice": 617700,
+    "quantity": 170,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Premium"
+    ]
+  },
+  {
+    "name": "Webcam HD",
+    "salePrice": 477900,
+    "regularPrice": 525700,
+    "costPrice": 276600,
+    "wholeSalePrice": 357600,
+    "quantity": 56,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Hot",
+      "Sale"
+    ]
+  },
+  {
+    "name": "Màn hình 24 inch",
+    "salePrice": 523100,
+    "regularPrice": 575400,
+    "costPrice": 303200,
+    "wholeSalePrice": 352300,
+    "quantity": 177,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Router Wifi",
+    "salePrice": 73500,
+    "regularPrice": 80800,
+    "costPrice": 42600,
+    "wholeSalePrice": 54700,
+    "quantity": 200,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Cáp HDMI",
+    "salePrice": 23800,
+    "regularPrice": 26200,
+    "costPrice": 16700,
+    "wholeSalePrice": 21500,
+    "quantity": 60,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Eco"
+    ]
+  },
+  {
+    "name": "Ổ cứng di động",
+    "salePrice": 247800,
+    "regularPrice": 272600,
+    "costPrice": 151600,
+    "wholeSalePrice": 182100,
+    "quantity": 200,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Điện Tử"
+    ],
+    "tagNames": [
+      "Sale",
+      "Eco"
+    ]
+  },
+  {
+    "name": "Sổ tay A5",
+    "salePrice": 606700,
+    "regularPrice": 667400,
+    "costPrice": 404500,
+    "wholeSalePrice": 456000,
+    "quantity": 118,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "New"
+    ]
+  },
+  {
+    "name": "Bút bi",
+    "salePrice": 64900,
+    "regularPrice": 71400,
+    "costPrice": 53800,
+    "wholeSalePrice": 62400,
+    "quantity": 162,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Best Seller"
+    ]
+  },
+  {
+    "name": "Bút chì",
+    "salePrice": 583400,
+    "regularPrice": 641700,
+    "costPrice": 472300,
+    "wholeSalePrice": 589400,
+    "quantity": 155,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Giấy A4",
+    "salePrice": 681200,
+    "regularPrice": 749300,
+    "costPrice": 454700,
+    "wholeSalePrice": 566400,
+    "quantity": 172,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Hot"
+    ]
+  },
+  {
+    "name": "Ghim bấm",
+    "salePrice": 772300,
+    "regularPrice": 849500,
+    "costPrice": 437900,
+    "wholeSalePrice": 534200,
+    "quantity": 102,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Best Seller"
+    ]
+  },
+  {
+    "name": "Băng keo",
+    "salePrice": 702900,
+    "regularPrice": 773200,
+    "costPrice": 493600,
+    "wholeSalePrice": 547400,
+    "quantity": 113,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Hot",
+      "Best Seller"
+    ]
+  },
+  {
+    "name": "Thước kẻ",
+    "salePrice": 384200,
+    "regularPrice": 422600,
+    "costPrice": 287400,
+    "wholeSalePrice": 329900,
+    "quantity": 52,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Tẩy",
+    "salePrice": 599300,
+    "regularPrice": 659200,
+    "costPrice": 360700,
+    "wholeSalePrice": 452400,
+    "quantity": 71,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Best Seller",
+      "Sale"
+    ]
+  },
+  {
+    "name": "File hồ sơ",
+    "salePrice": 279500,
+    "regularPrice": 307400,
+    "costPrice": 164500,
+    "wholeSalePrice": 196700,
+    "quantity": 122,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Premium"
+    ]
+  },
+  {
+    "name": "Bút highlight",
+    "salePrice": 393900,
+    "regularPrice": 433300,
+    "costPrice": 276200,
+    "wholeSalePrice": 327300,
+    "quantity": 62,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Quyển",
+    "categoryNames": [
+      "Văn Phòng Phẩm"
+    ],
+    "tagNames": [
+      "Premium"
+    ]
+  },
+  {
+    "name": "Nồi cơm điện",
+    "salePrice": 448300,
+    "regularPrice": 493100,
+    "costPrice": 371900,
+    "wholeSalePrice": 428300,
+    "quantity": 179,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Best Seller"
+    ]
+  },
+  {
+    "name": "Ấm siêu tốc",
+    "salePrice": 627000,
+    "regularPrice": 689700,
+    "costPrice": 404000,
+    "wholeSalePrice": 452900,
+    "quantity": 52,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Sale",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Chảo chống dính",
+    "salePrice": 273600,
+    "regularPrice": 301000,
+    "costPrice": 198900,
+    "wholeSalePrice": 242300,
+    "quantity": 172,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Eco",
+      "Sale"
+    ]
+  },
+  {
+    "name": "Bình giữ nhiệt",
+    "salePrice": 161400,
+    "regularPrice": 177500,
+    "costPrice": 130100,
+    "wholeSalePrice": 160200,
+    "quantity": 70,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Sale",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Dao nhà bếp",
+    "salePrice": 94600,
+    "regularPrice": 104100,
+    "costPrice": 64800,
+    "wholeSalePrice": 72900,
+    "quantity": 71,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "New",
+      "Sale"
+    ]
+  },
+  {
+    "name": "Thớt gỗ",
+    "salePrice": 189600,
+    "regularPrice": 208600,
+    "costPrice": 121000,
+    "wholeSalePrice": 146300,
+    "quantity": 195,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Premium",
+      "Eco"
+    ]
+  },
+  {
+    "name": "Ly thủy tinh",
+    "salePrice": 671700,
+    "regularPrice": 738900,
+    "costPrice": 395900,
+    "wholeSalePrice": 476700,
+    "quantity": 183,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "New"
+    ]
+  },
+  {
+    "name": "Hộp đựng thực phẩm",
+    "salePrice": 456500,
+    "regularPrice": 502200,
+    "costPrice": 348100,
+    "wholeSalePrice": 417600,
+    "quantity": 154,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Premium",
+      "Best Seller"
+    ]
+  },
+  {
+    "name": "Nước khoáng",
+    "salePrice": 292200,
+    "regularPrice": 321400,
+    "costPrice": 221500,
+    "wholeSalePrice": 261900,
+    "quantity": 66,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "Sale",
+      "Eco"
+    ]
+  },
+  {
+    "name": "Nước tăng lực",
+    "salePrice": 183500,
+    "regularPrice": 201900,
+    "costPrice": 146600,
+    "wholeSalePrice": 188400,
+    "quantity": 129,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "New",
+      "Premium"
+    ]
+  },
+  {
+    "name": "Trà xanh đóng chai",
+    "salePrice": 174200,
+    "regularPrice": 191600,
+    "costPrice": 124100,
+    "wholeSalePrice": 144300,
+    "quantity": 165,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "Hot"
+    ]
+  },
+  {
+    "name": "Cà phê lon",
+    "salePrice": 593000,
+    "regularPrice": 652300,
+    "costPrice": 403200,
+    "wholeSalePrice": 488800,
+    "quantity": 99,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "Eco"
+    ]
+  },
+  {
+    "name": "Nước ép trái cây",
+    "salePrice": 240900,
+    "regularPrice": 265000,
+    "costPrice": 175800,
+    "wholeSalePrice": 193800,
+    "quantity": 73,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "Eco",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Sữa tươi",
+    "salePrice": 653800,
+    "regularPrice": 719200,
+    "costPrice": 419400,
+    "wholeSalePrice": 506300,
+    "quantity": 177,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "Hot",
+      "Sale"
+    ]
+  },
+  {
+    "name": "Nước dừa",
+    "salePrice": 478600,
+    "regularPrice": 526500,
+    "costPrice": 383300,
+    "wholeSalePrice": 475500,
+    "quantity": 56,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "New",
+      "Eco"
+    ]
+  },
+  {
+    "name": "Bia tươi",
+    "salePrice": 87600,
+    "regularPrice": 96400,
+    "costPrice": 57600,
+    "wholeSalePrice": 64800,
+    "quantity": 111,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "Best Seller",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Soda chanh",
+    "salePrice": 362200,
+    "regularPrice": 398400,
+    "costPrice": 273300,
+    "wholeSalePrice": 331300,
+    "quantity": 194,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Trà sữa",
+    "salePrice": 385100,
+    "regularPrice": 423600,
+    "costPrice": 304200,
+    "wholeSalePrice": 356500,
+    "quantity": 160,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Đồ Uống"
+    ],
+    "tagNames": [
+      "New"
+    ]
+  },
+  {
+    "name": "Nước rửa chén",
+    "salePrice": 458200,
+    "regularPrice": 504000,
+    "costPrice": 331900,
+    "wholeSalePrice": 427300,
+    "quantity": 115,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Hot"
+    ]
+  },
+  {
+    "name": "Nước lau sàn",
+    "salePrice": 357900,
+    "regularPrice": 393700,
+    "costPrice": 282500,
+    "wholeSalePrice": 334800,
+    "quantity": 167,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Best Seller"
+    ]
+  },
+  {
+    "name": "Xà phòng giặt",
+    "salePrice": 158700,
+    "regularPrice": 174600,
+    "costPrice": 107100,
+    "wholeSalePrice": 131600,
+    "quantity": 145,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Premium",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Nước tẩy javen",
+    "salePrice": 64700,
+    "regularPrice": 71200,
+    "costPrice": 37900,
+    "wholeSalePrice": 42400,
+    "quantity": 159,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Hot"
+    ]
+  },
+  {
+    "name": "Khăn lau đa năng",
+    "salePrice": 197000,
+    "regularPrice": 216700,
+    "costPrice": 114700,
+    "wholeSalePrice": 132000,
+    "quantity": 157,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Best Seller"
+    ]
+  },
+  {
+    "name": "Bình xịt khử khuẩn",
+    "salePrice": 622200,
+    "regularPrice": 684400,
+    "costPrice": 494900,
+    "wholeSalePrice": 621400,
+    "quantity": 162,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Hot",
+      "Sale"
+    ]
+  },
+  {
+    "name": "Bột giặt",
+    "salePrice": 22700,
+    "regularPrice": 25000,
+    "costPrice": 14700,
+    "wholeSalePrice": 17300,
+    "quantity": 113,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Premium"
+    ]
+  },
+  {
+    "name": "Nước rửa tay",
+    "salePrice": 127800,
+    "regularPrice": 140600,
+    "costPrice": 84600,
+    "wholeSalePrice": 98000,
+    "quantity": 104,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Chai",
+    "categoryNames": [
+      "Gia Dụng"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Kem đánh răng",
+    "salePrice": 274400,
+    "regularPrice": 301800,
+    "costPrice": 173900,
+    "wholeSalePrice": 197400,
+    "quantity": 190,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Eco",
+      "New"
+    ]
+  },
+  {
+    "name": "Bàn chải",
+    "salePrice": 232900,
+    "regularPrice": 256200,
+    "costPrice": 131100,
+    "wholeSalePrice": 157200,
+    "quantity": 161,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Premium",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Dầu gội",
+    "salePrice": 326700,
+    "regularPrice": 359400,
+    "costPrice": 202900,
+    "wholeSalePrice": 235600,
+    "quantity": 165,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Eco",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Sữa tắm",
+    "salePrice": 338800,
+    "regularPrice": 372700,
+    "costPrice": 199000,
+    "wholeSalePrice": 240200,
+    "quantity": 156,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Hot"
+    ]
+  },
+  {
+    "name": "Lăn khử mùi",
+    "salePrice": 250900,
+    "regularPrice": 276000,
+    "costPrice": 165700,
+    "wholeSalePrice": 202600,
+    "quantity": 70,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Sale"
+    ]
+  },
+  {
+    "name": "Kem dưỡng da",
+    "salePrice": 295700,
+    "regularPrice": 325300,
+    "costPrice": 230200,
+    "wholeSalePrice": 254200,
+    "quantity": 90,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Hot"
+    ]
+  },
+  {
+    "name": "Bông tắm",
+    "salePrice": 741500,
+    "regularPrice": 815700,
+    "costPrice": 475300,
+    "wholeSalePrice": 567100,
+    "quantity": 108,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Premium",
+      "New"
+    ]
+  },
+  {
+    "name": "Khẩu trang",
+    "salePrice": 645000,
+    "regularPrice": 709500,
+    "costPrice": 455600,
+    "wholeSalePrice": 582200,
+    "quantity": 98,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Cái",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Eco"
+    ]
+  },
+  {
+    "name": "Mì tôm",
+    "salePrice": 684500,
+    "regularPrice": 753000,
+    "costPrice": 385500,
+    "wholeSalePrice": 486500,
+    "quantity": 65,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Gói",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "New",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Gạo thơm",
+    "salePrice": 91400,
+    "regularPrice": 100500,
+    "costPrice": 55600,
+    "wholeSalePrice": 64100,
+    "quantity": 196,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Gói",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Hot",
+      "Premium"
+    ]
+  },
+  {
+    "name": "Đường tinh luyện",
+    "salePrice": 592700,
+    "regularPrice": 652000,
+    "costPrice": 393200,
+    "wholeSalePrice": 510600,
+    "quantity": 97,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Gói",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Eco",
+      "Hot"
+    ]
+  },
+  {
+    "name": "Nước mắm",
+    "salePrice": 80900,
+    "regularPrice": 89000,
+    "costPrice": 57900,
+    "wholeSalePrice": 70000,
+    "quantity": 98,
+    "warehouseId": 5,
+    "vendorId": 4,
+    "unitName": "Gói",
+    "categoryNames": [
+      "Thực Phẩm"
+    ],
+    "tagNames": [
+      "Premium",
+      "New"
+    ]
+  }
+]

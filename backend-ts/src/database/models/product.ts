@@ -83,10 +83,10 @@ export class Product extends Model {
   @HasMany(() => ProductAttribute, { foreignKey: 'productId', as: 'attributes' })
   declare attributes: ProductAttribute[]
 
-  @BelongsTo(() => Unit)
+  @BelongsTo(() => Unit, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare unit: Unit
 
-  @BelongsTo(() => Vendor)
+  @BelongsTo(() => Vendor, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare vendor: Vendor
 }
 

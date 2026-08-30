@@ -187,11 +187,11 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <div className="flex items-center justify-between px-1 pb-2 py-2 border-b border-indigo-600/40">
+              <div className="flex items-center justify-between px-1 pb-2 py-2 border-b border-primary/40">
                 <button
                   type="button"
                   aria-label="Previous month"
-                  className="p-1 rounded hover:bg-indigo-50 hover:text-indigo-600 bg-transparent border-0 cursor-pointer text-slate-600 dark:text-slate-200"
+                  className="p-1 rounded hover:bg-indigo-50 hover:text-primary bg-transparent border-0 cursor-pointer text-slate-600 dark:text-slate-200"
                   onClick={() => setViewMonth(viewMonth.subtract(1, "month"))}
                 >
                   <Icon name="chevron-left" fontSize={16} />
@@ -202,7 +202,7 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
                 <button
                   type="button"
                   aria-label="Next month"
-                  className="p-1 rounded hover:bg-indigo-50 hover:text-indigo-600 bg-transparent border-0 cursor-pointer text-slate-600 dark:text-slate-200"
+                  className="p-1 rounded hover:bg-indigo-50 hover:text-primary bg-transparent border-0 cursor-pointer text-slate-600 dark:text-slate-200"
                   onClick={() => setViewMonth(viewMonth.add(1, "month"))}
                 >
                   <Icon name="chevron-right" fontSize={16} />
@@ -234,7 +234,7 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
                           [` opacity-100`]: isCurrentMonth,
                           ["text-rose-600/80"]: date.day() === 0 && !isSelected,
                           ["hover:bg-indigo-400 hover:text-white"]: !isSelected,
-                          ["bg-indigo-600 !text-white shadow"]: isSelected,
+                          ["bg-primary !text-white shadow"]: isSelected,
                           ["font-semibold ring-1 ring-inset ring-indigo-400"]: isToday && !isSelected,
                         },
                       )}

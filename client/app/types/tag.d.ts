@@ -13,4 +13,6 @@ export interface ITagParams {
 export interface ITag {
   name: string;
   id?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }

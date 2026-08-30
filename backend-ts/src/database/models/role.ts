@@ -45,7 +45,7 @@ export class Role extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Vendor)
+  @BelongsTo(() => Vendor, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare vendor: Vendor
 
   @BelongsToMany(() => Permission, () => RolePermission)

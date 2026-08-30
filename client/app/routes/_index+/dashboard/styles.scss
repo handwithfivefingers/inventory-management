@@ -17,9 +17,9 @@
   @apply stroke-green-600/70;
 }
 .ct-series-a .ct-bar {
+  stroke-width: 12px;
   @apply stroke-indigo-600/70;
   &:where(.dark, .dark *) {
     @apply stroke-indigo-200/80;
   }
-  stroke-width: 12px;
 }

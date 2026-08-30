@@ -144,7 +144,7 @@ export const MultiSelectInput = ({
               <div className="bg-indigo-50 pl-1 pr-2 flex gap-1 rounded" key={`option-${item}-${index}`}>
                 <Icon
                   name="x"
-                  className="w-4 text-indigo-600"
+                  className="w-4 text-primary"
                   onClick={(e: React.MouseEvent<ChangeEvent>) => {
                     e.preventDefault();
                     removeOptions(item);
@@ -162,7 +162,7 @@ export const MultiSelectInput = ({
             rotate: isFocus ? 180 : 0,
           }}
         >
-          <Icon name="chevron-down" className={cn(" text-indigo-600 w-5")} />
+          <Icon name="chevron-down" className={cn(" text-primary w-5")} />
         </m.div>
       </div>
 

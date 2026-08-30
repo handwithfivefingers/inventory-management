@@ -23,9 +23,13 @@ interface ILocalsLike {
 
 /** Resolve the request's vendor scope: null = platform admin, [] = deny all. */
 export const getVendorScope = (req: ILocalsLike): TVendorScope => {
-  const vendorIds = req?.locals?.vendorIds
-  if (Array.isArray(vendorIds)) {
-    return vendorIds.map(Number).filter((id) => Number.isFinite(id))
+  const raw =
+    (req as any)?.user?.vendorIds ??
+    (req as any)?.locals?.vendorIds ??
+    (req as any)?.vendorIds ??
+    null
+  if (Array.isArray(raw)) {
+    return raw.map(Number).filter((id) => Number.isFinite(id))
   }
   // Middleware did not attach a scope (e.g. internal calls/tests): treat as
   // unrestricted to preserve backwards compatibility for non-HTTP callers.

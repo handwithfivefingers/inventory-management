@@ -1,8 +1,9 @@
 import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
+import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { PermissionGuard } from "~/components/permission-guard";
@@ -48,6 +49,7 @@ export default function Products() {
   const { data, total, page, pageSize, s } = useLoaderData<typeof loader>();
   const [filter, setFilter] = useState<IFilter>({ s });
   const { t } = useTranslation();
+  console.log(`data, total, page, pageSize, `, data, total, page, pageSize);
   useEffect(() => {
     let timeout: any;
     timeout = setTimeout(() => {
@@ -189,12 +191,5 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export function ErrorBoundary() {
-  const error: any = useRouteError();
-  return (
-    <div>
-      <h1>Error</h1>
-      <p>{error?.message}</p>
-      <p>{error?.stack}</p>
-    </div>
-  );
+  return <ErrorComponent />;
 }

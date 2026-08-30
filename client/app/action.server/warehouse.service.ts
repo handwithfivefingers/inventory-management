@@ -36,12 +36,24 @@ const warehouseService = {
     const params = new URLSearchParams({
       vendorId,
     });
-    return HTTPService.getInstance().get<IWareHouse>(API_PATH.warehouse + "/" + id + "?" + params.toString(), {
-      Cookie,
-    });
+    return HTTPService.getInstance().get<{ data: IWareHouse }>(
+      API_PATH.warehouse + "/" + id + "?" + params.toString(),
+      {
+        Cookie,
+      },
+    );
   },
   createWarehouse: ({ cookie, ...params }: Partial<IWareHouse> & { cookie: string }) => {
     return HTTPService.getInstance().post(API_PATH.warehouse, params, { Cookie: cookie });
+  },
+  updateWarehouse: ({
+    id,
+    cookie,
+    vendorId,
+    ...params
+  }: Partial<IWareHouse> & { id: string | number; cookie: string; vendorId?: string }) => {
+    const qs = vendorId ? `?vendorId=${vendorId}` : "";
+    return HTTPService.getInstance().put(API_PATH.warehouse + "/" + id + qs, params, { Cookie: cookie });
   },
 };
 

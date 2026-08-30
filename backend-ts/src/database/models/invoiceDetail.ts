@@ -39,10 +39,10 @@ export class InvoiceDetail extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Invoice)
+  @BelongsTo(() => Invoice, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare invoice: Invoice
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare product: Product
 }
 

@@ -12,6 +12,7 @@ import { PermissionGuard } from "~/components/permission-guard";
 import { dayjs } from "~/libs/date";
 import { getSession } from "~/sessions";
 import { useTranslation } from "~/i18n";
+import { Icon } from "~/components/icon";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -57,24 +58,22 @@ export default function ImportOrder() {
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <PermissionGuard requireAdmin>
-                  <TMButton component={Link} to={"./add"}>
+                  <TMButton component={Link} to={"./add"} size="sm">
+                    <Icon name="plus" fontSize={16} />
                     {t("importOrder.add")}
                   </TMButton>
                 </PermissionGuard>
-                <TMButton component={Link}>{t("common.exportExcel")}</TMButton>
+                <TMButton size="sm">
+                  <Icon name="file-plus" fontSize={16} />
+                  {t("common.exportExcel")}
+                </TMButton>
               </div>
             </div>
           </div>
-          <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn flex-1">
+          <div className="flex flex-1 gap-2 flex-col items-end overflow-hidden">
             <TMTable
               scrollable
               columns={[
-                // {
-                //   title: t("importOrder.stt"),
-                //   dataIndex: "id",
-                //   width: 80,
-                //   render: (_record, i) => (page - 1) * pageSize + Number(i) + 1,
-                // },
                 {
                   title: t("importOrder.provider"),
                   dataIndex: "provider",
@@ -106,29 +105,23 @@ export default function ImportOrder() {
                   dataIndex: "createdAt",
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
-                {
-                  title: t("common.actions"),
-                  dataIndex: "id",
-                  render: (record) => (
-                    <TMButton component={Link} to={`./${record.id}`} variant="light" size="xs">
-                      {t("importOrder.viewDetail")}
-                    </TMButton>
-                  ),
-                },
               ]}
               data={data}
               rowKey={"id"}
+              onRow={{
+                onClick: (record) => navigate(`./${record.id}`),
+              }}
             />
-            <div className="flex gap-2">
-              <TMPagination
-                total={total || 0}
-                current={page as number}
-                pageSize={pageSize as number}
-                onPageChange={(page: number) => {
-                  navigate(`?page=${page}&pageSize=${pageSize}`);
-                }}
-              />
-            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <TMPagination
+              total={total || 0}
+              current={page as number}
+              pageSize={pageSize as number}
+              onPageChange={(page: number) => {
+                navigate(`?page=${page}&pageSize=${pageSize}`);
+              }}
+            />
           </div>
         </div>
       </CardItem>

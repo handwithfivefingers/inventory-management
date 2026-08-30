@@ -18,15 +18,15 @@ enum ISizes {
 
 const variants: IButtonVariants = {
   primary:
-    "bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-400 dark:text-white dark:hover:bg-slate-100 dark:hover:text-indigo-600 text-indigo-600 hover:bg-indigo-100 transition-colors transition-all",
+    "bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-400 dark:text-white dark:hover:bg-slate-100 dark:hover:text-primary text-primary hover:bg-indigo-100 transition-colors transition-all",
   secondary:
     "bg-slate-300 outline outline-transparent active:outline-indigo-200 text-indigo-950 dark:text-slate-200 transition-all",
   light:
-    "bg-indigo-100 hover:bg-indigo-200 outline outline-transparent active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:bg-slate-700 transition-all",
+    "bg-indigo-100 hover:bg-indigo-200 outline outline-transparent active:outline-indigo-200 text-primary dark:text-slate-200 dark:bg-slate-700 transition-all",
   ghost:
-    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-indigo-600 dark:text-slate-200 dark:dark:bg-transparent transition-all",
+    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-primary dark:text-slate-200 dark:dark:bg-transparent transition-all",
   outline:
-    "bg-transparent border border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700 transition-all",
+    "bg-transparent border border-indigo-200 text-primary hover:bg-indigo-50 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700 transition-all",
 };
 
 const sizes: IButtonSizes = {

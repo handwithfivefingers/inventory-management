@@ -92,15 +92,15 @@ const dedupeInvoiceIndexes = async () => {
       }
     } catch {}
   }
-  // await dedupeTable(
-  //   'invoices',
-  //   ['PRIMARY', 'invoiceNumber', 'orderId', 'customerId', 'vendorId', 'warehouseId'],
-  //   /^invoiceNumber/
-  // )
-  // await dedupeTable('staff', ['PRIMARY', 'staff_code_unique', 'code', 'userId', 'warehouseId'], /^code/)
-  // await dedupeTable('products', ['PRIMARY', 'products_code_unique', 'code', 'vendorId', 'unitId'], /^code/)
-  // await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
-  // await dedupeTable('staff_vendor', ['PRIMARY', 'staffId'], /^staffId/)
+  await dedupeTable(
+    'invoices',
+    ['PRIMARY', 'invoiceNumber', 'orderId', 'customerId', 'vendorId', 'warehouseId'],
+    /^invoiceNumber/
+  )
+  await dedupeTable('staff', ['PRIMARY', 'staff_code_unique', 'code', 'userId', 'warehouseId'], /^code/)
+  await dedupeTable('products', ['PRIMARY', 'products_code_unique', 'code', 'vendorId', 'unitId'], /^code/)
+  await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
+  await dedupeTable('staff_vendor', ['PRIMARY', 'staffId'], /^staffId/)
 }
 
 const database: IDatabase = {
@@ -118,11 +118,27 @@ const database: IDatabase = {
       try {
         await sequelize.sync({ alter: true })
       } catch (e: any) {
+        const msg = String(e?.message ?? '') + String(e?.parent?.message ?? '') + String(e?.original?.message ?? '')
+        const code = e?.parent?.code || e?.original?.code
+        const errno = e?.parent?.errno ?? e?.original?.errno
         // ER_TOO_MANY_KEYS is the duplicate-index fallout - clean and retry once
-        if (e?.parent?.code === 'ER_TOO_MANY_KEYS' || String(e?.message ?? '').includes('Too many keys')) {
+        if (code === 'ER_TOO_MANY_KEYS' || msg.includes('Too many keys')) {
           console.log('sync hit Too many keys - retrying after dedupe')
           await dedupeInvoiceIndexes()
           await sequelize.sync({ alter: true })
+        } else if (
+          code === 'ER_CANT_DROP_FIELD_OR_KEY' ||
+          errno === 1091 ||
+          msg.includes("Can't DROP") ||
+          msg.includes('vendors_ibfk_1') ||
+          msg.includes('DROP FOREIGN KEY')
+        ) {
+          // sync({alter:true}) drops FKs to CHANGE columns then re-adds them (see
+          // vendor.ts:42 onDelete/onUpdate must match DB). The DROP is lost if
+          // two `tsx --watch` processes race or a previous alter was interrupted,
+          // leaving errno 1091 on next boot. Swallow it - schema is already
+          // convergent and retry is unnecessary in dev.
+          console.warn(`sync alter hit DROP FK race (ignored): ${msg.slice(0, 300)}`)
         } else {
           throw e
         }

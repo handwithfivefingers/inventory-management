@@ -1,17 +1,18 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Link, useFetcher, useNavigate, useLoaderData } from "@remix-run/react";
-import { useState, useEffect } from "react";
-import { invoiceService } from "~/action.server/invoice.service";
+import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { useEffect, useState } from "react";
 import { customerService } from "~/action.server/customer.service";
+import { invoiceService } from "~/action.server/invoice.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
+import { ErrorComponent } from "~/components/error-component";
 import { TMButton } from "~/components/tm-button";
-import { getSession, parseCookieFromRequest } from "~/sessions";
+import { useTranslation } from "~/i18n";
+import { formatCurrency } from "~/libs/format-currency";
+import { parseCookieFromRequest } from "~/sessions";
+import { ICustomer } from "~/types/customer";
 import { IInvoiceItem, PaymentType } from "~/types/invoice";
 import { IProduct } from "~/types/product";
-import { ICustomer } from "~/types/customer";
-import { formatCurrency } from "~/libs/format-currency";
-import { useTranslation } from "~/i18n";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
@@ -22,6 +23,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     productService.getProducts({ cookie, vendorId, pageSize: "100" }),
   ]);
 
+  console.log("invoiceResp, customersResp, productsResp", invoiceResp, customersResp, productsResp);
   return {
     invoice: (invoiceResp.data as any)?.data ?? invoiceResp.data,
     customers: customersResp.data?.data ?? [],
@@ -142,7 +144,6 @@ export default function EditInvoice() {
     <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem title={`${t("invoices.editTitle")} - ${invoice.invoiceNumber}`} className="p-4">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Customer & payment */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">{t("invoices.customer")} *</label>
@@ -198,16 +199,13 @@ export default function EditInvoice() {
                 </thead>
                 <tbody>
                   {items.map((item, index) => {
-                    const itemTotal =
-                      item.quantity * item.unitPrice * (1 + (item.taxRate || 0) / 100);
+                    const itemTotal = item.quantity * item.unitPrice * (1 + (item.taxRate || 0) / 100);
                     return (
                       <tr key={index} className="border-t">
                         <td className="p-2">
                           <select
                             value={item.productId}
-                            onChange={(e) =>
-                              handleItemChange(index, "productId", Number(e.target.value))
-                            }
+                            onChange={(e) => handleItemChange(index, "productId", Number(e.target.value))}
                             className="w-full border rounded px-2 py-1"
                           >
                             <option value={0}>-- {t("common.choose")} --</option>
@@ -222,9 +220,7 @@ export default function EditInvoice() {
                           <input
                             type="number"
                             value={item.quantity}
-                            onChange={(e) =>
-                              handleItemChange(index, "quantity", Number(e.target.value))
-                            }
+                            onChange={(e) => handleItemChange(index, "quantity", Number(e.target.value))}
                             className="w-full border rounded px-2 py-1"
                             min="1"
                           />
@@ -233,9 +229,7 @@ export default function EditInvoice() {
                           <input
                             type="number"
                             value={item.unitPrice}
-                            onChange={(e) =>
-                              handleItemChange(index, "unitPrice", Number(e.target.value))
-                            }
+                            onChange={(e) => handleItemChange(index, "unitPrice", Number(e.target.value))}
                             className="w-full border rounded px-2 py-1"
                             min="0"
                           />
@@ -244,9 +238,7 @@ export default function EditInvoice() {
                           <input
                             type="number"
                             value={item.taxRate}
-                            onChange={(e) =>
-                              handleItemChange(index, "taxRate", Number(e.target.value))
-                            }
+                            onChange={(e) => handleItemChange(index, "taxRate", Number(e.target.value))}
                             className="w-full border rounded px-2 py-1"
                             min="0"
                             max="100"
@@ -334,4 +326,7 @@ export default function EditInvoice() {
       </CardItem>
     </div>
   );
+}
+export function ErrorBoundary() {
+  return <ErrorComponent />;
 }

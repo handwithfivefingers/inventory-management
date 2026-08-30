@@ -58,12 +58,14 @@ export const TMPagination = ({ total, current, page, pageSize, onChange, onPageC
 
     return pagination;
   }, [currentPage, totalPage]);
+
+  const currentSize = +(current || 1) * +pageSize > +total ? +total : +(current || 1) * +pageSize;
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1 items-center">
       {generatePagination().map((paginationItem, index) => (
         <div key={index}>
           <TMButton
-            size="xs"
+            size="sm"
             onClick={paginationItem.onClick}
             className={cn("px-3 py-1", {
               "text-white bg-indigo-300 rounded": paginationItem.label === current,
@@ -73,6 +75,9 @@ export const TMPagination = ({ total, current, page, pageSize, onChange, onPageC
           </TMButton>
         </div>
       ))}
+      <span className="text-xs mx-4">
+        Show {currentSize} / {total}
+      </span>
     </div>
   );
 };

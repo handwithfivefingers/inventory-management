@@ -1,6 +1,5 @@
 import Redis from '#/configs/redis'
 import { ERROR } from '#/constant/message'
-import { getModule } from '#/constant/modules'
 import database from '#/database'
 import Permission from '#/database/models/permission'
 import Role from '#/database/models/role'
@@ -8,22 +7,20 @@ import Staff from '#/database/models/staff'
 import User from '#/database/models/user'
 import Vendor from '#/database/models/vendor'
 import Warehouse from '#/database/models/warehouse'
-import { buildFullPermissions } from '#/libs/permission'
 import { ApiError } from '#/response'
 import { IStaffModel } from '#/types/staff'
 import bcrypt from 'bcryptjs'
-import { Sequelize } from 'sequelize'
+import { Sequelize, Transaction } from 'sequelize'
 
 const { cacheDel, cacheGet, cacheSet, cacheKey } = Redis
 
 interface IRegister {
-  nickname?: string
-  firstName?: string
-  lastName?: string
+  fullName?: string
   email: string
   password: string
   warehouse: string
   vendor: string
+  niche?: string
 }
 interface LoginResponse {
   id: number
@@ -84,18 +81,6 @@ export default class AuthenticateService {
         }))
       }))
       return { ...user.parsed, ...staff.parsed, vendors, role: user.staff.role } as LoginResponse
-
-      // const roles = this.resolveUserRoles(user).map((role) => this.mapRole(role))
-      // const vendors = this.mapVendors(user.vendors)
-      // const { defaultVendorId, defaultWarehouseId } = this.resolveDefaults(user.vendors)
-
-      // return {
-      //   ...(user as any).parsed,
-      //   roles,
-      //   vendors,
-      //   defaultVendorId,
-      //   defaultWarehouseId
-      // }
     } catch (error) {
       throw ApiError.from(error, 400)
     }
@@ -142,84 +127,74 @@ export default class AuthenticateService {
   async register(params: IRegister) {
     const t = await this.sequelize.transaction()
     try {
-      console.log('params', params)
-      const user = await this.createUser(params, t)
-      const vendor = await this.createVendorEntity(params.vendor, user.id, t)
-      const warehouse = await this.createWarehouseEntity(params.warehouse, t)
-      const staff = await this.createStaffEntity(t)
-      await vendor.$set('warehouses', [warehouse], { transaction: t })
+      const { vendor, warehouse, email, password, fullName, niche = 'other' } = params
+      const user = await this.createUser({
+        email,
+        password,
+        transaction: t
+      })
+      const _vendor = await this.createVendorEntity({
+        name: vendor,
+        userId: user.id,
+        transaction: t,
+        niche
+      })
+      const _warehouse = await this.createWarehouseEntity({ name: warehouse, transaction: t })
+
+      const staff = await this.createStaffEntity({ transaction: t, fullName })
+
+      await _vendor.$set('warehouses', [_warehouse], { transaction: t })
+
       await user.$set('staff', staff, { transaction: t })
-      await staff.$set('vendors', [vendor], { transaction: t })
-      staff.roleId = 1
+
+      await staff.$set('vendors', [_vendor], { transaction: t })
+
+      const role = await Role.findOne({ where: { isAdmin: true }, attributes: ['id'] })
+
+      if (!role) throw new Error('Admin Role not found')
+
+      staff.roleId = role.id
+
       await staff.save({ transaction: t })
+
       const result = {
         ...user.parsed,
-        vendor,
-        warehouses: [warehouse]
-        // roles: ownerRole ? [ownerRole] : []
+        vendor: _vendor,
+        warehouses: [_warehouse]
       }
       await t.commit()
       return result
     } catch (error) {
+      console.log('error', error)
       await t.rollback()
       throw ApiError.from(error)
     }
   }
 
-  private async createUser(params: IRegister, transaction: any) {
-    console.log('Create user')
-    const { vendor, warehouse, email, password, ...userAttrs } = params
-    // Password is hashed by the User model setter (bcrypt.hashSync) - no manual hash here
+  private async createUser({
+    email,
+    password,
+    transaction
+  }: {
+    email: string
+    password: string
+    transaction: Transaction
+  }) {
     const usr = User.build({ email, password })
     return usr.save({ transaction })
   }
 
-  // private async provisionOwnerRole(user: any, transaction: any) {
-  //   // Lifetime-once guarantee: check the join table itself, not unloaded associations
-  //   // const existingRoleCount = await .count({
-  //   //   where: { userId: user.id },
-  //   //   transaction
-  //   // })
-  //   // if (existingRoleCount) return null
-  //   // let role = await user.createRole({ name: 'Admin', isGlobal: true }, { transaction })
-  //   // role = await Role.findByPk(role.id, { transaction })
-  //   // if (!role) throw new Error(ERROR.USR_NOT_VALID)
-  //   // await this.linkFullPermissions(role, transaction)
-  //   // return role
-  // }
-
-  // private async linkFullPermissions(role: any, transaction: any) {
-  //   // Hybrid model: reuse shared permission catalog rows, grant full C/R/U/D via join table
-  //   const fullPermissions = buildFullPermissions()
-  //   for (const grant of fullPermissions) {
-  //     const [catalogRow] = await database.permission.findOrCreate({
-  //       where: { name: grant.name },
-  //       defaults: { name: grant.name, description: getModule(grant.name)?.description },
-  //       transaction
-  //     })
-  //     await (database as any).role_permission.create(
-  //       {
-  //         roleId: role.id,
-  //         permissionId: catalogRow.id,
-  //         C: grant.C,
-  //         R: grant.R,
-  //         U: grant.U,
-  //         D: grant.D
-  //       },
-  //       { transaction }
-  //     )
-  //   }
-  //   role.permissions = fullPermissions
-  // }
-
-  private async createVendorEntity(name: string, userId: number, transaction: any) {
-    console.log('Create vendo')
-    const builder = Vendor.build({ name, userId })
+  private async createVendorEntity({
+    name,
+    userId,
+    niche = 'other',
+    transaction
+  }: Partial<Vendor> & { transaction: Transaction }) {
+    const builder = Vendor.build({ name, userId, niche })
     return builder.save({ transaction })
   }
 
-  private async createWarehouseEntity(name: string | undefined, transaction: any) {
-    console.log('Create warehouse')
+  private async createWarehouseEntity({ name, transaction }: Partial<Warehouse> & { transaction: Transaction }) {
     const builder = database.warehouse.build({
       name: name || 'Main Warehouse',
       isMain: true,
@@ -231,22 +206,24 @@ export default class AuthenticateService {
     return builder
   }
 
-  private async createStaffEntity(transaction: any) {
-    console.log('Create staff')
+  private async createStaffEntity({
+    transaction,
+    fullName = 'Admin',
+    phone = '1234567890',
+    code = 'NV-0001',
+    gender = 'other',
+    status = 'active'
+  }: Partial<Staff> & { transaction: Transaction }) {
     const builder = Staff.build({
-      // userId,
-      fullName: 'Admin',
-      email: 'example@example.com',
-      phone: '1234567890',
-      code: 'NV-0001',
-      gender: 'other',
-      status: 'active'
+      fullName: fullName,
+      phone: phone,
+      code: code,
+      gender: gender,
+      status: status
     })
     return builder.save({ transaction })
   }
-  /**
-   * Clear user cache by email
-   */
+
   async clearUserCache(email: string): Promise<void> {
     try {
       await cacheDel(cacheKey('User', email))

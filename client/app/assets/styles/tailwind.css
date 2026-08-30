@@ -1,3 +1,9 @@
 @import "tailwindcss";
 /* Enable class-based dark mode (`dark:` responds to `.dark` on <html>). */
 @custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: oklch(51.1% 0.262 276.966);
+  --color-success: oklch(62.7% 0.194 149.214);
+  --color-danger: oklch(57.7% 0.245 27.325);
+}

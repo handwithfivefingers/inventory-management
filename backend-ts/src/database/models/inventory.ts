@@ -29,13 +29,13 @@ export class Inventory extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Warehouse)
+  @BelongsTo(() => Warehouse, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare warehouse: Warehouse
 
-  @BelongsTo(() => Product)
+  @BelongsTo(() => Product, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare product: Product
 
-  @BelongsTo(() => ProductVariant)
+  @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare variant: ProductVariant
 }
 

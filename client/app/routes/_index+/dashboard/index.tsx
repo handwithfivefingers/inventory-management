@@ -106,7 +106,7 @@ export default function Home() {
                   className={cn(
                     "px-3 py-1 text-sm bg-transparent border-0 transition-colors",
                     granularity === g
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-primary text-white"
                       : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-indigo-50",
                     {
                       ["opacity-40 cursor-not-allowed pointer-events-none"]: !enabled,
@@ -282,7 +282,7 @@ const KpiCard = ({
           ["text-green-600"]: variant === "green",
           ["text-red-600"]: variant === "red",
           ["text-blue-600"]: variant === "blue",
-          ["text-indigo-600"]: variant === "indigo",
+          ["text-primary"]: variant === "indigo",
         })}
       >
         {value}

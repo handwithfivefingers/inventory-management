@@ -127,9 +127,6 @@ export default function InvoiceDetail() {
         {/* Receipt preview + printer settings. The component injects its own
           print CSS into <head> after mount (hydration-safe). */}
         <div className="flex justify-center mx-auto items-center shrink-0 no-print">
-          {/* <Link to="/invoices" className="text-blue-600 hover:underline text-sm">
-              ← {t("common.back")}
-            </Link> */}
           <div className="flex gap-2 justify-center items-center flex-wrap">
             <TMButton variant="outline" type="button" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
               🖨️ {t("invoices.detail.printDevice")}
@@ -139,7 +136,7 @@ export default function InvoiceDetail() {
             </TMButton>
             {data.status === "draft" && (
               <PermissionGuard permission="UPDATE" module="invoice">
-                <TMButton size="sm" to={`${data.id}/edit`} component={Link}>
+                <TMButton size="sm" to={`/invoices/${data.id}/edit`} component={Link}>
                   {t("common.edit")}
                 </TMButton>
               </PermissionGuard>

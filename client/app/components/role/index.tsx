@@ -102,7 +102,7 @@ export const RoleManagement = ({ initialData = [] }: IRoleManagementProps) => {
                 <div className="flex items-center gap-2">
                   <Icon
                     name={record.name.toLowerCase() === "admin" ? "shield" : "user"}
-                    className="w-5 h-5 text-indigo-600"
+                    className="w-5 h-5 text-primary"
                   />
                   <span className="font-medium">{record.name}</span>
                 </div>

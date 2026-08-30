@@ -19,7 +19,7 @@ export class Unit extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Vendor)
+  @BelongsTo(() => Vendor, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare vendor: Vendor
 }
 

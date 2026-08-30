@@ -16,6 +16,7 @@ import { buildAttributeCombinations, buildVariantSkuWithTemplate, findOverride }
 import { Op, Sequelize } from 'sequelize'
 import { SettingService } from '../setting'
 import { ApiError } from '#/response'
+import { getPagination } from '#/utils'
 
 // const InventoryService = require('../inventory')
 // const BaseCRUDService = require('@constant/base')
@@ -72,7 +73,7 @@ export class ProductService {
       if (settings && (!params.code || !params.skuCode)) {
         seq = await nextSequence('product', new Date().getFullYear(), {
           transaction: t,
-          initial: (await Product.count()) + 1
+          initial: (await (database as any).product.count()) + 1
         })
       }
       if (!params.code && settings && seq != null) {
@@ -93,7 +94,7 @@ export class ProductService {
       }
 
       // Check for existing product
-      const existing = await Product.findOne({
+      const existing = await (database as any).product.findOne({
         where: { code: params.code }
       })
 
@@ -103,10 +104,8 @@ export class ProductService {
       //   transaction: t,
       //   include: [this.db.category, this.db.tag, this.db.unit]
       // })
-      const _prod = await Product.build(params)
+      const _prod = await (database as any).product.build(params)
       await _prod.save({ transaction: t })
-
-      console.log('_prod', _prod, categories)
       if (categories) {
         // await _prod.setCategories(categories, { transaction: t })
         await _prod.$set('categories', categories, { transaction: t })
@@ -136,14 +135,16 @@ export class ProductService {
         const valueKeyToId = new Map<string, number>()
         for (const attr of attributes) {
           if (!attr?.name) continue
-          const attrRow = await database.productAttribute
-            .build({ name: attr.name, productId: _prod.id })
-            .save({ transaction: t })
+          const attrRow = await ProductAttribute.build({ name: attr.name, productId: _prod.id }).save({
+            transaction: t
+          })
           for (const value of attr.values || []) {
             if (value == null || value === '') continue
-            const valRow = await database.productAttributeValue
-              .build({ value, attributeId: attrRow.id, productId: _prod.id })
-              .save({ transaction: t })
+            const valRow = await ProductAttributeValue.build({
+              value,
+              attributeId: attrRow.id,
+              productId: _prod.id
+            }).save({ transaction: t })
             valueKeyToId.set(`${attr.name}::${value}`, valRow.id)
           }
         }
@@ -166,15 +167,17 @@ export class ProductService {
             override?.skuCode || buildVariantSkuWithTemplate(settings?.skuTemplate, baseSku, options, takenSkus)
           takenSkus.add(skuCode)
 
-          const variantRow = await ProductVariant.build({
-            productId: _prod.id,
-            skuCode,
-            salePrice: override?.salePrice ?? null,
-            regularPrice: override?.regularPrice ?? null,
-            wholeSalePrice: override?.wholeSalePrice ?? null,
-            costPrice: override?.costPrice ?? null,
-            isNegative: Boolean(override?.isNegative) || false
-          }).save({ transaction: t })
+          const variantRow = await (database as any).productVariant
+            .build({
+              productId: _prod.id,
+              skuCode,
+              salePrice: override?.salePrice ?? null,
+              regularPrice: override?.regularPrice ?? null,
+              wholeSalePrice: override?.wholeSalePrice ?? null,
+              costPrice: override?.costPrice ?? null,
+              isNegative: Boolean(override?.isNegative) || false
+            })
+            .save({ transaction: t })
 
           const valueIds = Object.keys(options)
             .map((name) => valueKeyToId.get(`${name}::${options[name]}`))
@@ -185,19 +188,23 @@ export class ProductService {
           const variantQuantity = Number(override?.quantity ?? 0)
           let inventoryRow: any = null
           if (variantQuantity !== 0) {
-            inventoryRow = await Inventory.build({
-              warehouseId,
-              quantity: variantQuantity,
-              productId: _prod.id,
-              variantId: variantRow.id
-            }).save({ transaction: t })
-            await Transfer.build({
-              fromWarehouseId: warehouseId,
-              quantity: variantQuantity,
-              productId: _prod.id,
-              variantId: variantRow.id,
-              type: '0'
-            }).save({ transaction: t })
+            inventoryRow = await (database as any).inventory
+              .build({
+                warehouseId,
+                quantity: variantQuantity,
+                productId: _prod.id,
+                variantId: variantRow.id
+              })
+              .save({ transaction: t })
+            await (database as any).transfer
+              .build({
+                fromWarehouseId: warehouseId,
+                quantity: variantQuantity,
+                productId: _prod.id,
+                variantId: variantRow.id,
+                type: '0'
+              })
+              .save({ transaction: t })
           }
 
           createdVariants.push({
@@ -240,21 +247,52 @@ export class ProductService {
 
   async getProducts(req: IRequestLocal) {
     try {
-      const { s, page = 1, pageSize = 10, vendorId } = req.query
-      const limit = Number(pageSize)
-      const offset = Number(+page - 1) * Number(pageSize)
-      const queryParams = {
+      const { s } = req.query as any
+      const rawVendorId = (req.query as any)?.vendorId
+      const scope = getVendorScope(req)
+      const { offset, limit } = getPagination(req.query)
+      const vendorWhereClause = (() => {
+        if (rawVendorId != null && String(rawVendorId).trim() !== '') {
+          assertVendorAccess(scope, Number(rawVendorId), 'Unauthorized vendor filter')
+          return { vendorId: Number(rawVendorId) }
+        }
+        if (scope === null) return {}
+        return { vendorId: { [Op.in]: scope } }
+      })()
+
+      const queryParams: any = {
         where: {
-          vendorId: vendorId
+          ...vendorWhereClause
         },
-        include: [
-          {
-            model: database.inventory,
-            attributes: []
-          }
-        ],
+        // include: [
+        //   {
+        //     model: Inventory,
+        //     attributes: []
+        //   }
+        // ],
+        attributes: {
+          include: [
+            [
+              database.sequelize.literal(`(
+                SELECT COUNT(*)
+                FROM productVariants AS variants
+                WHERE variants.productId = product.id
+              )`),
+              'variantCount'
+            ],
+            [
+              database.sequelize.literal(`(
+                SELECT SUM(quantity)
+                FROM inventories
+                WHERE inventories.productId = product.id
+              )`),
+              'quantity'
+            ]
+          ]
+        },
         offset,
-        limit
+        limit,
+        distinct: true
       }
       if (s) {
         queryParams.where = {
@@ -273,60 +311,95 @@ export class ProductService {
           ...queryParams.where
         }
       }
+
       const { rows, count } = await Product.findAndCountAll(queryParams)
+      // const [rows] = await this.sequelize.query(
+      //   `
+      //   select * from (
+      //   select id from products
+      //   where vendorId = :vendorId
+      //   limit :offset,:limit
+      //   ) as t
+      //   INNER JOIN products p ON t.id = p.id
+      //   LEFT JOIN inventories i ON p.id = i.productId
+      //   `,
+      //   {
+      //     replacements: {
+      //       vendorId: vendorWhereClause.vendorId,
+      //       offset,
+      //       limit
+      //     }
+      //   }
+      // )
+      // const [count] = await this.sequelize.query(
+      //   `
+      //   select count(*) from products
+      //   where vendorId = ${vendorWhereClause.vendorId}
+      //   `
+      //   // {
+      //   //   replacements: {
+      //   //     vendorId: vendorWhereClause.vendorId
+      //   //   }
+      //   // }
+      // )
 
       // Aggregate stock + variant counts for this page in two grouped queries.
-      const ids = rows.map((row: any) => Number(typeof row.get === 'function' ? row.get('id') : row.id))
-      const attach = (row: any, key: string, value: number) => {
-        if (typeof row?.setDataValue === 'function') row.setDataValue(key, value)
-        else row[key] = value
-        return row
-      }
-      let quantityByProduct = new Map<number, number>()
-      let variantCountByProduct = new Map<number, number>()
-      if (ids.length > 0) {
-        const stockRows = (await Inventory.findAll({
-          where: { productId: { [Op.in]: ids } },
-          attributes: ['productId', [this.sequelize.fn('SUM', this.sequelize.col('quantity')), 'total']],
-          group: ['productId'],
-          raw: true
-        })) as any[]
-        quantityByProduct = new Map(stockRows.map((r: any) => [Number(r.productId), Number(r.total) || 0]))
+      // const ids = rows.map((row: any) => Number(typeof row.get === 'function' ? row.get('id') : row.id))
+      // const attach = (row: any, key: string, value: number) => {
+      //   if (typeof row?.setDataValue === 'function') row.setDataValue(key, value)
+      //   else row[key] = value
+      //   return row
+      // }
+      // let quantityByProduct = new Map<number, number>()
+      // let variantCountByProduct = new Map<number, number>()
+      // if (ids.length > 0) {
+      //   const stockRows = (await Inventory.findAll({
+      //     where: { productId: { [Op.in]: ids } },
+      //     attributes: ['productId', [this.sequelize.fn('SUM', this.sequelize.col('quantity')), 'total']],
+      //     group: ['productId'],
+      //     raw: true
+      //   })) as any[]
+      //   quantityByProduct = new Map(stockRows.map((r: any) => [Number(r.productId), Number(r.total) || 0]))
 
-        const variantRows = (await ProductVariant.findAll({
-          where: { productId: { [Op.in]: ids } },
-          attributes: ['productId', [this.sequelize.fn('COUNT', this.sequelize.col('id')), 'variantCount']],
-          group: ['productId'],
-          raw: true
-        })) as any[]
-        variantCountByProduct = new Map(variantRows.map((r: any) => [Number(r.productId), Number(r.variantCount) || 0]))
-      }
+      //   const variantRows = (await ProductVariant.findAll({
+      //     where: { productId: { [Op.in]: ids } },
+      //     attributes: ['productId', [this.sequelize.fn('COUNT', this.sequelize.col('id')), 'variantCount']],
+      //     group: ['productId'],
+      //     raw: true
+      //   })) as any[]
+      //   variantCountByProduct = new Map(variantRows.map((r: any) => [Number(r.productId), Number(r.variantCount) || 0]))
+      // }
 
-      const enriched = rows.map((row: any) => {
-        attach(
-          row,
-          'quantity',
-          quantityByProduct.get(Number(typeof row.get === 'function' ? row.get('id') : row.id)) ?? 0
-        )
-        attach(
-          row,
-          'variantCount',
-          variantCountByProduct.get(Number(typeof row.get === 'function' ? row.get('id') : row.id)) ?? 0
-        )
-        return row
-      })
+      // const enriched = rows.map((row: any) => {
+      //   attach(
+      //     row,
+      //     'quantity',
+      //     quantityByProduct.get(Number(typeof row.get === 'function' ? row.get('id') : row.id)) ?? 0
+      //   )
+      //   attach(
+      //     row,
+      //     'variantCount',
+      //     variantCountByProduct.get(Number(typeof row.get === 'function' ? row.get('id') : row.id)) ?? 0
+      //   )
+      //   return row
+      // })
 
-      return { rows: enriched, count }
+      return { rows: rows, count }
     } catch (error) {
       console.log('error', error)
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
   async getProductById(req: IRequestLocal) {
     try {
-      const params = req.params
-      return Product.findOne({
+      const params = req.params as any
+      const scope = getVendorScope(req)
+      const rawVendorId = (req.query as any)?.vendorId ?? (req.query as any)?.vendor
+      if (rawVendorId != null && String(rawVendorId).trim() !== '') {
+        assertVendorAccess(scope, Number(rawVendorId), 'Unauthorized vendor filter')
+      }
+      const product: any = await (database as any).product.findOne({
         where: {
           id: params.id
         },
@@ -385,8 +458,17 @@ export class ProductService {
           ]
         }
       })
+      if (!product) return product
+      const productVendorId = Number((product as any).vendorId ?? (product.get ? product.get('vendorId') : undefined))
+      assertVendorAccess(scope, productVendorId, 'Unauthorized to view this product')
+      if (rawVendorId != null && String(rawVendorId).trim() !== '' && productVendorId !== Number(rawVendorId)) {
+        const err = new Error('Unauthorized to view this product') as Error & { status?: number }
+        err.status = 403
+        throw err
+      }
+      return product
     } catch (error) {
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -396,9 +478,17 @@ export class ProductService {
    */
   async getProductVariants(req: IRequestLocal) {
     try {
-      const productId = Number(req.params.id)
-      const warehouseId = req.query.warehouseId ? Number(req.query.warehouseId) : null
+      const productId = Number((req.params as any).id)
+      const warehouseId = (req.query as any)?.warehouseId ? Number((req.query as any).warehouseId) : null
       if (!productId) throw new Error('product id is required')
+      const scope = getVendorScope(req)
+      const product: any = await (database as any).product.findByPk(productId)
+      if (!product) throw new Error(`Product ${productId} not found`)
+      assertVendorAccess(
+        scope,
+        Number(product.vendorId ?? product.get?.('vendorId')),
+        'Unauthorized to view this product'
+      )
 
       const inventoryInclude: any = {
         model: database.inventory,
@@ -406,7 +496,7 @@ export class ProductService {
       }
       if (warehouseId) inventoryInclude.where = { warehouseId }
 
-      return await ProductVariant.findAndCountAll({
+      return await (database as any).productVariant.findAndCountAll({
         where: { productId },
         include: [
           {
@@ -426,28 +516,77 @@ export class ProductService {
         order: [['id', 'ASC']]
       })
     } catch (error) {
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
   /**
-   * List ALL attribute definitions across products, with values and the
-   * owning product. GET /products/attributes
+   * List attribute definitions scoped to a vendor (Global Vendor).
+   * GET /products/attributes?vendorId=1  -> only attributes whose product belongs to that vendor.
+   * Without vendorId, falls back to the caller's vendor scope (never returns all-system).
    */
   async listAttributes(req: IRequestLocal) {
     try {
-      return await ProductAttribute.findAll({
-        include: [
-          { model: ProductAttributeValue, as: 'values' },
-          {
-            model: Product,
-            attributes: ['id', 'name', 'skuCode']
-          }
-        ],
+      const rawVendorId = (req.query as any)?.vendorId
+      const vendorId = rawVendorId != null && String(rawVendorId).trim() !== '' ? Number(rawVendorId) : null
+      const scope = getVendorScope(req)
+      // Build Product include with vendor filter: prefer explicit vendorId, otherwise scope
+      const productInclude: any = {
+        model: Product,
+        attributes: ['id', 'name', 'skuCode', 'vendorId']
+      }
+      if (vendorId != null && Number.isFinite(vendorId)) {
+        assertVendorAccess(scope, vendorId, 'Unauthorized to list attributes for this vendor')
+        productInclude.where = { vendorId }
+        productInclude.required = true
+      } else if (scope && scope.length > 0) {
+        // No explicit vendorId -> restrict to caller's vendors to avoid system-wide leak
+        productInclude.where = { vendorId: { [Op.in]: scope } }
+        productInclude.required = true
+      }
+      const rows = await ProductAttribute.findAll({
+        include: [{ model: ProductAttributeValue, as: 'values' }, productInclude],
         order: [['id', 'ASC']]
       })
+      // Deduplicate per vendor: Attribute Name unique per vendor, Value unique per attribute (vendor)
+      // Multiple products may each have "Size" -> merge into one vendor-global attribute with consolidated values
+      const byName = new Map<string, any>()
+      for (const row of rows as any[]) {
+        const nameRaw = String(row.get('name') ?? row.name ?? '').trim()
+        if (!nameRaw) continue
+        const key = nameRaw.toLowerCase()
+        const vals: any[] = (row.get('values') ?? row.values ?? []) as any[]
+        if (!byName.has(key)) {
+          byName.set(key, {
+            id: row.get('id') ?? row.id,
+            name: nameRaw,
+            // keep minimal shape expected by client
+            values: vals.map((v: any) => ({ id: v.get('id') ?? v.id, value: String(v.get('value') ?? v.value) })),
+            // keep product refs for debugging (first product)
+            product: row.get('product') ?? (row as any).product,
+            productId: row.get('productId') ?? (row as any).productId
+          })
+        } else {
+          const existing = byName.get(key)
+          const existingVals = existing.values as any[]
+          const seen = new Set(existingVals.map((v: any) => String(v.value).toLowerCase()))
+          for (const v of vals) {
+            const valStr = String(v.get('value') ?? v.value).trim()
+            if (!valStr) continue
+            const lower = valStr.toLowerCase()
+            if (!seen.has(lower)) {
+              seen.add(lower)
+              existingVals.push({ id: v.get('id') ?? v.id, value: valStr })
+            }
+          }
+          // keep smallest id for stable key
+          const rowId = row.get('id') ?? row.id
+          if (rowId < existing.id) existing.id = rowId
+        }
+      }
+      return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name))
     } catch (error) {
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -460,10 +599,27 @@ export class ProductService {
   async updateVariant(req: IRequestLocal) {
     const t = await this.sequelize.transaction()
     try {
+      const productId = Number((req.params as any).id)
+      const scope = getVendorScope(req)
+      if (productId) {
+        const product: any = await (database as any).product.findByPk(productId, { transaction: t })
+        if (!product) throw new Error(`Product ${productId} not found`)
+        assertVendorAccess(
+          scope,
+          Number(product.vendorId ?? product.get?.('vendorId')),
+          'Unauthorized to update this product'
+        )
+      }
       const { variantId } = req.params
       const allowed = ['skuCode', 'salePrice', 'regularPrice', 'wholeSalePrice', 'costPrice', 'isActive', 'isNegative']
-      const variant = await ProductVariant.findByPk(variantId, { transaction: t })
+      const variant: any = await (database as any).productVariant.findByPk(variantId, { transaction: t })
       if (!variant) throw new Error(`Variant ${variantId} not found`)
+      // Ensure variant belongs to the product if productId was supplied
+      if (productId && Number(variant.productId ?? variant.get?.('productId')) !== productId) {
+        const err = new Error('Variant does not belong to this product') as Error & { status?: number }
+        err.status = 403
+        throw err
+      }
 
       const data: Record<string, unknown> = {}
       for (const key of allowed) {
@@ -484,7 +640,7 @@ export class ProductService {
       return variant
     } catch (error) {
       await t.rollback()
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -495,16 +651,32 @@ export class ProductService {
   async deleteVariant(req: IRequestLocal) {
     const t = await this.sequelize.transaction()
     try {
+      const productId = Number((req.params as any).id)
+      const scope = getVendorScope(req)
+      if (productId) {
+        const product: any = await (database as any).product.findByPk(productId, { transaction: t })
+        if (!product) throw new Error(`Product ${productId} not found`)
+        assertVendorAccess(
+          scope,
+          Number(product.vendorId ?? product.get?.('vendorId')),
+          'Unauthorized to delete this product'
+        )
+      }
       const { variantId } = req.params
-      const variant = await ProductVariant.findByPk(variantId, { transaction: t })
+      const variant: any = await (database as any).productVariant.findByPk(variantId, { transaction: t })
       if (!variant) throw new Error(`Variant ${variantId} not found`)
-      await Inventory.destroy({ where: { variantId: variant.id }, transaction: t })
+      if (productId && Number(variant.productId ?? variant.get?.('productId')) !== productId) {
+        const err = new Error('Variant does not belong to this product') as Error & { status?: number }
+        err.status = 403
+        throw err
+      }
+      await (database as any).inventory.destroy({ where: { variantId: variant.id }, transaction: t })
       await variant.destroy({ transaction: t })
       await t.commit()
       return true
     } catch (error) {
       await t.rollback()
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -516,13 +688,21 @@ export class ProductService {
     try {
       const productId = Number(req.params.id)
       if (!productId) throw new Error('product id is required')
+      const scope = getVendorScope(req)
+      const product: any = await (database as any).product.findByPk(productId)
+      if (!product) throw new Error(`Product ${productId} not found`)
+      assertVendorAccess(
+        scope,
+        Number(product.vendorId ?? product.get?.('vendorId')),
+        'Unauthorized to view this product'
+      )
       return await database.productAttribute.findAll({
         where: { productId },
         include: [{ model: database.productAttributeValue, as: 'values' }],
         order: [['id', 'ASC']]
       })
     } catch (error) {
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -539,8 +719,13 @@ export class ProductService {
       if (!productId) throw new Error('product id is required')
       if (!name || !String(name).trim()) throw new Error('attribute name is required')
 
-      const product = await Product.findByPk(productId, { transaction: t })
+      const product: any = await (database as any).product.findByPk(productId, { transaction: t })
       if (!product) throw new Error(`Product ${productId} not found`)
+      assertVendorAccess(
+        getVendorScope(req),
+        Number(product.vendorId ?? product.get?.('vendorId')),
+        'Unauthorized to update this product'
+      )
 
       await this.syncAttribute(productId, null, String(name).trim(), values || [], t)
 
@@ -550,7 +735,7 @@ export class ProductService {
       return { createdVariants: created.length }
     } catch (error) {
       await t.rollback()
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -566,7 +751,14 @@ export class ProductService {
       const attributeId = Number(req.params.attributeId)
       const { name, values } = req.body || {}
       if (!attributeId) throw new Error('attribute id is required')
-
+      const scope = getVendorScope(req)
+      const product: any = await (database as any).product.findByPk(productId, { transaction: t })
+      if (!product) throw new Error(`Product ${productId} not found`)
+      assertVendorAccess(
+        scope,
+        Number((product as any).vendorId ?? product.get?.('vendorId')),
+        'Unauthorized to update this product'
+      )
       const attribute = await database.productAttribute.findByPk(attributeId, { transaction: t })
       if (!attribute) throw new Error(`Attribute ${attributeId} not found`)
 
@@ -595,13 +787,12 @@ export class ProductService {
         await this.syncAttribute(productId, attributeId, attribute.get('name'), values, t)
       }
 
-      const product = await Product.findByPk(productId, { transaction: t })
       await this.backfillVariants(productId, product as any, t)
       await t.commit()
       return { removedValues: removedValueIds.length }
     } catch (error) {
       await t.rollback()
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -612,6 +803,17 @@ export class ProductService {
   async deleteAttribute(req: IRequestLocal) {
     const t = await this.sequelize.transaction()
     try {
+      const productId = Number((req.params as any).id)
+      const scope = getVendorScope(req)
+      if (productId) {
+        const product: any = await (database as any).product.findByPk(productId, { transaction: t })
+        if (!product) throw new Error(`Product ${productId} not found`)
+        assertVendorAccess(
+          scope,
+          Number(product.vendorId ?? product.get?.('vendorId')),
+          'Unauthorized to update this product'
+        )
+      }
       const attributeId = Number(req.params.attributeId)
       const attribute = await database.productAttribute.findByPk(attributeId, { transaction: t })
       if (!attribute) throw new Error(`Attribute ${attributeId} not found`)
@@ -620,7 +822,7 @@ export class ProductService {
       return true
     } catch (error) {
       await t.rollback()
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -650,8 +852,13 @@ export class ProductService {
         warehouseId
       } = req.body || {}
       if (!productId) throw new Error('product id is required')
-      const product = await Product.findByPk(productId, { transaction: t })
+      const product: any = await (database as any).product.findByPk(productId, { transaction: t })
       if (!product) throw new Error(`Product ${productId} not found`)
+      assertVendorAccess(
+        getVendorScope(req),
+        Number(product.vendorId ?? product.get?.('vendorId')),
+        'Unauthorized to update this product'
+      )
 
       // 1) Attributes removed in the editor take their variants with them
       for (const rawId of deletedAttributeIds || []) {
@@ -696,14 +903,14 @@ export class ProductService {
 
       // 4) Variants explicitly removed in manual mode
       for (const rawId of removedVariantIds || []) {
-        const variant = await ProductVariant.findByPk(Number(rawId), { transaction: t })
+        const variant = await (database as any).productVariant.findByPk(Number(rawId), { transaction: t })
         if (!variant) continue
-        await Inventory.destroy({ where: { variantId: variant.get('id') }, transaction: t })
+        await (database as any).inventory.destroy({ where: { variantId: variant.get('id') }, transaction: t })
         await variant.destroy({ transaction: t })
       }
 
       // 5) Upsert listed variants: update existing combinations, create picked ones
-      const currentVariants = await ProductVariant.findAll({
+      const currentVariants = await (database as any).productVariant.findAll({
         where: { productId },
         include: [
           {
@@ -792,7 +999,9 @@ export class ProductService {
             ? String(v.skuCode)
             : buildVariantSkuWithTemplate(skuTemplate, baseSku, options, takenSkus)
           takenSkus.add(skuCode)
-          const variantRow = await ProductVariant.build({ productId, skuCode, ...fields }).save({ transaction: t })
+          const variantRow = await (database as any).productVariant
+            .build({ productId, skuCode, ...fields })
+            .save({ transaction: t })
           // await variantRow.setAttributeValues(
           //   valueRows.map((r) => r.get('id')),
           //   { transaction: t }
@@ -804,19 +1013,23 @@ export class ProductService {
           )
           const quantity = Number(v.quantity ?? 0)
           if (quantity !== 0 && warehouseId) {
-            await Inventory.build({
-              warehouseId,
-              quantity,
-              productId,
-              variantId: variantRow.get('id')
-            }).save({ transaction: t })
-            await Transfer.build({
-              fromWarehouseId: warehouseId,
-              quantity,
-              productId,
-              variantId: variantRow.get('id'),
-              type: '0'
-            }).save({ transaction: t })
+            await (database as any).inventory
+              .build({
+                warehouseId,
+                quantity,
+                productId,
+                variantId: variantRow.get('id')
+              })
+              .save({ transaction: t })
+            await (database as any).transfer
+              .build({
+                fromWarehouseId: warehouseId,
+                quantity,
+                productId,
+                variantId: variantRow.get('id'),
+                type: '0'
+              })
+              .save({ transaction: t })
           }
         }
       }
@@ -825,7 +1038,7 @@ export class ProductService {
       return true
     } catch (error) {
       await t.rollback()
-      throw ApiError.from(error, 400)
+      throw ApiError.from(error, (error as any)?.status || 400)
     }
   }
 
@@ -845,30 +1058,34 @@ export class ProductService {
 
   /** Set a variant's stock to `target` in a warehouse, logging the delta as a transfer */
   private async adjustVariantStock(variant: any, target: number, warehouseId: number, t: any) {
-    const row: any = await Inventory.findOne({
+    const row: any = await (database as any).inventory.findOne({
       where: { productId: variant.get('productId'), variantId: variant.get('id'), warehouseId },
       transaction: t
     })
     const current = Number(row?.get('quantity') ?? 0)
     const delta = target - current
     if (!row && target !== 0) {
-      await Inventory.build({
-        warehouseId,
-        quantity: target,
-        productId: variant.get('productId'),
-        variantId: variant.get('id')
-      }).save({ transaction: t })
+      await (database as any).inventory
+        .build({
+          warehouseId,
+          quantity: target,
+          productId: variant.get('productId'),
+          variantId: variant.get('id')
+        })
+        .save({ transaction: t })
     } else if (row) {
       await row.update({ quantity: target }, { transaction: t })
     }
     if (delta !== 0) {
-      await Transfer.build({
-        fromWarehouseId: warehouseId,
-        quantity: Math.abs(delta),
-        productId: variant.get('productId'),
-        variantId: variant.get('id'),
-        type: delta > 0 ? '0' : '1'
-      }).save({ transaction: t })
+      await (database as any).transfer
+        .build({
+          fromWarehouseId: warehouseId,
+          quantity: Math.abs(delta),
+          productId: variant.get('productId'),
+          variantId: variant.get('id'),
+          type: delta > 0 ? '0' : '1'
+        })
+        .save({ transaction: t })
     }
   }
 
@@ -927,7 +1144,7 @@ export class ProductService {
     if (usable.length === 0) return []
 
     const combos = buildAttributeCombinations(usable)
-    const existingVariants = await ProductVariant.findAll({
+    const existingVariants = await (database as any).productVariant.findAll({
       where: { productId },
       include: [
         {
@@ -968,7 +1185,7 @@ export class ProductService {
 
       const skuCode = buildVariantSkuWithTemplate(skuTemplate, baseSku, options, takenSkus)
       takenSkus.add(skuCode)
-      const variantRow = await ProductVariant.build({ productId, skuCode }).save({ transaction: t })
+      const variantRow = await (database as any).productVariant.build({ productId, skuCode }).save({ transaction: t })
 
       const valueIds: number[] = []
       for (const attr of usable) {
@@ -989,7 +1206,7 @@ export class ProductService {
 
   /** Remove variants linked to any of the given attribute-value ids */
   private async deleteVariantsByValueIds(productId: number, valueIds: number[], t: any) {
-    const variants = await ProductVariant.findAll({
+    const variants = await (database as any).productVariant.findAll({
       where: { productId },
       include: [
         {

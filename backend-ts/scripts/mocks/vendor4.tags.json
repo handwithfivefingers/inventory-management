@@ -1,0 +1,8 @@
+[
+  { "name": "Hot", "vendorId": 4 },
+  { "name": "Sale", "vendorId": 4 },
+  { "name": "New", "vendorId": 4 },
+  { "name": "Best Seller", "vendorId": 4 },
+  { "name": "Premium", "vendorId": 4 },
+  { "name": "Eco", "vendorId": 4 }
+]
