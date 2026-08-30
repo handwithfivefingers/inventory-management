@@ -83,8 +83,6 @@ export default class AuthenticateService {
           isMain: w.isMain
         }))
       }))
-      console.log(JSON.stringify(user.toJSON(), null, 2))
-
       return { ...user.parsed, ...staff.parsed, vendors, role: user.staff.role } as LoginResponse
 
       // const roles = this.resolveUserRoles(user).map((role) => this.mapRole(role))

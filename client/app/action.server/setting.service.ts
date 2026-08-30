@@ -83,21 +83,9 @@ export const settingService = {
    * Update the settings for a vendor
    */
   updateSettings: async ({ cookie, ...payload }: ISettingServiceParams & Partial<IVendorSettings>) => {
-    const response = await fetch(`${import.meta.env.VITE_API_PATH}${API_PATH.settings}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookie,
-      },
-      body: JSON.stringify(payload),
+    const qs = new URLSearchParams({
+      vendorId: `${payload.vendorId}`,
     });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || "Failed to update settings");
-    }
-
-    return result.data as IVendorSettings;
+    return HTTPService.getInstance().put(`${API_PATH.settings}?${qs.toString()}`, payload, { cookie });
   },
 };

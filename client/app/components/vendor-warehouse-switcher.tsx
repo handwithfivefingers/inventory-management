@@ -11,7 +11,7 @@ export const VendorWarehouseSwitcher = () => {
   const { vendors, activeVendor, activeWarehouse, setVendor, setWarehouse } = useUser();
 
   const hasMultipleVendors = (vendors?.length || 0) > 1;
-  const hasMultipleWarehouses = (activeVendor?.warehouses?.length || 0) > 1;
+  const hasMultipleWarehouses = (activeVendor?.warehouses?.length || 0) > 0;
   const showSwitcher = hasMultipleVendors || hasMultipleWarehouses;
 
   const { submit } = useSubmitPromise();
@@ -106,7 +106,7 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white hover:bg-indigo-50 border border-indigo-200 rounded-md transition-colors"
+          className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm bg-white hover:bg-indigo-50 border border-indigo-200 rounded-md transition-colors"
         >
           <Icon name="package" className="w-4 h-4 text-indigo-600" />
           <span className="max-w-[150px] truncate">{name || "Select"}</span>

@@ -53,7 +53,7 @@ export default function Products() {
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
                 <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
-                  <TMButton variant="light" size="sm" component={Link} to="/providers/add">
+                  <TMButton size="sm" component={Link} to="/providers/add">
                     <Icon name="plus" fontSize={16} />
                     {t("common.add")}
                   </TMButton>

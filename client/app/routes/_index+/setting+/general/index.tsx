@@ -64,10 +64,10 @@ export async function action({ request }: ActionFunctionArgs) {
       message: "Đã lưu cài đặt",
       data: { settings },
     };
-  } catch (error: any) {
+  } catch (error) {
     return Response.json({
       success: false,
-      message: error.message || "Lưu cài đặt thất bại",
+      message: error?.toString || "Lưu cài đặt thất bại",
     });
   }
 }

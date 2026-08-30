@@ -13,8 +13,6 @@ export const Header = () => {
   const fetcher = useFetcher();
   const { t } = useTranslation();
   const handleLogOut = async () => {
-    // Clear the persisted user store so a new login doesn't reuse the previous
-    // user's cached vendor/warehouse from localStorage.
     useUser.getState().reset();
     await AuthService.logout();
     fetcher.submit({}, { method: "POST", action: "/api/auth" });

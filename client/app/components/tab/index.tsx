@@ -25,14 +25,17 @@ export const Tab = (props: Props) => {
   const activeTab = props.items.find((tab) => tab.value === activeValue) ?? props.items[0];
   return (
     <div>
-      <div className="flex gap-2 bg-slate-200 p-2 rounded ">
+      <div className="flex gap-2 bg-slate-100 p-2 rounded-md ">
         {props.items.map((tab) => {
           return (
             <button
               type="button"
-              className={cn("px-2 hover:bg-slate-100 rounded py-1 cursor-pointer", {
-                "bg-white": tab.value === activeTab?.value,
-              })}
+              className={cn(
+                "px-2 ring ring-transparent hover:ring-slate-300 hover:bg-white transition-all rounded py-1 cursor-pointer",
+                {
+                  "bg-white": tab.value === activeTab?.value,
+                },
+              )}
               onClick={() => setActiveValue(tab.value)}
             >
               {tab.label}

@@ -128,7 +128,7 @@ class HTTPService {
       if (response.status !== 200) throw await response.json();
       return { status: response.status };
     } catch (error) {
-      console.log("error", error);
+      console.log(JSON.stringify(error, null, 2));
       throw {
         message:
           "message" in (error as Record<string, string>)

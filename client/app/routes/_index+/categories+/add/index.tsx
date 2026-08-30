@@ -7,9 +7,10 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
+import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { useSubmitPromise } from "~/hooks";
-import { getSessionValues, parseCookieFromRequest } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
@@ -42,17 +43,23 @@ const CategoryForm = () => {
     console.log("errors", errors);
   };
   const onSubmit = async (v: CateSchema) => {
-    console.log("submit", v);
-    const resp = await submit(
-      {
-        data: JSON.stringify(v),
-      },
-      {
-        method: "POST",
-        action: ".",
-      },
-    );
-    console.log("resp", resp);
+    try {
+      const resp = await submit<{ status: number }>(
+        {
+          data: JSON.stringify(v),
+        },
+        {
+          method: "POST",
+          action: ".",
+        },
+      );
+      if (resp.status === 200) {
+        return toast.success({ title: "Success", message: "Create Categories success" });
+      }
+      throw resp;
+    } catch (error) {
+      return toast.danger({ title: "Error", message: error?.toString() });
+    }
   };
   return (
     <FormProvider {...formMethods}>
@@ -88,13 +95,20 @@ const CategoryForm = () => {
   );
 };
 export const action = async ({ request }: any) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
-  const formData = await request.formData();
-  const data = await formData.get("data");
-  const dataJson = JSON.parse(data);
-  dataJson.vendorId = vendorId;
-  const resp = await categoryService.create({ ...dataJson, cookie });
-  return resp;
+  try {
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
+    const formData = await request.formData();
+    const data = await formData.get("data");
+    const dataJson = JSON.parse(data);
+    dataJson.vendorId = vendorId;
+    const resp = await categoryService.create({ ...dataJson, cookie });
+    if (resp.status === 200) {
+      return Response.json(resp, { status: 200 });
+    }
+    throw resp;
+  } catch (error) {
+    return Response.json({ error, status: 400 }, { status: 400 });
+  }
 };
 export function ErrorBoundary() {
   return <ErrorComponent />;

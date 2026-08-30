@@ -13,15 +13,18 @@ const categoryService = {
       { Cookie: cookie },
     );
   },
-  create: ({ cookie, ...params }: ICategoryParams & { cookie: string }) => {
-    return HTTPService.getInstance().post(API_PATH.categories, params, { Cookie: cookie });
+  create: ({ cookie, vendorId, ...params }: ICategoryParams & { cookie: string }) => {
+    const qs = new URLSearchParams({
+      vendorId: `${vendorId}`,
+    });
+    return HTTPService.getInstance().post(API_PATH.categories + `?${qs.toString()}`, params, { Cookie: cookie });
   },
   getById: ({ id, cookie, vendorId }: { id: string | number; cookie: string; vendorId: string | number }) => {
     const params = new URLSearchParams({
       vendorId: `${vendorId}`,
     });
     const qs = params.toString();
-    return HTTPService.getInstance().get<ICategory>(API_PATH.categories + "/" + id + (qs ? "?" + qs : ""), {
+    return HTTPService.getInstance().get<ICategory>(`${API_PATH.categories}/${id}?${qs}`, {
       Cookie: cookie,
     });
   },

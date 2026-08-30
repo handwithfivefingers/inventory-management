@@ -92,14 +92,14 @@ const dedupeInvoiceIndexes = async () => {
       }
     } catch {}
   }
-  await dedupeTable(
-    'invoices',
-    ['PRIMARY', 'invoiceNumber', 'orderId', 'customerId', 'vendorId', 'warehouseId'],
-    /^invoiceNumber/
-  )
-  await dedupeTable('staff', ['PRIMARY', 'staff_code_unique', 'code', 'userId', 'warehouseId'], /^code/)
-  await dedupeTable('products', ['PRIMARY', 'products_code_unique', 'code', 'vendorId', 'unitId'], /^code/)
-  await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
+  // await dedupeTable(
+  //   'invoices',
+  //   ['PRIMARY', 'invoiceNumber', 'orderId', 'customerId', 'vendorId', 'warehouseId'],
+  //   /^invoiceNumber/
+  // )
+  // await dedupeTable('staff', ['PRIMARY', 'staff_code_unique', 'code', 'userId', 'warehouseId'], /^code/)
+  // await dedupeTable('products', ['PRIMARY', 'products_code_unique', 'code', 'vendorId', 'unitId'], /^code/)
+  // await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
   // await dedupeTable('staff_vendor', ['PRIMARY', 'staffId'], /^staffId/)
 }
 

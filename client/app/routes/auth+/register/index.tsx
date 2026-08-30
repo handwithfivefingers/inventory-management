@@ -13,26 +13,25 @@ import { ERRORS, REGISTER_MESSAGE } from "~/constants/message";
 import { RegisterType, registerSchema } from "~/constants/schema/register";
 import { useSubmitPromise } from "~/hooks";
 import { cn } from "~/libs/utils";
-import { getSession } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { IRegisterParams } from "~/types/authenticate";
 import styles from "./styles.module.scss";
 export async function loader({ request }: LoaderFunctionArgs) {
-  let session = await getSession(request.headers.get("cookie"));
-  let token = session.get("token");
-  if (token) throw redirect("/");
+  const { userId, session } = await parseCookieFromRequest(request);
+  if (userId) return redirect("/");
   return {};
 }
 
-function Register() {
+export default function Register() {
   const formMethods = useForm<RegisterType>({
     defaultValues: {
       email: "handgod1995@gmail.com",
       password: "123456",
       confirmPassword: "123456",
-      firstName: "truyen",
-      lastName: "mai",
+      fullName: "truyen mai",
       vendor: "Pro-IERP",
       warehouse: "HCM",
+      niche: "other",
     },
     resolver: registerSchema,
   });
@@ -43,17 +42,7 @@ function Register() {
   };
 
   const { submit } = useSubmitPromise();
-  // useEffect(() => {
-  //   if ((fetcher.data as any)?.error?.code === "ER_DUP_ENTRY") {
-  //     formMethods.setError("email", {
-  //       message: ERRORS.ER_DUP_EMAIL,
-  //     });
-  //     fetcher.data = undefined;
-  //   } else if (fetcher.data?.status) {
-  //     toast.success({ message: REGISTER_MESSAGE.SUCCESS, title: "Thành công" });
-  //     navigate("/login");
-  //   }
-  // }, [fetcher.data]);
+
   const onSubmit = async (values: RegisterType) => {
     try {
       const response = await submit<{ status: number; error?: Error }>({ ...values }, { method: "POST" });
@@ -80,48 +69,66 @@ function Register() {
             method="POST"
             className="grid grid-cols-2 gap-2"
           >
-            <div className="col-span-1">
-              <FormControl name="firstName">
-                <TextInput label="Họ" />
-              </FormControl>
-            </div>
-            <div className="col-span-1">
-              <FormControl name="lastName">
-                <TextInput label="Tên" />
-              </FormControl>
-            </div>
             <div className="col-span-2">
               <FormControl name="email">
-                <TextInput label="Email" />
-              </FormControl>
-            </div>
-            <div className="col-span-2">
-              <FormControl name="vendor">
-                <TextInput label="Tên cơ sở" />
-              </FormControl>
-            </div>
-            <div className="col-span-2">
-              <FormControl name="warehouse">
-                <TextInput label="Tên kho/bãi" />
+                <TextInput label="Email" required />
               </FormControl>
             </div>
             <div className="col-span-2">
               <FormControl name="password">
-                <TextInput label="Mật khẩu" type="password" />
+                <TextInput label="Mật khẩu" type="password" required />
               </FormControl>
             </div>
             <div className="col-span-2">
               <FormControl name="confirmPassword">
-                <TextInput label="Xác thực mật khẩu" type="password" />
+                <TextInput label="Xác thực mật khẩu" type="password" required />
               </FormControl>
             </div>
 
             <div className="col-span-2">
-              <div className="text-sm text-right">
-                <Link to="/auth/register" className="text-indigo-600">
-                  Quên mật khẩu?
-                </Link>
-              </div>
+              <FormControl name="fullName">
+                <TextInput label="Tên đầy đủ" />
+              </FormControl>
+            </div>
+
+            <div className="col-span-1">
+              <FormControl name="vendor">
+                <TextInput label="Tên cơ sở" required />
+              </FormControl>
+            </div>
+            <div className="col-span-1">
+              <FormControl name="warehouse">
+                <TextInput label="Tên kho/bãi" required />
+              </FormControl>
+            </div>
+            <div className="col-span-2">
+              <span className="text-sm font-medium">Mô hình</span>
+              <FormControl name="niche">
+                {(field) => {
+                  return (
+                    <div className="grid grid-cols-3 gap-1">
+                      <NicheComponent active={field.value === "fashion"} onClick={() => field.onChange("fashion")}>
+                        <div className="flex gap-1 text-slate-600">
+                          <Icon name="package" fontSize={16} />
+                          <span>Thời trang</span>
+                        </div>
+                      </NicheComponent>
+                      <NicheComponent active={field.value === "accessory"} onClick={() => field.onChange("accessory")}>
+                        <div className="flex gap-1 text-slate-600">
+                          <Icon name="watch" fontSize={16} />
+                          <span>Phụ kiện</span>
+                        </div>
+                      </NicheComponent>
+                      <NicheComponent active={field.value === "other"} onClick={() => field.onChange("other")}>
+                        <div className="flex gap-1 text-slate-600">
+                          <Icon name="archive" fontSize={16} />
+                          <span>Khác</span>
+                        </div>
+                      </NicheComponent>
+                    </div>
+                  );
+                }}
+              </FormControl>
             </div>
 
             <TMButton htmlType="submit" className="col-span-2 w-full text-center">
@@ -177,4 +184,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       response: error,
     };
   }
+};
+
+const NicheComponent = ({
+  children,
+  active = false,
+  onClick,
+}: {
+  active?: boolean;
+  children: React.ReactNode;
+  onClick?: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
+}) => {
+  return (
+    <div
+      className={cn("px-4 py-2 rounded border-2 border-slate-100 bg-slate-50 cursor-pointer", {
+        "border-indigo-400": active,
+      })}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  );
 };

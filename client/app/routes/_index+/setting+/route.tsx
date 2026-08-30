@@ -1,8 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, Outlet } from "@remix-run/react";
-import { CardItem } from "~/components/card-item";
+import { Outlet } from "@remix-run/react";
 import { ErrorComponent } from "~/components/error-component";
-import { Icon } from "~/components/icon";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Cài đặt" }, { name: "description", content: "Quản lý cài đặt hệ thống" }];

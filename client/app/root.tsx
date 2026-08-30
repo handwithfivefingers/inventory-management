@@ -64,8 +64,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     const user = getMeResponse.data?.data;
     if (!user) throw new Error("User not found");
-
-    console.log("user", user);
     const vendors = user.vendors ?? [];
 
     getActiveVendor(session, vendors);

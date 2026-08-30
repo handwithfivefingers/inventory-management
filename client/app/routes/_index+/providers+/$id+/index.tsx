@@ -22,7 +22,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   if (!id) return redirect("/providers");
   const resp = await providerService.getProviderById({ id, cookie, vendorId });
   if (resp.status !== 200) throw new Response("Provider not found", { status: resp.status });
-  return resp.data;
+  return { ...resp.data };
 };
 
 export const meta: MetaFunction = () => {
@@ -31,7 +31,6 @@ export const meta: MetaFunction = () => {
 
 export default function ProviderItem() {
   const { data } = useLoaderData<typeof loader>();
-  console.log("data", data);
   const navigate = useNavigate();
   const { t } = useTranslation();
   const formMethods = useForm<ProviderUpdateSchema>({
@@ -57,7 +56,8 @@ export default function ProviderItem() {
   };
   return (
     <div className="w-full flex flex-col p-2 gap-4">
-      <CardItem title={t("providers.editTitle")} className="flex p-4">
+      {/* <CardItem title={`${t("providers.editTitle")}:${data?.name}`} className="flex p-4"> */}
+      <CardItem title={`${t("providers.title")}: ${data?.name}`} className="flex p-4">
         <FormProvider {...formMethods}>
           <form className="grid grid-cols-2 gap-x-2 gap-2" onSubmit={handleSubmit(onSubmit)}>
             <div className="col-span-2">
@@ -77,7 +77,7 @@ export default function ProviderItem() {
             </div>
             <div className="col-span-2">
               <FormControl name="address">
-                <TextInput label={t("providers.address")} />
+                <TextInput label={t("providers.address")} multiline rows={3} />
               </FormControl>
             </div>
 

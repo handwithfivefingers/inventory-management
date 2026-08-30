@@ -8,23 +8,25 @@ import { ICategoryModel, ICategoryStatic } from '#/types/category'
 import { applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
 import { Optional, Sequelize } from 'sequelize'
 import { SettingService } from '../setting'
+import Category from '#/database/models/category'
 
 export class CategoriesService {
-  category: ICategoryStatic = database.category
+  // category: ICategoryStatic = database.category
   sequelize: Sequelize = database.sequelize
-  async create(params: Optional<ICategoryModel, 'id'>, vendorId?: number | string | null) {
+  async create(params: Optional<Category, 'id'>) {
     try {
       if (!params.name) throw new Error('Category name is required')
-      if (!params.vendorId && !vendorId) throw new Error('Vendor is required')
+      if (!params.vendorId) throw new Error('Vendor is required')
 
       // Auto-generate the category code from the vendor prefix/suffix settings
-      let code = (params as any).code
-      const finalVendorId = params.vendorId || vendorId
+      let code = params.code
       try {
-        const settings = await new SettingService().getForVendor(finalVendorId)
-        const seq: number = (await this.category.count({
-          where: { vendorId: Number(finalVendorId) }
-        } as any)) as unknown as number
+        const settings = await new SettingService().getForVendor(params.vendorId)
+
+        const seq: number = await Category.count({
+          where: { vendorId: Number(params.vendorId) }
+        })
+
         const baseCode = code || padSeq(seq + 1)
         const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'category')
         code = applyCodeFormat(baseCode, prefix, suffix)
@@ -32,7 +34,7 @@ export class CategoriesService {
         console.warn('category code generation skipped', e)
       }
 
-      const builder = this.category.build({ ...params, code })
+      const builder = Category.build({ ...params, code })
       const instance = await builder.save()
       return instance
     } catch (error) {
@@ -40,9 +42,9 @@ export class CategoriesService {
     }
   }
 
-  async update(params: Optional<ICategoryModel, 'id'>) {
+  async update(params: Optional<Category, 'id'>) {
     try {
-      const instance = await this.category.update(
+      const instance = await Category.update(
         {
           name: params.name
         },
@@ -60,17 +62,14 @@ export class CategoriesService {
 
   async getCategories({ limit, offset, vendorId }: { limit?: number; offset?: number; vendorId?: string }) {
     try {
-      console.log('offset, limit, ', offset, limit)
-      if (!vendorId) throw new Error('Vendor is required')
       const queryParams = {
         where: {
           vendorId
         },
         offset,
-        limit,
-        raw: true
+        limit
       }
-      const resp = await this.category.findAndCountAll(queryParams)
+      const resp = await Category.findAndCountAll(queryParams)
       console.log('resp', resp)
       return resp
     } catch (error) {
@@ -80,10 +79,7 @@ export class CategoriesService {
 
   async getById(id: string | number) {
     try {
-      const resp = await this.category.findOne({
-        where: {
-          id: id
-        },
+      const resp = await Category.findByPk(id, {
         include: database.product
       })
       return resp
@@ -96,7 +92,7 @@ export class CategoriesService {
     const t = await this.sequelize.transaction()
     try {
       // const { vendor } = this.getActiveWarehouseAndVendor(req)
-      const resp = await this.category.destroy({ where: { id: id } })
+      const resp = await Category.destroy({ where: { id: id } })
       // const resp = await this.delete({ where: { id: id, vendorId: vendor.id } }, { transaction: t })
       await t.commit()
       return resp

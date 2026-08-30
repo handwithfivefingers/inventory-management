@@ -22,6 +22,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     pageSize,
     cookie,
   });
+  console.log("Categories", resp);
 
   return {
     data: resp.data?.data,

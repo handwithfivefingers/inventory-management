@@ -1,9 +1,17 @@
+import { LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Outlet, useOutletContext } from "@remix-run/react";
 import { ErrorComponent } from "~/components/error-component";
 import { AppLayout } from "~/components/layouts";
-export const loader = () => {
-  console.log("Coming Layout Loader");
-
+import { destroySession, parseCookieFromRequest } from "~/sessions";
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { userId, session } = await parseCookieFromRequest(request);
+  if (!userId) {
+    throw redirect("/auth/login", {
+      headers: {
+        "Set-Cookie": await destroySession(session),
+      },
+    });
+  }
   return {};
 };
 const MainLayout = () => {
