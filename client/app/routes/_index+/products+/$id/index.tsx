@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { ActionFunctionArgs } from "@remix-run/node";
-import { useFetcher, useLoaderData, useOutletContext } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData, useOutletContext } from "@remix-run/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
@@ -67,56 +67,71 @@ export default function ProductItem() {
   const { t } = useTranslation();
   console.log(data, history);
   return (
-    <div className=" w-full flex flex-col p-2 gap-2 h-full">
-      <CardItem
-        title={
-          <div className="flex justify-between items-center">
-            <h5>{edit ? t("common.edit") : data?.name}</h5>
-            <TMButton variant="ghost" size="xs" onClick={() => setEdit(!edit)}>
-              {edit ? t("common.cancel") : t("common.edit")}
-            </TMButton>
-          </div>
-        }
-        className="p-4 h-full"
-      >
-        <Tab
-          active="overview"
-          items={[
-            {
-              label: t("product.overviewTab"),
-              value: "overview",
-              content: (
-                <div className="flex gap-2 flex-col h-full overflow-hidden pt-2">
-                  {!edit ? <Detail /> : null}
-                  {edit ? <EditForm /> : null}
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+      <div className="max-w-5xl w-full mx-auto">
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="package" fontSize={20} />
                 </div>
-              ),
-            },
-            {
-              label: t("product.variantsTab"),
-              value: "variants",
-              content: (
-                <div className="pt-2">
-                  <VariantsManager
-                    productId={data?.id}
-                    attributes={(data?.attributes || []) as IProductAttribute[]}
-                    variants={(data?.variants || []) as IProductVariant[]}
-                  />
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {edit ? t("common.edit") : data?.name}
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                    {edit ? t("product.formHint") : data?.code || t("product.detailHint")}
+                  </p>
                 </div>
-              ),
-            },
-            {
-              label: t("product.historyTab"),
-              value: "history",
-              content: (
-                <div className="pt-2 -mx-4 -mb-4">
-                  <HistoryList history={history?.data || []} />
-                </div>
-              ),
-            },
-          ]}
-        />
-      </CardItem>
+              </div>
+              <TMButton variant={edit ? "ghost" : "primary"} size="sm" onClick={() => setEdit(!edit)}>
+                <Icon name={edit ? "x" : "edit-2"} fontSize={14} />
+                {edit ? t("common.cancel") : t("common.edit")}
+              </TMButton>
+            </div>
+          }
+          className="p-5 sm:p-6"
+        >
+          <Tab
+            active="overview"
+            items={[
+              {
+                label: t("product.overviewTab"),
+                value: "overview",
+                content: (
+                  <div className="flex gap-2 flex-col h-full overflow-hidden pt-2">
+                    {!edit ? <Detail /> : null}
+                    {edit ? <EditForm /> : null}
+                  </div>
+                ),
+              },
+              {
+                label: t("product.variantsTab"),
+                value: "variants",
+                content: (
+                  <div className="pt-2">
+                    <VariantsManager
+                      productId={data?.id}
+                      attributes={(data?.attributes || []) as IProductAttribute[]}
+                      variants={(data?.variants || []) as IProductVariant[]}
+                    />
+                  </div>
+                ),
+              },
+              {
+                label: t("product.historyTab"),
+                value: "history",
+                content: (
+                  <div className="pt-2 -mx-4 -mb-4">
+                    <HistoryList history={history?.data || []} />
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </CardItem>
+      </div>
     </div>
   );
 }
@@ -140,6 +155,14 @@ const VariantsManager = ({
   const fetcher = useFetcher<unknown>();
   const busy = fetcher.state !== "idle";
   const { t } = useTranslation();
+  const loaderData: any = (() => {
+    try {
+      return useLoaderData() as any;
+    } catch {
+      return {};
+    }
+  })();
+  const suggestedAttributes: any[] = loaderData?.suggestedAttributes || [];
   let moneyStep = 1000;
   try {
     const ctx = useOutletContext<{ settings?: { moneyStep?: number | string } }>();
@@ -156,7 +179,7 @@ const VariantsManager = ({
   // reset only when the server-side structure (attribute/variant ids) changes,
   // so in-progress edits survive unrelated revalidations.
   const defaults = useMemo(() => {
-    const attrs = (serverAttributes || []).map((a) => ({
+    let attrs = (serverAttributes || []).map((a) => ({
       id: a.id,
       name: a.name,
       values: ((a.values || []) as IProductAttributeValue[]).map((v) => ({ label: v.value, value: v.value })),
@@ -164,8 +187,6 @@ const VariantsManager = ({
     const variants = serverVariants.map((v) => ({
       variantId: v.id,
       options: Object.fromEntries(
-        // Nested attribute may arrive as `productAttribute` (default Sequelize
-        // alias) or `attribute` depending on the endpoint
         ((v.attributeValues || []) as any[]).map((av: any) => [
           av.attribute?.name || av.productAttribute?.name || "",
           av.value,
@@ -179,15 +200,28 @@ const VariantsManager = ({
       wholeSalePrice: (v.wholeSalePrice ?? "") as any,
       isNegative: !!(v as any).isNegative,
     }));
+    // Fallback: if product no longer stores attributes per product, derive from variants + catalog
+    if (!attrs.length && variants.length && suggestedAttributes.length) {
+      const names = [...new Set(variants.flatMap((v) => Object.keys(v.options || {})))].filter(Boolean);
+      attrs = names
+        .map((name) => {
+          const cat = (suggestedAttributes as any[]).find((a: any) => String(a.name).trim().toLowerCase() === String(name).trim().toLowerCase());
+          if (!cat) return { id: name, name, values: [] as any[] };
+          return {
+            id: cat.id,
+            name: cat.name,
+            values: ((cat.values || []) as any[]).map((val: any) => ({ label: val.value, value: val.value })),
+          };
+        })
+        .filter((a: any) => a.name);
+    }
     return {
-      // Key must be `variantAttributes`: that's the field name VariantEditor
-      // reads/writes through the form context (matches /products/add).
-      variantAttributes: attrs,
+      variantAttributes: attrs as any,
       variants,
-      attributeIds: attrs.map((a) => a.id),
+      attributeIds: attrs.map((a) => (a as any).id),
       variantIds: serverVariants.map((v) => v.id),
     };
-  }, [serverAttributes, serverVariants]);
+  }, [serverAttributes, serverVariants, suggestedAttributes]);
 
   const signature = `${defaults.attributeIds.join("-")}|${defaults.variantIds.join("-")}`;
   const lastSignature = useRef(signature);
@@ -203,42 +237,45 @@ const VariantsManager = ({
   }, [signature]);
 
   const onSubmit = (v: any) => {
-    const draftAttrs = (v.variantAttributes || [])
-      .map((a: any) => ({
-        ...(a?.id ? { id: a.id } : {}),
-        name: (a?.name || "").trim(),
-        values: Array.isArray(a?.values)
-          ? (a.values as any[])
-              .map((o: any) => (typeof o === "string" ? o : o?.value ?? o?.label ?? ""))
-              .map((s: string) => String(s).trim())
-              .filter(Boolean)
-          : String(a?.values || "")
-              .split(",")
-              .map((s: string) => s.trim())
-              .filter(Boolean),
-      }))
-      .filter((a: any) => a.name && a.values.length > 0);
-    const deletedAttributeIds = defaults.attributeIds.filter(
-      (id) => id && !draftAttrs.some((d: any) => String(d.id) === String(id)),
-    );
-
-    // Every remaining card is explicit; incomplete cards (attribute value not
-    // picked yet) can't resolve server-side and are skipped.
+    const catalog: any[] = suggestedAttributes.length ? suggestedAttributes : (serverAttributes as any[]);
+    const attrByName = new Map<string, any>();
+    const valByAttrAndValue = new Map<string, number>();
+    for (const a of catalog as any[]) {
+      const k = String(a.name || "").trim().toLowerCase();
+      if (!k) continue;
+      attrByName.set(k, a);
+      for (const val of (a.values || []) as any[]) {
+        valByAttrAndValue.set(`${k}::${String(val.value).trim().toLowerCase()}`, Number(val.id));
+      }
+    }
     const list = v.variants || [];
     const variantsPayload = list
       .filter((m: any) => m?.options && Object.keys(m.options).length > 0)
-      .map(({ variantId, options, ...fields }: any) => ({ optionValues: options, ...fields }));
+      .map(({ variantId, options, ...fields }: any) => {
+        const attributeIds: number[] = [];
+        const attributeValueIds: number[] = [];
+        for (const [name, val] of Object.entries(options as Record<string, string>)) {
+          const k = String(name).trim().toLowerCase();
+          const attr = attrByName.get(k);
+          if (attr) attributeIds.push(Number(attr.id));
+          const vid = valByAttrAndValue.get(`${k}::${String(val).trim().toLowerCase()}`);
+          if (vid) attributeValueIds.push(vid);
+        }
+        return {
+          variantId,
+          id: variantId,
+          ...fields,
+          attributes: attributeIds,
+          attributeValues: attributeValueIds,
+        };
+      });
     const removedVariantIds = defaults.variantIds.filter(
       (id) => !list.some((m: any) => String(m.variantId) === String(id)),
     );
-
     fetcher.submit(
       {
         _action: "syncVariants",
         payload: JSON.stringify({
-          generateAll: false,
-          attributes: draftAttrs,
-          deletedAttributeIds,
           variants: variantsPayload,
           removedVariantIds,
         }),
@@ -251,12 +288,16 @@ const VariantsManager = ({
 
   return (
     <FormProvider {...formMethods}>
-      <form onSubmit={formMethods.handleSubmit(onSubmit)} className="flex flex-col gap-3">
-        <div className="p-4">
+      <form onSubmit={formMethods.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
+        <div className="p-1">
           <VariantEditor />
         </div>
-        <div className="ml-auto">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+          <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
+            {t("common.cancel")}
+          </TMButton>
           <TMButton htmlType="submit" loading={busy} size="sm">
+            <Icon name="save" fontSize={16} />
             {t("common.save")}
           </TMButton>
         </div>
@@ -344,6 +385,7 @@ const Detail = () => {
 };
 const EditForm = () => {
   const { data } = useLoaderData<typeof loader>();
+  const { t } = useTranslation();
   // Variable products carry their own prices per variant; editing them at
   // product level would be misleading, so those fields are locked.
   const hasVariants = (data?.variants || []).length > 0;
@@ -398,25 +440,21 @@ const EditForm = () => {
   return (
     <FormProvider {...formMethods}>
       <form
-        className="py-2 grid grid-cols-12 gap-4"
+        className="flex flex-col gap-5 mt-2"
         onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
       >
-        <div className="col-span-12">
-          <FormControl name="name">
-            <TextInput label="Tên hàng hóa" />
-          </FormControl>
-        </div>
-        <div className="col-span-6">
+        <FormControl name="name">
+          <TextInput label="Tên hàng hóa" prefix={<Icon name="package" fontSize={16} className="text-slate-400" />} />
+        </FormControl>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormControl name="code">
-            <TextInput label="Mã code" />
+            <TextInput label="Mã code" prefix={<Icon name="hash" fontSize={16} className="text-slate-400" />} />
           </FormControl>
-        </div>
-        <div className="col-span-6">
           <FormControl name="skuCode">
-            <TextInput label="Mã sku" />
+            <TextInput label="Mã sku" prefix={<Icon name="tag" fontSize={16} className="text-slate-400" />} />
           </FormControl>
         </div>
-        <div className="col-span-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormControl name="costPrice">
             {(field) => {
               return (
@@ -431,8 +469,6 @@ const EditForm = () => {
               );
             }}
           </FormControl>
-        </div>
-        <div className="col-span-4">
           <FormControl name="regularPrice">
             {(field) => {
               return (
@@ -448,7 +484,7 @@ const EditForm = () => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormControl name="salePrice">
             {(field) => {
               return (
@@ -463,8 +499,6 @@ const EditForm = () => {
               );
             }}
           </FormControl>
-        </div>
-        <div className="col-span-4">
           <FormControl name="wholeSalePrice">
             {(field) => {
               return (
@@ -480,14 +514,12 @@ const EditForm = () => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormControl name="expiredAt">
             {(field) => {
               return <DatePicker {...field} label="Ngày hết hạn" />;
             }}
           </FormControl>
-        </div>
-        <div className="col-span-2">
           <FormControl name="VAT">
             {(field) => {
               return (
@@ -502,7 +534,7 @@ const EditForm = () => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormControl name="quantity">
             {(field) => {
               return (
@@ -516,8 +548,6 @@ const EditForm = () => {
               );
             }}
           </FormControl>
-        </div>
-        <div className="col-span-6">
           <FormControl name="unit">
             {(field) => {
               return (
@@ -531,7 +561,7 @@ const EditForm = () => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormControl name="categories">
             {(field) => {
               return (
@@ -544,8 +574,6 @@ const EditForm = () => {
               );
             }}
           </FormControl>
-        </div>
-        <div className="col-span-6">
           <FormControl name="tags">
             {(field) => {
               return (
@@ -559,21 +587,25 @@ const EditForm = () => {
             }}
           </FormControl>
         </div>
-        <div className="col-span-12">
-          <FormControl name="description">
-            {(field) => {
-              return (
-                <TextInput
-                  label="Ghi chú"
-                  {...field}
-                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                />
-              );
-            }}
-          </FormControl>
-        </div>
-        <div className="ml-auto col-span-12">
-          <TMButton htmlType="submit">Submit</TMButton>
+        <FormControl name="description">
+          {(field) => {
+            return (
+              <TextInput
+                label="Ghi chú"
+                {...field}
+                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+              />
+            );
+          }}
+        </FormControl>
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+          <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
+            {t("common.cancel")}
+          </TMButton>
+          <TMButton htmlType="submit" loading={isLoading} size="sm">
+            <Icon name="save" fontSize={16} />
+            {isLoading ? t("common.saving") : t("common.save")}
+          </TMButton>
         </div>
       </form>
     </FormProvider>
@@ -581,14 +613,15 @@ const EditForm = () => {
 };
 
 const HistoryList = ({ history }: { history: IProduct[] }) => {
+  console.log(`history`, history);
   return (
-    <CardItem title={`Lịch sử tồn kho`} className="p-4">
+    <CardItem title={`Lịch sử tồn kho`} className="p-5 sm:p-6">
       <div className="w-full flex flex-col gap-2">
         {history?.map((item: any) => {
           return (
             <div className={"py-2 px-4 rounded flex justify-between bg-slate-100"}>
               <div className="flex gap-2 items-start w-full ">
-                <div className="flex gap-2 items-start flex-1">
+                <div className="flex gap-2 items-center flex-1">
                   <Icon
                     name={item.type == 0 ? "arrow-down" : "arrow-up"}
                     className={cn("w-6 shrink-0 mt-1", {
@@ -605,17 +638,22 @@ const HistoryList = ({ history }: { history: IProduct[] }) => {
                     >
                       {item?.type == 0 ? "Nhập Kho" : "Xuất kho"}
                     </h5>
-                    <p className="text-gray-500 font-normal text-base">
-                      Số lượng: <span className="text-black font-bold">{item.quantity || 0}</span>
-                      {item.productVariant?.skuCode ? (
-                        <span className="ml-2 text-xs bg-slate-200 rounded px-1.5 py-0.5">
-                          {item.productVariant.skuCode}
-                        </span>
-                      ) : null}
-                    </p>
+                    <div className="flex">
+                      <p className="text-gray-500 font-normal text-base">
+                        {item.variant?.skuCode ? (
+                          <span className="text-xs bg-slate-200 rounded px-1.5 py-0.5">{item.variant.skuCode}</span>
+                        ) : null}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <span className="px-2 text-slate-700 text-sm">{dayjs(item.createdAt).format("DD/MM/YYYY")}</span>
+                <div className="flex flex-col justify-between items-end h-full">
+                  <p className="px-2 text-slate-700 ">
+                    <span className="text-sm">Số lượng:</span>{" "}
+                    <span className="text-black font-bold text-lg">{item.quantity || 0}</span>
+                  </p>
+                  <p className="text-gray-500 font-normal text-sm">{dayjs(item.createdAt).format("DD/MM/YYYY")}</p>
+                </div>
               </div>
             </div>
           );

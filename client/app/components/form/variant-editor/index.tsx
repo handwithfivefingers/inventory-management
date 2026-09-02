@@ -1,4 +1,4 @@
-import { useLoaderData, useOutletContext } from "@remix-run/react";
+import { useFetcher, useLoaderData, useOutletContext } from "@remix-run/react";
 import { useCallback, useMemo } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { IVendorSettings } from "~/action.server/setting.service";
@@ -273,23 +273,23 @@ export const VariantEditor = () => {
       )}
 
       <div className="sticky bottom-0 grid grid-cols-2 gap-2 bg-white pt-2">
-        <button
+        <TMButton
           type="button"
           disabled={!usableAttrs.length}
           onClick={generateVariant}
           className="flex flex-col items-center justify-center gap-1 py-2 border border-dashed border-slate-400 rounded bg-slate-100 text-slate-600 hover:border-indigo-500 hover:text-primary disabled:opacity-40 transition-colors cursor-pointer"
         >
-          <Icon name="plus" fontSize={16} />
+          {/* <Icon name="plus" fontSize={16} /> */}
           <span className="text-xs">{t("product.generateAllVariants")}</span>
-        </button>
-        <button
+        </TMButton>
+        <TMButton
           type="button"
           onClick={addNewVariant}
           className="flex flex-col items-center justify-center gap-1 py-2 border border-dashed border-slate-400 rounded bg-slate-100 text-slate-600 hover:border-indigo-500 hover:text-primary transition-colors cursor-pointer"
         >
-          <Icon name="plus" fontSize={16} />
+          {/* <Icon name="plus" fontSize={16} /> */}
           <span className="text-xs">{t("product.addVariant")}</span>
-        </button>
+        </TMButton>
       </div>
     </div>
   );
@@ -303,20 +303,27 @@ const AttributeVariant = () => {
   });
   const { t } = useTranslation();
   const watchedAttrs: IVariantAttributeDraft[] = useWatch({ control: form.control, name: "variantAttributes" }) || [];
+  const createAttrFetcher = useFetcher();
+  const createValueFetcher = useFetcher();
 
   // Vendor-global attribute catalog: unique per vendor (Size {sm,md,lg}, Color {red,green})
   let vendorAttrs: { id: number | string; name: string; values: { id: number | string; value: string }[] }[] = [];
   let globalMap: Record<string, Option[]> = {};
   try {
     const loaderData: any = useLoaderData();
-    const globalAttrs: any[] = loaderData?.suggestedAttributes || loaderData?.attributesData || loaderData?.data?.attributes || [];
+    const globalAttrs: any[] =
+      loaderData?.suggestedAttributes || loaderData?.attributesData || loaderData?.data?.attributes || [];
     if (Array.isArray(globalAttrs)) {
       // already deduped per vendor in backend listAttributes
-      vendorAttrs = globalAttrs.map((g: any) => ({
-        id: g.id,
-        name: String(g.name || "").trim(),
-        values: (g.values || []).map((v: any) => ({ id: v.id, value: String(v.value ?? v.label ?? "").trim() })).filter((v: any) => v.value),
-      })).filter((a: any) => a.name);
+      vendorAttrs = globalAttrs
+        .map((g: any) => ({
+          id: g.id,
+          name: String(g.name || "").trim(),
+          values: (g.values || [])
+            .map((v: any) => ({ id: v.id, value: String(v.value ?? v.label ?? "").trim() }))
+            .filter((v: any) => v.value),
+        }))
+        .filter((a: any) => a.name);
       for (const g of vendorAttrs) {
         const key = g.name.trim().toLowerCase();
         if (!key) continue;
@@ -347,7 +354,9 @@ const AttributeVariant = () => {
   const usedNames = useMemo(() => {
     const m = new Map<string, number[]>();
     watchedAttrs.forEach((a, idx) => {
-      const k = String(a.name || "").trim().toLowerCase();
+      const k = String(a.name || "")
+        .trim()
+        .toLowerCase();
       if (!k) return;
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(idx);
@@ -365,13 +374,20 @@ const AttributeVariant = () => {
 
   // Build value suggestions per attribute name (filtered by selected attribute)
   const getValueSuggestions = (attrName: string, currentValues: Option[]) => {
-    const key = String(attrName || "").trim().toLowerCase();
+    const key = String(attrName || "")
+      .trim()
+      .toLowerCase();
     const globals = globalMap[key] || [];
     // merge globals + locally typed values for this attribute across rows (dedup)
     const merged: Option[] = [...globals];
     const seen = new Set(merged.map((o) => o.value.toLowerCase()));
     for (const a of watchedAttrs) {
-      if (String(a.name || "").trim().toLowerCase() !== key) continue;
+      if (
+        String(a.name || "")
+          .trim()
+          .toLowerCase() !== key
+      )
+        continue;
       for (const v of (a.values || []) as any[]) {
         const opt = typeof v === "string" ? { label: v, value: v } : v;
         if (!opt?.value) continue;
@@ -388,15 +404,14 @@ const AttributeVariant = () => {
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="font-medium text-lg">Thuộc tính (theo Vendor)</span>
-      <p className="text-xs text-slate-500">
-        Thuộc tính là duy nhất theo Vendor (VD: Size: sm, md, lg). Chọn thuộc tính và giá trị; giá trị lọc theo thuộc tính đã chọn.
-      </p>
+      <span className="font-medium text-lg">{t("sidebar.attributes")}</span>
       {fields.map((field, index) => {
         const currentName = String((watchedAttrs[index] as any)?.name || "").trim();
         const value = (form.watch(`variantAttributes.${index}.values`) as AttributeValueOption[]) || [];
         const normalizedValue: AttributeValueOption[] = Array.isArray(value)
-          ? (value as any[]).map((v: any) => (typeof v === "string" ? { label: v, value: v } : v)).filter((v: any) => v?.value)
+          ? (value as any[])
+              .map((v: any) => (typeof v === "string" ? { label: v, value: v } : v))
+              .filter((v: any) => v?.value)
           : [];
         const suggestions = getValueSuggestions(currentName, normalizedValue);
         return (
@@ -410,14 +425,44 @@ const AttributeVariant = () => {
                 onSelect={(val) => {
                   // prevent duplicate names (unique per vendor)
                   const lower = val.toLowerCase();
-                  const duplicate = watchedAttrs.some((a, i) => i !== index && String(a.name || "").trim().toLowerCase() === lower);
+                  const duplicate = watchedAttrs.some(
+                    (a, i) =>
+                      i !== index &&
+                      String(a.name || "")
+                        .trim()
+                        .toLowerCase() === lower,
+                  );
                   if (duplicate) return;
-                  form.setValue(`variantAttributes.${index}.name` as const, val as any, { shouldDirty: true, shouldValidate: true });
+                  form.setValue(`variantAttributes.${index}.name` as const, val as any, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
                 }}
                 onCreate={(input) => {
                   const lower = input.trim().toLowerCase();
-                  if (watchedAttrs.some((a, i) => i !== index && String(a.name || "").trim().toLowerCase() === lower)) return;
-                  form.setValue(`variantAttributes.${index}.name` as const, input.trim() as any, { shouldDirty: true, shouldValidate: true });
+                  if (
+                    watchedAttrs.some(
+                      (a, i) =>
+                        i !== index &&
+                        String(a.name || "")
+                          .trim()
+                          .toLowerCase() === lower,
+                    )
+                  )
+                    return;
+                  const trimmed = input.trim();
+                  form.setValue(`variantAttributes.${index}.name` as const, trimmed as any, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  // Persist vendor-global attribute instantly
+                  const exists = vendorAttrs.some((a) => a.name.trim().toLowerCase() === lower);
+                  if (!exists && trimmed) {
+                    createAttrFetcher.submit(
+                      { data: JSON.stringify({ name: trimmed, values: [] }) },
+                      { method: "POST", action: "/products/attributes/add" },
+                    );
+                  }
                 }}
               />
             </div>
@@ -426,29 +471,51 @@ const AttributeVariant = () => {
                 label={index === 0 ? t("product.attributeValuesHint") : undefined}
                 value={normalizedValue}
                 options={suggestions}
-                onChange={(next) =>
+                onChange={(next) => {
                   form.setValue(`variantAttributes.${index}.values` as const, next as any, {
                     shouldDirty: true,
                     shouldValidate: true,
-                  })
-                }
+                  });
+                  // Persist new values instantly for existing vendor attribute
+                  const key = currentName.trim().toLowerCase();
+                  const attr = vendorAttrs.find((a) => a.name.trim().toLowerCase() === key);
+                  if (attr && next.length > normalizedValue.length) {
+                    const existingLower = new Set((globalMap[key] || []).map((o) => o.value.toLowerCase()));
+                    const prevLower = new Set(normalizedValue.map((v) => v.value.toLowerCase()));
+                    const toCreate = next.filter(
+                      (o) => !existingLower.has(o.value.toLowerCase()) && !prevLower.has(o.value.toLowerCase()),
+                    );
+                    if (toCreate.length) {
+                      createValueFetcher.submit(
+                        { values: JSON.stringify(toCreate.map((o) => o.value)), _action: "createValues" },
+                        { method: "POST", action: `/products/attributes/${attr.id}` },
+                      );
+                    }
+                  }
+                }}
                 placeholder={currentName ? `Giá trị cho ${currentName} — Enter để tạo` : "Chọn thuộc tính trước"}
               />
             </div>
-            <TMButton size="xs" onClick={() => remove(index)} className="py-2 px-2 mb-0.5">
+            <TMButton
+              size="xs"
+              onClick={() => remove(index)}
+              className="py-2 px-2 mb-0.5 bg-danger/10 text-danger hover:bg-danger/20"
+            >
               <Icon name="trash-2" fontSize={14} />
             </TMButton>
           </div>
         );
       })}
       <div>
-        <button
+        <TMButton
+          size="sm"
+          variant="outline"
           type="button"
           onClick={() => append({ name: "", values: [] } as any)}
-          className="w-56 py-1 border border-dashed border-slate-300 rounded text-xs text-slate-600 hover:border-indigo-500 hover:text-primary transition-colors cursor-pointer"
+          className="border-dashed"
         >
           {t("product.addAttribute")}
-        </button>
+        </TMButton>
       </div>
     </div>
   );

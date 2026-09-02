@@ -25,6 +25,7 @@ export interface IFinancialReport {
   totalExpense: number;
   netProfit: number;
   vatCollected: number;
+  netRevenue: number;
 }
 
 export interface IFinancialQueryParams extends BaseQueryParams {

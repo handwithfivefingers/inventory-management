@@ -1,4 +1,3 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { useEffect, useState } from "react";
@@ -7,13 +6,13 @@ import { importOrderService } from "~/action.server/importOrder.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { OrderForm } from "~/components/form/order-form";
+import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
-import { getSession } from "~/sessions";
+import { useTranslation } from "~/i18n";
 import { IProduct, IProductVariant } from "~/types/product";
 import { IProvider } from "~/types/provider";
-import { useTranslation } from "~/i18n";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Tạo phiếu nhập" }, { name: "description", content: "Tạo phiếu nhập hàng" }];
@@ -127,36 +126,48 @@ export default function OrderItem() {
 
   return (
     <FormProvider {...form}>
-      <div className="w-full flex flex-col p-2 gap-4">
-        <CardItem
-          title={
-            <div className="flex justify-between items-center">
-              <label className="text-lg">{t("importOrder.add")}</label>
-            </div>
-          }
-          className="min-h-80 p-4"
-        >
-          <OrderForm
-            products={data}
-            addProduct={handleAdd}
-            onProductFilter={handleFilterProduct}
-            isLoading={fetcher.state !== "idle"}
-            onSubmit={onSubmit}
-            onError={handleError}
-            providers={[...(providers?.data || [])]}
-          />
-          <VariantPickerModal
-            show={showVariantPicker}
-            close={() => {
-              setShowVariantPicker(false);
-              setVariantTarget(null);
-            }}
-            product={variantTarget}
-            variants={variantsFetcher?.data?.data?.data || []}
-            loading={variantsFetcher.state !== "idle"}
-            onSelect={pickVariant}
-          />
-        </CardItem>
+      <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+        <div className="max-w-5xl w-full mx-auto">
+          <CardItem
+            title={
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                    <Icon name="package" fontSize={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                      {t("importOrder.add")}
+                    </h2>
+                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Tạo phiếu nhập hàng</p>
+                  </div>
+                </div>
+              </div>
+            }
+            className="p-5 sm:p-6"
+          >
+            <OrderForm
+              products={data}
+              addProduct={handleAdd}
+              onProductFilter={handleFilterProduct}
+              isLoading={fetcher.state !== "idle"}
+              onSubmit={onSubmit}
+              onError={handleError}
+              providers={[...(providers?.data || [])]}
+            />
+            <VariantPickerModal
+              show={showVariantPicker}
+              close={() => {
+                setShowVariantPicker(false);
+                setVariantTarget(null);
+              }}
+              product={variantTarget}
+              variants={variantsFetcher?.data?.data?.data || []}
+              loading={variantsFetcher.state !== "idle"}
+              onSelect={pickVariant}
+            />
+          </CardItem>
+        </div>
       </div>
     </FormProvider>
   );

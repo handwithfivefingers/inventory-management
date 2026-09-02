@@ -1,24 +1,23 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
-import { useEffect } from "react";
+import { useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
+import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { invoiceService } from "~/action.server/invoice.service";
 import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { TMButton } from "~/components/tm-button";
 import { OrderForm } from "~/components/form/order-form";
+import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
+import { TMButton } from "~/components/tm-button";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
-import { formatCurrency } from "~/libs/format-currency";
-import { IReceipt, printReceiptToDevice, stripDiacritics } from "~/libs/device-print";
-import { useState } from "react";
 import { useSubmitPromise } from "~/hooks";
+import { useTranslation } from "~/i18n";
+import { IReceipt, printReceiptToDevice, stripDiacritics } from "~/libs/device-print";
+import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
 import { IProduct } from "~/types/product";
-import { useTranslation } from "~/i18n";
-import { Icon } from "~/components/icon";
 
 const PRINT_STYLES = `
 @media print {
@@ -223,32 +222,60 @@ export default function OrderItem() {
   if (isEdit) {
     return (
       <FormProvider {...form}>
-        <div className="w-full flex flex-col p-2 gap-4 no-print">
-          <CardItem
-            title={
-              <div className="flex justify-between items-center">
-                <label className="text-lg">
-                  {t("orders.editOrder")} - {order?.code || ""}
-                </label>
+        <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent no-print">
+          <div className="max-w-5xl w-full mx-auto">
+            <CardItem
+              title={
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                      <Icon name="shopping-cart" fontSize={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                        {t("orders.editOrder")} - {order?.code || ""}
+                      </h2>
+                      <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                        {t("orders.formHint")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              }
+              className="p-5 sm:p-6"
+            >
+              <div className="flex flex-col gap-5 mt-2">
+                <OrderForm
+                  products={data}
+                  addProduct={handleAdd}
+                  onProductFilter={handleFilterProduct}
+                  isLoading={isLoading}
+                  onSubmit={onSubmitEdit}
+                  onError={handleError}
+                  submitLabel={t("common.save")}
+                />
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+                  <TMButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchParams({}, { replace: true })}
+                    type="button"
+                  >
+                    {t("common.cancel")}
+                  </TMButton>
+                  <TMButton
+                    htmlType="submit"
+                    loading={isLoading}
+                    size="sm"
+                    onClick={form.handleSubmit(onSubmitEdit as any)}
+                  >
+                    <Icon name="save" fontSize={16} />
+                    {t("common.save")}
+                  </TMButton>
+                </div>
               </div>
-            }
-            className="min-h-80 p-4"
-          >
-            <OrderForm
-              products={data}
-              addProduct={handleAdd}
-              onProductFilter={handleFilterProduct}
-              isLoading={isLoading}
-              onSubmit={onSubmitEdit}
-              onError={handleError}
-              submitLabel={t("common.save")}
-            />
-            <div className="flex justify-end pt-2">
-              <TMButton variant="outline" onClick={() => setSearchParams({}, { replace: true })}>
-                {t("common.cancel")}
-              </TMButton>
-            </div>
-          </CardItem>
+            </CardItem>
+          </div>
         </div>
       </FormProvider>
     );
@@ -260,17 +287,15 @@ export default function OrderItem() {
   const vatAmount = (subtotal * Number(order?.VAT || 0)) / 100;
   const totalPaid = subtotal + Number(order?.surcharge || 0) + vatAmount;
 
+  console.log("order", order);
+
   return (
-    <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
       <style>{PRINT_STYLES}</style>
 
-      {/* Toolbar */}
-      <div className="flex gap-2 shrink-0 no-print">
-        <Link to="/orders" className="text-blue-600 hover:underline text-sm self-center">
-          ← {t("common.back")}
-        </Link>
-
-        <div className="ml-auto flex gap-2">
+      <div className="max-w-5xl w-full mx-auto flex flex-col gap-3">
+        {/* Toolbar */}
+        <div className="flex gap-2 shrink-0 no-print justify-end">
           <TMButton variant="outline" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
             <Icon name="printer" fontSize={16} />
             <span>{t("orders.printDevice")}</span>
@@ -288,80 +313,92 @@ export default function OrderItem() {
             <span>{t("orders.createInvoice")}</span>
           </TMButton>
         </div>
-      </div>
 
-      {/* Printable temp invoice */}
-      <CardItem
-        title={
-          <span className="no-print">
-            {t("orders.detailTitle")} {order?.code || ""}
-          </span>
-        }
-        className="p-6 overflow-auto invoice-print"
-      >
-        <div className="flex flex-col gap-6">
-          {/* Header */}
-          <div className="flex justify-between items-start flex-wrap gap-2">
-            <div>
-              <p className="text-lg font-bold">{order?.code || `#${order?.id}`}</p>
-              <p className="text-sm text-gray-500">{new Date(order?.createdAt).toLocaleString("vi-VN")}</p>
+        {/* Printable temp invoice */}
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4 no-print">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="shopping-cart" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {t("orders.detailTitle")} {order?.code || ""}
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                    {new Date(order?.createdAt).toLocaleString("vi-VN")}
+                  </p>
+                </div>
+              </div>
             </div>
-            <span className="px-3 py-1 rounded text-sm bg-gray-100 text-gray-800">
-              {order?.paymentType === "transfer" ? t("invoices.detail.transfer") : t("invoices.detail.cash")}
-            </span>
-          </div>
+          }
+          className="p-5 sm:p-6 overflow-auto invoice-print"
+        >
+          <div className="flex flex-col gap-6">
+            {/* Header */}
+            <div className="flex justify-between items-start flex-wrap gap-2">
+              <div>
+                <p className="text-lg font-bold">{order?.code || `#${order?.id}`}</p>
+                <p className="text-sm text-gray-500">{new Date(order?.createdAt).toLocaleString("vi-VN")}</p>
+              </div>
+              <span className="px-3 py-1 rounded text-sm bg-gray-100 text-gray-800">
+                {order?.paymentType === "transfer" ? t("invoices.detail.transfer") : t("invoices.detail.cash")}
+              </span>
+            </div>
 
-          {/* Items */}
-          <div className="border rounded overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="p-2 text-left">{t("importOrder.product")}</th>
-                  <th className="p-2 w-24 text-right">{t("importOrder.quantity")}</th>
-                  <th className="p-2 w-32 text-right">{t("importOrder.price")}</th>
-                  <th className="p-2 w-32 text-right">{t("importOrder.total")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item: any, index: number) => (
-                  <tr key={`${item.id}-${index}`} className="border-t">
-                    <td className="p-2">{item.name || `#${item.productId}`}</td>
-                    <td className="p-2 text-right">{item.quantity}</td>
-                    <td className="p-2 text-right">{formatCurrency(item.price)}</td>
-                    <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
+            {/* Items */}
+            <div className="border rounded overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-2 text-left">{t("importOrder.product")}</th>
+                    <th className="p-2 w-24 text-right">{t("importOrder.quantity")}</th>
+                    <th className="p-2 w-32 text-right">{t("importOrder.price")}</th>
+                    <th className="p-2 w-32 text-right">{t("importOrder.total")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {items.map((item: any, index: number) => (
+                    <tr key={`${item.id}-${index}`} className="border-t">
+                      <td className="p-2">{item.name || `#${item.productId}`}</td>
+                      <td className="p-2 text-right">{item.quantity}</td>
+                      <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                      <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-72 space-y-2">
-              <div className="flex justify-between">
-                <span>{t("invoices.detail.subtotalLabel")}</span>
-                <span className="font-medium">{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t("invoices.detail.surcharge")}</span>
-                <span className="font-medium">{formatCurrency(order?.surcharge || 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>
-                  {t("importOrder.VAT")} ({Number(order?.VAT || 0)}%)
-                </span>
-                <span className="font-medium">{formatCurrency(vatAmount)}</span>
-              </div>
-              <div className="flex justify-between text-lg font-bold border-t pt-2">
-                <span>{t("importOrder.totalPayable")}</span>
-                <span className="text-blue-600">{formatCurrency(totalPaid)}</span>
+            {/* Totals */}
+            <div className="flex justify-end">
+              <div className="w-72 space-y-2">
+                <div className="flex justify-between">
+                  <span>{t("invoices.detail.subtotalLabel")}</span>
+                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t("invoices.detail.surcharge")}</span>
+                  <span className="font-medium">{formatCurrency(order?.surcharge || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>
+                    {t("importOrder.VAT")} ({Number(order?.VAT || 0)}%)
+                  </span>
+                  <span className="font-medium">{formatCurrency(vatAmount)}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  <span>{t("importOrder.totalPayable")}</span>
+                  <span className="text-blue-600">{formatCurrency(totalPaid)}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
-        </div>
-      </CardItem>
+            <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
+          </div>
+        </CardItem>
+      </div>
     </div>
   );
 }

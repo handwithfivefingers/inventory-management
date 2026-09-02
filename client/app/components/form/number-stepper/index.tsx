@@ -36,7 +36,7 @@ export const NumberStepper = forwardRef<HTMLDivElement, Props>(
         />
         {/* Fixed height so the +/- buttons align with the input only,
             instead of stretching over the label area above it */}
-        <div className="flex h-7 self-end">
+        <div className="flex h-7 self-end mb-0.25">
           <TMButton
             size="xs"
             onClick={() => change(-1)}

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { NumericFormat } from "react-number-format";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
@@ -25,6 +26,7 @@ export const ProductSearchModal = ({ data, show, close, onSelect, onSearch }: Pr
         </div>
         <div className="max-h-[50vh] overflow-auto">
           <TMTable
+            scrollable
             columns={[
               {
                 title: "Hình ảnh",

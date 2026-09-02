@@ -1,5 +1,4 @@
 import { HTTPService } from "~/http";
-import { IResponse } from "~/types/common";
 import { IProduct } from "~/types/product";
 
 const API_PATH = {

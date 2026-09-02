@@ -1,8 +1,20 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany, BelongsToMany } from 'sequelize-typescript'
-import { Product } from './product'
+import {
+  BelongsTo,
+  BelongsToMany,
+  Column,
+  CreatedAt,
+  DataType,
+  ForeignKey,
+  HasMany,
+  Model,
+  Table,
+  UpdatedAt
+} from 'sequelize-typescript'
 import { Inventory } from './inventory'
+import { Product } from './product'
+import ProductAttribute from './productAttribute'
 import { Transfer } from './transfer'
-import { ProductAttributeValue } from './productAttributeValue'
+import ProductAttributeValue from './productAttributeValue'
 
 @Table({
   tableName: 'productVariants',
@@ -60,7 +72,11 @@ export class ProductVariant extends Model {
   @HasMany(() => Transfer)
   declare transfers: Transfer[]
 
-  @BelongsToMany(() => ProductAttributeValue, { through: 'product_variant_attribute_values', foreignKey: 'variantId', otherKey: 'attributeValueId' })
+  @BelongsToMany(() => ProductAttributeValue, {
+    through: 'productVariantAttributeValues',
+    foreignKey: 'variantId',
+    otherKey: 'attributeValueId'
+  })
   declare attributeValues: ProductAttributeValue[]
 }
 

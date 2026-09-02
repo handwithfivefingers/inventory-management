@@ -58,15 +58,6 @@ export default function WarehouseAdd() {
 
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-        <Link to="/warehouses" className="inline-flex items-center gap-1 hover:text-primary transition-colors">
-          <Icon name="arrow-left" fontSize={16} />
-          {t("warehouses.backToList")}
-        </Link>
-        <span className="text-slate-300">/</span>
-        <span className="text-slate-700 dark:text-slate-200 font-medium">{t("warehouses.addTitle")}</span>
-      </div>
-
       <div className="max-w-3xl w-full mx-auto">
         <CardItem
           title={

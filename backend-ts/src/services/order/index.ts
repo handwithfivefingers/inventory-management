@@ -13,6 +13,7 @@ import { IncludeOptions, Op, Optional, Transaction } from 'sequelize'
 import { SettingService } from '../setting'
 import { TransferService } from '../transfer'
 import { getPagination } from '#/utils'
+import { ApiError } from '#/response'
 interface IOrderCreateParams {
   price?: number | string
   VAT?: number | string
@@ -158,8 +159,8 @@ export default class OrderService {
         this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
       )
 
-      await Promise.all(detailPromises)
-
+      const details = await Promise.all(detailPromises)
+      console.log('details', details)
       // // // Create order details for each item
       // for (let item of orderDetails) {
       //   await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
@@ -185,7 +186,7 @@ export default class OrderService {
       // Log the error and rollback the transaction
       console.log('error', error)
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -216,36 +217,20 @@ export default class OrderService {
 
     ...orderDetail
   }: IOrderDetailCreateParams) {
-    try {
-      const orderDetailBuilder = OrderDetail.build({
-        quantity,
-        warehouseId,
-        orderId,
-        note,
-        productId,
-        variantId: variantId ?? null,
-        ...orderDetail
-      })
+    const orderDetailBuilder = OrderDetail.build({
+      quantity,
+      warehouseId,
+      orderId,
+      note,
+      productId,
+      variantId: variantId ?? null,
+      ...orderDetail
+    } as any)
 
-      await orderDetailBuilder.save({ transaction })
-      await this.updateInventory({ quantity, productId, variantId: variantId ?? null, warehouseId, transaction, type })
-      await this.updateProductQuantity({ quantity, productId, variantId: variantId ?? null, transaction, type })
-      await this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
-
-      // return Promise.all([
-      //   orderDetailBuilder.save({ transaction }),
-      //   // Update the inventory
-      //   this.updateInventory({ quantity, productId, variantId, warehouseId, transaction, type }),
-      //   // Update the product quantity
-      //   this.updateProductQuantity({ quantity, productId, variantId, transaction }),
-      //   // Create a new transfer
-      //   this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
-      // ])
-    } catch (error) {
-      // Log the error and throw it
-      console.log('error', error)
-      throw error
-    }
+    await orderDetailBuilder.save({ transaction })
+    await this.updateInventory({ quantity, productId, variantId: variantId ?? null, warehouseId, transaction, type })
+    await this.updateProductQuantity({ quantity, productId, variantId: variantId ?? null, transaction, type })
+    await this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
   }
 
   async updateInventory({ productId, variantId, warehouseId, quantity, transaction, type }: IInventoryUpdateParams) {
@@ -259,30 +244,30 @@ export default class OrderService {
       ...(variantId != null ? { variantId } : { variantId: null })
     }
 
-    // Stock guard: on export/sale, block going below zero unless the product
-    // is flagged to allow negative stock (products.isNegative). A variant's
-    // own isNegative flag overrides the parent product setting.
+    // Stock guard: on export/sale, block going below zero unless stock is
+    // flagged to allow negative. For variant sales the check is ISOLATED to
+    // the variant row: variant.quantity + variant.isNegative only. The parent
+    // product's isNegative/quantity are ignored when variantId is present.
+    // Simple products (variantId == null) fall back to products.isNegative.
     let allowNegative = false
     let insufficientStockLabel: string | null = null
     if (operator === 'decrement') {
-      const product = await Product.findByPk(productId, { transaction })
+      const product = await Product.findByPk(productId, { transaction } as any)
       if (!product) {
-        throw new Error(`Product ${productId} not found`)
+        throw ApiError.from(`Product ${productId} not found`)
       }
-      let label = (product as any).name
-      allowNegative = Boolean((product as any).isNegative)
+      let label = product.name
       let variant: any = null
-      if (!allowNegative && variantId != null) {
-        variant = await ProductVariant.findByPk(variantId, { transaction })
+      if (variantId != null) {
+        variant = await ProductVariant.findByPk(variantId, { transaction } as any)
         if (!variant) {
-          throw new Error(`Variant ${variantId} not found`)
+          throw ApiError.from(`Variant ${variantId} not found`)
         }
         label = `${label} [${variant.get('skuCode')}]`
+        // Isolated: only the variant's own flag governs oversell for variant orders
         allowNegative = Boolean(variant.get('isNegative'))
-      } else if (variantId != null) {
-        // Variant only needed for the error label; keep the existing message shape
-        variant = await ProductVariant.findByPk(variantId, { transaction })
-        if (variant) label = `${label} [${variant.get('skuCode')}]`
+      } else {
+        allowNegative = Boolean(product.isNegative)
       }
       if (!allowNegative) {
         // C2 (TOCTOU): the availability check is part of the atomic write
@@ -291,16 +276,17 @@ export default class OrderService {
         const inventoryRow = await Inventory.findOne({
           where: stockWhere,
           transaction
-        })
+        } as any)
         if (!inventoryRow) {
-          throw new Error(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
+          throw ApiError.from(
+            variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found'
+          )
         }
         insufficientStockLabel = `${label}`
       }
     }
 
-    const inventory: any = Inventory
-    const [affectedRows] = await inventory[operator]('quantity', {
+    const rawResult: any = await Inventory[operator]('quantity', {
       by: quantity,
       where:
         operator === 'decrement' && !allowNegative
@@ -308,13 +294,31 @@ export default class OrderService {
           : stockWhere,
       transaction
     })
+    // Sequelize MySQL returns different shapes: [affectedCount] (mock) vs [undefined, affectedCount] vs [[undefined, affectedCount]]
+    let affectedRows: number
+    if (Array.isArray(rawResult)) {
+      if (Array.isArray(rawResult[0])) {
+        // e.g. [[undefined, 0]] from real MySQL increment/decrement
+        affectedRows = (rawResult[0] as any)[1] ?? (rawResult[0] as any)[0]
+      } else if (typeof rawResult[1] === 'number') {
+        // [undefined, count]
+        affectedRows = rawResult[1]
+      } else if (typeof rawResult[0] === 'number') {
+        // [count] from mocks
+        affectedRows = rawResult[0]
+      } else {
+        affectedRows = rawResult[0] as number
+      }
+    } else {
+      affectedRows = rawResult as number
+    }
 
     if ((affectedRows as number) === 0) {
       // Distinguish "row missing" from "insufficient stock" for the client.
       if (insufficientStockLabel) {
-        throw new Error(`Insufficient stock for product "${insufficientStockLabel}"`)
+        throw ApiError.from(`Insufficient stock for product "${insufficientStockLabel}"`)
       }
-      throw new Error(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
+      throw ApiError.from(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
     }
   }
   /**
@@ -330,22 +334,37 @@ export default class OrderService {
       // FIX: sold should only track SALES (type '1' = OUT). Imports (type '0' = IN) must NOT affect sold.
       // Previously every orderDetail (including imports) incremented sold, causing sold=42 for product 4 (20+20+2) instead of 2.
       if (type === '0') return
-      const [prod] = await Product.increment('sold', {
+      const rawProd: any = await Product.increment('sold', {
         by: quantity,
         where: { id: productId },
         transaction
-      })
-      if (!prod) throw new Error('Product not found')
+      } as any)
+      // Handle both mock ([{sold}]) and real MySQL ([undefined, count] or [[undefined, count]])
+      const prodExists = Array.isArray(rawProd)
+        ? Array.isArray(rawProd[0])
+          ? (rawProd[0][1] as number) > 0 || !!rawProd[0][0]
+          : typeof rawProd[1] === 'number'
+            ? rawProd[1] > 0
+            : !!rawProd[0]
+        : !!rawProd
+      if (!prodExists) throw new Error('Product not found')
       if (variantId != null) {
-        const [variant] = await ProductVariant.increment('sold', {
+        const rawVar: any = await ProductVariant.increment('sold', {
           by: quantity,
           where: { id: variantId },
           transaction
-        })
-        if (!variant) throw new Error('Variant not found')
+        } as any)
+        const varExists = Array.isArray(rawVar)
+          ? Array.isArray(rawVar[0])
+            ? (rawVar[0][1] as number) > 0 || !!rawVar[0][0]
+            : typeof rawVar[1] === 'number'
+              ? rawVar[1] > 0
+              : !!rawVar[0]
+          : !!rawVar
+        if (!varExists) throw new Error('Variant not found')
       }
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -359,11 +378,19 @@ export default class OrderService {
     if (type === '0') return // imports don't affect sold
     const by = Math.abs(delta)
     const operator = delta > 0 ? 'increment' : 'decrement'
-    const [affected] = await (Product as any)[operator]('sold', { by, where: { id: productId }, transaction })
-    if (!affected) throw new Error('Product not found for sold adjustment')
+    const raw: any = await (Product as any)[operator]('sold', { by, where: { id: productId }, transaction })
+    const affected = Array.isArray(raw) ? (Array.isArray(raw[0]) ? (raw[0][1] ?? raw[0][0]) : (raw[1] ?? raw[0])) : raw
+    if (!affected || (typeof affected === 'number' && affected === 0))
+      throw new Error('Product not found for sold adjustment')
     if (variantId != null) {
-      const [vAffected] = await (ProductVariant as any)[operator]('sold', { by, where: { id: variantId }, transaction })
-      if (!vAffected) throw new Error('Variant not found for sold adjustment')
+      const rawV: any = await (ProductVariant as any)[operator]('sold', { by, where: { id: variantId }, transaction })
+      const vAffected = Array.isArray(rawV)
+        ? Array.isArray(rawV[0])
+          ? (rawV[0][1] ?? rawV[0][0])
+          : (rawV[1] ?? rawV[0])
+        : rawV
+      if (!vAffected || (typeof vAffected === 'number' && vAffected === 0))
+        throw new Error('Variant not found for sold adjustment')
     }
   }
 
@@ -387,7 +414,7 @@ export default class OrderService {
       )
       return transferResponse
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -427,7 +454,7 @@ export default class OrderService {
       )
     } catch (error) {
       console.log('createFinancialVoucher error', error)
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
   /**
@@ -531,7 +558,7 @@ export default class OrderService {
             quantity: Math.abs(delta),
             delta,
             type: effectiveType,
-            transaction: t,
+            transaction: t
           })
         }
       }
@@ -568,6 +595,12 @@ export default class OrderService {
       }
       await order.save({ transaction: t })
 
+      // Bug 2 fix: keep financial_records in sync so report (revenue + VAT) does not drift after edit
+      await FinancialRecord.update({ amount: totalPaid } as any, {
+        where: { relatedId: order.id, relatedType: (order as any).providerId != null ? 'importOrder' : 'order' },
+        transaction: t
+      })
+
       await t.commit()
 
       return this.getOrderById(
@@ -580,7 +613,7 @@ export default class OrderService {
     } catch (error) {
       console.log('order update error', error)
       await t.rollback()
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -616,14 +649,15 @@ export default class OrderService {
         ],
         offset: Number(offset),
         limit: Number(limit),
+        order: [['id', 'DESC']],
         distinct: true, // Prevents wrong count / join fan-out with hasMany include
         separate: false
       }
-      const resp = await Order.findAndCountAll(queryParams)
+      const resp = await Order.findAndCountAll(queryParams as any)
       return resp
     } catch (error) {
       console.warn('error', error)
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 
@@ -648,6 +682,41 @@ export default class OrderService {
     try {
       // S1: the caller may only read orders inside warehouses they own.
       await assertWarehouseAccess(warehouseId, vendorScope)
+      const unitModel = (database as any).unit ?? (database as any).units
+      const pavModel = (database as any).productAttributeValue
+      const paModel = (database as any).productAttribute
+      const productInclude: any = {
+        model: Product,
+        ...(unitModel ? { include: [{ model: unitModel, attributes: ['id', 'name'] }] } : {})
+      }
+      const variantInclude: any = {
+        model: ProductVariant,
+        include: [
+          ...(pavModel
+            ? [
+                {
+                  model: pavModel,
+                  as: 'attributeValues',
+                  attributes: ['id', 'value', 'attributeId'],
+                  through: { attributes: [] },
+                  ...(paModel ? { include: [{ model: paModel, attributes: ['id', 'name'] }] } : {})
+                }
+              ]
+            : []),
+          ...(paModel
+            ? [
+                {
+                  model: paModel,
+                  as: 'attributes',
+                  attributes: ['id', 'name'],
+                  through: { attributes: [] }
+                }
+              ]
+            : [])
+        ]
+      }
+      // Fallback when attribute models aren't registered (e.g. in unit tests)
+      if (!variantInclude.include.length) delete variantInclude.include
       const resp = await Order.findOne({
         where: {
           id: id,
@@ -656,19 +725,25 @@ export default class OrderService {
         include: [
           {
             model: database.orderDetail,
-            include: {
-              model: Product,
-              attributes: []
-            }
+            include: [productInclude, variantInclude]
           }
-        ] as IncludeOptions,
-        attributes: {
-          include: [[this.sequelize.col('orderDetails.product.name'), 'orderDetails.name']]
-        }
+        ] as IncludeOptions
       })
+      // Backwards-compat: ensure each detail exposes a `name` derived from product.name
+      // so existing clients that read `detail.name` keep working when orderDetails.name column is empty.
+      if (resp && (resp as any).orderDetails) {
+        for (const d of (resp as any).orderDetails as any[]) {
+          const detailAny = d as any
+          const productName = detailAny.product?.name ?? detailAny.product?.dataValues?.name
+          if (!detailAny.name && productName) {
+            detailAny.name = productName
+            if (detailAny.dataValues) detailAny.dataValues.name = productName
+          }
+        }
+      }
       return resp
     } catch (error) {
-      throw error
+      throw ApiError.from(error, 400)
     }
   }
 

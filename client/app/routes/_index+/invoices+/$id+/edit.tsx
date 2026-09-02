@@ -6,6 +6,7 @@ import { invoiceService } from "~/action.server/invoice.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
@@ -141,189 +142,207 @@ export default function EditInvoice() {
   }, [fetcher.state, fetcher.data, invoice.id, navigate]);
 
   return (
-    <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title={`${t("invoices.editTitle")} - ${invoice.invoiceNumber}`} className="p-4">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+      <div className="max-w-5xl w-full mx-auto">
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="file-text" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {t("invoices.editTitle")} - {invoice.invoiceNumber}
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Chỉnh sửa hóa đơn</p>
+                </div>
+              </div>
+            </div>
+          }
+          className="p-5 sm:p-6"
+        >
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t("invoices.customer")} *</label>
+                <select
+                  value={selectedCustomerId}
+                  onChange={(e) => setSelectedCustomerId(Number(e.target.value))}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                >
+                  <option value={0}>-- {t("common.choose")} --</option>
+                  {customers.map((c: ICustomer) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">{t("invoices.detail.paymentType")}</label>
+                <select
+                  value={paymentType}
+                  onChange={(e) => setPaymentType(e.target.value as PaymentType)}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="cash">{t("invoices.detail.cash")}</option>
+                  <option value="transfer">{t("invoices.detail.transfer")}</option>
+                  <option value="credit">{t("invoices.detail.credit")}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Invoice Items */}
             <div>
-              <label className="block text-sm font-medium mb-1">{t("invoices.customer")} *</label>
-              <select
-                value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(Number(e.target.value))}
-                className="w-full border rounded px-3 py-2"
-                required
-              >
-                <option value={0}>-- {t("common.choose")} --</option>
-                {customers.map((c: ICustomer) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium">{t("invoices.detail.product")}</label>
+                <TMButton type="button" variant="outline" onClick={handleAddItem}>
+                  + {t("invoices.detail.product")}
+                </TMButton>
+              </div>
+
+              <div className="border rounded overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-2 text-left">{t("invoices.detail.product")}</th>
+                      <th className="p-2 w-24">{t("invoices.detail.quantity")}</th>
+                      <th className="p-2 w-32">{t("invoices.detail.unitPrice")}</th>
+                      <th className="p-2 w-24">{t("invoices.detail.taxRate")}</th>
+                      <th className="p-2 w-32">{t("invoices.detail.amount")}</th>
+                      <th className="p-2 w-16"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, index) => {
+                      const itemTotal = item.quantity * item.unitPrice * (1 + (item.taxRate || 0) / 100);
+                      return (
+                        <tr key={index} className="border-t">
+                          <td className="p-2">
+                            <select
+                              value={item.productId}
+                              onChange={(e) => handleItemChange(index, "productId", Number(e.target.value))}
+                              className="w-full border rounded px-2 py-1"
+                            >
+                              <option value={0}>-- {t("common.choose")} --</option>
+                              {products.map((p: IProduct) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => handleItemChange(index, "quantity", Number(e.target.value))}
+                              className="w-full border rounded px-2 py-1"
+                              min="1"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={item.unitPrice}
+                              onChange={(e) => handleItemChange(index, "unitPrice", Number(e.target.value))}
+                              className="w-full border rounded px-2 py-1"
+                              min="0"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={item.taxRate}
+                              onChange={(e) => handleItemChange(index, "taxRate", Number(e.target.value))}
+                              className="w-full border rounded px-2 py-1"
+                              min="0"
+                              max="100"
+                            />
+                          </td>
+                          <td className="p-2 text-right">{formatCurrency(itemTotal)}</td>
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(index)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
+            {/* Totals */}
+            <div className="flex justify-end">
+              <div className="w-64 space-y-2">
+                <div className="flex justify-between">
+                  <span>{t("invoices.detail.subtotalLabel")}:</span>
+                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t("invoices.detail.tax")}:</span>
+                  <span className="font-medium">{formatCurrency(taxAmount)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>{t("invoices.detail.discount")}:</span>
+                  <input
+                    type="number"
+                    value={discount}
+                    onChange={(e) => setDiscount(Number(e.target.value))}
+                    className="w-24 border rounded px-2 py-1 text-right"
+                    min="0"
+                  />
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>{t("invoices.detail.surcharge")}:</span>
+                  <input
+                    type="number"
+                    value={surcharge}
+                    onChange={(e) => setSurcharge(Number(e.target.value))}
+                    className="w-24 border rounded px-2 py-1 text-right"
+                    min="0"
+                  />
+                </div>
+                <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  <span>{t("invoices.total")}:</span>
+                  <span className="text-blue-600">{formatCurrency(subtotal - discount + taxAmount + surcharge)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
             <div>
-              <label className="block text-sm font-medium mb-1">{t("invoices.detail.paymentType")}</label>
-              <select
-                value={paymentType}
-                onChange={(e) => setPaymentType(e.target.value as PaymentType)}
+              <label className="block text-sm font-medium mb-1">{t("invoices.detail.notes")}</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 className="w-full border rounded px-3 py-2"
-              >
-                <option value="cash">{t("invoices.detail.cash")}</option>
-                <option value="transfer">{t("invoices.detail.transfer")}</option>
-                <option value="credit">{t("invoices.detail.credit")}</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Invoice Items */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium">{t("invoices.detail.product")}</label>
-              <TMButton type="button" variant="outline" onClick={handleAddItem}>
-                + {t("invoices.detail.product")}
-              </TMButton>
+                rows={3}
+              />
             </div>
 
-            <div className="border rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="p-2 text-left">{t("invoices.detail.product")}</th>
-                    <th className="p-2 w-24">{t("invoices.detail.quantity")}</th>
-                    <th className="p-2 w-32">{t("invoices.detail.unitPrice")}</th>
-                    <th className="p-2 w-24">{t("invoices.detail.taxRate")}</th>
-                    <th className="p-2 w-32">{t("invoices.detail.amount")}</th>
-                    <th className="p-2 w-16"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, index) => {
-                    const itemTotal = item.quantity * item.unitPrice * (1 + (item.taxRate || 0) / 100);
-                    return (
-                      <tr key={index} className="border-t">
-                        <td className="p-2">
-                          <select
-                            value={item.productId}
-                            onChange={(e) => handleItemChange(index, "productId", Number(e.target.value))}
-                            className="w-full border rounded px-2 py-1"
-                          >
-                            <option value={0}>-- {t("common.choose")} --</option>
-                            {products.map((p: IProduct) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => handleItemChange(index, "quantity", Number(e.target.value))}
-                            className="w-full border rounded px-2 py-1"
-                            min="1"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            value={item.unitPrice}
-                            onChange={(e) => handleItemChange(index, "unitPrice", Number(e.target.value))}
-                            className="w-full border rounded px-2 py-1"
-                            min="0"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            value={item.taxRate}
-                            onChange={(e) => handleItemChange(index, "taxRate", Number(e.target.value))}
-                            className="w-full border rounded px-2 py-1"
-                            min="0"
-                            max="100"
-                          />
-                        </td>
-                        <td className="p-2 text-right">{formatCurrency(itemTotal)}</td>
-                        <td className="p-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(index)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-64 space-y-2">
-              <div className="flex justify-between">
-                <span>{t("invoices.detail.subtotalLabel")}:</span>
-                <span className="font-medium">{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t("invoices.detail.tax")}:</span>
-                <span className="font-medium">{formatCurrency(taxAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>{t("invoices.detail.discount")}:</span>
-                <input
-                  type="number"
-                  value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value))}
-                  className="w-24 border rounded px-2 py-1 text-right"
-                  min="0"
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <span>{t("invoices.detail.surcharge")}:</span>
-                <input
-                  type="number"
-                  value={surcharge}
-                  onChange={(e) => setSurcharge(Number(e.target.value))}
-                  className="w-24 border rounded px-2 py-1 text-right"
-                  min="0"
-                />
-              </div>
-              <div className="flex justify-between text-lg font-bold border-t pt-2">
-                <span>{t("invoices.total")}:</span>
-                <span className="text-blue-600">{formatCurrency(subtotal - discount + taxAmount + surcharge)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium mb-1">{t("invoices.detail.notes")}</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-              rows={3}
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 justify-end pt-4 border-t no-print">
-            <Link to={`/invoices/${invoice.id}`}>
-              <TMButton variant="outline" type="button">
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1 no-print">
+              <TMButton variant="ghost" size="sm" component={Link} to={`/invoices/${invoice.id}`} type="button">
                 {t("common.cancel")}
               </TMButton>
-            </Link>
-            <TMButton type="submit" disabled={fetcher.state !== "idle"}>
-              {fetcher.state !== "idle" ? t("invoices.saving") : t("common.save")}
-            </TMButton>
-          </div>
-        </form>
-      </CardItem>
+              <TMButton htmlType="submit" size="sm" loading={fetcher.state !== "idle"}>
+                <Icon name="save" fontSize={16} />
+                {fetcher.state !== "idle" ? t("invoices.saving") : t("common.save")}
+              </TMButton>
+            </div>
+          </form>
+        </CardItem>
+      </div>
     </div>
   );
 }

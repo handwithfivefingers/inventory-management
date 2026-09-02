@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { redirect, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, redirect, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { categoryService } from "~/action.server/category.service";
@@ -8,6 +8,7 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { productSchema } from "~/constants/schema/product";
@@ -30,22 +31,37 @@ export default function ProductItem() {
   const { data } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
   return (
-    <div className="w-full flex flex-col p-2 gap-4">
-      <CardItem
-        title={
-          <div className="flex justify-between items-center">
-            <h5>{edit ? "Chỉnh sửa" : data?.name}</h5>
-            <TMButton variant="ghost" size="xs" onClick={() => setEdit(!edit)}>
-              {edit ? "Hủy" : "Sửa"}
-            </TMButton>
-          </div>
-        }
-        className="p-4"
-      >
-        {!edit ? <Detail /> : null}
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+      <div className="max-w-3xl w-full mx-auto">
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="tag" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {edit ? "Chỉnh sửa danh mục" : data?.name}
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                    {edit ? "Cập nhật thông tin danh mục" : "Chi tiết danh mục và sản phẩm liên quan"}
+                  </p>
+                </div>
+              </div>
+              <TMButton variant={edit ? "ghost" : "primary"} size="sm" onClick={() => setEdit(!edit)}>
+                <Icon name={edit ? "x" : "edit-2"} fontSize={14} />
+                {edit ? "Hủy" : "Sửa"}
+              </TMButton>
+            </div>
+          }
+          className="p-5 sm:p-6"
+        >
+          {!edit ? <Detail /> : null}
 
-        {edit ? <EditForm {...data} /> : null}
-      </CardItem>
+          {edit ? <EditForm {...data} /> : null}
+        </CardItem>
+      </div>
     </div>
   );
 }
@@ -126,27 +142,31 @@ const EditForm = ({ name, id }: Partial<ICategory>) => {
   return (
     <FormProvider {...formMethods}>
       <form
-        className="py-2 grid grid-cols-12 gap-4"
+        className="flex flex-col gap-5 mt-2"
         onSubmit={formMethods.handleSubmit(
           (v) => onSubmit({ ...v }),
           (error) => handleError(error)
         )}
       >
-        <div className="col-span-12">
-          <FormControl name="name">
-            {(field) => {
-              return (
-                <TextInput
-                  label="Tên danh mục"
-                  value={field.value as any}
-                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                />
-              );
-            }}
-          </FormControl>
-        </div>
-        <div className="ml-auto col-span-12">
-          <TMButton htmlType="submit" variant="light">
+        <FormControl name="name">
+          {(field) => {
+            return (
+              <TextInput
+                label="Tên danh mục"
+                required
+                prefix={<Icon name="tag" fontSize={16} className="text-slate-400" />}
+                value={field.value as any}
+                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+              />
+            );
+          }}
+        </FormControl>
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+          <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
+            Hủy
+          </TMButton>
+          <TMButton htmlType="submit" size="sm">
+            <Icon name="save" fontSize={16} />
             Lưu
           </TMButton>
         </div>

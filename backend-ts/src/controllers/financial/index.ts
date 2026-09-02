@@ -1,5 +1,6 @@
 import { FinancialService } from '#/services/financial'
 import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { getVendorScope } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 
 export class FinancialController {
@@ -48,11 +49,15 @@ export class FinancialController {
   async getReport(req: Request, res: Response, next: NextFunction) {
     try {
       const { from, to, warehouseId } = req.query
-      const resp = await new FinancialService().getReport({
-        from: from as string,
-        to: to as string,
-        warehouseId: warehouseId as string
-      })
+      const vendorScope = getVendorScope(req as any)
+      const resp = await new FinancialService().getReport(
+        {
+          from: from as string,
+          to: to as string,
+          warehouseId: warehouseId as string
+        },
+        vendorScope
+      )
       res.status(200).json({ data: resp })
       return
     } catch (error) {

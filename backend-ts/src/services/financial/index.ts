@@ -3,6 +3,8 @@ import { IFinancialRecordStatic } from '#/types/financialRecord'
 import { IOrderStatic } from '#/types/order'
 import { ITransferStatic } from '#/types/transfer'
 import { getPagination } from '#/utils'
+import { assertWarehouseAccess } from '#/utils/tenant'
+import type { TVendorScope } from '#/utils/tenant'
 import { FindAttributeOptions, Op, Sequelize } from 'sequelize'
 
 export class FinancialService {
@@ -111,15 +113,52 @@ export class FinancialService {
    * Revenue & expenses come from the financial_records book (auto + manual vouchers).
    * VAT collected is estimated from sales orders in the same period.
    */
-  async getReport({ from, to, warehouseId }: { from?: string; to?: string; warehouseId?: string }) {
+  async getReport(
+    { from, to, warehouseId }: { from?: string; to?: string; warehouseId?: string },
+    vendorScope: TVendorScope = null
+  ) {
     try {
+      // --- Bug 1: tenant isolation --- ensure warehouse belongs to caller
+      if (warehouseId) {
+        await assertWarehouseAccess(warehouseId, vendorScope)
+      }
+
+      // --- Bug 7: validate range --- from > to is a client error
+      if (from && to) {
+        const f = new Date(from)
+        const tt = new Date(`${to}T23:59:59.999`)
+        if (!isNaN(f.getTime()) && !isNaN(tt.getTime()) && f.getTime() > tt.getTime()) {
+          const err = new Error('Invalid date range: from must be <= to') as Error & { status?: number }
+          err.status = 400
+          throw err
+        }
+      }
+
+      // --- Bug 3: consistent timezone handling --- use local-consistent T00:00:00 / T23:59:59.999
+      const buildDateRange = (f?: string, t?: string) => {
+        const range: any = {}
+        let has = false
+        if (f) {
+          const d = new Date(`${f}T00:00:00.000`)
+          if (!isNaN(d.getTime())) {
+            range[Op.gte] = d
+            has = true
+          }
+        }
+        if (t) {
+          const d = new Date(`${t}T23:59:59.999`)
+          if (!isNaN(d.getTime())) {
+            range[Op.lte] = d
+            has = true
+          }
+        }
+        return has ? range : null
+      }
+
       const whereRecords: any = {}
       if (warehouseId) whereRecords.warehouseId = Number(warehouseId)
-      if (from || to) {
-        whereRecords.transactionDate = {}
-        if (from) whereRecords.transactionDate[Op.gte] = new Date(from)
-        if (to) whereRecords.transactionDate[Op.lte] = new Date(`${to} 23:59:59`)
-      }
+      const txRange = buildDateRange(from, to)
+      if (txRange) whereRecords.transactionDate = txRange
 
       const sumBy = async (type: 'revenue' | 'expense', category?: string) => {
         const w: any = { ...whereRecords, type }
@@ -129,23 +168,22 @@ export class FinancialService {
           attributes: [[this.sequelize.fn('SUM', this.sequelize.col('amount')), 'total']],
           raw: true
         })
+        // BIGINT SUM returns string; safe for <= 2^53 VND, otherwise use BigInt path
         return Number((r as any)?.total) || 0
       }
 
       const revenue = await sumBy('revenue')
       const importCost = await sumBy('expense', 'import')
       const totalExpense = await sumBy('expense')
-      const otherExpense = totalExpense - importCost
+      // Bug 8: clamp otherExpense to avoid negative due to data race / missing category
+      const otherExpense = Math.max(0, totalExpense - importCost)
       const netProfit = revenue - totalExpense
 
       // VAT collected from sales orders (no provider) in the same period
       const orderWhere: any = { providerId: { [Op.eq]: null } }
       if (warehouseId) orderWhere.warehouseId = Number(warehouseId)
-      if (from || to) {
-        orderWhere.createdAt = {}
-        if (from) orderWhere.createdAt[Op.gte] = new Date(from)
-        if (to) orderWhere.createdAt[Op.lte] = new Date(`${to} 23:59:59`)
-      }
+      const orderRange = buildDateRange(from, to)
+      if (orderRange) orderWhere.createdAt = orderRange
       const orders = await this.order.findAll({
         where: orderWhere,
         attributes: ['price', 'VAT'],
@@ -155,8 +193,10 @@ export class FinancialService {
         (s: number, o: any) => s + (Number(o.price) * (Number(o.VAT) || 0)) / 100,
         0
       )
+      // Bug 4: expose net revenue (VAT-exclusive) for tax clarity
+      const netRevenue = Math.max(0, revenue - vatCollected)
 
-      return { revenue, importCost, otherExpense, totalExpense, netProfit, vatCollected }
+      return { revenue, importCost, otherExpense, totalExpense, netProfit, vatCollected, netRevenue }
     } catch (error) {
       console.log('getReport error', error)
       throw error

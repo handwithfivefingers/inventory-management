@@ -1,4 +1,15 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany, BelongsToMany } from 'sequelize-typescript'
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+  ForeignKey,
+  BelongsTo,
+  HasMany,
+  BelongsToMany
+} from 'sequelize-typescript'
 import { Category } from './category'
 import { ProductCategory } from './product_category'
 import { Tag } from './tag'
@@ -80,8 +91,8 @@ export class Product extends Model {
   @HasMany(() => ProductVariant, { foreignKey: 'productId', as: 'variants' })
   declare variants: ProductVariant[]
 
-  @HasMany(() => ProductAttribute, { foreignKey: 'productId', as: 'attributes' })
-  declare attributes: ProductAttribute[]
+  // @HasMany(() => ProductAttribute, { foreignKey: 'productId', as: 'attributes' })
+  // declare attributes: ProductAttribute[]
 
   @BelongsTo(() => Unit, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare unit: Unit

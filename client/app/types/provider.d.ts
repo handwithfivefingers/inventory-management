@@ -1,4 +1,5 @@
 import { BaseQueryParams } from "./common";
+import { IOrderDetails } from "./order";
 
 export interface IProvider {
   id: number;
@@ -29,16 +30,10 @@ export interface IImportOrder {
   warehouseId?: number;
   createdAt?: string;
   provider?: IProvider;
-  orderDetails?: any[];
+  orderDetails: IOrderDetails[];
   staffName?: string;
 }
-export interface IOrderDetails {
-  productId: number | string;
-  quantity: number | string;
-  price: number | string;
-  buyPrice: number | string;
-  note?: string;
-}
+
 export interface IOrderCreateParams {
   OrderDetails: IOrderDetails[];
   price?: number | string;

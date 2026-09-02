@@ -9,7 +9,8 @@ import { Icon } from "~/components/icon";
 import PermissionGuard from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
-import { useIsAdmin, usePermission, useSubmitPromise } from "~/hooks";
+import { MODULE_ENUM, MODULES } from "~/constants/modules";
+import { usePermission, useSubmitPromise } from "~/hooks";
 import { parseCookieFromRequest } from "~/sessions";
 import { IRole } from "~/types/user";
 
@@ -110,7 +111,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function RoleManagementRoute() {
   const roles = useLoaderData<typeof loader>();
   const { submit, isLoading } = useSubmitPromise();
-  const canViewRoles = usePermission("R", "role");
+  const canViewRoles = usePermission("READ", MODULE_ENUM.role);
 
   const handleDeleteRole = (roleId: number) => {
     if (confirm("Bạn có chắc chắn muốn xóa vai trò này?")) {
@@ -134,7 +135,10 @@ export default function RoleManagementRoute() {
 
   return (
     <div className="w-full flex flex-col gap-4">
-      <CardItem title="Quản lý vai trò" className="p-4">
+      <CardItem
+        title="Quản lý vai trò"
+        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+      >
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">Quản lý các vai trò và phân quyền trong hệ thống</p>

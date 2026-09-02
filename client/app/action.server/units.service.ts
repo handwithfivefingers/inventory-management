@@ -33,7 +33,7 @@ const unitsService = {
       params.set("vendorId", effectiveVendor);
     }
     const qs = params.toString();
-    return HTTPService.getInstance().get<IUnit>(API_PATH.units + "/" + id + (qs ? "?" + qs : ""), { Cookie });
+    return HTTPService.getInstance().get<{ data: IUnit }>(API_PATH.units + "/" + id + (qs ? "?" + qs : ""), { Cookie });
   },
   update: ({ cookie: Cookie, id, vendorId, ...params }: IUnitParams & { vendorId?: string | number }) => {
     const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";

@@ -8,6 +8,7 @@ import { CheckboxInput } from "~/components/form/checkbox-input";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { isLocale, useTranslation } from "~/i18n";
@@ -136,9 +137,32 @@ export default function GeneralSettings() {
   const isLoading = fetcher.state !== "idle";
 
   return (
-    <div className="w-full flex flex-col gap-4">
-      <CardItem title="Cài đặt chung" className="p-4">
-        <div className="flex flex-col gap-6">
+    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <CardItem
+        title={
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex gap-3">
+              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                <Icon name="settings" fontSize={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Cài đặt chung</h2>
+                <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                  Cài đặt chung cho cửa hàng
+                </p>
+              </div>
+            </div>
+          </div>
+        }
+        action={
+          <TMButton htmlType="submit" loading={isLoading} onClick={onSubmit} size="sm">
+            <Icon name="save" fontSize={16} />
+            Lưu cài đặt
+          </TMButton>
+        }
+        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full "
+      >
+        <div className="flex flex-col gap-6 overflow-auto scrollbar pr-4 ">
           {/* Language / Theme */}
           <section>
             <h4 className="font-semibold text-gray-800 dark:text-slate-200 mb-3">Ngôn ngữ & Giao diện</h4>
@@ -301,12 +325,6 @@ export default function GeneralSettings() {
               </div>
             </div>
           </section>
-
-          <div className="ml-auto">
-            <TMButton htmlType="submit" loading={isLoading} onClick={onSubmit} size="sm">
-              Lưu cài đặt
-            </TMButton>
-          </div>
         </div>
       </CardItem>
     </div>

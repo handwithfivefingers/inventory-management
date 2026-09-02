@@ -24,28 +24,42 @@ export const TMModal = ({ children, open = false, maskOnClose = true, close, wid
       return close?.();
     }
   };
+  useEffect(() => {
+    const escapeClose = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      close?.();
+    };
+    if (open) {
+      window.addEventListener("keydown", escapeClose);
+    }
+    return () => {
+      window.removeEventListener("keydown", escapeClose);
+    };
+  }, [open]);
   return (
     open && (
       <Portal>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
           <div
             className="flex flex-col gap-2 bg-white rounded-md min-w-60 shadow-md z-10 relative"
             style={{
               width: width,
             }}
           >
-            {title && (
-              <div className="flex border-primary border-b-2  px-4 py-3 items-center">
-                <h2 className="text-lg/4">{title}</h2>
+            <div className="p-1 border-b border-slate-300 relative h-9">
+              {title && (
+                <div className="flex border-primary border-b-2  px-4 py-3 items-center">
+                  <h2 className="text-lg/4">{title}</h2>
+                </div>
+              )}
+              <div
+                className="absolute right-1 top-1 ml-auto cursor-pointer hover:bg-neutral-400/20 p-1 rounded-md"
+                onClick={onClose}
+              >
+                <Icon name="x" />
               </div>
-            )}{" "}
-            <div
-              className="absolute right-1 top-1 ml-auto cursor-pointer hover:bg-neutral-400/20 p-1 rounded-md"
-              onClick={onClose}
-            >
-              <Icon name="x" />
             </div>
-            <div className="p-4 flex">{children}</div>
+            <div className="px-4 pt-2 pb-4 flex">{children}</div>
           </div>
           <div className="absolute left-0 top-0 w-full h-full" onClick={onMaskClicked}></div>
         </div>

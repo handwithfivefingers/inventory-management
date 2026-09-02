@@ -17,6 +17,7 @@ import { useState } from "react";
 import { useTranslation } from "~/i18n";
 import { ReceiptPrinter, loadPrinterSettings } from "~/components/receipt-printer";
 import { CardItem } from "~/components/card-item";
+import { Icon } from "~/components/icon";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
@@ -120,38 +121,65 @@ export default function InvoiceDetail() {
   };
 
   return (
-    <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      {/* Toolbar */}
-
-      <CardItem title="Chi tiết hóa đơn" className="p-4">
-        {/* Receipt preview + printer settings. The component injects its own
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+      <div className="max-w-5xl w-full mx-auto">
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="file-text" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Chi tiết hóa đơn</h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">{data.invoiceNumber}</p>
+                </div>
+              </div>
+            </div>
+          }
+          className="p-5 sm:p-6"
+        >
+          <div className="flex flex-col gap-5 mt-2">
+            {/* Toolbar */}
+            {/* Receipt preview + printer settings. The component injects its own
           print CSS into <head> after mount (hydration-safe). */}
-        <div className="flex justify-center mx-auto items-center shrink-0 no-print">
-          <div className="flex gap-2 justify-center items-center flex-wrap">
-            <TMButton variant="outline" type="button" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
-              🖨️ {t("invoices.detail.printDevice")}
-            </TMButton>
-            <TMButton variant="outline" type="button" onClick={() => window.print()} size="sm">
-              🖨 {t("invoices.detail.print")}
-            </TMButton>
-            {data.status === "draft" && (
-              <PermissionGuard permission="UPDATE" module="invoice">
-                <TMButton size="sm" to={`/invoices/${data.id}/edit`} component={Link}>
-                  {t("common.edit")}
+            <div className="flex justify-center mx-auto items-center shrink-0 no-print">
+              <div className="flex gap-2 justify-center items-center flex-wrap">
+                <TMButton variant="outline" type="button" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
+                  🖨️ {t("invoices.detail.printDevice")}
                 </TMButton>
-              </PermissionGuard>
-            )}
-            {data.status === "issued" && (
-              <PermissionGuard permission="UPDATE" module="invoice">
-                <TMButton size="sm" onClick={handleMarkAsPaid}>
-                  {t("invoices.markAsPaid")}
+                <TMButton variant="outline" type="button" onClick={() => window.print()} size="sm">
+                  🖨 {t("invoices.detail.print")}
                 </TMButton>
-              </PermissionGuard>
-            )}
+                {data.status === "draft" && (
+                  <PermissionGuard permission="UPDATE" module="invoice">
+                    <TMButton size="sm" to={`/invoices/${data.id}/edit`} component={Link}>
+                      {t("common.edit")}
+                    </TMButton>
+                  </PermissionGuard>
+                )}
+                {data.status === "issued" && (
+                  <PermissionGuard permission="UPDATE" module="invoice">
+                    <TMButton size="sm" onClick={handleMarkAsPaid}>
+                      {t("invoices.markAsPaid")}
+                    </TMButton>
+                  </PermissionGuard>
+                )}
+              </div>
+            </div>
+            <ReceiptPrinter invoice={data} />
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+              <TMButton variant="ghost" size="sm" component={Link} to="/invoices" type="button">
+                {t("common.cancel")}
+              </TMButton>
+              <TMButton size="sm" component={Link} to="/invoices">
+                <Icon name="save" fontSize={16} />
+                {t("common.save")}
+              </TMButton>
+            </div>
           </div>
-        </div>
-        <ReceiptPrinter invoice={data} />
-      </CardItem>
+        </CardItem>
+      </div>
     </div>
   );
 }

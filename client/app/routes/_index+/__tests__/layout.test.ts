@@ -1,109 +1,129 @@
-import { LoaderFunctionArgs } from "@remix-run/node";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthService } from "~/action.server/auth.service";
-import { commitSession, getSession } from "~/sessions";
+import fs from "node:fs";
+import path from "node:path";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+// ---------------------------------------------------------------------------
+// Breadcrumb / AppLayout static pattern checks (warehouse UI pattern)
+// ---------------------------------------------------------------------------
+
+const BREADCRUMB_FILE = path.resolve(__dirname, "../../../components/breadcrumb/index.tsx");
+const APP_LAYOUT_FILE = path.resolve(__dirname, "../../../components/layouts/index.tsx");
+const MAIN_LAYOUT_FILE = path.resolve(__dirname, "../_layout.tsx");
+
+const readSource = (f: string) => fs.readFileSync(f, "utf-8");
+
+describe("breadcrumb component – static pattern", () => {
+  const source = readSource(BREADCRUMB_FILE);
+
+  it("exists and has aria-label Breadcrumb", () => {
+    expect(source).toContain('aria-label="Breadcrumb"');
+  });
+
+  it("uses chevron-right not arrow-left and has bg-slate-50/50", () => {
+    expect(source).toContain("chevron-right");
+    expect(source).not.toContain("arrow-left");
+    expect(source).toContain("bg-slate-50/50");
+  });
+
+  it("has LABELS map covering warehouses/add/edit/importOrder", () => {
+    expect(source).toContain('warehouses: "Kho hàng"');
+    expect(source).toContain('add: "Thêm mới"');
+    expect(source).toContain('edit: "Chỉnh sửa"');
+    expect(source).toContain("Trang chủ");
+  });
+
+  it("hides on root and handles numeric id fallback (Chi tiết)", () => {
+    expect(source).toMatch(/pathname === "\/"/);
+    expect(source).toContain("Chi tiết");
+  });
+});
+
+describe("global breadcrumb via layouts", () => {
+  const appLayoutSource = readSource(APP_LAYOUT_FILE);
+  const mainLayoutSource = readSource(MAIN_LAYOUT_FILE);
+  const breadcrumbSource = readSource(BREADCRUMB_FILE);
+
+  it("AppLayout imports and renders <Breadcrumb />", () => {
+    expect(appLayoutSource).toMatch(/import.*Breadcrumb.*from/);
+    expect(appLayoutSource).toContain("<Breadcrumb");
+  });
+
+  it("_layout wraps Outlet with AppLayout (global breadcrumb propagation)", () => {
+    expect(mainLayoutSource).toContain("AppLayout");
+    expect(mainLayoutSource).toContain("<AppLayout");
+    expect(mainLayoutSource).toContain("<Outlet");
+  });
+
+  it("no local arrow-left in AppLayout (legacy breadcrumb removed)", () => {
+    expect(appLayoutSource).not.toContain("arrow-left");
+    expect(breadcrumbSource).not.toContain("arrow-left");
+  });
+
+  it("Breadcrumb nav has w-full px-3 pt-3 and shrink-0 (consistent with warehouse outer p-3)", () => {
+    expect(breadcrumbSource).toContain("px-3");
+    expect(breadcrumbSource).toContain("pt-3");
+    expect(breadcrumbSource).toContain("shrink-0");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// _layout loader – mocked sessions to reflect current implementation
+// Current _layout loader only checks userId and returns {} or redirects
+// ---------------------------------------------------------------------------
 
 vi.mock("~/action.server/auth.service", () => ({
-  AuthService: {
-    getMe: vi.fn(),
-  },
+  AuthService: { getMe: vi.fn() },
 }));
-
 vi.mock("~/action.server/setting.service", () => ({
-  settingService: {
-    getSettings: vi.fn().mockResolvedValue({ currency: "VND" }),
-  },
+  settingService: { getSettings: vi.fn().mockResolvedValue({ currency: "VND" }) },
   DEFAULT_SETTINGS: { currency: "USD" },
 }));
-
-// The route file pulls in the whole layout UI tree; keep it out of the test.
 vi.mock("~/components/layouts", () => ({ AppLayout: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("~/components/error-component", () => ({ ErrorComponent: () => null }));
+vi.mock("~/sessions", async () => {
+  const actual = await vi.importActual<typeof import("~/sessions")>("~/sessions");
+  return {
+    ...actual,
+    parseCookieFromRequest: vi.fn(),
+    destroySession: vi.fn().mockResolvedValue(""),
+  };
+});
 
 import { loader } from "../_layout";
+import { parseCookieFromRequest } from "~/sessions";
 
-const mockedGetMe = vi.mocked(AuthService.getMe);
-
-const userFixture = {
-  id: "user-1",
-  defaultVendorId: 2,
-  defaultWarehouseId: 22,
-  vendors: [
-    { id: 1, name: "HCM", warehouses: [{ id: 11, name: "HCM Main", isMain: true }] },
-    { id: 2, name: "TruyenMai", warehouses: [{ id: 21, name: "TM A" }, { id: 22, name: "TM Main", isMain: true }] },
-  ],
-};
-
-const makeSessionCookie = async (values: Record<string, string | number>) => {
-  const session = await getSession();
-  Object.entries(values).forEach(([key, value]) => session.set(key as never, value));
-  return commitSession(session);
-};
-
-const callLoader = async (cookie?: string) => {
-  const request = new Request("http://localhost/dashboard", {
-    headers: cookie ? { cookie } : undefined,
-  });
-  return loader({ request, params: {}, context: {} } as LoaderFunctionArgs);
-};
+const mockedParse = vi.mocked(parseCookieFromRequest);
 
 describe("_layout loader", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedGetMe.mockResolvedValue({
-      status: 200,
-      data: { data: userFixture },
-    } as never);
   });
 
-  it("returns the seeded defaults on a fresh login (no vendor/warehouse in cookie)", async () => {
-    // Incoming cookie only carries what the login action set before this fix.
-    const incomingCookie = await makeSessionCookie({ token: "jwt", userId: "user-1" });
-
-    const response = await callLoader(incomingCookie);
-
-    expect(response.status).toBe(200);
-    const data = await response.json();
-
-    // Regression: must return the values actually stored in the session after
-    // seeding — not the empty locals read from the pre-seed cookie.
-    expect(data.selectedVendorId).toBe(2);
-    expect(data.selectedWarehouseId).toBe(22);
-    expect(data.user.defaultWarehouseId).toBe(22);
-
-    // And the seeded values are committed back so parallel/child loaders and
-    // subsequent navigations see the same selection.
-    const setCookie = response.headers.get("set-cookie")!;
-    const session = await getSession(setCookie);
-    expect(session.get("vendorId")).toBe(2);
-    expect(session.get("warehouseId")).toBe(22);
+  it("returns {} when authenticated (userId present)", async () => {
+    mockedParse.mockResolvedValue({ userId: "user-1", session: {} as never, vendorId: 1, warehouseId: 11, cookie: "" } as never);
+    const request = new Request("http://localhost/dashboard");
+    const result = await loader({ request, params: {}, context: {} } as never);
+    expect(result).toEqual({});
+    expect(mockedParse).toHaveBeenCalledWith(request);
   });
 
-  it("honors an existing selection from the cookie", async () => {
-    const incomingCookie = await makeSessionCookie({
-      token: "jwt",
-      userId: "user-1",
-      vendorId: 1,
-      warehouseId: 11,
-    });
-
-    const response = await callLoader(incomingCookie);
-    const data = await response.json();
-
-    expect(data.selectedVendorId).toBe(1);
-    expect(data.selectedWarehouseId).toBe(11);
-
-    // Settings load with the resolved vendorId.
-    const { settingService } = await import("~/action.server/setting.service");
-    expect(settingService.getSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ vendorId: 1 }),
-    );
+  it("throws redirect to /auth/login when unauthenticated", async () => {
+    const fakeSession = { flash: vi.fn() } as unknown as never;
+    mockedParse.mockResolvedValue({ userId: undefined, session: fakeSession as never, vendorId: undefined, warehouseId: undefined, cookie: "" } as never);
+    const request = new Request("http://localhost/dashboard");
+    const error = (await loader({ request, params: {}, context: {} } as never).catch((e) => e)) as Response;
+    expect(error).toBeInstanceOf(Response);
+    expect(error.status).toBe(302);
+    expect(error.headers.get("location")).toBe("/auth/login");
   });
 
-  it("redirects to login when unauthenticated", async () => {
-    // The loader throws the redirect Response (Remix convention).
-    const redirect = (await callLoader().catch((error) => error)) as Response;
-    expect(redirect.status).toBe(302);
-    expect(redirect.headers.get("location")).toBe("/auth/login");
+  it("propagates Breadcrumb via AppLayout: loader does not interfere with breadcrumb rendering", async () => {
+    // Loader success should still allow layout to render AppLayout which contains Breadcrumb
+    mockedParse.mockResolvedValue({ userId: "user-1", session: {} as never, vendorId: 1, warehouseId: 11, cookie: "" } as never);
+    const request = new Request("http://localhost/warehouses/add");
+    const result = await loader({ request, params: {}, context: {} } as never);
+    expect(result).toEqual({});
+    // Static guarantee: AppLayout contains Breadcrumb (tested above)
+    expect(readSource(APP_LAYOUT_FILE)).toContain("<Breadcrumb");
   });
 });

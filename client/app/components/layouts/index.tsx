@@ -1,5 +1,6 @@
 import { useNavigation } from "@remix-run/react";
 import { BaseProps } from "~/types/common";
+import { Breadcrumb } from "../breadcrumb";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { Loading } from "../loading";
@@ -17,7 +18,10 @@ export const AppLayout = ({ children }: BaseProps) => {
         <div className="w-full max-w-60 h-full  shrink-0">
           <Sidebar />
         </div>
-        <div className="container-lg mx-auto  h-full w-full rounded-sm overflow-y-auto flex-1">{children}</div>
+        <div className="container-lg mx-auto h-full w-full rounded-sm overflow-y-auto flex-1 flex flex-col">
+          <Breadcrumb />
+          <div className="flex-1 min-h-0">{children}</div>
+        </div>
       </div>
     </div>
   );

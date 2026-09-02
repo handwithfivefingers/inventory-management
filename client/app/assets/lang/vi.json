@@ -174,6 +174,8 @@
     "updateFailed": "Cập nhật hóa đơn thất bại"
   },
   "orders": {
+    "title": "Đơn hàng",
+    "titleHint": "Quản lý đơn hàng",
     "detailTitle": "Chi tiết đơn hàng",
     "editOrder": "Sửa đơn hàng",
     "createInvoice": "Tạo hóa đơn",
@@ -201,6 +203,7 @@
     "product": "Tên sản phẩm",
     "quantity": "Số lượng",
     "price": "Giá tiền",
+    "unitPrice": "Đơn giá",
     "surcharge": "Phụ phí",
     "orderTotal": "Tổng tiền đơn hàng",
     "totalPayable": "Tổng phải thu",
@@ -343,7 +346,7 @@
     "product": "Sản phẩm",
     "attributesPanel": "Thuộc tính sản phẩm",
     "generateAllVariants": "Tự sinh biến thể",
-    "addVariant": "+ Thêm biến thể",
+    "addVariant": "Thêm biến thể",
     "noVariants": "Chưa có biến thể nào.",
     "noAttributes": "Chưa có thuộc tính nào.",
     "attributesTitle": "Thuộc tính sản phẩm",

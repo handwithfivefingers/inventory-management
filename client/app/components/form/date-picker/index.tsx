@@ -1,11 +1,11 @@
-import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dayjs } from "dayjs";
+import { m } from "motion/react";
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "~/components/icon";
+import { Portal } from "~/components/portal";
+import { DROPDOWN_PANEL_CLASS, useDropdownPosition } from "~/hooks";
 import { dayjs } from "~/libs/date";
 import { cn } from "~/libs/utils";
-import { Portal } from "~/components/portal";
-import { Icon } from "~/components/icon";
-import { DROPDOWN_PANEL_CLASS, useDropdownPosition } from "~/hooks";
-import { m } from "motion/react";
 /** Canonical value format exchanged with forms / APIs. */
 export const DATE_VALUE_FORMAT = "YYYY-MM-DD";
 const DISPLAY_FORMAT = "DD/MM/YYYY";
@@ -180,7 +180,7 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
             <m.div
               role="dialog"
               aria-label={label || "date-picker"}
-              className={cn(DROPDOWN_PANEL_CLASS, "[p-2 select-none max-w-[300px]")}
+              className={cn(DROPDOWN_PANEL_CLASS, "[p-2 select-none max-w-[300px] min-w-[280px]")}
               style={{ width: PANEL_WIDTH }}
               ref={panelRef}
               initial={{ opacity: 0 }}
@@ -217,7 +217,7 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-y-1 pb-2">
+              <div className="grid grid-cols-7 gap-y-1 pb-2 px-2">
                 {cells.map((date) => {
                   const isSelected = !!selectedDate && date.isSame(selectedDate, "day");
                   const isToday = date.isSame(today, "day");

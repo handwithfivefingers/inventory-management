@@ -7,3 +7,10 @@
   --color-success: oklch(62.7% 0.194 149.214);
   --color-danger: oklch(57.7% 0.245 27.325);
 }
+
+@layer components {
+  .card {
+    /* shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 */
+    @apply shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 bg-white rounded-md dark:bg-slate-500;
+  }
+}

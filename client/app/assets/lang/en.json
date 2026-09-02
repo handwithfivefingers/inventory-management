@@ -173,6 +173,8 @@
     "updateFailed": "Failed to update invoice"
   },
   "orders": {
+    "title": "Order",
+    "titleHint": "Manage orders",
     "detailTitle": "Order detail",
     "editOrder": "Edit order",
     "createInvoice": "Create invoice",
@@ -342,7 +344,7 @@
     "product": "Product",
     "attributesPanel": "Product attributes",
     "generateAllVariants": "Auto-generate variants",
-    "addVariant": "+ Add variant",
+    "addVariant": "Add variant",
     "noVariants": "No variants yet.",
     "noAttributes": "No attributes yet.",
     "attributesTitle": "Product attributes",

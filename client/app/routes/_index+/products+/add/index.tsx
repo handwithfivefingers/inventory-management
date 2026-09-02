@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData, useOutletContext } from "@remix-run/react";
+import { Link, useLoaderData, useOutletContext } from "@remix-run/react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { categoryService } from "~/action.server/category.service";
 import { productService } from "~/action.server/products.service";
@@ -8,24 +8,23 @@ import { IVendorSettings } from "~/action.server/setting.service";
 import { tagsService } from "~/action.server/tags.service";
 import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
+import { ErrorComponent } from "~/components/error-component";
 import { CheckboxInput } from "~/components/form/checkbox-input";
+import { DatePicker } from "~/components/form/date-picker";
 import { FormControl } from "~/components/form/form-control";
 import { MultiSelectInput } from "~/components/form/multi-select-input";
 import { NumberStepper } from "~/components/form/number-stepper";
-import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
 import { VariantEditor } from "~/components/form/variant-editor";
-import { Tab } from "~/components/tab";
+import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
+import { Tab } from "~/components/tab";
 import { TMButton } from "~/components/tm-button";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { parseCookieFromRequest } from "~/sessions";
-import { DatePicker } from "~/components/form/date-picker";
-import { Icon } from "~/components/icon";
-import { ErrorComponent } from "~/components/error-component";
 
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
@@ -53,6 +52,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function ProductItem() {
   const { submit, isLoading } = useSubmitPromise();
   const { settings } = useOutletContext<{ settings: IVendorSettings }>();
+  const { suggestedAttributes } = useLoaderData<typeof loader>();
   const moneyStep = Number(settings?.moneyStep) > 0 ? Number(settings.moneyStep) : 1000;
   const { t } = useTranslation();
   const formMethods = useForm<ProductSchemaType>({
@@ -97,34 +97,32 @@ export default function ProductItem() {
 
   const onSubmit = async (v: ProductSchemaType) => {
     const payload: Record<string, unknown> = { ...v };
-    // Attribute matrix -> backend payload; combinations are generated on both
-    // sides so only rows with typed overrides are sent explicitly.
-    // values is now Option[] {label,value}
-    const draftAttrs = (v.variantAttributes || [])
-      .map((a: any) => ({
-        name: (a?.name || "").trim(),
-        values: Array.isArray(a?.values)
-          ? (a.values as any[])
-              .map((o: any) => (typeof o === "string" ? o : o?.value ?? o?.label ?? ""))
-              .map((s: string) => String(s).trim())
-              .filter(Boolean)
-          : String(a?.values || "")
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean),
-      }))
-      .filter((a) => a.name && a.values.length > 0);
-
-    if (draftAttrs.length > 0) {
-      payload.attributes = draftAttrs;
-      // Every variant card is explicit; the backend only creates the listed
-      // combinations. Cards with unselected attribute values can't resolve to
-      // a combination and are skipped.
-      payload.generateAll = false;
-      payload.variants = (v.variants || [])
-        .filter((m) => m?.options && Object.keys(m.options).length > 0)
-        .map((m) => ({
-          optionValues: m.options,
+    // New schema: variants carry attributeIds / attributeValueIds (vendor-global)
+    // Build lookup from suggestedAttributes (id, name, values[id,value])
+    const attrByName = new Map<string, any>();
+    const valByAttrAndValue = new Map<string, number>();
+    for (const a of (suggestedAttributes as any[]) || []) {
+      const key = String(a.name || "").trim().toLowerCase();
+      if (!key) continue;
+      attrByName.set(key, a);
+      for (const val of (a.values || []) as any[]) {
+        valByAttrAndValue.set(`${key}::${String(val.value).trim().toLowerCase()}`, Number(val.id));
+      }
+    }
+    const variantsPayload = (v.variants || [])
+      .filter((m: any) => m?.options && Object.keys(m.options).length > 0)
+      .map((m: any) => {
+        const opts: Record<string, string> = m.options || {};
+        const attributeIds: number[] = [];
+        const attributeValueIds: number[] = [];
+        for (const [name, val] of Object.entries(opts)) {
+          const k = String(name).trim().toLowerCase();
+          const attr = attrByName.get(k);
+          if (attr) attributeIds.push(Number(attr.id));
+          const vid = valByAttrAndValue.get(`${k}::${String(val).trim().toLowerCase()}`);
+          if (vid) attributeValueIds.push(vid);
+        }
+        return {
           skuCode: m.skuCode,
           quantity: m.quantity,
           costPrice: m.costPrice,
@@ -132,10 +130,16 @@ export default function ProductItem() {
           salePrice: m.salePrice,
           wholeSalePrice: m.wholeSalePrice,
           isNegative: !!m.isNegative,
-        }));
+          attributes: attributeIds,
+          attributeValues: attributeValueIds,
+        };
+      });
+    if (variantsPayload.length > 0) {
+      payload.variants = variantsPayload;
+    } else {
+      delete payload.variants;
     }
     delete payload.variantAttributes;
-    delete payload.variants;
 
     const response: any = await submit(
       {
@@ -162,44 +166,63 @@ export default function ProductItem() {
 
   return (
     <FormProvider {...formMethods}>
-      <form
-        className="w-full flex flex-col p-2 gap-4"
-        onSubmit={formMethods.handleSubmit(
-          (v) => onSubmit({ ...v }),
-          (error) => handleError(error),
-        )}
-      >
-        <CardItem
-          title={
-            <div className="flex justify-between">
-              <div>{t("sidebar.products")}</div>
-              <div className="ml-auto col-span-12">
-                <TMButton htmlType="submit" loading={isLoading} className="font-normal!">
+      <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+        <div className="w-full mx-auto">
+          <form
+            onSubmit={formMethods.handleSubmit(
+              (v) => onSubmit({ ...v }),
+              (error) => handleError(error),
+            )}
+          >
+            <CardItem
+              title={
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                      <Icon name="package" fontSize={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                        {t("sidebar.products")}
+                      </h2>
+                      <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                        {t("product.formHint", { defaultValue: "Thêm sản phẩm mới" })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              }
+              className="p-5 sm:p-6"
+            >
+              <Tab
+                items={[
+                  {
+                    label: t("product.infoTab"),
+                    content: <ProductForm moneyStep={moneyStep} />,
+                    value: "info",
+                  },
+                  {
+                    label: t("product.variantsTab"),
+                    content: <VariantEditor />,
+                    value: "variant",
+                  },
+                ]}
+                active="info"
+                onChange={(value) => console.log("value", value)}
+              />
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-4">
+                <TMButton variant="ghost" size="sm" component={Link} to="/products" type="button">
+                  {t("common.cancel")}
+                </TMButton>
+                <TMButton htmlType="submit" loading={isLoading} size="sm">
+                  <Icon name="save" fontSize={16} />
                   {t("common.save")}
                 </TMButton>
               </div>
-            </div>
-          }
-          className="p-4"
-        >
-          <Tab
-            items={[
-              {
-                label: t("product.infoTab"),
-                content: <ProductForm moneyStep={moneyStep} />,
-                value: "info",
-              },
-              {
-                label: t("product.variantsTab"),
-                content: <VariantEditor />,
-                value: "variant",
-              },
-            ]}
-            active="info"
-            onChange={(value) => console.log("value", value)}
-          />
-        </CardItem>
-      </form>
+            </CardItem>
+          </form>
+        </div>
+      </div>
     </FormProvider>
   );
 }

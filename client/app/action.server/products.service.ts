@@ -98,6 +98,95 @@ const productService = {
       Cookie: cookie,
     });
   },
+  getAttributeById: ({ attributeId, cookie, vendorId }: { attributeId: string | number; cookie: string; vendorId?: string | number }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return http.get<{ data: IProductAttribute }>(`${API_PATH.products}/attributes/${attributeId}${qs}`, {
+      Cookie: cookie,
+    });
+  },
+  createAttribute: ({
+    cookie,
+    vendorId,
+    name,
+    values,
+  }: {
+    cookie: string;
+    vendorId?: string | number;
+    name: string;
+    values?: string[];
+  }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return http.post(`${API_PATH.products}/attributes${qs}`, { name, values }, { Cookie: cookie });
+  },
+  updateAttribute: ({
+    attributeId,
+    cookie,
+    vendorId,
+    ...params
+  }: {
+    attributeId: string | number;
+    cookie: string;
+    vendorId?: string | number;
+    [key: string]: any;
+  }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return http.put(`${API_PATH.products}/attributes/${attributeId}${qs}`, params, {
+      Cookie: cookie,
+    });
+  },
+  deleteAttribute: ({
+    attributeId,
+    cookie,
+    vendorId,
+  }: {
+    attributeId: string | number;
+    cookie: string;
+    vendorId?: string | number;
+  }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return http.delete(`${API_PATH.products}/attributes/${attributeId}${qs}`, { Cookie: cookie });
+  },
+  createAttributeValues: ({
+    attributeId,
+    cookie,
+    values,
+  }: {
+    attributeId: string | number;
+    cookie: string;
+    values: string[] | string;
+  }) => {
+    return http.post(`${API_PATH.products}/attributes/${attributeId}/values`, { values }, { Cookie: cookie });
+  },
+  updateAttributeValue: ({
+    valueId,
+    cookie,
+    value,
+  }: {
+    valueId: string | number;
+    cookie: string;
+    value: string;
+  }) => {
+    return http.put(`${API_PATH.products}/attributes/values/${valueId}`, { value }, { Cookie: cookie });
+  },
+  deleteAttributeValue: ({ valueId, cookie }: { valueId: string | number; cookie: string }) => {
+    return http.delete(`${API_PATH.products}/attributes/values/${valueId}`, { Cookie: cookie });
+  },
+  getAttributeProducts: ({
+    attributeId,
+    cookie,
+    vendorId,
+  }: {
+    attributeId: string | number;
+    cookie: string;
+    vendorId?: string | number;
+  }) => {
+    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
+    return http.get<{ data: IProduct[]; total: number }>(
+      `${API_PATH.products}/attributes/${attributeId}/products${qs}`,
+      { Cookie: cookie },
+    );
+  },
+  // Legacy per-product attribute wrappers (deprecated, kept for product detail VariantsManager)
   createProductAttribute: ({
     id,
     cookie,

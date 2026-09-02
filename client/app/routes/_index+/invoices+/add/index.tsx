@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { invoiceService } from "~/action.server/invoice.service";
 import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
+import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -71,63 +72,97 @@ export default function CreateInvoiceFromOrder() {
   }, [fetcher.state, fetcher.data, navigate]);
 
   return (
-    <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title={t("orders.selectOrderForInvoice")} className="p-4 h-full">
-        <div className="flex flex-col gap-4 h-full overflow-hidden">
-          <div className="flex gap-2 shrink-0 justify-between items-center">
-            <Link to="/invoices" className="text-blue-600 hover:underline text-sm">
-              ← {t("common.back")}
-            </Link>
-          </div>
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+      <div className="max-w-5xl w-full mx-auto">
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="clipboard" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {t("orders.selectOrderForInvoice")}
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                    Chọn đơn hàng để tạo hóa đơn
+                  </p>
+                </div>
+              </div>
+            </div>
+          }
+          className="p-5 sm:p-6 h-full"
+        >
+          <div className="flex flex-col gap-4 h-full overflow-hidden">
+            <div className="flex gap-2 shrink-0 justify-between items-center">
+              <Link to="/invoices" className="text-blue-600 hover:underline text-sm">
+                ← {t("common.back")}
+              </Link>
+            </div>
 
-          {(fetcher.data as any)?.error && (
-            <p className="text-red-600 text-sm">{(fetcher.data as any).error}</p>
-          )}
+            {(fetcher.data as any)?.error && <p className="text-red-600 text-sm">{(fetcher.data as any).error}</p>}
 
-          <div className="flex-1 overflow-auto">
-            <TMTable
-              columns={[
-                { title: "#", dataIndex: "id", width: 60 },
-                { title: t("orders.code"), dataIndex: "code", width: 150, render: (order: any) => order.code || `#${order.id}` },
-                { title: t("common.createdAt"), dataIndex: "createdAt", width: 180, render: (order: any) => new Date(order.createdAt).toLocaleString("vi-VN") },
-                {
-                  title: t("importOrder.quantity"),
-                  dataIndex: "quantity",
-                  width: 100,
-                  render: (order: any) =>
-                    (order.orderDetails || []).reduce((sum: number, d: any) => sum + Number(d.quantity || 0), 0),
-                },
-                { title: t("invoices.total"), dataIndex: "price", width: 130, render: (order: any) => formatCurrency(order.price) },
-                {
-                  title: t("common.actions"),
-                  dataIndex: "actions",
-                  width: 160,
-                  render: (order: any) => (
-                    <TMButton
-                      size="xs"
-                      disabled={fetcher.state !== "idle"}
-                      onClick={() => fetcher.submit({ orderId: String(order.id) }, { method: "post" })}
-                    >
-                      🧾 {t("orders.createInvoice")}
-                    </TMButton>
-                  ),
-                },
-              ]}
-              data={data || []}
-              rowKey="id"
-            />
-          </div>
+            <div className="flex-1 overflow-auto">
+              <TMTable
+                columns={[
+                  { title: "#", dataIndex: "id", width: 60 },
+                  {
+                    title: t("orders.code"),
+                    dataIndex: "code",
+                    width: 150,
+                    render: (order: any) => order.code || `#${order.id}`,
+                  },
+                  {
+                    title: t("common.createdAt"),
+                    dataIndex: "createdAt",
+                    width: 180,
+                    render: (order: any) => new Date(order.createdAt).toLocaleString("vi-VN"),
+                  },
+                  {
+                    title: t("importOrder.quantity"),
+                    dataIndex: "quantity",
+                    width: 100,
+                    render: (order: any) =>
+                      (order.orderDetails || []).reduce((sum: number, d: any) => sum + Number(d.quantity || 0), 0),
+                  },
+                  {
+                    title: t("invoices.total"),
+                    dataIndex: "price",
+                    width: 130,
+                    render: (order: any) => formatCurrency(order.price),
+                  },
+                  {
+                    title: t("common.actions"),
+                    dataIndex: "actions",
+                    width: 160,
+                    render: (order: any) => (
+                      <TMButton
+                        size="xs"
+                        disabled={fetcher.state !== "idle"}
+                        onClick={() => fetcher.submit({ orderId: String(order.id) }, { method: "post" })}
+                      >
+                        🧾 {t("orders.createInvoice")}
+                      </TMButton>
+                    ),
+                  },
+                ]}
+                data={data || []}
+                rowKey="id"
+              />
+            </div>
 
-          <div className="shrink-0">
-            <TMPagination
-              total={total || 0}
-              page={page}
-              pageSize={10}
-              onChange={(nextPage) => navigate(`?page=${nextPage}`)}
-            />
+            <div className="shrink-0">
+              <TMPagination
+                total={total || 0}
+                page={page}
+                pageSize={10}
+                onChange={(nextPage) => navigate(`?page=${nextPage}`)}
+              />
+            </div>
           </div>
-        </div>
-      </CardItem>
+        </CardItem>
+      </div>
     </div>
   );
 }

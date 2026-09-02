@@ -122,23 +122,6 @@ export const CreatableTagInput: React.FC<Props> = ({
       onChange(value.slice(0, -1));
     }
   };
-  // if (e.key === "Enter") {
-  //   e.preventDefault();
-  //   if (canCreate) createFromInput();
-  //   else if (filtered.length === 1) addOption(filtered[0]);
-  //   else if (filtered.length > 0 && inputValue.trim()) {
-  //     // if exact match in filtered, select it
-  //     const exact = filtered.find((o) => o.label.toLowerCase() === inputValue.trim().toLowerCase());
-  //     if (exact) addOption(exact);
-  //     else createFromInput();
-  //   }
-  // } else if (e.key === ",") {
-  //   e.preventDefault();
-  //   createFromInput();
-  // } else if (e.key === "Backspace" && !inputValue && value.length) {
-  //   onChange(value.slice(0, -1));
-  // }
-  // };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const text = e.clipboardData.getData("text");

@@ -15,6 +15,8 @@ import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { cn } from "~/libs/utils";
 import { parseCookieFromRequest } from "~/sessions";
+import { Icon } from "~/components/icon";
+import { MODULE_ENUM } from "~/constants/modules";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -146,17 +148,22 @@ export default function Financial() {
         <div className="py-2">
           <div className="flex gap-2 items-center justify-end flex-wrap">
             <PermissionGuard requireAdmin>
-              <TMButton component={Link} to={"./add"}>
+              <TMButton component={Link} to={"./add"} size="sm">
+                <Icon name="plus" />
                 {t("financial.addVoucher")}
               </TMButton>
             </PermissionGuard>
             <PermissionGuard requireAdmin>
-              <TMButton component={Link} to={"./report"}>
+              <TMButton component={Link} to={"./report"} size="sm">
+                <Icon name="file-text" fontSize={16} />
                 {t("financial.report")}
               </TMButton>
             </PermissionGuard>
             <PermissionGuard requireAdmin>
-              <TMButton component={Link}>{t("common.exportExcel")}</TMButton>
+              <TMButton component={Link} size="sm">
+                <Icon name="file-plus" fontSize={16} />
+                {t("common.exportExcel")}
+              </TMButton>
             </PermissionGuard>
           </div>
           <div className="flex gap-2 items-end flex-wrap mt-2">
@@ -228,9 +235,27 @@ export default function Financial() {
                 title: t("common.actions"),
                 dataIndex: "id",
                 render: (record) => (
-                  <TMButton component={Link} to={`./${record.id}`} variant="light" size="xs">
-                    {t("common.view")}
-                  </TMButton>
+                  <div className="flex gap-1 justify-center">
+                    <PermissionGuard permission="READ" module={MODULE_ENUM.financial}>
+                      <TMButton component={Link} to={`${record.id}`} size="sm" className="py-2">
+                        <Icon name="eye" fontSize={12} />
+                      </TMButton>
+                    </PermissionGuard>
+                    {/* <PermissionGuard permission="UPDATE" module="customer">
+                      <TMButton component={Link} to={`${item.id}/edit`} size="sm" className="py-2">
+                        <Icon name="edit" fontSize={12} />
+                      </TMButton>
+                    </PermissionGuard>
+                    <PermissionGuard permission="DELETE" module="customer">
+                      <TMButton
+                        size="sm"
+                        onClick={() => handleDelete(item.id)}
+                        className="py-2 text-red-500 bg-red-500/20"
+                      >
+                        <Icon name="trash" fontSize={12} />
+                      </TMButton> 
+                    </PermissionGuard>*/}
+                  </div>
                 ),
               },
             ]}

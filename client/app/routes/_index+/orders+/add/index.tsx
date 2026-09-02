@@ -4,8 +4,10 @@ import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { orderService } from "~/action.server/order.service";
 import { IVendorSettings } from "~/action.server/setting.service";
+import { Link } from "@remix-run/react";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { OrderForm } from "~/components/form/order-form";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
@@ -164,101 +166,111 @@ export default function OrderItem() {
   return (
     <FormProvider {...form}>
       <style>{PRINT_STYLES}</style>
-      <div className="w-full flex flex-col p-2 gap-4">
-        {/* Temp invoice preview */}
-        {showTempInvoice && (
-          <CardItem
-            title={
-              <div className="flex justify-between items-center">
-                <span>{t("orders.tempInvoice")}</span>
-                <button
-                  type="button"
-                  onClick={() => setShowTempInvoice(false)}
-                  className="text-gray-500 hover:text-gray-700 no-print"
-                >
-                  ✕
-                </button>
-              </div>
-            }
-            className="p-6 invoice-print"
-          >
-            <div className="flex flex-col gap-4">
-              <p className="text-lg font-bold">{t("orders.tempInvoice")}</p>
-              <div className="border rounded overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-2 text-left">{t("importOrder.product")}</th>
-                      <th className="p-2 w-24 text-right">{t("importOrder.quantity")}</th>
-                      <th className="p-2 w-32 text-right">{t("importOrder.price")}</th>
-                      <th className="p-2 w-32 text-right">{t("importOrder.total")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(orderDetails || []).map((item, index) => (
-                      <tr key={index} className="border-t">
-                        <td className="p-2">{item.name}</td>
-                        <td className="p-2 text-right">{item.quantity}</td>
-                        <td className="p-2 text-right">{formatCurrency(item.price)}</td>
-                        <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
+      <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+        <div className="w-full mx-auto flex flex-col gap-3">
+          {/* Temp invoice preview */}
+          {showTempInvoice && (
+            <CardItem
+              title={
+                <div className="flex justify-between items-center">
+                  <span>{t("orders.tempInvoice")}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowTempInvoice(false)}
+                    className="text-gray-500 hover:text-gray-700 no-print"
+                  >
+                    ✕
+                  </button>
+                </div>
+              }
+              className="p-6 invoice-print"
+            >
+              <div className="flex flex-col gap-4">
+                <p className="text-lg font-bold">{t("orders.tempInvoice")}</p>
+                <div className="border rounded overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-2 text-left">{t("importOrder.product")}</th>
+                        <th className="p-2 w-24 text-right">{t("importOrder.quantity")}</th>
+                        <th className="p-2 w-32 text-right">{t("importOrder.price")}</th>
+                        <th className="p-2 w-32 text-right">{t("importOrder.total")}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end">
-                <div className="w-72 space-y-2">
-                  <div className="flex justify-between">
-                    <span>{t("invoices.detail.subtotalLabel")}</span>
-                    <span className="font-medium">{formatCurrency(tempSubtotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{t("invoices.detail.surcharge")}</span>
-                    <span className="font-medium">{formatCurrency(watchSurcharge || 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>
-                      {t("importOrder.VAT")} ({Number(watchVAT || 0)}%)
-                    </span>
-                    <span className="font-medium">{formatCurrency(tempVatAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold border-t pt-2">
-                    <span>{t("importOrder.totalPayable")}</span>
-                    <span className="text-blue-600">{formatCurrency(tempTotal)}</span>
+                    </thead>
+                    <tbody>
+                      {(orderDetails || []).map((item, index) => (
+                        <tr key={index} className="border-t">
+                          <td className="p-2">{item.name}</td>
+                          <td className="p-2 text-right">{item.quantity}</td>
+                          <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                          <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-end">
+                  <div className="w-72 space-y-2">
+                    <div className="flex justify-between">
+                      <span>{t("invoices.detail.subtotalLabel")}</span>
+                      <span className="font-medium">{formatCurrency(tempSubtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{t("invoices.detail.surcharge")}</span>
+                      <span className="font-medium">{formatCurrency(watchSurcharge || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>
+                        {t("importOrder.VAT")} ({Number(watchVAT || 0)}%)
+                      </span>
+                      <span className="font-medium">{formatCurrency(tempVatAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold border-t pt-2">
+                      <span>{t("importOrder.totalPayable")}</span>
+                      <span className="text-blue-600">{formatCurrency(tempTotal)}</span>
+                    </div>
                   </div>
                 </div>
+                <div className="flex gap-2 justify-end no-print">
+                  <TMButton variant="outline" onClick={() => setShowTempInvoice(false)}>
+                    {t("common.cancel")}
+                  </TMButton>
+                  <TMButton variant="outline" onClick={() => window.print()}>
+                    🖨 {t("common.print", { defaultValue: "Print" })}
+                  </TMButton>
+                </div>
+                <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
               </div>
-              <div className="flex gap-2 justify-end no-print">
-                <TMButton variant="outline" onClick={() => setShowTempInvoice(false)}>
-                  {t("common.cancel")}
-                </TMButton>
-                <TMButton variant="outline" onClick={() => window.print()}>
-                  🖨 {t("common.print", { defaultValue: "Print" })}
+            </CardItem>
+          )}
+          <CardItem
+            title={
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                    <Icon name="shopping-cart" fontSize={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Tạo đơn hàng</h2>
+                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Tạo đơn hàng mới</p>
+                  </div>
+                </div>
+                <TMButton variant="outline" size="xs" type="button" onClick={() => setShowTempInvoice(true)}>
+                  🧾 {t("orders.printTempInvoice")}
                 </TMButton>
               </div>
-              <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
-            </div>
+            }
+            className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+          >
+            <OrderForm
+              products={data}
+              addProduct={handleAdd}
+              onProductFilter={handleFilterProduct}
+              isLoading={isLoading}
+              onSubmit={onSubmit}
+              onError={handleError}
+            />
           </CardItem>
-        )}
-        <CardItem
-          title={
-            <div className="flex justify-between items-center">
-              <label className="text-lg">Tạo đơn hàng</label>
-              <TMButton variant="outline" size="xs" type="button" onClick={() => setShowTempInvoice(true)}>
-                🧾 {t("orders.printTempInvoice")}
-              </TMButton>
-            </div>
-          }
-          className="min-h-80 p-4"
-        >
-          <OrderForm
-            products={data}
-            addProduct={handleAdd}
-            onProductFilter={handleFilterProduct}
-            isLoading={isLoading}
-            onSubmit={onSubmit}
-            onError={handleError}
-          />
           <VariantPickerModal
             show={showVariantPicker}
             close={() => {
@@ -273,7 +285,7 @@ export default function OrderItem() {
           {/* <BarcodeScanner onScan={handleRetrieveData} start={canScan}>
            
           </BarcodeScanner> */}
-        </CardItem>
+        </div>
       </div>
     </FormProvider>
   );
@@ -292,7 +304,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   };
   const resp = await orderService.createOrder(params);
   // return resp;
-  if (resp.status === 201) {
+  if (resp.status === 200) {
     return Response.json({ resp, status: 200 });
   }
   return Response.json({ ...resp, status: 400 }, { status: 400 });

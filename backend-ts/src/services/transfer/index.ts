@@ -1,4 +1,8 @@
 import database from '#/database'
+import ProductAttribute from '#/database/models/productAttribute'
+import ProductAttributeValue from '#/database/models/productAttributeValue'
+import ProductVariant from '#/database/models/productVariant'
+import Transfer from '#/database/models/transfer'
 import { IRequestLocal } from '#/types/common'
 import { ITransferStatic } from '#/types/transfer'
 import { Op, Sequelize } from 'sequelize'
@@ -31,25 +35,22 @@ export class TransferService {
       const warehouseQuery = typeof warehouseId === 'string' ? [warehouseId] : warehouseId
       const where: Record<string, unknown> = {
         productId: id,
-        [Op.or]: [
-          { fromWarehouseId: { [Op.in]: warehouseQuery } },
-          { toWarehouseId: { [Op.in]: warehouseQuery } }
-        ]
+        [Op.or]: [{ fromWarehouseId: { [Op.in]: warehouseQuery } }, { toWarehouseId: { [Op.in]: warehouseQuery } }]
       }
       // Filter by a specific variant; omit the key entirely to keep the
       // legacy behaviour of returning all movements for the product.
       if (variantId != null && variantId !== '') {
         where.variantId = Number(variantId)
       }
-      const resp = await this.transfer.findAndCountAll({
+      const resp = await Transfer.findAndCountAll({
         where,
         include: [
           {
-            model: database.productVariant,
+            model: ProductVariant,
             attributes: ['id', 'skuCode'],
             required: false
           }
-        ] as any
+        ]
       })
       return resp
     } catch (error) {

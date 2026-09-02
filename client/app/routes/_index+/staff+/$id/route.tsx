@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { staffService } from "~/action.server/staff.service";
 import { CardItem } from "~/components/card-item";
@@ -9,6 +9,7 @@ import { FormControl } from "~/components/form/form-control";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { StaffSchema, staffSchema } from "~/constants/schema/staff";
 import { useSubmitPromise } from "~/hooks";
@@ -67,97 +68,134 @@ export default function StaffDetail() {
   if (!data) return <div className="p-4">No data</div>;
 
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
-      <CardItem title={`${t("staff.title")} - ${data.code}`} className="p-4">
-        <FormProvider {...formMethods}>
-          <form className="grid grid-cols-2 gap-x-4 gap-2" onSubmit={handleSubmit(onSubmit)}>
-            <div className="col-span-1">
-              <FormControl name="fullName">
-                {(field) => <TextInput label={t("staff.fullName")} {...field} />}
-              </FormControl>
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+      <div className="max-w-3xl w-full mx-auto">
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="users" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {t("staff.title")} - {data.code}
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Chi tiết nhân viên</p>
+                </div>
+              </div>
             </div>
-            <div className="col-span-1">
-              <FormControl name="phone">{(field) => <TextInput label={t("staff.phone")} {...field} />}</FormControl>
-            </div>
-            <div className="col-span-1">
-              <FormControl name="email">{(field) => <TextInput label={t("staff.email")} {...field} />}</FormControl>
-            </div>
-            <div className="col-span-1">
-              <FormControl name="gender">
+          }
+          className="p-5 sm:p-6"
+        >
+          <FormProvider {...formMethods}>
+            <form className="flex flex-col gap-5 mt-2" onSubmit={handleSubmit(onSubmit)}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormControl name="fullName">
+                  {(field) => (
+                    <TextInput
+                      label={t("staff.fullName")}
+                      {...field}
+                      prefix={<Icon name="user" fontSize={16} className="text-slate-400" />}
+                    />
+                  )}
+                </FormControl>
+                <FormControl name="phone">
+                  {(field) => (
+                    <TextInput
+                      label={t("staff.phone")}
+                      {...field}
+                      prefix={<Icon name="phone" fontSize={16} className="text-slate-400" />}
+                    />
+                  )}
+                </FormControl>
+                <FormControl name="email">
+                  {(field) => (
+                    <TextInput
+                      label={t("staff.email")}
+                      {...field}
+                      prefix={<Icon name="mail" fontSize={16} className="text-slate-400" />}
+                    />
+                  )}
+                </FormControl>
+                <FormControl name="gender">
+                  {(field) => (
+                    <SelectInput
+                      label={t("staff.gender")}
+                      options={[
+                        { label: "Male", value: "male" },
+                        { label: "Female", value: "female" },
+                        { label: "Other", value: "other" },
+                      ]}
+                      {...field}
+                      onSelect={(v) => field.onChange(v)}
+                    />
+                  )}
+                </FormControl>
+                <FormControl name="position">
+                  {(field) => (
+                    <SelectInput
+                      label={t("staff.position")}
+                      options={[
+                        { label: "Manager", value: "manager" },
+                        { label: "Cashier", value: "cashier" },
+                        { label: "Warehouse", value: "warehouse" },
+                        { label: "Sales", value: "sales" },
+                        { label: "Other", value: "other" },
+                      ]}
+                      {...field}
+                      onSelect={(v) => field.onChange(v)}
+                    />
+                  )}
+                </FormControl>
+                <FormControl name="status">
+                  {(field) => (
+                    <SelectInput
+                      label={t("staff.status")}
+                      options={[
+                        { label: "Active", value: "active" },
+                        { label: "Inactive", value: "inactive" },
+                      ]}
+                      {...field}
+                      onSelect={(v) => field.onChange(v)}
+                    />
+                  )}
+                </FormControl>
+                <FormControl name="salary">
+                  {(field) => (
+                    <NumberInput
+                      label={t("staff.salary")}
+                      value={field.value as any}
+                      onValueChange={(v) => field.onChange(v.value)}
+                    />
+                  )}
+                </FormControl>
+                <FormControl name="hireDate">
+                  {(field) => <DatePicker label={t("staff.hireDate")} {...field} />}
+                </FormControl>
+              </div>
+              <FormControl name="address">
                 {(field) => (
-                  <SelectInput
-                    label={t("staff.gender")}
-                    options={[
-                      { label: "Male", value: "male" },
-                      { label: "Female", value: "female" },
-                      { label: "Other", value: "other" },
-                    ]}
+                  <TextInput
+                    label={t("staff.address")}
                     {...field}
-                    onSelect={(v) => field.onChange(v)}
+                    prefix={<Icon name="map-pin" fontSize={16} className="text-slate-400" />}
                   />
                 )}
               </FormControl>
-            </div>
-            <div className="col-span-1">
-              <FormControl name="position">
-                {(field) => (
-                  <SelectInput
-                    label={t("staff.position")}
-                    options={[
-                      { label: "Manager", value: "manager" },
-                      { label: "Cashier", value: "cashier" },
-                      { label: "Warehouse", value: "warehouse" },
-                      { label: "Sales", value: "sales" },
-                      { label: "Other", value: "other" },
-                    ]}
-                    {...field}
-                    onSelect={(v) => field.onChange(v)}
-                  />
-                )}
-              </FormControl>
-            </div>
-            <div className="col-span-1">
-              <FormControl name="status">
-                {(field) => (
-                  <SelectInput
-                    label={t("staff.status")}
-                    options={[
-                      { label: "Active", value: "active" },
-                      { label: "Inactive", value: "inactive" },
-                    ]}
-                    {...field}
-                    onSelect={(v) => field.onChange(v)}
-                  />
-                )}
-              </FormControl>
-            </div>
-            <div className="col-span-1">
-              <FormControl name="salary">
-                {(field) => (
-                  <NumberInput
-                    label={t("staff.salary")}
-                    value={field.value as any}
-                    onValueChange={(v) => field.onChange(v.value)}
-                  />
-                )}
-              </FormControl>
-            </div>
-            <div className="col-span-1">
-              <FormControl name="hireDate">
-                {(field) => <DatePicker label={t("staff.hireDate")} {...field} />}
-              </FormControl>
-            </div>
-            <div className="col-span-2">
-              <FormControl name="address">{(field) => <TextInput label={t("staff.address")} {...field} />}</FormControl>
-            </div>
-            <div className="col-span-2 ml-auto">
-              <TMButton variant="light" htmlType="submit" size="sm" loading={isLoading}>
-                {t("common.save")}
-              </TMButton>
-            </div>
-          </form>
-        </FormProvider>
-      </CardItem>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+                <TMButton variant="ghost" size="sm" component={Link} to="/staff" type="button">
+                  {t("common.cancel")}
+                </TMButton>
+                <TMButton htmlType="submit" size="sm" loading={isLoading}>
+                  <Icon name="save" fontSize={16} />
+                  {t("common.save")}
+                </TMButton>
+              </div>
+            </form>
+          </FormProvider>
+        </CardItem>
+      </div>
     </div>
   );
 }

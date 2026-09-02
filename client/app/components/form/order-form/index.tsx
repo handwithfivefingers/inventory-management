@@ -11,6 +11,7 @@ import { FormControl } from "../form-control";
 import { TMButton } from "~/components/tm-button";
 import { SelectInput } from "../select-input";
 import { IProvider } from "~/types/provider";
+import { Divider } from "~/components/divider";
 
 interface Props {
   addProduct: (product: IProduct) => void;
@@ -65,39 +66,57 @@ export const OrderForm = ({
   };
 
   return (
-    <div className="w-full flex flex-col p-2 gap-4">
+    <div className="w-full flex flex-col gap-4 ">
       <BarcodeScanner onScan={handleRetrieveData} start={canScan}>
-        <form className="grid grid-cols-12 gap-4" onSubmit={form.handleSubmit(onHandleSubmit, onError)}>
-          <div className="col-span-12 grid grid-cols-12 gap-2 py-2 bg-slate-100">
-            <div className="col-span-1 px-2">{t("importOrder.stt")}</div>
-            <div className="col-span-4 px-2">{t("importOrder.product")}</div>
-            <div className="col-span-2 px-2 ">{t("importOrder.quantity")}</div>
-            <div className="col-span-2 px-2 text-right">{t("importOrder.price")}</div>
-            <div className="col-span-3 px-2 text-right">{t("importOrder.total")}</div>
-          </div>
-          <div className="col-span-12">
-            <OrderDetails ref={orderDetailsRef} addProduct={() => setShowModal(true)} />
-          </div>
-          <div className="col-span-12 grid grid-cols-12 gap-2 py-4 mt-4 border-t border-indigo-200 dark:border-slate-400">
-            {providers?.length ? (
-              <div className="col-span-12 max-w-[200px]">
-                <FormControl name="providerId">
-                  {(field) => {
-                    return (
-                      <SelectInput
-                        options={providers?.map((item) => ({ label: item.name, value: item.id })) || []}
-                        {...field}
-                        label={t("importOrder.provider")}
-                        onSelect={(v) => field.onChange(v)}
-                      />
-                    );
-                  }}
-                </FormControl>
+        <form className="flex gap-2 flex-col" onSubmit={form.handleSubmit(onHandleSubmit, onError)}>
+          <div className="flex gap-2">
+            <div className="flex-1 bg-slate-200/30 rounded ">
+              <OrderDetails ref={orderDetailsRef} addProduct={() => setShowModal(true)} />
+            </div>
+            <div className="flex flex-col gap-2 w-xs p-4 bg-slate-200/30 rounded-md">
+              {/* <div className="flex justify-between ">
+                <span className="text-sm">{t("importOrder.total")}</span>
+                <NumberInput value={`${total}`} displayType="text" />
+              </div> */}
+              <div className="flex justify-between">
+                <span className="text-sm">{t("importOrder.surcharge")}</span>{" "}
+                <div className="w-40">
+                  <FormControl name="surcharge">
+                    {(field) => <NumberInput onValueChange={(v) => field.onChange(v.value)} />}
+                  </FormControl>
+                </div>
               </div>
-            ) : (
-              ""
-            )}
-            <div className="col-span-12 max-w-[200px]">
+              <div className="flex justify-between">
+                <span className="text-sm"> {t("importOrder.VAT")} </span>
+                <div className="w-40">
+                  <FormControl name="VAT">
+                    {(field) => (
+                      <NumberInput
+                        maxLength={4}
+                        max={1000}
+                        value={`${field.value}`}
+                        onValueChange={(v) => field.onChange(v.value)}
+                        suffix="%"
+                      />
+                    )}
+                  </FormControl>
+                </div>
+              </div>
+              {/* <div className="flex justify-between">
+                <span className="text-sm">{t("importOrder.orderTotal")} </span>
+                <NumberInput value={`${totalPaid}`} displayType="text" />
+              </div> */}
+              <Divider />
+
+              <div className="flex justify-between font-bold">
+                <span className="text-sm">{t("importOrder.totalPayable")}</span>{" "}
+                <NumberInput value={`${totalPaid}`} displayType="text" />
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">{t("importOrder.paid")}</span>{" "}
+                <NumberInput value={`${totalPaid}`} displayType="text" />
+              </div>
+
               <FormControl name="paymentType">
                 {(field) => {
                   return (
@@ -114,54 +133,34 @@ export const OrderForm = ({
                   );
                 }}
               </FormControl>
-            </div>
-            <div className="col-span-12 ml-auto flex flex-col gap-1">
-              <div className="w-96 flex justify-between ">
-                <span>{t("importOrder.total")}</span>
-                <NumberInput value={`${total}`} displayType="text" />
-              </div>
-              <div className="w-96 flex justify-between">
-                <span>{t("importOrder.surcharge")}</span>{" "}
-                <div className="w-40">
-                  <FormControl name="surcharge">
-                    {(field) => <NumberInput onValueChange={(v) => field.onChange(v.value)} />}
-                  </FormControl>
-                </div>
-              </div>
-              <div className="w-96 flex justify-between">
-                <span> {t("importOrder.VAT")} </span>
-                <div className="w-40">
-                  <FormControl name="VAT">
-                    {(field) => (
-                      <NumberInput
-                        maxLength={4}
-                        max={1000}
-                        value={`${field.value}`}
-                        onValueChange={(v) => field.onChange(v.value)}
-                        suffix="%"
-                      />
-                    )}
-                  </FormControl>
-                </div>
-              </div>
-              <div className="w-96 flex justify-between">
-                <span>{t("importOrder.orderTotal")} </span>
-                <NumberInput value={`${totalPaid}`} displayType="text" />
-              </div>
-              <div className="h-[2px] border-t border-primary dark:border-slate-400 my-2" />
-              <div className="w-96 flex justify-between font-bold">
-                <span>{t("importOrder.totalPayable")}</span> <NumberInput value={`${totalPaid}`} displayType="text" />
-              </div>
-              <div className="w-96 flex justify-between">
-                <span>{t("importOrder.paid")}</span> <NumberInput value={`${totalPaid}`} displayType="text" />
-              </div>
-              <div className="h-[2px] border-t border-primary dark:border-slate-400 my-2" />
-              <div className="w-96 flex justify-end">
-                <TMButton htmlType="submit" size="md" variant="light" loading={isLoading}>
+
+              <Divider />
+              <div className="flex justify-end">
+                <TMButton htmlType="submit" size="sm" variant="light" loading={isLoading}>
                   {submitLabel || t("importOrder.createOrder")}
                 </TMButton>
               </div>
             </div>
+          </div>
+          <div>
+            {providers?.length ? (
+              <div className="max-w-[200px]">
+                <FormControl name="providerId">
+                  {(field) => {
+                    return (
+                      <SelectInput
+                        options={providers?.map((item) => ({ label: item.name, value: item.id })) || []}
+                        {...field}
+                        label={t("importOrder.provider")}
+                        onSelect={(v) => field.onChange(v)}
+                      />
+                    );
+                  }}
+                </FormControl>
+              </div>
+            ) : (
+              ""
+            )}
           </div>
         </form>
         <ProductSearchModal

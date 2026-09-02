@@ -118,16 +118,23 @@ export default function RoleAdd() {
 
   return (
     <FormProvider {...form}>
-      <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(onSubmit, handleError)}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">Tạo vai trò mới</h2>
-            <p className="text-sm text-gray-600">Thiết lập vai trò mới với các quyền hạn</p>
-          </div>
-          <TMButton variant="light" size="sm" type="button" onClick={() => navigate("/setting/role")}>
-            <Icon name="x" className="w-4 h-4" />
-          </TMButton>
-        </div>
+      <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+        <div className="max-w-6xl w-full mx-auto">
+          <form className="flex flex-col gap-3" onSubmit={form.handleSubmit(onSubmit, handleError)}>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-3 items-center">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="shield" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Tạo vai trò mới</h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Thiết lập vai trò mới với các quyền hạn</p>
+                </div>
+              </div>
+              <TMButton variant="ghost" size="sm" type="button" onClick={() => navigate("/setting/role")}>
+                <Icon name="x" className="w-4 h-4" />
+              </TMButton>
+            </div>
 
         <div className="flex gap-4">
           <div className="w-64 flex-shrink-0 py-4">
@@ -158,7 +165,7 @@ export default function RoleAdd() {
           </div>
 
           <div className="flex-1">
-            <CardItem title="Phân quyền chi tiết" className="p-4 overflow-hidden">
+            <CardItem title="Phân quyền chi tiết" className="p-5 sm:p-6 overflow-hidden">
               <div className="overflow-x-auto">
                 <TMTable
                   scrollable
@@ -242,16 +249,18 @@ export default function RoleAdd() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <TMButton variant="light" size="sm" type="button" onClick={() => navigate("/setting/role")}>
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+          <TMButton variant="ghost" size="sm" type="button" onClick={() => navigate("/setting/role")}>
             Hủy
           </TMButton>
-          <TMButton type="submit" size="sm" loading={isLoading}>
+          <TMButton htmlType="submit" size="sm" loading={isLoading}>
             <Icon name="save" fontSize={16} />
             <span>Lưu vai trò</span>
           </TMButton>
         </div>
       </form>
+        </div>
+      </div>
     </FormProvider>
   );
 }

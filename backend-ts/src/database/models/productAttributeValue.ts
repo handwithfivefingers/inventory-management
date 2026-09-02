@@ -1,4 +1,14 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, BelongsToMany } from 'sequelize-typescript'
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+  ForeignKey,
+  BelongsTo,
+  BelongsToMany
+} from 'sequelize-typescript'
 import { Product } from './product'
 import { ProductAttribute } from './productAttribute'
 import { ProductVariant } from './productVariant'
@@ -20,9 +30,9 @@ export class ProductAttributeValue extends Model {
   @Column(DataType.INTEGER)
   declare attributeId: number
 
-  @ForeignKey(() => Product)
-  @Column(DataType.INTEGER)
-  declare productId: number
+  // @ForeignKey(() => Product)
+  // @Column(DataType.INTEGER)
+  // declare productId: number
 
   @CreatedAt
   declare createdAt: Date
@@ -30,14 +40,18 @@ export class ProductAttributeValue extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Product, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
-  declare product: Product
+  // @BelongsTo(() => Product, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
+  // declare product: Product
 
   @BelongsTo(() => ProductAttribute, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare attribute: ProductAttribute
 
-  @BelongsToMany(() => ProductVariant, { through: 'product_variant_attribute_values', foreignKey: 'attributeValueId', otherKey: 'variantId' })
-  declare variants: ProductVariant[]
+  // @BelongsToMany(() => ProductVariant, {
+  //   through: 'product_variant_attribute_values',
+  //   foreignKey: 'attributeValueId',
+  //   otherKey: 'variantId'
+  // })
+  // declare variants: ProductVariant[]
 }
 
 export default ProductAttributeValue

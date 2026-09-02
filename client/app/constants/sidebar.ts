@@ -36,7 +36,7 @@ export const SIDE_BAR: ISideBarItem[] = [
       {
         to: "/dashboard",
         labelKey: "sidebar.revenue",
-        iconName: "home",
+        iconName: "bar-chart-2",
         moduleKey: "dashboard",
       },
       {
@@ -78,7 +78,7 @@ export const SIDE_BAR: ISideBarItem[] = [
       {
         to: "/providers",
         labelKey: "sidebar.providers",
-        iconName: "git-pull-request",
+        iconName: "truck",
         moduleKey: "provider",
       },
       {
@@ -91,12 +91,12 @@ export const SIDE_BAR: ISideBarItem[] = [
   },
   {
     labelKey: "sidebar.groupWarehouse",
-    iconName: "layers",
+    iconName: "home",
     items: [
       {
         to: "/warehouses",
         labelKey: "sidebar.warehouses",
-        iconName: "layers",
+        iconName: "home",
         moduleKey: "warehouse",
       },
     ],

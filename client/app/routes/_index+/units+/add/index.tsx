@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
-import { redirect, useFetcher } from "@remix-run/react";
+import { Link, redirect, useFetcher } from "@remix-run/react";
 import { MouseEvent, useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { unitsService } from "~/action.server/units.service";
@@ -8,6 +8,7 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { productSchema } from "~/constants/schema/product";
@@ -20,10 +21,27 @@ export const meta: MetaFunction = () => {
 
 export default function UnitItem() {
   return (
-    <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <CardItem title="Đơn vị" className="p-4 h-full">
-        <UnitForm />
-      </CardItem>
+    <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
+      <div className="max-w-3xl w-full mx-auto">
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="dollar-sign" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Đơn vị</h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Thêm đơn vị mới</p>
+                </div>
+              </div>
+            </div>
+          }
+          className="p-5 sm:p-6"
+        >
+          <UnitForm />
+        </CardItem>
+      </div>
     </div>
   );
 }
@@ -64,27 +82,32 @@ const UnitForm = () => {
   return (
     <FormProvider {...formMethods}>
       <form
-        className="py-2 grid grid-cols-12 gap-4"
         onSubmit={formMethods.handleSubmit(
           (v) => onSubmit({ ...v }),
-          (error) => handleError(error)
+          (error) => handleError(error),
         )}
+        className="flex flex-col gap-5 mt-2"
       >
-        <div className="col-span-12">
-          <FormControl name="name">
-            {(field) => {
-              return (
-                <TextInput
-                  label="Tên đơn vị"
-                  value={field.value as any}
-                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-                />
-              );
-            }}
-          </FormControl>
-        </div>
-        <div className="ml-auto col-span-12">
-          <TMButton htmlType="submit" variant="light">
+        <FormControl name="name">
+          {(field) => {
+            return (
+              <TextInput
+                label="Tên đơn vị"
+                placeholder="Nhập tên đơn vị"
+                required
+                prefix={<Icon name="dollar-sign" fontSize={16} className="text-slate-400" />}
+                value={field.value as any}
+                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+              />
+            );
+          }}
+        </FormControl>
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+          <TMButton variant="ghost" size="sm" component={Link} to="/units" type="button">
+            Hủy
+          </TMButton>
+          <TMButton htmlType="submit" size="sm">
+            <Icon name="save" fontSize={16} />
             Thêm
           </TMButton>
         </div>

@@ -27,7 +27,7 @@ const variantAttributeSchema = z.object({
   ),
 });
 
-/** Fields supported on each generated/selected variant */
+/** Fields supported on each generated/selected variant - new schema uses ID arrays */
 const variantOverrideSchema = z.object({
   skuCode: StrOrNum.optional(),
   quantity: StrOrNum.optional(),
@@ -37,6 +37,9 @@ const variantOverrideSchema = z.object({
   wholeSalePrice: StrOrNum.optional(),
   /** Allow negative stock for this specific combination (required choice) */
   isNegative: z.boolean().optional(),
+  // New: references to global attributes
+  attributes: z.array(StrOrNum).optional(),
+  attributeValues: z.array(StrOrNum).optional(),
 });
 
 const productSchema = z.object({

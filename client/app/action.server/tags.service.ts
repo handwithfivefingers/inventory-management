@@ -10,7 +10,9 @@ const API_PATH = {
 const tagsService = {
   get: ({ cookie: Cookie, ...searchParams }: ITagQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<{ data: ITag[]; total: number }>(API_PATH.tags + "?" + qs.toString(), { Cookie });
+    return HTTPService.getInstance().get<{ data: ITag[]; total: number }>(API_PATH.tags + "?" + qs.toString(), {
+      Cookie,
+    });
   },
   update: ({ id, cookie: Cookie, vendorId, ...params }: ITagParams & { vendorId?: string | number }) => {
     const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
@@ -31,7 +33,7 @@ const tagsService = {
     const params = new URLSearchParams({});
     if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") params.set("vendorId", `${vendorId}`);
     const qs = params.toString();
-    return HTTPService.getInstance().get<ITag>(API_PATH.tags + "/" + id + (qs ? "?" + qs : ""), { Cookie });
+    return HTTPService.getInstance().get<{ data: ITag }>(API_PATH.tags + "/" + id + (qs ? "?" + qs : ""), { Cookie });
   },
 };
 

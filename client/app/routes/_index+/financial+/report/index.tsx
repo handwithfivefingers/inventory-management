@@ -7,18 +7,32 @@ import { ErrorComponent } from "~/components/error-component";
 import { DatePicker } from "~/components/form/date-picker";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
-import { getSession, parseCookieFromRequest } from "~/sessions";
+import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
+import { dayjs } from "~/libs/date";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    // const cookie = request.headers.get("Cookie") as string;
-    // const session = await getSession(cookie);
-    // const warehouseId = session.get("warehouseId");
     const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
-    const from = url.searchParams.get("from") || "";
-    const to = url.searchParams.get("to") || "";
+    const now = dayjs();
+    const fromParam = url.searchParams.get("from");
+    const toParam = url.searchParams.get("to");
+
+    // Bug 5 fix: default to current month (consistent with financial index page)
+    // Bug 7 fix: validate from <= to
+    let from = fromParam || "";
+    let to = toParam || "";
+    if (!fromParam || !dayjs(fromParam).isValid()) {
+      from = now.startOf("month").format("YYYY-MM-DD");
+    }
+    if (!toParam || !dayjs(toParam).isValid()) {
+      to = now.endOf("month").format("YYYY-MM-DD");
+    }
+    if (dayjs(from).isValid() && dayjs(to).isValid() && dayjs(from).isAfter(dayjs(to))) {
+      throw new Response("Invalid date range: from must be <= to", { status: 400 });
+    }
+
     const resp = await financialService.getReport({
       warehouseId: warehouseId as string,
       vendorId,
@@ -26,7 +40,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       to,
       cookie,
     });
-    console.log("resp", resp);
     return {
       report: resp.data?.data ?? {
         revenue: 0,
@@ -35,12 +48,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         totalExpense: 0,
         netProfit: 0,
         vatCollected: 0,
+        netRevenue: 0,
       },
       from,
       to,
     };
-  } catch (error) {
-    throw new Response("error", { status: 404 });
+  } catch (error: any) {
+    // Bug 6 fix: preserve real status/message instead of masking as 404
+    if (error instanceof Response) throw error;
+    const status = error?.status ?? error?.response?.status ?? 500;
+    const message = error?.message ?? "Failed to load financial report";
+    throw new Response(message, { status });
   }
 };
 
@@ -55,11 +73,12 @@ export default function FinancialReport() {
 
   const rows = [
     { key: "revenue", label: t("financial.revenue"), value: report.revenue, color: "text-green-500" },
+    { key: "vatCollected", label: t("financial.vatCollected"), value: report.vatCollected, color: "text-blue-500" },
+    { key: "netRevenue", label: t("financial.netRevenue") ?? "Net Revenue (excl. VAT)", value: (report as any).netRevenue ?? report.revenue - report.vatCollected, color: "text-emerald-600" },
     { key: "importCost", label: t("financial.importCost"), value: report.importCost, color: "text-red-500" },
     { key: "otherExpense", label: t("financial.otherExpense"), value: report.otherExpense, color: "text-red-500" },
     { key: "totalExpense", label: t("financial.totalExpense"), value: report.totalExpense, color: "text-red-500" },
     { key: "netProfit", label: t("financial.netProfit"), value: report.netProfit, color: "text-primary font-bold" },
-    { key: "vatCollected", label: t("financial.vatCollected"), value: report.vatCollected, color: "text-blue-500" },
   ];
 
   return (
