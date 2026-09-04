@@ -1,15 +1,13 @@
-import { Link, useFetcher } from "@remix-run/react";
+import { useFetcher } from "@remix-run/react";
 import { AuthService } from "~/action.client/auth.service";
 import { Icon } from "~/components/icon";
-import { LanguageToggle } from "~/components/language-toggle";
-import { ThemeToggle } from "~/components/theme-toggle";
 import { TMDropdown } from "~/components/tm-dropdown";
 import { VendorWarehouseSwitcher } from "~/components/vendor-warehouse-switcher";
 import { useTranslation } from "~/i18n";
 import { useUser } from "~/store/user.store";
 
 export const Header = () => {
-  const { activeVendor, activeWarehouse } = useUser();
+  const { activeVendor, user } = useUser();
   const fetcher = useFetcher();
   const { t } = useTranslation();
   const handleLogOut = async () => {
@@ -18,18 +16,14 @@ export const Header = () => {
     fetcher.submit({}, { method: "POST", action: "/api/auth" });
   };
   return (
-    <div className="flex border-b items-center w-full overflow-hidden">
-      <div className=" p-2 min-w-40 text-center max-w-60 font-bold w-full ">
-        <Link to="/">{activeVendor?.name}</Link>
-      </div>
-      <nav className=" flex flex-row gap-4 flex-1 px-4   p-2">
+    <div className="flex bg-white items-center w-full overflow-hidden px-2 py-1">
+      <nav className=" flex flex-row gap-4 flex-1">
         <div className="flex items-center flex-row gap-2">
           {/* Vendor/Warehouse Switcher */}
           <VendorWarehouseSwitcher />
         </div>
-
-        <div className="ml-auto min-w-12  py-2 text-center rounded-sm flex gap-4 items-center">
-          <Link
+        <div className="ml-auto min-w-12 text-center rounded-sm flex gap-4 items-center">
+          {/* <Link
             to="/sell"
             className="flex gap-2 items-center text-sm relative px-2 cursor-pointer hover:text-indigo-300"
           >
@@ -43,10 +37,10 @@ export const Header = () => {
                 12
               </span>
             </div>
-          </div>
+          </div> */}
 
-          <ThemeToggle />
-          <LanguageToggle />
+          {/* <ThemeToggle />
+          <LanguageToggle /> */}
 
           <TMDropdown
             placement="right"
@@ -71,8 +65,20 @@ export const Header = () => {
                 onClick: handleLogOut,
               },
             ]}
+            className=""
+            unstyled
           >
-            <Icon name="user" className="w-4 h-4" />
+            {({ toggle }) => (
+              <div className="flex gap-1 h-full items-center" onClick={toggle}>
+                <div className="flex flex-col items-end text-right cursor-pointer text-slate-400">
+                  <span className=" text-xs/3 text-slate-600">{user?.fullName || user?.email}</span>
+                  <span className="text-[10px]/3 font-light text-slate-400">{activeVendor?.name}</span>
+                </div>
+                <span className="w-7 bg-slate-200 rounded-full p-1.5 ">
+                  <Icon name="user" fontSize={16} />
+                </span>
+              </div>
+            )}
           </TMDropdown>
         </div>
       </nav>

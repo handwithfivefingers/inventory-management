@@ -19,9 +19,7 @@ export interface IRole {
 export interface IUser {
   id: number;
   email: string;
-  firstName: string;
-  lastName: string;
-  nickname?: string;
+  fullName?: string;
   subscription?: string;
   role?: IRole[];
   vendors?: IVendor[];

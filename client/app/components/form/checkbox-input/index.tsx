@@ -10,11 +10,24 @@ interface IFieldError {
 
 interface ICheckboxInput {
   value?: boolean;
+  disabled?: boolean;
   [key: string]: any;
 }
 export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
   (
-    { label, name, className, wrapperClassName, style, onChange, inputClassName, suffix, value = false, ...rest },
+    {
+      label,
+      name,
+      className,
+      wrapperClassName,
+      style,
+      onChange,
+      inputClassName,
+      suffix,
+      value = false,
+      disabled = false,
+      ...rest
+    },
     ref,
   ) => {
     const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
@@ -43,6 +56,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
               name={name}
               onChange={onChange}
               ref={inputRef}
+              disabled={disabled}
             />
             <span
               className={cn(

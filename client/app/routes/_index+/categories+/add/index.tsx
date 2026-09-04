@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
 import { FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
-import { Link } from "@remix-run/react";
+import { Link, redirect } from "@remix-run/react";
 import { categoryService } from "~/action.server/category.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
@@ -82,7 +82,10 @@ const CategoryForm = () => {
   };
   return (
     <FormProvider {...formMethods}>
-      <form onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))} className="flex flex-col gap-5 mt-2">
+      <form
+        onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
+        className="flex flex-col gap-5 mt-2"
+      >
         <FormControl name="name">
           <TextInput
             label="Tên danh mục"
@@ -113,7 +116,8 @@ export const action = async ({ request }: any) => {
     dataJson.vendorId = vendorId;
     const resp = await categoryService.create({ ...dataJson, cookie });
     if (resp.status === 200) {
-      return Response.json(resp, { status: 200 });
+      // return Response.json(resp, { status: 200 });
+      return redirect("/categories");
     }
     throw resp;
   } catch (error) {

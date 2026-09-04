@@ -1,4 +1,4 @@
-import { ActionFunctionArgs } from "@remix-run/node";
+import { ActionFunctionArgs, redirect } from "@remix-run/node";
 import { Link } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { customerService } from "~/action.server/customer.service";
@@ -19,8 +19,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const data = JSON.parse((await formData.get("data")) as string);
     data.vendorId = vendorId;
     const response = await customerService.createCustomer({ cookie, ...data });
-    console.log("response", response);
     if (response.status === 201) {
+      return redirect("/customers");
       return Response.json({ message: "Tạo khách hàng thành công", status: 200 }, { status: 200 });
     }
     throw response;
@@ -28,6 +28,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return Response.json({ error: error.message || "Tạo khách hàng thất bại", status: 400 }, { status: 400 });
   }
 };
+export const meta = [
+  {
+    title: "Tạo khách hàng",
+  },
+];
 
 export default function AddCustomer() {
   const { submit, isLoading } = useSubmitPromise();
@@ -66,8 +71,12 @@ export default function AddCustomer() {
                     <Icon name="users" fontSize={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Tạo khách hàng mới</h2>
-                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Nhập thông tin khách hàng</p>
+                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                      Tạo khách hàng mới
+                    </h2>
+                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                      Nhập thông tin khách hàng
+                    </p>
                   </div>
                 </div>
               </div>
@@ -75,62 +84,62 @@ export default function AddCustomer() {
             className="p-5 sm:p-6"
           >
             <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
-            <FormControl name="name">
-              <TextInput
-                label="Tên khách hàng"
-                placeholder="Nhập tên khách hàng"
-                required
-                prefix={<Icon name="user" fontSize={16} className="text-slate-400" />}
-              />
-            </FormControl>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormControl name="phone">
+              <FormControl name="name">
                 <TextInput
-                  label="Số điện thoại"
-                  placeholder="Nhập số điện thoại"
-                  prefix={<Icon name="phone" fontSize={16} className="text-slate-400" />}
+                  label="Tên khách hàng"
+                  placeholder="Nhập tên khách hàng"
+                  required
+                  prefix={<Icon name="user" fontSize={16} className="text-slate-400" />}
                 />
               </FormControl>
-              <FormControl name="email">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormControl name="phone">
+                  <TextInput
+                    label="Số điện thoại"
+                    placeholder="Nhập số điện thoại"
+                    prefix={<Icon name="phone" fontSize={16} className="text-slate-400" />}
+                  />
+                </FormControl>
+                <FormControl name="email">
+                  <TextInput
+                    label="Email"
+                    type="email"
+                    placeholder="Nhập email"
+                    prefix={<Icon name="mail" fontSize={16} className="text-slate-400" />}
+                  />
+                </FormControl>
+              </div>
+
+              <FormControl name="address">
                 <TextInput
-                  label="Email"
-                  type="email"
-                  placeholder="Nhập email"
-                  prefix={<Icon name="mail" fontSize={16} className="text-slate-400" />}
+                  label="Địa chỉ"
+                  placeholder="Nhập địa chỉ"
+                  multiline
+                  rows={3}
+                  prefix={<Icon name="map-pin" fontSize={16} className="text-slate-400" />}
                 />
               </FormControl>
-            </div>
 
-            <FormControl name="address">
-              <TextInput
-                label="Địa chỉ"
-                placeholder="Nhập địa chỉ"
-                multiline
-                rows={3}
-                prefix={<Icon name="map-pin" fontSize={16} className="text-slate-400" />}
-              />
-            </FormControl>
+              <FormControl name="taxCode">
+                <TextInput
+                  label="Mã số thuế"
+                  placeholder="Nhập mã số thuế"
+                  prefix={<Icon name="file-text" fontSize={16} className="text-slate-400" />}
+                />
+              </FormControl>
 
-            <FormControl name="taxCode">
-              <TextInput
-                label="Mã số thuế"
-                placeholder="Nhập mã số thuế"
-                prefix={<Icon name="file-text" fontSize={16} className="text-slate-400" />}
-              />
-            </FormControl>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
-              <TMButton variant="ghost" size="sm" component={Link} to="/customers" type="button">
-                Hủy
-              </TMButton>
-              <TMButton htmlType="submit" disabled={isLoading} size="sm" loading={isLoading}>
-                <Icon name="save" fontSize={16} />
-                {isLoading ? "Đang tạo..." : "Tạo khách hàng"}
-              </TMButton>
-            </div>
-          </form>
-        </CardItem>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+                <TMButton variant="ghost" size="sm" component={Link} to="/customers" type="button">
+                  Hủy
+                </TMButton>
+                <TMButton htmlType="submit" disabled={isLoading} size="sm" loading={isLoading}>
+                  <Icon name="save" fontSize={16} />
+                  {isLoading ? "Đang tạo..." : "Tạo khách hàng"}
+                </TMButton>
+              </div>
+            </form>
+          </CardItem>
         </div>
       </div>
     </FormProvider>

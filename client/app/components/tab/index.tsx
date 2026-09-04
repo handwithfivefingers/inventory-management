@@ -24,26 +24,32 @@ export const Tab = (props: Props) => {
   );
   const activeTab = props.items.find((tab) => tab.value === activeValue) ?? props.items[0];
   return (
-    <div>
-      <div className="flex gap-2 bg-slate-100 p-2 rounded-md ">
-        {props.items.map((tab) => {
-          return (
-            <button
-              type="button"
-              className={cn(
-                "px-2 ring ring-transparent hover:ring-slate-300 hover:bg-white transition-all rounded py-1 cursor-pointer",
-                {
-                  "bg-white": tab.value === activeTab?.value,
-                },
-              )}
-              onClick={() => setActiveValue(tab.value)}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+    <div className="flex flex-col gap-2">
+      <div className="flex">
+        <div className="flex rounded-md shrink-0 bg-slate-50 border-slate-900/10 border">
+          {props.items.map((tab, index) => {
+            return (
+              <button
+                type="button"
+                className={cn(
+                  "px-4 transition-all py-1.5 text-sm cursor-pointer active:translate-y-0.25 active:shadow-inner",
+
+                  {
+                    "bg-indigo-700 text-white": tab.value === activeValue,
+                    "rounded-l": index === 0,
+                    "rounded-r": index === props.items.length - 1,
+                    "border-l border-primary/20": index !== 0,
+                  },
+                )}
+                onClick={() => setActiveValue(tab.value)}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div>{activeTab?.content}</div>
+      <div className="p-4 bg-slate-50 rounded-md">{activeTab?.content}</div>
     </div>
   );
 };

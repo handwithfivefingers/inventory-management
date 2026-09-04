@@ -6,12 +6,12 @@ export interface IIcon {
   options?: Record<string, any>;
   [key: string]: any;
 }
-export const Icon = ({ name, options, className, fontSize = 20, ...rest }: IIcon) => {
+export const Icon = ({ name, options, className, fontSize = 20, strokeWidth = 2, ...rest }: IIcon) => {
   const icon = (feather as any).icons[name].toSvg({
     class: className,
     width: "100%",
     height: "100%",
-    style: { strokeWidth: 1 },
+    "stroke-width": strokeWidth,
     ...options,
   });
   return <div dangerouslySetInnerHTML={{ __html: icon }} {...rest} style={{ width: fontSize }} />;

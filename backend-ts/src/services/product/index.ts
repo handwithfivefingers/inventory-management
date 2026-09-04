@@ -106,17 +106,10 @@ export class ProductService {
         } catch {}
         const takenSkus = new Set<string>([baseSku])
         for (const v of variants as any[]) {
-          const attrIds: number[] = Array.isArray(v.attributes)
-            ? v.attributes.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n))
-            : []
           const valIds: number[] = Array.isArray(v.attributeValues)
             ? v.attributeValues.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n))
             : []
-          // Validate attributes belong to vendor
-          if (attrIds.length) {
-            const attrs = await ProductAttribute.findAll({ where: { id: attrIds, vendorId }, transaction: t })
-            if (attrs.length !== attrIds.length) throw new Error('Invalid attributes for this vendor')
-          }
+          // Validate attributeValues belong to vendor via their parent attribute
           if (valIds.length) {
             const vals: any[] = await ProductAttributeValue.findAll({
               where: { id: valIds },
@@ -127,9 +120,6 @@ export class ProductService {
             for (const val of vals as any[]) {
               const aVendor = val.attribute?.vendorId ?? val.productAttribute?.vendorId
               if (Number(aVendor) !== Number(vendorId)) throw new Error('Attribute value vendor mismatch')
-              if (attrIds.length && !attrIds.includes(Number(val.attributeId))) {
-                throw new Error(`Value ${val.id} does not belong to provided attributes`)
-              }
             }
           }
           // Build SKU if missing - honor template then append value segments
@@ -492,12 +482,6 @@ export class ProductService {
                 attributes: ['id', 'value', 'attributeId'],
                 through: { attributes: [] },
                 include: [{ model: database.productAttribute, attributes: ['id', 'name'] }]
-              },
-              {
-                model: ProductAttribute,
-                as: 'attributes',
-                attributes: ['id', 'name'],
-                through: { attributes: [] }
               }
             ]
           }
@@ -798,31 +782,23 @@ export class ProductService {
       }
 
       for (const v of variants || []) {
-        // Resolve attributes/attributeValues: prefer explicit IDs, fallback to legacy optionValues
-        let attrIds: number[] = Array.isArray(v.attributes)
-          ? v.attributes.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n))
-          : []
+        // Resolve attributeValues: prefer explicit IDs, fallback to legacy optionValues
         let valIds: number[] = Array.isArray(v.attributeValues)
           ? v.attributeValues.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n))
           : []
-        if (!attrIds.length && !valIds.length && (v.optionValues || v.options)) {
+        if (!valIds.length && (v.optionValues || v.options)) {
           const opts: Record<string, string> = v.optionValues || v.options || {}
           for (const [name, val] of Object.entries(opts)) {
             const row = valueByName.get(`${String(name).trim().toLowerCase()}::${String(val).trim().toLowerCase()}`)
             if (row) {
               valIds.push(Number(row.id))
-              attrIds.push(Number(row.attributeId))
             }
           }
-          attrIds = [...new Set(attrIds)]
           valIds = [...new Set(valIds)]
         }
-        if (!valIds.length && !attrIds.length) continue
+        if (!valIds.length) continue
 
-        // Validate
-        if (attrIds.length) {
-          for (const aid of attrIds) if (!attrById.has(aid)) throw new Error(`Invalid attribute ${aid}`)
-        }
+        // Validate attributeValues belong to vendor
         if (valIds.length) {
           for (const vid of valIds) {
             const row = valueById.get(Number(vid))
@@ -862,7 +838,6 @@ export class ProductService {
           // assign sku if provided else keep
           if (!fields.skuCode) delete (fields as any).skuCode
           await existing.update(fields, { transaction: t })
-          if (attrIds.length) await existing.$set('attributes', attrIds, { transaction: t })
           if (valIds.length) await existing.$set('attributeValues', valIds, { transaction: t })
           if (v.quantity !== undefined && v.quantity !== '' && warehouseId) {
             await this.adjustVariantStock(existing, Number(v.quantity), Number(warehouseId), t)
@@ -879,7 +854,6 @@ export class ProductService {
           const variantRow: any = await (database as any).productVariant
             .build({ productId, skuCode, ...fields })
             .save({ transaction: t })
-          if (attrIds.length) await variantRow.$set('attributes', attrIds, { transaction: t })
           if (valIds.length) await variantRow.$set('attributeValues', valIds, { transaction: t })
           const qty = Number(v.quantity ?? 0)
           if (qty !== 0 && warehouseId) {

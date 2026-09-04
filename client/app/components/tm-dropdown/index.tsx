@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { isValidElement, useEffect, useRef, useState } from "react";
 import styles from "./styles.module.scss";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
@@ -10,11 +10,23 @@ interface IDropdownItem {
   label: React.ReactNode;
   onClick: (item: IDropdownItem) => void;
 }
-interface ITMDropdown extends BaseProps, ITMButton {
+interface ITMDropdown<Unstyled extends boolean = false>
+  extends Omit<BaseProps, "children">,
+    Omit<ITMButton, "children"> {
   items: IDropdownItem[];
   placement?: "left" | "right";
+  className?: string;
+  unstyled?: Unstyled;
+  children: Unstyled extends true ? (props: { toggle: () => void }) => React.ReactNode : React.ReactNode;
 }
-export const TMDropdown = ({ items, children, placement = "right", variant }: ITMDropdown) => {
+export const TMDropdown = <Unstyled extends boolean = false>({
+  items,
+  children,
+  placement = "right",
+  variant,
+  className,
+  unstyled = false as Unstyled,
+}: ITMDropdown<Unstyled>) => {
   const [show, setShow] = useState(false);
   const dropdown = useRef<HTMLDivElement>(null);
   const wrapper = useRef<HTMLDivElement>(null);
@@ -41,9 +53,15 @@ export const TMDropdown = ({ items, children, placement = "right", variant }: IT
   };
   return (
     <div className={styles.wrapper} ref={wrapper}>
-      <TMButton variant={variant} onClick={handleToggle} size="xs" className="h-full">
-        {children}
-      </TMButton>
+      {unstyled ? (
+        (children as (props: { toggle: () => void }) => React.ReactNode)({
+          toggle: handleToggle,
+        })
+      ) : (
+        <TMButton variant={variant} onClick={handleToggle} size="xs" className={cn("h-full", className)}>
+          {children as React.ReactNode}
+        </TMButton>
+      )}
       <Portal>
         {show && (
           <m.div

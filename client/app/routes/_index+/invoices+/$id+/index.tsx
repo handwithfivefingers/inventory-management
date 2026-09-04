@@ -18,6 +18,7 @@ import { useTranslation } from "~/i18n";
 import { ReceiptPrinter, loadPrinterSettings } from "~/components/receipt-printer";
 import { CardItem } from "~/components/card-item";
 import { Icon } from "~/components/icon";
+import { MODULE_ENUM } from "~/constants/modules";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
@@ -58,6 +59,9 @@ export default function InvoiceDetail() {
 
   const handleMarkAsPaid = () => {
     fetcher.submit({ id: String(data.id), status: "paid" }, { method: "post" });
+  };
+  const handleIssue = () => {
+    fetcher.submit({ id: String(data.id), status: "issued" }, { method: "post" });
   };
 
   // Direct USB (ESC/POS) printing — falls back to the browser dialog.
@@ -138,35 +142,42 @@ export default function InvoiceDetail() {
             </div>
           }
           className="p-5 sm:p-6"
-        >
-          <div className="flex flex-col gap-5 mt-2">
-            {/* Toolbar */}
-            {/* Receipt preview + printer settings. The component injects its own
-          print CSS into <head> after mount (hydration-safe). */}
-            <div className="flex justify-center mx-auto items-center shrink-0 no-print">
-              <div className="flex gap-2 justify-center items-center flex-wrap">
-                <TMButton variant="outline" type="button" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
-                  🖨️ {t("invoices.detail.printDevice")}
-                </TMButton>
-                <TMButton variant="outline" type="button" onClick={() => window.print()} size="sm">
-                  🖨 {t("invoices.detail.print")}
-                </TMButton>
-                {data.status === "draft" && (
+          action={
+            <div className="flex gap-2 justify-center items-center flex-wrap">
+              <TMButton variant="outline" type="button" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
+                🖨️ {t("invoices.detail.printDevice")}
+              </TMButton>
+              <TMButton variant="outline" type="button" onClick={() => window.print()} size="sm">
+                🖨 {t("invoices.detail.print")}
+              </TMButton>
+              {data.status === "draft" && (
+                <>
                   <PermissionGuard permission="UPDATE" module="invoice">
                     <TMButton size="sm" to={`/invoices/${data.id}/edit`} component={Link}>
                       {t("common.edit")}
                     </TMButton>
                   </PermissionGuard>
-                )}
-                {data.status === "issued" && (
-                  <PermissionGuard permission="UPDATE" module="invoice">
-                    <TMButton size="sm" onClick={handleMarkAsPaid}>
-                      {t("invoices.markAsPaid")}
+                  <PermissionGuard permission="UPDATE" module={MODULE_ENUM.invoice} requireAdmin>
+                    <TMButton size="sm" onClick={handleIssue} variant="outline">
+                      {t("invoices.markAsIssued", { defaultValue: "Issue" })}
                     </TMButton>
                   </PermissionGuard>
-                )}
-              </div>
+                </>
+              )}
+              {data.status === "issued" && (
+                <PermissionGuard permission="UPDATE" module={MODULE_ENUM.invoice} requireAdmin>
+                  <TMButton size="sm" onClick={handleMarkAsPaid}>
+                    {t("invoices.markAsPaid")}
+                  </TMButton>
+                </PermissionGuard>
+              )}
             </div>
+          }
+        >
+          <div className="flex flex-col gap-2">
+            {/* Toolbar */}
+            {/* Receipt preview + printer settings. The component injects its own
+          print CSS into <head> after mount (hydration-safe). */}
             <ReceiptPrinter invoice={data} />
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
               <TMButton variant="ghost" size="sm" component={Link} to="/invoices" type="button">

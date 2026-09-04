@@ -43,6 +43,7 @@ export const NumberStepper = forwardRef<HTMLDivElement, Props>(
             disabled={disabled}
             style={{ borderRadius: "4px 0 0 4px", height: "100%" }}
             className="px-1.5"
+            tabIndex={-1}
           >
             <Icon name="minus" fontSize={16} />
           </TMButton>
@@ -52,6 +53,7 @@ export const NumberStepper = forwardRef<HTMLDivElement, Props>(
             disabled={disabled}
             style={{ borderRadius: "0 4px 4px 0", height: "100%" }}
             className="px-1.5"
+            tabIndex={-1}
           >
             <Icon name="plus" fontSize={16} />
           </TMButton>

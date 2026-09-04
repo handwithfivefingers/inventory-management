@@ -93,14 +93,15 @@ export default function CreateInvoiceFromOrder() {
             </div>
           }
           className="p-5 sm:p-6 h-full"
-        >
-          <div className="flex flex-col gap-4 h-full overflow-hidden">
+          action={
             <div className="flex gap-2 shrink-0 justify-between items-center">
               <Link to="/invoices" className="text-blue-600 hover:underline text-sm">
                 ← {t("common.back")}
               </Link>
             </div>
-
+          }
+        >
+          <div className="flex flex-col gap-4 h-full overflow-hidden">
             {(fetcher.data as any)?.error && <p className="text-red-600 text-sm">{(fetcher.data as any).error}</p>}
 
             <div className="flex-1 overflow-auto">

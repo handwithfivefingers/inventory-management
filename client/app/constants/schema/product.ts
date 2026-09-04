@@ -9,22 +9,21 @@ const variantAttributeSchema = z.object({
   id: z.union([z.string(), z.number()]).optional(),
   name: z.string(),
   // Reusable creatable option: each value is an object { label, value } instead of comma-parsed string
-  values: z.preprocess(
-    (val) => {
-      if (typeof val === "string") {
-        return String(val)
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((v) => ({ label: v, value: v }));
-      }
-      if (Array.isArray(val)) {
-        return (val as any[]).map((v) => (typeof v === "string" ? { label: v, value: v } : v)).filter((v: any) => v?.value && v?.label);
-      }
-      return val;
-    },
-    z.array(attributeValueOptionSchema).default([]),
-  ),
+  values: z.preprocess((val) => {
+    if (typeof val === "string") {
+      return String(val)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((v) => ({ label: v, value: v }));
+    }
+    if (Array.isArray(val)) {
+      return (val as any[])
+        .map((v) => (typeof v === "string" ? { label: v, value: v } : v))
+        .filter((v: any) => v?.value && v?.label);
+    }
+    return val;
+  }, z.array(attributeValueOptionSchema).default([])),
 });
 
 /** Fields supported on each generated/selected variant - new schema uses ID arrays */
@@ -72,4 +71,4 @@ const productSchema = z.object({
     .optional(),
 });
 export type ProductSchemaType = z.infer<typeof productSchema>;
-export { productSchema,  };
+export { productSchema };

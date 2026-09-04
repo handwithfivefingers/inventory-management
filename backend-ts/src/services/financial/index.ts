@@ -111,7 +111,8 @@ export class FinancialService {
   /**
    * Tax-ready summary for a period.
    * Revenue & expenses come from the financial_records book (auto + manual vouchers).
-   * VAT collected is estimated from sales orders in the same period.
+   * VAT collected is summed from issued/paid invoices' taxAmount (financial truth),
+   * not from orders - invoices are the legal VAT document.
    */
   async getReport(
     { from, to, warehouseId }: { from?: string; to?: string; warehouseId?: string },
@@ -179,20 +180,17 @@ export class FinancialService {
       const otherExpense = Math.max(0, totalExpense - importCost)
       const netProfit = revenue - totalExpense
 
-      // VAT collected from sales orders (no provider) in the same period
-      const orderWhere: any = { providerId: { [Op.eq]: null } }
-      if (warehouseId) orderWhere.warehouseId = Number(warehouseId)
-      const orderRange = buildDateRange(from, to)
-      if (orderRange) orderWhere.createdAt = orderRange
-      const orders = await this.order.findAll({
-        where: orderWhere,
-        attributes: ['price', 'VAT'],
+      // VAT collected from issued/paid invoices (financial truth) in the same period
+      const invoiceWhere: any = { status: { [Op.in]: ['issued', 'paid'] } }
+      if (warehouseId) invoiceWhere.warehouseId = Number(warehouseId)
+      const invoiceRange = buildDateRange(from, to)
+      if (invoiceRange) invoiceWhere.createdAt = invoiceRange
+      const invoices = await (database as any).invoice.findAll({
+        where: invoiceWhere,
+        attributes: ['taxAmount'],
         raw: true
       })
-      const vatCollected = orders.reduce(
-        (s: number, o: any) => s + (Number(o.price) * (Number(o.VAT) || 0)) / 100,
-        0
-      )
+      const vatCollected = invoices.reduce((s: number, inv: any) => s + Number(inv.taxAmount || 0), 0)
       // Bug 4: expose net revenue (VAT-exclusive) for tax clarity
       const netRevenue = Math.max(0, revenue - vatCollected)
 

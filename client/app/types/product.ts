@@ -9,7 +9,7 @@ export interface IProductAttributeValue {
 }
 
 export interface IProductAttribute {
-  id: number;
+  id: number | string;
   name: string;
   productId?: number;
   values?: IProductAttributeValue[];
@@ -66,6 +66,7 @@ export interface IProduct {
   variantCount?: number;
   attributes?: IProductAttribute[];
   variants?: IProductVariant[];
+  variant?: IProductVariant;
 }
 
 export interface IProductDetails {

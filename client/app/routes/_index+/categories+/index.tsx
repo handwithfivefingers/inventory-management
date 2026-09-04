@@ -23,8 +23,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     pageSize,
     cookie,
   });
-  console.log("Categories", resp);
-
   return {
     data: resp.data?.data,
     total: resp.data?.total,
@@ -34,7 +32,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Danh mục" }];
 };
 
 export default function Products() {

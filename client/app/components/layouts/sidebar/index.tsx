@@ -7,6 +7,7 @@ import { checkPermission } from "~/hooks/use-permission";
 import { useTranslation } from "~/i18n";
 import { cn } from "~/libs/utils";
 import { usePermissionStore } from "~/store/permission.store";
+import { useUser } from "~/store/user.store";
 import { BaseProps } from "~/types/common";
 import { IRole } from "~/types/user";
 interface ISidebarItem extends BaseProps {
@@ -46,6 +47,7 @@ const filterVisible = <T extends ISidebarChild | ISideBarItem>(items: T[], role?
 export const Sidebar = () => {
   const { t } = useTranslation();
   const role = usePermissionStore();
+  const { activeVendor } = useUser();
 
   // Requirement 4: group headers remain visible even when the user lacks
   // permission for all children - only the children are filtered.
@@ -56,18 +58,23 @@ export const Sidebar = () => {
   }, [role]);
 
   return (
-    <div className="flex flex-col h-full flex-1 p-2 rounded-md gap-1 overflow-auto scrollbar">
-      {visibleGroups.map((group, index) => (
-        <SideBarItem
-          key={[group.labelKey, index].join("-")}
-          to={group.to}
-          label={t(group.labelKey)}
-          iconName={group.iconName}
-          divider={group.divider}
-          items={group.items}
-          level={0}
-        />
-      ))}
+    <div className="w-full max-w-60 h-full shrink-0 shadow-xl shadow-primary/20 bg-white flex flex-col">
+      <div className="p-2 min-w-40 text-center max-w-60 font-bold w-full bg-white shrink-0 h-10">
+        <Link to="/">{activeVendor?.name}</Link>
+      </div>
+      <div className="flex flex-col flex-1 p-2 rounded-md gap-1 overflow-auto scrollbar h-[calc(100svh-40px)]">
+        {visibleGroups.map((group, index) => (
+          <SideBarItem
+            key={[group.labelKey, index].join("-")}
+            to={group.to}
+            label={t(group.labelKey)}
+            iconName={group.iconName}
+            divider={group.divider}
+            items={group.items}
+            level={0}
+          />
+        ))}
+      </div>
     </div>
   );
 };

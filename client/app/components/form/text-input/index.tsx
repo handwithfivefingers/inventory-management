@@ -48,6 +48,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
       rows,
       inputSize,
       required,
+      disabled,
       ...rest
     },
     ref,
@@ -55,9 +56,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     const prefixRef = useRef<HTMLSpanElement>(null);
     const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
     const { clearErrors } = name ? useFormContext() : { clearErrors: (arg: string) => {} };
-
     const hasError = error || (name && errors?.[name]?.message);
-
     if (multiline) {
       return (
         <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
@@ -91,7 +90,6 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
         </div>
       );
     }
-
     return (
       <div className={cn(styles.inputWrapper)}>
         <InputLabel name={name} label={label} required={required} />
@@ -121,6 +119,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
               onChange?.(e);
             }}
             style={style}
+            disabled={disabled}
           />
           {suffix && (
             <div className="pointer-events-none inset-y-0 left-0 flex items-center pl-1 z-[1]">

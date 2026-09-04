@@ -22,7 +22,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Thành phần" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Thành phần" }];
 };
 
 export default function ProductItem() {

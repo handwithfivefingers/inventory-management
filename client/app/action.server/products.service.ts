@@ -1,11 +1,6 @@
 import { HTTPService } from "~/http";
 import { BaseQueryParams, IResponse } from "~/types/common";
-import {
-  IProduct,
-  IProductAttribute,
-  IProductDetails,
-  IProductVariant,
-} from "~/types/product";
+import { IProduct, IProductAttribute, IProductDetails, IProductVariant } from "~/types/product";
 
 const API_PATH = {
   products: "/products",
@@ -43,13 +38,21 @@ const productService = {
     const qs = new URLSearchParams(params);
     return http.get<{ data: IProduct[]; total: number }>(API_PATH.products + "?" + qs.toString(), { Cookie: cookie });
   },
-  getProductVariants: ({ id, cookie, ...params }: { id: string | number; cookie: string; warehouseId?: string; vendorId?: string | number }) => {
+  getProductVariants: ({
+    id,
+    cookie,
+    ...params
+  }: {
+    id: string | number;
+    cookie: string;
+    warehouseId?: string;
+    vendorId?: string | number;
+  }) => {
     const qs = new URLSearchParams(params as any);
     const suffix = qs.toString() ? "?" + qs.toString() : "";
-    return http.get<{ data: IProductVariant[]; total: number }>(
-      `${API_PATH.products}/${id}/variants${suffix}`,
-      { Cookie: cookie },
-    );
+    return http.get<{ data: IProductVariant[]; total: number }>(`${API_PATH.products}/${id}/variants${suffix}`, {
+      Cookie: cookie,
+    });
   },
   updateVariant: ({
     id,
@@ -64,27 +67,11 @@ const productService = {
   }) => {
     return http.put(`${API_PATH.products}/${id}/variants/${variantId}`, params, { Cookie: cookie });
   },
-  deleteVariant: ({
-    id,
-    variantId,
-    cookie,
-  }: {
-    id: string | number;
-    variantId: string | number;
-    cookie: string;
-  }) => {
+  deleteVariant: ({ id, variantId, cookie }: { id: string | number; variantId: string | number; cookie: string }) => {
     return http.delete(`${API_PATH.products}/${id}/variants/${variantId}`, { Cookie: cookie });
   },
   /** Bulk-sync attributes + variants from the combined editor */
-  syncProductVariants: ({
-    id,
-    cookie,
-    ...params
-  }: {
-    id: string | number;
-    cookie: string;
-    [key: string]: any;
-  }) => {
+  syncProductVariants: ({ id, cookie, ...params }: { id: string | number; cookie: string; [key: string]: any }) => {
     return http.put(`${API_PATH.products}/${id}/variants/sync`, params, { Cookie: cookie });
   },
   getProductAttributes: ({ id, cookie }: { id: string | number; cookie: string }) => {
@@ -98,7 +85,15 @@ const productService = {
       Cookie: cookie,
     });
   },
-  getAttributeById: ({ attributeId, cookie, vendorId }: { attributeId: string | number; cookie: string; vendorId?: string | number }) => {
+  getAttributeById: ({
+    attributeId,
+    cookie,
+    vendorId,
+  }: {
+    attributeId: string | number;
+    cookie: string;
+    vendorId?: string | number;
+  }) => {
     const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
     return http.get<{ data: IProductAttribute }>(`${API_PATH.products}/attributes/${attributeId}${qs}`, {
       Cookie: cookie,
@@ -146,86 +141,7 @@ const productService = {
     const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
     return http.delete(`${API_PATH.products}/attributes/${attributeId}${qs}`, { Cookie: cookie });
   },
-  createAttributeValues: ({
-    attributeId,
-    cookie,
-    values,
-  }: {
-    attributeId: string | number;
-    cookie: string;
-    values: string[] | string;
-  }) => {
-    return http.post(`${API_PATH.products}/attributes/${attributeId}/values`, { values }, { Cookie: cookie });
-  },
-  updateAttributeValue: ({
-    valueId,
-    cookie,
-    value,
-  }: {
-    valueId: string | number;
-    cookie: string;
-    value: string;
-  }) => {
-    return http.put(`${API_PATH.products}/attributes/values/${valueId}`, { value }, { Cookie: cookie });
-  },
-  deleteAttributeValue: ({ valueId, cookie }: { valueId: string | number; cookie: string }) => {
-    return http.delete(`${API_PATH.products}/attributes/values/${valueId}`, { Cookie: cookie });
-  },
-  getAttributeProducts: ({
-    attributeId,
-    cookie,
-    vendorId,
-  }: {
-    attributeId: string | number;
-    cookie: string;
-    vendorId?: string | number;
-  }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.get<{ data: IProduct[]; total: number }>(
-      `${API_PATH.products}/attributes/${attributeId}/products${qs}`,
-      { Cookie: cookie },
-    );
-  },
-  // Legacy per-product attribute wrappers (deprecated, kept for product detail VariantsManager)
-  createProductAttribute: ({
-    id,
-    cookie,
-    name,
-    values,
-  }: {
-    id: string | number;
-    cookie: string;
-    name: string;
-    values: string[];
-  }) => {
-    return http.post(`${API_PATH.products}/${id}/attributes`, { name, values }, { Cookie: cookie });
-  },
-  updateProductAttribute: ({
-    id,
-    attributeId,
-    cookie,
-    ...params
-  }: {
-    id: string | number;
-    attributeId: string | number;
-    cookie: string;
-    [key: string]: any;
-  }) => {
-    return http.put(`${API_PATH.products}/${id}/attributes/${attributeId}`, params, {
-      Cookie: cookie,
-    });
-  },
-  deleteProductAttribute: ({
-    id,
-    attributeId,
-    cookie,
-  }: {
-    id: string | number;
-    attributeId: string | number;
-    cookie: string;
-  }) => {
-    return http.delete(`${API_PATH.products}/${id}/attributes/${attributeId}`, { Cookie: cookie });
-  },
+
   getProductById: ({ id, warehouseId, cookie, vendorId }: IGetParamsByID & { vendorId?: string | number }) => {
     const params = new URLSearchParams();
     if (warehouseId) params.set("warehouseId", `${warehouseId}`);

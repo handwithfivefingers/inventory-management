@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { invoiceService } from "~/action.server/invoice.service";
 import { orderService } from "~/action.server/order.service";
@@ -17,7 +17,7 @@ import { useTranslation } from "~/i18n";
 import { IReceipt, printReceiptToDevice, stripDiacritics } from "~/libs/device-print";
 import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
-import { IProduct } from "~/types/product";
+import { IProduct, IProductAttribute } from "~/types/product";
 
 const PRINT_STYLES = `
 @media print {
@@ -288,7 +288,6 @@ export default function OrderItem() {
   const totalPaid = subtotal + Number(order?.surcharge || 0) + vatAmount;
 
   console.log("order", order);
-
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
       <style>{PRINT_STYLES}</style>
@@ -361,7 +360,22 @@ export default function OrderItem() {
                 <tbody>
                   {items.map((item: any, index: number) => (
                     <tr key={`${item.id}-${index}`} className="border-t">
-                      <td className="p-2">{item.name || `#${item.productId}`}</td>
+                      <td className="p-2">
+                        <div className="flex flex-col">
+                          {item.name || `#${item.productId}`}
+
+                          {item.variant?.attributeValues?.length ? (
+                            <div className="text-xs text-gray-500">
+                              {item.variant.attributeValues
+                                .map(
+                                  (attr: { attribute: { name: string }; value: string }) =>
+                                    `${attr.attribute?.name}: ${attr.value}`,
+                                )
+                                .join(", ")}
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
                       <td className="p-2 text-right">{item.quantity}</td>
                       <td className="p-2 text-right">{formatCurrency(item.price)}</td>
                       <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
@@ -395,7 +409,7 @@ export default function OrderItem() {
               </div>
             </div>
 
-            <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
+            {/* <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p> */}
           </div>
         </CardItem>
       </div>

@@ -15,6 +15,7 @@ import { TMButton } from "~/components/tm-button";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { parseCookieFromRequest } from "~/sessions";
+import { productAttributeService } from "~/action.server/productAttribute.service";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Thêm thuộc tính" }, { name: "description", content: "Tạo thuộc tính biến thể" }];
@@ -67,10 +68,7 @@ const AttributeForm = () => {
   const onSubmit = async (v: AttrSchema) => {
     try {
       const payload = { name: v.name.trim(), values: v.values.map((o) => o.value) };
-      const resp = await submit<{ status: number }>(
-        { data: JSON.stringify(payload) },
-        { method: "POST", action: "." },
-      );
+      const resp = await submit<{ status: number }>({ data: JSON.stringify(payload) }, { method: "POST", action: "." });
       if (resp.status === 200) return toast.success({ title: "Success", message: "Tạo thuộc tính thành công" });
       throw resp;
     } catch (error: any) {
@@ -82,7 +80,12 @@ const AttributeForm = () => {
     <FormProvider {...formMethods}>
       <form onSubmit={formMethods.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
         <FormControl name="name">
-          <TextInput label={t("product.attributeName")} placeholder="VD: Màu sắc, Kích cỡ" required prefix={<Icon name="tag" fontSize={16} className="text-slate-400" />} />
+          <TextInput
+            label={t("product.attributeName")}
+            placeholder="VD: Màu sắc, Kích cỡ"
+            required
+            prefix={<Icon name="tag" fontSize={16} className="text-slate-400" />}
+          />
         </FormControl>
         <FormControl name="values">
           {(field) => (
@@ -114,7 +117,7 @@ export const action = async ({ request }: any) => {
     const formData = await request.formData();
     const data = await formData.get("data");
     const payload = JSON.parse(data);
-    const resp = await productService.createAttribute({ ...payload, vendorId, cookie });
+    const resp = await productAttributeService.createAttribute({ ...payload, vendorId, cookie });
     if (resp.status === 200) return Response.json(resp, { status: 200 });
     throw resp;
   } catch (error) {

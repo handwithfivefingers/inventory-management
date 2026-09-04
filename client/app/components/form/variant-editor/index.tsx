@@ -12,6 +12,7 @@ import { CreatableTagInput, Option } from "../creatable-tag-input";
 import { NumberStepper } from "../number-stepper";
 import { TextInput } from "../text-input";
 import { SelectInput } from "../select-input";
+import { useSubmitPromise } from "~/hooks";
 
 export type AttributeValueOption = Option;
 
@@ -253,7 +254,7 @@ export const VariantEditor = () => {
   ];
 
   return (
-    <div className="flex flex-col gap-2 h-full py-4 ">
+    <div className="flex flex-col gap-2 h-full">
       <AttributeVariant />
 
       <div className="w-full h-[1px] bg-slate-300 my-4" />
@@ -305,6 +306,7 @@ const AttributeVariant = () => {
   const watchedAttrs: IVariantAttributeDraft[] = useWatch({ control: form.control, name: "variantAttributes" }) || [];
   const createAttrFetcher = useFetcher();
   const createValueFetcher = useFetcher();
+  const { submit, isLoading } = useSubmitPromise();
 
   // Vendor-global attribute catalog: unique per vendor (Size {sm,md,lg}, Color {red,green})
   let vendorAttrs: { id: number | string; name: string; values: { id: number | string; value: string }[] }[] = [];
@@ -486,8 +488,12 @@ const AttributeVariant = () => {
                       (o) => !existingLower.has(o.value.toLowerCase()) && !prevLower.has(o.value.toLowerCase()),
                     );
                     if (toCreate.length) {
-                      createValueFetcher.submit(
-                        { values: JSON.stringify(toCreate.map((o) => o.value)), _action: "createValues" },
+                      // createValueFetcher.submit(
+                      //   { values: JSON.stringify(toCreate.map((o) => o.value)), _action: "createValues" },
+                      //   { method: "POST", action: `/products/attributes/${attr.id}` },
+                      // );
+                      submit(
+                        { values: JSON.stringify(toCreate.map((o) => o.value)), intent: "createValues" },
                         { method: "POST", action: `/products/attributes/${attr.id}` },
                       );
                     }

@@ -14,6 +14,8 @@ import { SettingService } from '../setting'
 import { TransferService } from '../transfer'
 import { getPagination } from '#/utils'
 import { ApiError } from '#/response'
+import ProductAttributeValue from '#/database/models/productAttributeValue'
+import ProductAttribute from '#/database/models/productAttribute'
 interface IOrderCreateParams {
   price?: number | string
   VAT?: number | string
@@ -166,18 +168,20 @@ export default class OrderService {
       //   await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
       // }
 
-      // Auto-create a financial voucher so the books stay in sync
-      // (revenue for sales, expense/import-cost for provider imports)
-      await this.createFinancialVoucher({
-        order: p,
-        warehouseId: Number(warehouseId),
-        transaction: t,
-        transactionDate: transactionDate
-          ? new Date(transactionDate as any)
-          : createdAt
-            ? new Date(createdAt as any)
-            : undefined
-      })
+      // Financial voucher: only for provider imports (expense PC) - sales
+      // revenue is now booked when the invoice is issued/paid, not on Order.
+      if ((p as any).providerId != null) {
+        await this.createFinancialVoucher({
+          order: p,
+          warehouseId: Number(warehouseId),
+          transaction: t,
+          transactionDate: transactionDate
+            ? new Date(transactionDate as any)
+            : createdAt
+              ? new Date(createdAt as any)
+              : undefined
+        })
+      }
 
       // Commit the transaction
       await t.commit()
@@ -682,41 +686,7 @@ export default class OrderService {
     try {
       // S1: the caller may only read orders inside warehouses they own.
       await assertWarehouseAccess(warehouseId, vendorScope)
-      const unitModel = (database as any).unit ?? (database as any).units
-      const pavModel = (database as any).productAttributeValue
-      const paModel = (database as any).productAttribute
-      const productInclude: any = {
-        model: Product,
-        ...(unitModel ? { include: [{ model: unitModel, attributes: ['id', 'name'] }] } : {})
-      }
-      const variantInclude: any = {
-        model: ProductVariant,
-        include: [
-          ...(pavModel
-            ? [
-                {
-                  model: pavModel,
-                  as: 'attributeValues',
-                  attributes: ['id', 'value', 'attributeId'],
-                  through: { attributes: [] },
-                  ...(paModel ? { include: [{ model: paModel, attributes: ['id', 'name'] }] } : {})
-                }
-              ]
-            : []),
-          ...(paModel
-            ? [
-                {
-                  model: paModel,
-                  as: 'attributes',
-                  attributes: ['id', 'name'],
-                  through: { attributes: [] }
-                }
-              ]
-            : [])
-        ]
-      }
-      // Fallback when attribute models aren't registered (e.g. in unit tests)
-      if (!variantInclude.include.length) delete variantInclude.include
+
       const resp = await Order.findOne({
         where: {
           id: id,
@@ -724,24 +694,85 @@ export default class OrderService {
         },
         include: [
           {
-            model: database.orderDetail,
-            include: [productInclude, variantInclude]
+            model: OrderDetail,
+            include: [
+              {
+                model: Product,
+                attributes: []
+              },
+              {
+                model: ProductVariant,
+                attributes: ['id', 'skuCode'],
+                include: [
+                  {
+                    model: ProductAttributeValue,
+                    // as: 'attributeValues',
+                    attributes: ['id', 'value', 'attributeId'],
+                    through: { attributes: [] },
+                    include: [{ model: ProductAttribute, attributes: ['id', 'name'] }]
+                  }
+                ]
+              }
+            ]
           }
-        ] as IncludeOptions
-      })
-      // Backwards-compat: ensure each detail exposes a `name` derived from product.name
-      // so existing clients that read `detail.name` keep working when orderDetails.name column is empty.
-      if (resp && (resp as any).orderDetails) {
-        for (const d of (resp as any).orderDetails as any[]) {
-          const detailAny = d as any
-          const productName = detailAny.product?.name ?? detailAny.product?.dataValues?.name
-          if (!detailAny.name && productName) {
-            detailAny.name = productName
-            if (detailAny.dataValues) detailAny.dataValues.name = productName
-          }
+        ] as IncludeOptions,
+        attributes: {
+          include: [
+            [this.sequelize.col('orderDetails.product.name'), 'orderDetails.name']
+            // [this.sequelize.col('orderDetails.variant.attributeValues'), 'orderDetails.attributeValues']
+          ]
         }
-      }
+      })
       return resp
+      // const unitModel = (database as any).unit ?? (database as any).units
+      // const pavModel = (database as any).productAttributeValue
+      // const paModel = (database as any).productAttribute
+      // const productInclude: any = {
+      //   model: Product,
+      //   attributes: []
+      //   // ...(unitModel ? { include: [{ model: unitModel, attributes: [] }] } : {})
+      // }
+      // const variantInclude: any = {
+      //   model: ProductVariant,
+      //   ...(pavModel
+      //     ? {
+      //         include: [
+      //           {
+      //             model: pavModel,
+      //             as: 'attributeValues',
+      //             attributes: ['id', 'value', 'attributeId'],
+      //             through: { attributes: [] },
+      //             ...(paModel ? { include: [{ model: paModel, attributes: ['id', 'name'] }] } : {})
+      //           }
+      //         ]
+      //       }
+      //     : {})
+      // }
+      // const resp = await Order.findOne({
+      //   where: {
+      //     id: id,
+      //     warehouseId: warehouseId
+      //   },
+      //   include: [
+      //     {
+      //       model: database.orderDetail,
+      //       include: [productInclude, variantInclude]
+      //     }
+      //   ] as IncludeOptions
+      // })
+      // // Backwards-compat: ensure each detail exposes a `name` derived from product.name
+      // // so existing clients that read `detail.name` keep working when orderDetails.name column is empty.
+      // if (resp && (resp as any).orderDetails) {
+      //   for (const d of (resp as any).orderDetails as any[]) {
+      //     const detailAny = d as any
+      //     const productName = detailAny.product?.name ?? detailAny.product?.dataValues?.name
+      //     if (!detailAny.name && productName) {
+      //       detailAny.name = productName
+      //       if (detailAny.dataValues) detailAny.dataValues.name = productName
+      //     }
+      //   }
+      // }
+      // return resp
     } catch (error) {
       throw ApiError.from(error, 400)
     }

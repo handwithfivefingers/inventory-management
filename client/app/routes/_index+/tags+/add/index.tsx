@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
-import { Link } from "@remix-run/react";
+import { Link, redirect } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { tagsService } from "~/action.server/tags.service";
 import { CardItem } from "~/components/card-item";
@@ -13,7 +13,7 @@ import { ITagSchema, tagSchema } from "~/constants/schema/tag";
 import { useSubmitPromise } from "~/hooks";
 import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
-  return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
+  return [{ title: "Create Tag" }];
 };
 
 export default function ProductItem() {
@@ -63,7 +63,10 @@ const CategoryForm = () => {
 
   return (
     <FormProvider {...formMethods}>
-      <form onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))} className="flex flex-col gap-5 mt-2">
+      <form
+        onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
+        className="flex flex-col gap-5 mt-2"
+      >
         <FormControl name="name">
           <TextInput
             label="Tên thẻ"
@@ -86,13 +89,20 @@ const CategoryForm = () => {
   );
 };
 export const action = async ({ request }: any) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
-  const formData = await request.formData();
-  const data = (await formData.get("data")) as `${string}`;
-  const dataJson: { name: string } = JSON.parse(data);
-  const bodyData = { ...dataJson, vendorId: vendorId, cookie };
-  const resp = await tagsService.create(bodyData);
-  return resp;
+  try {
+    const { cookie, vendorId } = await parseCookieFromRequest(request);
+    const formData = await request.formData();
+    const data = (await formData.get("data")) as `${string}`;
+    const dataJson: { name: string } = JSON.parse(data);
+    const bodyData = { ...dataJson, vendorId: vendorId, cookie };
+    const resp = await tagsService.create(bodyData);
+    if (resp.status === 200) {
+      return redirect("/tags");
+    }
+    throw resp;
+  } catch (error) {
+    return Response.json({ error, status: 400 }, { status: 400 });
+  }
 };
 export function ErrorBoundary() {
   return <ErrorComponent />;

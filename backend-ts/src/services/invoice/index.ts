@@ -5,6 +5,7 @@ import { assertVendorAccess, getVendorScope } from '#/utils/tenant'
 import { isDuplicateEntryError, nextSequence } from '#/utils/sequence'
 import { Sequelize } from 'sequelize'
 import { Op } from 'sequelize'
+import { ApiError } from '#/response'
 
 export class InvoiceService {
   invoice: IInvoiceStatic = database.invoice
@@ -310,8 +311,11 @@ export class InvoiceService {
       })
 
       const total = subtotal - discount + taxAmount + Number(effectiveSurcharge || 0)
-      const paid = effectivePaymentType === 'cash' ? total : 0
+      const isImmediate = effectivePaymentType === 'cash' || effectivePaymentType === 'transfer'
+      const paid = isImmediate ? total : 0
       const remaining = total - paid
+      // Immediate payment collapses draft->paid, credit stays draft
+      const effectiveStatus = isImmediate ? 'paid' : status || 'draft'
 
       // Create invoice
       const invoice = await this.invoice.create(
@@ -331,7 +335,7 @@ export class InvoiceService {
           remaining,
           currency: 'VND',
           paymentType: effectivePaymentType,
-          status,
+          status: effectiveStatus,
           dueDate,
           notes
         },
@@ -345,6 +349,25 @@ export class InvoiceService {
             invoiceId: invoice.id,
             ...detail
           },
+          { transaction: t }
+        )
+      }
+
+      // Ledger: immediate payment (cash/transfer) books revenue now, inside same Tx as invoice+details
+      if (effectiveStatus === 'paid') {
+        const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+        const code = `PT-${datePart}-${invoice.id}`
+        await database.financialRecord.create(
+          {
+            code,
+            type: 'revenue',
+            category: 'sale',
+            amount: Number(total),
+            relatedType: 'invoice',
+            relatedId: invoice.id,
+            warehouseId: warehouseId ?? (order as any).warehouseId,
+            transactionDate: new Date()
+          } as any,
           { transaction: t }
         )
       }
@@ -410,6 +433,14 @@ export class InvoiceService {
       // S1: enforced vendor permission
       assertVendorAccess(getVendorScope(req), (invoice as any).vendorId, 'Unauthorized to update this invoice')
 
+      // Only draft invoices are editable (issued/paid are financially locked)
+      if ((invoice as any).status !== 'draft') {
+        throw ApiError.from('Only draft invoices can be edited', 400)
+      }
+      if (status && status !== 'draft') {
+        throw ApiError.from('Cannot change status via update; use /status endpoint', 400)
+      }
+
       // Update basic fields
       invoice.customerId = customerId ?? invoice.customerId
       invoice.warehouseId = warehouseId ?? invoice.warehouseId
@@ -417,7 +448,6 @@ export class InvoiceService {
       invoice.discount = discount ?? invoice.discount
       invoice.surcharge = surcharge ?? invoice.surcharge
       invoice.paymentType = paymentType ?? invoice.paymentType
-      invoice.status = status ?? invoice.status
       invoice.dueDate = dueDate ?? invoice.dueDate
       invoice.notes = notes ?? invoice.notes
 
@@ -532,7 +562,9 @@ export class InvoiceService {
   }
 
   /**
-   * Update invoice status (issue, pay, cancel)
+   * Update invoice status (issue, pay, cancel) with state-machine validation.
+   * Ledger (FinancialRecord) is booked exactly once when draft -> issued (for credit)
+   * inside the same transaction as the status change.
    */
   async updateStatus(req: IRequestLocal) {
     const t = await this.sequelize.transaction()
@@ -540,6 +572,13 @@ export class InvoiceService {
     try {
       const { id } = req.params
       const { status, paid } = req.body
+
+      const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+        draft: ['issued', 'cancelled'],
+        issued: ['paid', 'cancelled'],
+        paid: [],
+        cancelled: []
+      }
 
       const invoice = await this.invoice.findByPk(id)
 
@@ -550,13 +589,65 @@ export class InvoiceService {
       // S1: enforced vendor permission
       assertVendorAccess(getVendorScope(req), (invoice as any).vendorId, 'Unauthorized to update this invoice')
 
-      invoice.status = status
+      const from = (invoice as any).status as string
+      if (!status || !ALLOWED_TRANSITIONS[from]?.includes(status)) {
+        throw ApiError.from(`Invalid status transition: ${from} -> ${status}`, 400)
+      }
 
-      if (status === 'paid' && paid !== undefined) {
-        invoice.paid = paid
-        invoice.remaining = 0
-      } else if (status === 'issued') {
-        invoice.remaining = invoice.total - invoice.paid
+      ;(invoice as any).status = status
+
+      if (status === 'issued') {
+        ;(invoice as any).remaining = Number((invoice as any).total) - Number((invoice as any).paid || 0)
+        // Book revenue (VAT lock) - idempotent: skip if already exists
+        const existing = await database.financialRecord.findOne({
+          where: { relatedType: 'invoice', relatedId: (invoice as any).id },
+          transaction: t
+        } as any)
+        if (!existing) {
+          const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+          const code = `PT-${datePart}-${(invoice as any).id}`
+          await database.financialRecord.create(
+            {
+              code,
+              type: 'revenue',
+              category: 'sale',
+              amount: Number((invoice as any).total),
+              relatedType: 'invoice',
+              relatedId: (invoice as any).id,
+              warehouseId: (invoice as any).warehouseId,
+              transactionDate: new Date()
+            } as any,
+            { transaction: t }
+          )
+        }
+      } else if (status === 'paid') {
+        const total = Number((invoice as any).total)
+        ;(invoice as any).paid = paid !== undefined ? Number(paid) : total
+        ;(invoice as any).remaining = 0
+        // Ensure ledger exists (in case invoice was draft->paid incorrectly bypassing issued, book now)
+        const existing = await database.financialRecord.findOne({
+          where: { relatedType: 'invoice', relatedId: (invoice as any).id },
+          transaction: t
+        } as any)
+        if (!existing) {
+          const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+          const code = `PT-${datePart}-${(invoice as any).id}`
+          await database.financialRecord.create(
+            {
+              code,
+              type: 'revenue',
+              category: 'sale',
+              amount: total,
+              relatedType: 'invoice',
+              relatedId: (invoice as any).id,
+              warehouseId: (invoice as any).warehouseId,
+              transactionDate: new Date()
+            } as any,
+            { transaction: t }
+          )
+        }
+      } else if (status === 'cancelled') {
+        ;(invoice as any).remaining = 0
       }
 
       await invoice.save({ transaction: t })

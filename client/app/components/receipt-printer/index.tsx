@@ -141,8 +141,8 @@ export const ReceiptPrinter = ({ invoice }: Props) => {
   }, [printer, hydrated]);
 
   return (
-    <div className="flex relative py-8">
-      <div className="flex gap-1 justify-center flex-col p-4 absolute">
+    <div className="flex relative flex-col gap-4 bg-slate-100 rounded py-2">
+      <div className="flex gap-1 justify-center">
         <div className="w-44">
           <SelectInput
             label="Printer model"
@@ -157,7 +157,7 @@ export const ReceiptPrinter = ({ invoice }: Props) => {
         <InputSlider
           min={10}
           max={20}
-          step={0.5}
+          step={1}
           label="Font size"
           value={printer.fontSize}
           onChange={(e) => updatePrinter({ fontSize: Number(e.target.value) })}

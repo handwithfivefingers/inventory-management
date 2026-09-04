@@ -23,5 +23,5 @@ export const NumberInput = forwardRef<HTMLInputElement, INumberInput>(
         style={{ textAlign: "right", ...style }}
       />
     );
-  }
+  },
 );

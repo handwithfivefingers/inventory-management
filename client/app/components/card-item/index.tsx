@@ -16,9 +16,8 @@ export const CardItem = ({ className, title, children, action, style }: ICardIte
       )}
       style={style}
     >
-      <div className="border-b border-primary dark:border-slate-400 font-semibold text-xl pb-2 flex justify-between items-center">
-        {title}
-
+      <div className="w-full flex justify-between border-primary dark:border-slate-400 border-b pb-2  items-center ">
+        <div className=" font-semibold text-xl flex ">{title}</div>
         <div>{action}</div>
       </div>
       {children}

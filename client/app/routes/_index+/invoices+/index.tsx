@@ -10,6 +10,7 @@ import { PermissionGuard } from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
@@ -160,58 +161,51 @@ export default function Invoices() {
                   }}
                 />
               </div>
-
-              {/* <select
-                value={filter.status}
-                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-                className="border rounded px-3 py-2 text-sm"
-              >
-                <option value="">{t("invoices.allStatuses")}</option>
-                <option value="draft">{t("invoices.status.draft")}</option>
-                <option value="issued">{t("invoices.status.issued")}</option>
-                <option value="paid">{t("invoices.status.paid")}</option>
-                <option value="cancelled">{t("invoices.status.cancelled")}</option>
-              </select> */}
             </div>
-            <PermissionGuard permission="CREATE" module="invoice" requireAdmin>
+            <PermissionGuard permission="CREATE" module={MODULE_ENUM.invoice} requireAdmin>
               <TMButton component={Link} to={"./add"} size="sm">
                 <Icon name="plus" fontSize={16} />
                 {t("invoices.create")}
               </TMButton>
-              {/* <PermissionGuard permission="CREATE" module="invoice" requireAdmin>
-              <Link to="add"> */}
-              {/* <TMButton>{t("invoices.create")}</TMButton> */}
-              {/* </Link> */}
             </PermissionGuard>
           </div>
 
           <div className="flex-1 overflow-auto">
             <TMTable
+              scrollable
               columns={[
-                { title: t("invoices.invoiceNumber"), dataIndex: "invoiceNumber", width: 150 },
+                {
+                  title: t("invoices.invoiceNumber"),
+                  dataIndex: "invoiceNumber",
+                  width: 150,
+                  className: "text-sm",
+                },
                 {
                   title: t("invoices.customer"),
                   dataIndex: "customerName",
                   width: 200,
-                  render: (item: IInvoice) => item.customer?.name || "-",
+                  className: "text-sm",
                 },
                 {
                   title: t("invoices.total"),
                   dataIndex: "total",
                   width: 120,
                   render: (item: IInvoice) => formatCurrency(item.total),
+                  className: "text-sm",
                 },
                 {
                   title: t("invoices.paidAmount"),
                   dataIndex: "paid",
                   width: 120,
                   render: (item: IInvoice) => formatCurrency(item.paid),
+                  className: "text-sm",
                 },
                 {
                   title: t("invoices.remaining"),
                   dataIndex: "remaining",
                   width: 120,
                   render: (item: IInvoice) => formatCurrency(item.remaining),
+                  className: "text-sm",
                 },
                 {
                   title: t("invoices.statusLabel"),
@@ -228,8 +222,62 @@ export default function Invoices() {
                   dataIndex: "actions",
                   width: 200,
                   render: (item: IInvoice) => (
+                    <div className="flex gap-1">
+                      <PermissionGuard permission="READ" module={MODULE_ENUM.invoice}>
+                        <TMButton
+                          component={Link}
+                          to={`${item.id}`}
+                          size="sm"
+                          className="py-2"
+                          title={t("common.view")}
+                        >
+                          <Icon name="eye" fontSize={12} />
+                        </TMButton>
+                      </PermissionGuard>
+                      {item.status === "draft" && (
+                        <PermissionGuard permission="UPDATE" module={MODULE_ENUM.invoice}>
+                          <TMButton component={Link} to={`${item.id}/edit`} size="sm" className="py-2">
+                            <Icon name="edit" fontSize={12} />
+                          </TMButton>
+                        </PermissionGuard>
+                      )}
+                      {item.status === "draft" && (
+                        <PermissionGuard permission="DELETE" module={MODULE_ENUM.invoice}>
+                          <TMButton
+                            size="sm"
+                            onClick={() => handleDelete(item.id)}
+                            className="py-2 text-red-500 bg-red-500/20"
+                          >
+                            <Icon name="trash" fontSize={12} />
+                          </TMButton>
+                        </PermissionGuard>
+                      )}
+                      {item.status === "draft" && (
+                        <PermissionGuard permission="UPDATE" module={MODULE_ENUM.invoice} requireAdmin>
+                          <button
+                            onClick={() => handleUpdateStatus(item.id, "issued")}
+                            title={t("invoices.markAsIssued", { defaultValue: "Issue" })}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Icon name="send" fontSize={16} />
+                          </button>
+                        </PermissionGuard>
+                      )}
+                      {item.status === "issued" && (
+                        <PermissionGuard permission="UPDATE" module={MODULE_ENUM.invoice} requireAdmin>
+                          <button
+                            onClick={() => handleUpdateStatus(item.id, "paid")}
+                            title={t("invoices.markAsPaid")}
+                            className="text-green-600 hover:text-green-800"
+                          >
+                            <Icon name="check-circle" fontSize={16} />
+                          </button>
+                        </PermissionGuard>
+                      )}
+                      {/* 
                     // stopPropagation so clicking an action doesn't also trigger the row navigation
                     <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                      
                       <PermissionGuard permission="READ" module="invoice" requireAdmin>
                         <Link to={`${item.id}`} title={t("common.view")} className="text-blue-600 hover:text-blue-800">
                           <Icon name="eye" fontSize={16} />
@@ -256,18 +304,7 @@ export default function Invoices() {
                             </button>
                           </PermissionGuard>
                         </>
-                      )}
-                      {item.status === "issued" && (
-                        <PermissionGuard permission="UPDATE" module="invoice" requireAdmin>
-                          <button
-                            onClick={() => handleUpdateStatus(item.id, "paid")}
-                            title={t("invoices.markAsPaid")}
-                            className="text-green-600 hover:text-green-800"
-                          >
-                            <Icon name="check-circle" fontSize={16} />
-                          </button>
-                        </PermissionGuard>
-                      )}
+                      )} */}
                     </div>
                   ),
                 },

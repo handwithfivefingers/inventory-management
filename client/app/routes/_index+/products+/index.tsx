@@ -1,6 +1,5 @@
 import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
-import { useEffect, useState } from "react";
+import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
@@ -13,10 +12,10 @@ import { TMTable } from "~/components/tm-table";
 import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
+import { debounce } from "~/libs/debounce";
 import { parseCookieFromRequest } from "~/sessions";
-interface IFilter {
-  s?: string;
-}
+import { IProduct } from "~/types/product";
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
@@ -46,17 +45,17 @@ export const meta: MetaFunction = () => {
 
 export default function Products() {
   const navigate = useNavigate();
-  const { data, total, page, pageSize, s } = useLoaderData<typeof loader>();
-  const [filter, setFilter] = useState<IFilter>({ s });
+  const { data, total: currentTotal, page: defaultPage, pageSize: defaultPageSize, s } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
-  console.log(`data, total, page, pageSize, `, data, total, page, pageSize);
-  useEffect(() => {
-    let timeout: any;
-    timeout = setTimeout(() => {
-      navigate(`?s=${filter.s}`);
-    }, 500);
-    return () => timeout && clearTimeout(timeout);
-  }, [filter]);
+  const fetcher = useFetcher<{
+    data: IProduct[];
+    total: number;
+    page: string;
+    pageSize: string;
+    s: string;
+  }>();
+  const isLoading = fetcher.state === "submitting" || fetcher.state === "loading";
+  console.log(`fetcher`, fetcher);
   const handleImportUpload = (file: File) => {
     alert("Function not build yet");
     // const form = new FormData();
@@ -69,6 +68,11 @@ export default function Products() {
     //   body: form,
     // });
   };
+  const products = fetcher.data?.data || data || [];
+  const total = fetcher.data?.total || currentTotal || 0;
+  const query = fetcher?.data?.s || s || "";
+  const pageSize = Number(fetcher?.data?.pageSize || defaultPageSize || 10);
+  const page = Number(fetcher?.data?.page || defaultPage || 1);
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CardItem
@@ -87,52 +91,58 @@ export default function Products() {
             </div>
           </div>
         }
+        action={
+          <div className="ml-auto block my-auto">
+            <div className="flex gap-2 flex-wrap flex-row">
+              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
+                <TMButton component={Link} to={"./add"} size="sm">
+                  <Icon name="plus" fontSize={16} />
+                  <span>{t("common.add")}</span>
+                </TMButton>
+              </PermissionGuard>
+              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
+                <TMButton component={Link} to={"./add"} size="sm">
+                  <Icon name="file-plus" fontSize={16} />
+                  <span>{t("common.importExcel")}</span>
+                </TMButton>
+              </PermissionGuard>
+              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
+                <TMButton component={Link} to={"./add"} size="sm">
+                  <Icon name="file-text" fontSize={16} />
+                  <span>{t("common.exportExcel")}</span>
+                </TMButton>
+              </PermissionGuard>
+              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
+                <TMButton component={Link} to={"./add"} size="sm">
+                  <Icon name="bar-chart-2" fontSize={16} />
+                  <span>{t("common.printBarcode")}</span>
+                </TMButton>
+              </PermissionGuard>
+            </div>
+          </div>
+        }
         className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0">
             <TextInput
               placeholder="Lọc theo mã, tên hàng hóa"
-              value={filter.s}
-              onChange={(v: any) => {
+              defaultValue={query}
+              onChange={debounce((v) => {
                 const value = v.target.value;
-                setFilter({
-                  ...filter,
-                  s: value,
-                });
-              }}
+                fetcher.load(
+                  `/products?${new URLSearchParams({
+                    s: value,
+                    page: "1",
+                    pageSize: String(pageSize),
+                  }).toString()}`,
+                );
+              }, 500)}
             />
-            <div className="ml-auto block my-auto">
-              <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                  <TMButton component={Link} to={"./add"} size="sm">
-                    <Icon name="plus" fontSize={16} />
-                    <span>{t("common.add")}</span>
-                  </TMButton>
-                </PermissionGuard>
-                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                  <TMButton component={Link} to={"./add"} size="sm">
-                    <Icon name="file-plus" fontSize={16} />
-                    <span>{t("common.importExcel")}</span>
-                  </TMButton>
-                </PermissionGuard>
-                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                  <TMButton component={Link} to={"./add"} size="sm">
-                    <Icon name="file-text" fontSize={16} />
-                    <span>{t("common.exportExcel")}</span>
-                  </TMButton>
-                </PermissionGuard>
-                <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                  <TMButton component={Link} to={"./add"} size="sm">
-                    <Icon name="bar-chart-2" fontSize={16} />
-                    <span>{t("common.printBarcode")}</span>
-                  </TMButton>
-                </PermissionGuard>
-              </div>
-            </div>
           </div>
           <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn flex-1 overflow-auto">
             <TMTable
+              loading={isLoading}
               scrollable
               columns={[
                 {
@@ -173,7 +183,7 @@ export default function Products() {
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
               ]}
-              data={data || []}
+              data={products || []}
               rowKey={"id"}
               onRow={{
                 onClick: (record) => navigate(`./${record?.id}`),

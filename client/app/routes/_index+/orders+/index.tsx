@@ -62,7 +62,6 @@ export default function Orders() {
                 <span>Thêm</span>
               </TMButton>
               <TMButton component={Link} size="sm">
-                {/* <Icon name="upload" fontSize={16} /> */}
                 <Icon name="file-plus" fontSize={16} />
                 <span>Xuất Excel</span>
               </TMButton>
@@ -71,8 +70,8 @@ export default function Orders() {
         }
         className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
       >
-        <div className="flex gap-2 flex-col h-full overflow-hidden">
-          <div className="flex shrink-0 gap-2">
+        <div className="flex gap-2 flex-col h-full overflow-hidden p-1">
+          <div className="flex shrink-0 gap-2 ">
             <TextInput placeholder="Lọc theo mã, tên hàng hóa" />
           </div>
           <div className="flex flex-1 gap-2 flex-col items-end overflow-hidden">
