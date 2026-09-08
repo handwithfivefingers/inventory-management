@@ -16,6 +16,6 @@
       "#/*": ["src/*"]
     }
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "swagger.js", "src/swagger.js"],
   "exclude": ["dist"]
 }

@@ -8,6 +8,10 @@ import morgan from 'morgan'
 import Redis from './configs/redis'
 import database from './database'
 import cors from 'cors'
+import swaggerUi from 'swagger-ui-express'
+import fs from 'fs'
+
+const swaggerDocument = JSON.parse(fs.readFileSync('./swagger-output.json', 'utf8'))
 
 const port = process.env.PORT ?? 3000
 class App {
@@ -35,6 +39,7 @@ class App {
         credentials: true
       })
     )
+    app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument))
     app.use('/api', appRouter)
     setupExpressErrorHandler(app)
 

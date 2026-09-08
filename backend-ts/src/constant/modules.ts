@@ -45,7 +45,6 @@ const MODULE_KEYS: ReadonlySet<string> = new Set(MODULES.map((m) => m.key))
 
 export const isModuleKey = (name: string): boolean => MODULE_KEYS.has(name)
 
-export const getModule = (key: string): IModuleDefinition | undefined =>
-  MODULES.find((m) => m.key === key)
+export const getModule = (key: string): IModuleDefinition | undefined => MODULES.find((m) => m.key === key)
 
 export const MODULE_KEYS_LIST: string[] = Array.from(MODULE_KEYS)
