@@ -5,6 +5,7 @@ import { NextFunction, Request, Response } from 'express'
 export class ProductAttributeController {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
       const { rows, count } = await new ProductAttributeServices().listAttributes(req as IRequestLocal)
       res.status(200).json({ total: count, data: rows })
       return
@@ -15,6 +16,8 @@ export class ProductAttributeController {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().getAttributeById(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -25,6 +28,8 @@ export class ProductAttributeController {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().createAttribute(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -35,6 +40,8 @@ export class ProductAttributeController {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().updateAttribute(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -45,6 +52,8 @@ export class ProductAttributeController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().deleteAttribute(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -55,6 +64,8 @@ export class ProductAttributeController {
 
   async createValues(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().createAttributeValue(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -65,6 +76,8 @@ export class ProductAttributeController {
 
   async listValues(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().getAttributeValues(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -75,6 +88,8 @@ export class ProductAttributeController {
 
   async updateValue(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().updateAttributeValue(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -85,6 +100,8 @@ export class ProductAttributeController {
 
   async deleteValue(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const data = await new ProductAttributeServices().deleteAttributeValue(req as IRequestLocal)
       res.status(200).json({ data })
       return
@@ -95,6 +112,8 @@ export class ProductAttributeController {
 
   async listProducts(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['ProductAttributes']
+
       const { rows, count } = await new ProductAttributeServices().getProductsByAttribute(req as IRequestLocal)
       res.status(200).json({ total: count, data: rows })
       return

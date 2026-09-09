@@ -6,6 +6,7 @@ export class CategoriesController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
+      // #swagger.tags = ['Categories']
       const params = {
         ...req.body,
         vendorId: req.query.vendorId
@@ -22,6 +23,8 @@ export class CategoriesController {
   async update(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
+      // #swagger.tags = ['Categories']
+
       const resp = await new CategoriesService().update(req.body)
       res.status(200).json({
         data: resp
@@ -34,6 +37,8 @@ export class CategoriesController {
   async delete(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
+      // #swagger.tags = ['Categories']
+
       if (!req.query?.id) throw new Error('id is required')
       const resp = await new CategoriesService().deleteById(req.query.id as string)
       res.status(200).json({
@@ -47,6 +52,8 @@ export class CategoriesController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
+      // #swagger.tags = ['Categories']
+
       const { limit, offset, vendorId } = getPagination(req.query)
       const { count, rows } = await new CategoriesService().getCategories({ limit, offset, vendorId })
       res.status(200).json({ total: count, data: rows })
@@ -58,6 +65,8 @@ export class CategoriesController {
   async getById(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
+      // #swagger.tags = ['Categories']
+
       // const resp = await new CategoriesService().getById({ params: req.params, query: req.query })
       const resp = await new CategoriesService().getById(req.params.id)
       res.status(200).json({

@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from 'express'
 export default class AuthenticateController {
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // #swagger.tags = ['Auth']
       const { email, password } = req.body
       const resp = await new AuthenticateService().login({ email, password })
       if (!resp) throw new Error('User not found')
@@ -31,6 +32,7 @@ export default class AuthenticateController {
   }
   async get(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
     try {
+      // #swagger.tags = ['Auth']
       const id = req.user.id
       const resp = await new AuthenticateService().get(id)
       res.status(200).json({
@@ -43,6 +45,7 @@ export default class AuthenticateController {
   }
   async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // #swagger.tags = ['Auth']
       const resp = await new AuthenticateService().register(req.body)
       res.status(200).json(resp)
       return
@@ -53,6 +56,7 @@ export default class AuthenticateController {
   async logout(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
     try {
       // Clear user cache
+      // #swagger.tags = ['Auth']
       const email = req.user.email
       if (email) {
         await new AuthenticateService().clearUserCache(email)

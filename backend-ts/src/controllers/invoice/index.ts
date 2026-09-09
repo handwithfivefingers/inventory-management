@@ -8,6 +8,8 @@ export class InvoiceController {
    */
   async getInvoices(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Invoices']
+
       const { count, rows } = await new InvoiceService().getInvoices(req as IRequestLocal)
       res.status(200).json({
         total: count,
@@ -23,6 +25,8 @@ export class InvoiceController {
    */
   async getInvoiceById(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Invoices']
+
       const invoice = await new InvoiceService().getInvoiceById(req as IRequestLocal)
       res.status(200).json({
         data: invoice
@@ -37,6 +41,8 @@ export class InvoiceController {
    */
   async create(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Invoices']
+
       const invoice = await new InvoiceService().create(req as IRequestLocal)
       res.status(201).json({
         data: invoice,
@@ -52,6 +58,8 @@ export class InvoiceController {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Invoices']
+
       const invoice = await new InvoiceService().update(req as IRequestLocal)
       res.status(200).json({
         data: invoice,
@@ -67,6 +75,8 @@ export class InvoiceController {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Invoices']
+
       const result = await new InvoiceService().delete(req as IRequestLocal)
       res.status(200).json({
         data: result,
@@ -82,6 +92,8 @@ export class InvoiceController {
    */
   async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Invoices']
+
       const invoice = await new InvoiceService().updateStatus(req as IRequestLocal)
       res.status(200).json({
         data: invoice,

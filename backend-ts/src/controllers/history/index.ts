@@ -4,6 +4,7 @@ export class HistoryController {
   async getHistoryByProductId(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
+      // #swagger.tags = ['History']
       const { id } = req.params
       const { warehouseId, variantId } = req.query
       if (!warehouseId) throw new Error('warehouseId is required')

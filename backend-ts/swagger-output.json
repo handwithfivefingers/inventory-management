@@ -1,14 +1,120 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Express Sequelize API",
-    "description": "API Spec được sinh tự động",
+    "title": "Inventory Management API",
+    "description": "API Spec được sinh tự động - Inventory Management System",
     "version": "1.0.0"
   },
   "host": "localhost:3000",
   "basePath": "/",
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Authentication & session"
+    },
+    {
+      "name": "Vendors",
+      "description": "Vendor management"
+    },
+    {
+      "name": "Orders",
+      "description": "Sales orders"
+    },
+    {
+      "name": "ImportOrders",
+      "description": "Import / purchase orders"
+    },
+    {
+      "name": "Products",
+      "description": "Products & variants"
+    },
+    {
+      "name": "ProductAttributes",
+      "description": "Product attributes & values"
+    },
+    {
+      "name": "Providers",
+      "description": "Suppliers / providers"
+    },
+    {
+      "name": "Warehouses",
+      "description": "Warehouses"
+    },
+    {
+      "name": "Categories",
+      "description": "Product categories"
+    },
+    {
+      "name": "Tags",
+      "description": "Product tags"
+    },
+    {
+      "name": "Units",
+      "description": "Units of measure"
+    },
+    {
+      "name": "Financial",
+      "description": "Financial vouchers & reports"
+    },
+    {
+      "name": "Stats",
+      "description": "Dashboard statistics"
+    },
+    {
+      "name": "History",
+      "description": "Product stock history"
+    },
+    {
+      "name": "Roles",
+      "description": "Roles & permissions"
+    },
+    {
+      "name": "Customers",
+      "description": "Customers"
+    },
+    {
+      "name": "Invoices",
+      "description": "Invoices"
+    },
+    {
+      "name": "Staff",
+      "description": "Staff management"
+    },
+    {
+      "name": "Shifts",
+      "description": "Shift open/close"
+    },
+    {
+      "name": "Settings",
+      "description": "Vendor settings"
+    },
+    {
+      "name": "Permissions",
+      "description": "Permission catalog"
+    }
+  ],
   "schemes": [
     "http"
+  ],
+  "securityDefinitions": {
+    "bearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "JWT Bearer token via cookie `session` or header `Authorization: Bearer <token>`"
+    },
+    "cookieAuth": {
+      "type": "apiKey",
+      "name": "session",
+      "in": "cookie",
+      "description": "Session cookie set after login"
+    }
+  },
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
   ],
   "paths": {
     "/debug-sentry": {
@@ -23,21 +129,19 @@
     },
     "/api/auth/login": {
       "post": {
-        "description": "",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login with email & password",
+        "description": "Authenticate user, set httpOnly session cookie and return JWT token",
         "parameters": [
           {
             "name": "body",
             "in": "body",
+            "description": "Login credentials",
+            "required": true,
             "schema": {
-              "type": "object",
-              "properties": {
-                "email": {
-                  "example": "any"
-                },
-                "password": {
-                  "example": "any"
-                }
-              }
+              "$ref": "#/definitions/LoginBody"
             }
           }
         ],
@@ -50,7 +154,22 @@
     },
     "/api/auth/register": {
       "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register new user",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "description": "Registration data",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegisterBody"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -60,26 +179,54 @@
     },
     "/api/auth/me": {
       "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current authenticated user",
         "description": "",
         "responses": {
           "default": {
             "description": ""
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ]
       }
     },
     "/api/auth/logout": {
       "post": {
-        "description": "",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Logout current user",
+        "description": "Clears session cookie and user cache",
         "responses": {
           "default": {
             "description": ""
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ]
       }
     },
     "/api/vendor/": {
       "get": {
+        "tags": [
+          "Vendors"
+        ],
+        "summary": "List vendors by current user",
         "description": "",
         "responses": {
           "200": {
@@ -88,10 +235,29 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Vendors"
+        ],
+        "summary": "Create a new vendor",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/VendorBody"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -99,12 +265,35 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/orders/": {
       "get": {
-        "description": "",
+        "tags": [
+          "Orders"
+        ],
+        "summary": "List orders",
+        "description": "Paginated order list, vendor-scoped",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer",
+            "description": "Page size"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "integer",
+            "description": "Offset"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -112,11 +301,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/orders/{id}": {
       "get": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Get order by ID",
         "description": "",
         "parameters": [
           {
@@ -128,7 +326,8 @@
           {
             "name": "warehouseId",
             "in": "query",
-            "type": "string"
+            "type": "string",
+            "description": "Warehouse filter"
           }
         ],
         "responses": {
@@ -138,9 +337,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Update order",
         "description": "",
         "parameters": [
           {
@@ -148,6 +356,14 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/OrderBody"
+            }
           }
         ],
         "responses": {
@@ -157,21 +373,194 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/orders/create": {
       "post": {
+        "tags": [
+          "Orders"
+        ],
+        "summary": "Create sales order (auto-creates invoice if not import)",
         "description": "",
         "parameters": [
           {
             "name": "body",
             "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/OrderBody"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/products/": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "List products",
+        "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Create product",
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ProductBody"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/products/attributes": {
+      "get": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "List product attributes",
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "Create product attribute",
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
             "schema": {
               "type": "object",
               "properties": {
-                "paymentType": {
-                  "example": "any"
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        },
+                        "example": {
+                          "type": "string",
+                          "example": "Color"
+                        }
+                      }
+                    },
+                    "type": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        },
+                        "example": {
+                          "type": "string",
+                          "example": "select"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "name"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -184,59 +573,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
-      }
-    },
-    "/api/products/": {
-      "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
+        },
+        "security": [
+          {
+            "bearerAuth": []
           }
-        }
-      },
-      "post": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/products/attributes": {
-      "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "post": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
+        ]
       }
     },
     "/api/products/attributes/{attributeId}": {
       "get": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "Get attribute by ID",
         "description": "",
         "parameters": [
           {
@@ -253,9 +603,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "Update attribute",
         "description": "",
         "parameters": [
           {
@@ -263,6 +622,30 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -272,9 +655,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "Delete attribute",
         "description": "",
         "parameters": [
           {
@@ -291,11 +683,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/products/attributes/{attributeId}/values": {
       "get": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "List values of an attribute",
         "description": "",
         "parameters": [
           {
@@ -312,9 +713,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "Create attribute values",
         "description": "",
         "parameters": [
           {
@@ -322,6 +732,49 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "values": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "array"
+                        },
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "example": "string"
+                            }
+                          }
+                        },
+                        "example": {
+                          "type": "array",
+                          "example": [
+                            "Red",
+                            "Blue"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -331,11 +784,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/products/attributes/values/{valueId}": {
       "put": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "Update attribute value",
         "description": "",
         "parameters": [
           {
@@ -343,6 +805,34 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        },
+                        "example": {
+                          "type": "string",
+                          "example": "Red"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -352,9 +842,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "Delete attribute value",
         "description": "",
         "parameters": [
           {
@@ -371,11 +870,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/products/attributes/{attributeId}/products": {
       "get": {
+        "tags": [
+          "ProductAttributes"
+        ],
+        "summary": "List products by attribute",
         "description": "",
         "parameters": [
           {
@@ -392,11 +900,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/products/{id}": {
       "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Get product by ID",
         "description": "",
         "parameters": [
           {
@@ -413,11 +930,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/products/{id}/variants": {
       "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "List variants of a product",
         "description": "",
         "parameters": [
           {
@@ -434,11 +960,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/products/{id}/variants/sync": {
       "put": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Sync variants for a product",
         "description": "",
         "parameters": [
           {
@@ -446,6 +981,39 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "variants": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "array"
+                        },
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "example": "object"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -455,11 +1023,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/products/{id}/variants/{variantId}": {
       "put": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Update a product variant",
         "description": "",
         "parameters": [
           {
@@ -473,6 +1050,48 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "price": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "number"
+                        }
+                      }
+                    },
+                    "sku": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "stock": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -482,9 +1101,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Delete a product variant",
         "description": "",
         "parameters": [
           {
@@ -507,20 +1135,66 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/providers/": {
       "get": {
+        "tags": [
+          "Providers"
+        ],
+        "summary": "List providers",
         "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer",
+            "description": "Page size (default 10)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Providers"
+        ],
+        "summary": "Create provider",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ProviderBody"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request"
@@ -528,11 +1202,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/providers/{id}": {
       "get": {
+        "tags": [
+          "Providers"
+        ],
+        "summary": "Get provider by ID",
         "description": "",
         "parameters": [
           {
@@ -546,29 +1229,83 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/warehouses/": {
       "get": {
+        "tags": [
+          "Warehouses"
+        ],
+        "summary": "List warehouses",
         "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Warehouses"
+        ],
+        "summary": "Create warehouse",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/WarehouseBody"
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/warehouses/{id}": {
       "get": {
+        "tags": [
+          "Warehouses"
+        ],
+        "summary": "Get warehouse by ID",
         "description": "",
         "parameters": [
           {
@@ -576,15 +1313,29 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "string"
           }
         ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
+        "tags": [
+          "Warehouses"
+        ],
+        "summary": "Update warehouse",
         "description": "",
         "parameters": [
           {
@@ -592,35 +1343,103 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/WarehouseBody"
+            }
           }
         ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/categories/": {
       "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "List categories",
         "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Create category",
         "description": "",
+        "parameters": [
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "string",
+            "description": "Vendor ID (query)"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CategoryBody"
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/categories/{id}": {
       "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Get category by ID",
         "description": "",
         "parameters": [
           {
@@ -634,9 +1453,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Update category",
         "description": "",
         "parameters": [
           {
@@ -644,15 +1472,57 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "description": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Delete category",
         "description": "",
         "parameters": [
           {
@@ -666,29 +1536,74 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/tags/": {
       "get": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "List tags",
         "description": "",
+        "parameters": [
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "string",
+            "required": true
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Create tag",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TagBody"
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/tags/{id}": {
       "get": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Get tag by ID",
         "description": "",
         "parameters": [
           {
@@ -702,9 +1617,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Update tag",
         "description": "",
         "parameters": [
           {
@@ -712,35 +1636,121 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "integer"
+                        }
+                      }
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "id"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/units/": {
       "get": {
+        "tags": [
+          "Units"
+        ],
+        "summary": "List units",
         "description": "",
+        "parameters": [
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "string"
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Units"
+        ],
+        "summary": "Create unit",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UnitBody"
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/units/{id}": {
       "get": {
+        "tags": [
+          "Units"
+        ],
+        "summary": "Get unit by ID",
         "description": "",
         "parameters": [
           {
@@ -748,15 +1758,29 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "vendor",
+            "in": "query",
+            "type": "string"
           }
         ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Units"
+        ],
+        "summary": "Update unit",
         "description": "",
         "parameters": [
           {
@@ -764,17 +1788,68 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "integer"
+                        }
+                      }
+                    },
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "id"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/financial/": {
       "get": {
+        "tags": [
+          "Financial"
+        ],
+        "summary": "List financial records (legacy)",
         "description": "",
         "responses": {
           "200": {
@@ -783,10 +1858,29 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Create financial voucher",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FinancialVoucherBody"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -794,22 +1888,33 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/financial/report": {
       "get": {
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Get financial report",
         "description": "",
         "parameters": [
           {
             "name": "from",
             "in": "query",
-            "type": "string"
+            "type": "string",
+            "description": "ISO date from"
           },
           {
             "name": "to",
             "in": "query",
-            "type": "string"
+            "type": "string",
+            "description": "ISO date to"
           },
           {
             "name": "warehouseId",
@@ -824,11 +1929,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/financial/{id}": {
       "get": {
+        "tags": [
+          "Financial"
+        ],
+        "summary": "Get voucher by ID",
         "description": "",
         "parameters": [
           {
@@ -845,17 +1959,26 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/stats/dashboard": {
       "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Get dashboard statistics",
         "description": "",
         "parameters": [
           {
             "name": "days",
             "in": "query",
-            "type": "string"
+            "type": "integer"
           },
           {
             "name": "from",
@@ -870,7 +1993,8 @@
           {
             "name": "groupBy",
             "in": "query",
-            "type": "string"
+            "type": "string",
+            "description": "day | month"
           },
           {
             "name": "warehouseId",
@@ -880,7 +2004,7 @@
           {
             "name": "lowStockThreshold",
             "in": "query",
-            "type": "string"
+            "type": "integer"
           }
         ],
         "responses": {
@@ -890,11 +2014,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/history/{id}": {
       "get": {
+        "tags": [
+          "History"
+        ],
+        "summary": "Get stock history by product ID",
         "description": "",
         "parameters": [
           {
@@ -908,17 +2041,26 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/roles/": {
       "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "List roles",
         "description": "",
         "parameters": [
           {
             "name": "vendorId",
             "in": "query",
-            "type": "string"
+            "type": "integer"
           }
         ],
         "responses": {
@@ -928,11 +2070,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/roles/{id}": {
       "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Get role by ID",
         "description": "",
         "parameters": [
           {
@@ -944,7 +2095,7 @@
           {
             "name": "vendorId",
             "in": "query",
-            "type": "string"
+            "type": "integer"
           }
         ],
         "responses": {
@@ -954,9 +2105,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Update role",
         "description": "",
         "parameters": [
           {
@@ -964,6 +2124,14 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RoleBody"
+            }
           }
         ],
         "responses": {
@@ -973,9 +2141,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Delete role",
         "description": "",
         "parameters": [
           {
@@ -992,12 +2169,31 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/roles/create": {
       "post": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Create role",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RoleBody"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -1005,12 +2201,66 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/roles/assign": {
       "post": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Assign role to user",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "integer"
+                        }
+                      }
+                    },
+                    "roleId": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "integer"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "userId",
+                    "roleId"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -1018,213 +2268,34 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/customers/": {
       "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "post": {
-        "description": "",
-        "responses": {
-          "201": {
-            "description": "Created"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/customers/{id}": {
-      "get": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
+        "tags": [
+          "Customers"
         ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "put": {
+        "summary": "List customers",
         "description": "",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
+            "name": "limit",
+            "in": "query",
+            "type": "integer"
           },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "delete": {
-        "description": "",
-        "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
+            "name": "offset",
+            "in": "query",
+            "type": "integer"
           },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/invoices/": {
-      "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "post": {
-        "description": "",
-        "responses": {
-          "201": {
-            "description": "Created"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/invoices/{id}": {
-      "get": {
-        "description": "",
-        "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "put": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "delete": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/invoices/{id}/status": {
-      "put": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/staff/": {
-      "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      },
-      "post": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "vendorId",
+            "name": "search",
             "in": "query",
             "type": "string"
           }
@@ -1236,11 +2307,528 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Create customer",
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CustomerBody"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/customers/{id}": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Get customer by ID",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Update customer",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CustomerBody"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Delete customer",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/invoices/": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "List invoices",
+        "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Create invoice",
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/InvoiceBody"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/invoices/{id}": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Get invoice by ID",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Update invoice",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "paymentType": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        },
+                        "enum": {
+                          "type": "array",
+                          "example": [
+                            "cash",
+                            "transfer",
+                            "credit"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "note": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Delete invoice",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/invoices/{id}/status": {
+      "put": {
+        "tags": [
+          "Invoices"
+        ],
+        "summary": "Update invoice status",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        },
+                        "enum": {
+                          "type": "array",
+                          "example": [
+                            "draft",
+                            "paid",
+                            "cancelled"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "example": {
+                          "type": "string",
+                          "example": "paid"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "status"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/staff/": {
+      "get": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "List staff",
+        "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Create staff",
+        "description": "",
+        "parameters": [
+          {
+            "name": "vendorId",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "email": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "roleId": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "integer"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "name"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/staff/{id}": {
       "get": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Get staff by ID",
         "description": "",
         "parameters": [
           {
@@ -1257,9 +2845,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Update staff",
         "description": "",
         "parameters": [
           {
@@ -1267,6 +2864,39 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "email": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -1276,9 +2906,18 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Delete staff",
         "description": "",
         "parameters": [
           {
@@ -1295,11 +2934,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/shift/": {
       "get": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "List shifts",
         "description": "",
         "responses": {
           "200": {
@@ -1308,11 +2956,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/shift/current": {
       "get": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "Get current shift",
         "description": "",
         "parameters": [
           {
@@ -1328,11 +2985,20 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/shift/{id}": {
       "get": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "Get shift by ID",
         "description": "",
         "parameters": [
           {
@@ -1349,31 +3015,63 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/shift/open": {
       "post": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        }
-      }
-    },
-    "/api/shift/{id}/close": {
-      "post": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "Open a new shift",
         "description": "",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
+            "name": "body",
+            "in": "body",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "warehouseId": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "integer"
+                        }
+                      }
+                    },
+                    "openingCash": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "number"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "warehouseId"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -1383,36 +3081,497 @@
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/shift/{id}/close": {
+      "post": {
+        "tags": [
+          "Shifts"
+        ],
+        "summary": "Close a shift",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "closingCash": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "number"
+                        }
+                      }
+                    },
+                    "note": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/settings/": {
       "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get settings",
         "description": "",
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update settings",
         "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "properties": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/permission/": {
       "get": {
+        "tags": [
+          "Permissions"
+        ],
+        "summary": "Get permission catalog",
         "description": "",
         "responses": {
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
-  }
+  },
+  "definitions": {
+    "PaginationQuery": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "number",
+          "example": 10
+        },
+        "offset": {
+          "type": "number",
+          "example": 0
+        },
+        "vendorId": {
+          "type": "number",
+          "example": 1
+        }
+      }
+    },
+    "LoginBody": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "example": "admin@example.com"
+        },
+        "password": {
+          "type": "string",
+          "example": "password123"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ]
+    },
+    "RegisterBody": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "example": "new@example.com"
+        },
+        "password": {
+          "type": "string",
+          "example": "password123"
+        },
+        "name": {
+          "type": "string",
+          "example": "New User"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ]
+    },
+    "VendorBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "My Vendor"
+        },
+        "address": {
+          "type": "string",
+          "example": "123 Street"
+        },
+        "phone": {
+          "type": "string",
+          "example": "0123456789"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "ProviderBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "ACME Supplier"
+        },
+        "email": {
+          "type": "string",
+          "example": "supplier@example.com"
+        },
+        "phone": {
+          "type": "string",
+          "example": "0123456789"
+        },
+        "address": {
+          "type": "string",
+          "example": "123 Street"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "WarehouseBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Main Warehouse"
+        },
+        "address": {
+          "type": "string",
+          "example": "123 Street"
+        },
+        "phone": {
+          "type": "string",
+          "example": "0123456789"
+        },
+        "email": {
+          "type": "string",
+          "example": "warehouse@example.com"
+        },
+        "isMain": {
+          "type": "boolean",
+          "example": true
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "CategoryBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Electronics"
+        },
+        "description": {
+          "type": "string",
+          "example": "Electronic products"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "TagBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Hot"
+        },
+        "vendorId": {
+          "type": "number",
+          "example": 1
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "UnitBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Piece"
+        },
+        "vendorId": {
+          "type": "number",
+          "example": 1
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "ProductBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Product A"
+        },
+        "sku": {
+          "type": "string",
+          "example": "SKU001"
+        },
+        "categoryId": {
+          "type": "number",
+          "example": 1
+        },
+        "unitId": {
+          "type": "number",
+          "example": 1
+        },
+        "price": {
+          "type": "number",
+          "example": 100000
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "OrderBody": {
+      "type": "object",
+      "properties": {
+        "warehouseId": {
+          "type": "number",
+          "example": 1
+        },
+        "customerId": {
+          "type": "number",
+          "example": 1
+        },
+        "paymentType": {
+          "type": "string",
+          "example": "cash"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productVariantId": {
+                "type": "number",
+                "example": 1
+              },
+              "quantity": {
+                "type": "number",
+                "example": 2
+              },
+              "price": {
+                "type": "number",
+                "example": 100000
+              }
+            }
+          }
+        }
+      }
+    },
+    "CustomerBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "John Doe"
+        },
+        "phone": {
+          "type": "string",
+          "example": "0123456789"
+        },
+        "email": {
+          "type": "string",
+          "example": "customer@example.com"
+        },
+        "address": {
+          "type": "string",
+          "example": "123 Street"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "InvoiceBody": {
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "number",
+          "example": 1
+        },
+        "paymentType": {
+          "type": "string",
+          "example": "cash"
+        }
+      }
+    },
+    "FinancialVoucherBody": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "example": "income"
+        },
+        "amount": {
+          "type": "number",
+          "example": 1000000
+        },
+        "description": {
+          "type": "string",
+          "example": "Sales revenue"
+        },
+        "warehouseId": {
+          "type": "number",
+          "example": 1
+        }
+      }
+    },
+    "RoleBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "example": "Manager"
+        },
+        "description": {
+          "type": "string",
+          "example": "Manager role"
+        },
+        "permissions": {
+          "type": "array",
+          "example": [
+            "product:C",
+            "order:R"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
 }

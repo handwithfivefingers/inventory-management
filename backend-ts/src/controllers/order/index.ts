@@ -5,6 +5,7 @@ import { NextFunction, Request, Response } from 'express'
 export default class OrderController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Orders']
       const order = await new OrderService().create(req.body, getVendorScope(req as any))
       // Sales orders (no provider) auto-chain an invoice.
       // Cash/transfer -> paid + FinancialRecord, credit -> draft (no ledger yet)
@@ -38,7 +39,11 @@ export default class OrderController {
         }
       }
       res.status(200).json({
-        data: { order, invoice, invoiceError: invoice ? undefined : isImport ? undefined : 'auto-invoice failed or skipped' }
+        data: {
+          order,
+          invoice,
+          invoiceError: invoice ? undefined : isImport ? undefined : 'auto-invoice failed or skipped'
+        }
       })
       return
     } catch (error) {
@@ -47,6 +52,8 @@ export default class OrderController {
   }
   async getOrders(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Orders']
+
       const { count, rows } = await new OrderService().getOrders(req)
       res.status(200).json({ total: count, data: rows })
       return
@@ -56,6 +63,8 @@ export default class OrderController {
   }
   async getOrderById(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Orders']
+
       const { id } = req.params
       const { warehouseId } = req.query
       const resp = await new OrderService().getOrderById(
@@ -72,6 +81,8 @@ export default class OrderController {
   }
   async update(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Orders']
+
       const resp = await new OrderService().update(req as any)
       res.status(200).json({
         data: resp

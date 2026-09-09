@@ -8,6 +8,8 @@ export class CustomerController {
    */
   async getCustomers(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Customers']
+
       const { count, rows } = await new CustomerService().getCustomers(req as IRequestLocal)
       res.status(200).json({
         total: count,
@@ -23,6 +25,7 @@ export class CustomerController {
    */
   async getCustomerById(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Customers']
       const customer = await new CustomerService().getCustomerById(req as IRequestLocal)
       res.status(200).json({
         data: customer
@@ -37,6 +40,8 @@ export class CustomerController {
    */
   async create(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Customers']
+
       const customer = await new CustomerService().create(req as IRequestLocal)
       res.status(201).json({
         data: customer,
@@ -52,6 +57,8 @@ export class CustomerController {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Customers']
+
       const customer = await new CustomerService().update(req as IRequestLocal)
       res.status(200).json({
         data: customer,
@@ -67,6 +74,8 @@ export class CustomerController {
    */
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Customers']
+
       const result = await new CustomerService().delete(req as IRequestLocal)
       res.status(200).json({
         data: result,

@@ -7,6 +7,8 @@ export class FinancialController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
+      // #swagger.tags = ['Financial']
+
       const { count, rows } = await new FinancialService().getFinancial(req as IRequestLocal)
       res.status(200).json({ total: count, data: rows })
       return
@@ -17,6 +19,8 @@ export class FinancialController {
 
   async getVouchers(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Financial']
+
       const { count, rows } = await new FinancialService().getVouchers(req)
       res.status(200).json({ total: count, data: rows })
       return
@@ -27,6 +31,8 @@ export class FinancialController {
 
   async getVoucherById(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Financial']
+
       const { id } = req.params
       const resp = await new FinancialService().getVoucherById(id)
       res.status(200).json({ data: resp })
@@ -38,6 +44,8 @@ export class FinancialController {
 
   async createVoucher(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Financial']
+
       const resp = await new FinancialService().createVoucher(req.body)
       res.status(200).json({ data: resp })
       return
@@ -48,6 +56,8 @@ export class FinancialController {
 
   async getReport(req: Request, res: Response, next: NextFunction) {
     try {
+      // #swagger.tags = ['Financial']
+
       const { from, to, warehouseId } = req.query
       const vendorScope = getVendorScope(req as any)
       const resp = await new FinancialService().getReport(
