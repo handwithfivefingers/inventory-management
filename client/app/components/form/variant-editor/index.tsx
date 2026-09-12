@@ -473,7 +473,7 @@ const AttributeVariant = () => {
                 label={index === 0 ? t("product.attributeValuesHint") : undefined}
                 value={normalizedValue}
                 options={suggestions}
-                onChange={(next) => {
+                onChange={(next, createOption) => {
                   form.setValue(`variantAttributes.${index}.values` as const, next as any, {
                     shouldDirty: true,
                     shouldValidate: true,
@@ -487,13 +487,13 @@ const AttributeVariant = () => {
                     const toCreate = next.filter(
                       (o) => !existingLower.has(o.value.toLowerCase()) && !prevLower.has(o.value.toLowerCase()),
                     );
-                    if (toCreate.length) {
+                    if (toCreate.length && createOption) {
                       // createValueFetcher.submit(
                       //   { values: JSON.stringify(toCreate.map((o) => o.value)), _action: "createValues" },
                       //   { method: "POST", action: `/products/attributes/${attr.id}` },
                       // );
                       submit(
-                        { values: JSON.stringify(toCreate.map((o) => o.value)), intent: "createValues" },
+                        { values: createOption.value, intent: "createValue" },
                         { method: "POST", action: `/products/attributes/${attr.id}` },
                       );
                     }

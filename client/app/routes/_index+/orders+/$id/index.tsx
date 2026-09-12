@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { invoiceService } from "~/action.server/invoice.service";
 import { orderService } from "~/action.server/order.service";
@@ -17,7 +17,7 @@ import { useTranslation } from "~/i18n";
 import { IReceipt, printReceiptToDevice, stripDiacritics } from "~/libs/device-print";
 import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
-import { IProduct, IProductAttribute } from "~/types/product";
+import { IProduct } from "~/types/product";
 
 const PRINT_STYLES = `
 @media print {
@@ -223,7 +223,7 @@ export default function OrderItem() {
     return (
       <FormProvider {...form}>
         <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent no-print">
-          <div className="max-w-5xl w-full mx-auto">
+          <div className="w-full mx-auto">
             <CardItem
               title={
                 <div className="flex items-start justify-between gap-4">

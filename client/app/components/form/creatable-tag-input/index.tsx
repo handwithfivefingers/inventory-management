@@ -14,7 +14,7 @@ interface Props {
   placeholder?: string;
   value: Option[];
   options: Option[]; // suggestions (global reusable)
-  onChange: (next: Option[]) => void;
+  onChange: (next: Option[], opt?: Option) => void;
   inputSize?: "xs" | "sm" | "md";
 }
 
@@ -70,7 +70,7 @@ export const CreatableTagInput: React.FC<Props> = ({
 
   const addOption = (opt: Option) => {
     if (selectedValues.has(opt.value.toLowerCase())) return;
-    onChange([...value, opt]);
+    onChange([...value, opt], opt);
     setInputValue("");
     inputRef.current?.focus();
   };

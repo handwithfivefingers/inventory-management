@@ -49,9 +49,9 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
   );
 
   return (
-    <div className="min-h-40 h-full overflow-auto flex flex-col gap-4 relative">
-      <div className="flex-1">
-        <div className="flex gap-2 items-center py-3 rounded-t-md bg-primary/10 px-2">
+    <div className="min-h-40 h-full overflow-auto flex flex-col gap-4 relative border border-[#009efa] rounded-md">
+      <div className="flex-1 ">
+        <div className="flex gap-2 items-center py-3 bg-[#009efa] px-2 text-white">
           <div className="w-full text-sm font-medium">{t("importOrder.product")}</div>
           <div className="w-32 shrink-0 text-sm font-medium ">{t("importOrder.quantity")}</div>
           <div className="w-28 shrink-0 text-sm font-medium text-right">{t("importOrder.unitPrice")}</div>
@@ -61,7 +61,7 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
         {fields?.map((field, i: number) => {
           return (
             <div
-              className="flex gap-2 items-center order-row odd:bg-slate-200/50 p-2 border-b border-slate-100 hover:bg-slate-200/70 transition-all"
+              className="flex gap-2 items-center order-row bg-white odd:bg-slate-50 p-2 border-b border-slate-100 hover:bg-slate-200/70 transition-all"
               key={field.id}
             >
               <div className="hidden">
@@ -107,7 +107,7 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
           </div>
         </div>
       </div>
-      <div className="flex gap-2 items-center order-row mt-auto bg-primary/10 p-2 text-sm rounded-b">
+      <div className="flex gap-2 items-center order-row mt-auto bg-[#009efa] p-2 text-sm rounded-b text-white">
         <div className="w-full font-medium">{t("importOrder.total")}</div>
         <div className="shrink-0">
           <NumberInput

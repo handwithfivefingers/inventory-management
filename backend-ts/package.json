@@ -25,7 +25,8 @@
     "coverage": "vitest run --coverage",
     "prepare": "husky",
     "swagger-gen": "node --watch --watch-path=./src ./scripts/swagger.js",
-    "dev": "concurrently 'npm run dev:be' 'npm run swagger-gen'"
+    "dev": "concurrently 'npm run dev:be' 'npm run swagger-gen'",
+    "swagger-test": "docker run --rm schemathesis/schemathesis run"
   },
   "author": "",
   "license": "ISC",
