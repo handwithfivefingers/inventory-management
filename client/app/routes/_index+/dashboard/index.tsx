@@ -91,7 +91,7 @@ export default function Home() {
     { value: "month" as const, enabled: spanDays >= 45 },
   ];
   return (
-    <div className="w-full flex flex-col p-4 gap-4">
+    <div className="w-full flex flex-col p-4 gap-4 h-full overflow-auto scrollbar">
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-xl font-semibold">{t("dashboard.title")}</h1>
         <div className="ml-auto flex gap-2 items-center flex-wrap">
@@ -275,7 +275,7 @@ const KpiCard = ({
   variant?: "green" | "red" | "blue" | "indigo";
 }) => {
   return (
-    <div className="bg-white dark:bg-slate-500 p-4 flex flex-col gap-2 rounded shadow-2xl shadow-slate-200 dark:shadow-slate-600">
+    <div className="bg-white p-4 flex flex-col gap-2 rounded shadow-2xl shadow-slate-200 dark:bg-slate-800 dark:shadow-black/20">
       <span className="text-slate-500">{label}</span>
       <span
         className={cn("text-xl font-semibold", {

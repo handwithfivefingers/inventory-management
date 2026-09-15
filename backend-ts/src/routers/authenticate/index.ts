@@ -1,7 +1,7 @@
 import AuthenticateController from '#/controllers/authenticate/index'
 import { rateLimit } from '#/middleware/rateLimit'
 import { auth } from '#/middleware/authenticate'
-import { loginValidator } from './validator'
+import { loginValidator, registerValidator } from './validator'
 import express from 'express'
 const router = express.Router()
 
@@ -18,6 +18,7 @@ router.post(
 )
 router.post(
   '/register',
+  registerValidator as any,
   // #swagger.tags = ['Auth']
   // #swagger.summary = 'Register new user'
   /* #swagger.parameters['body'] = { in: 'body', description: 'Registration data', required: true, schema: { $ref: '#/definitions/RegisterBody' } } */

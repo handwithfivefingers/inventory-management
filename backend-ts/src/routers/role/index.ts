@@ -1,9 +1,11 @@
 import { RoleController } from '#/controllers/role'
 import express from 'express'
+import { roleAssignValidation, roleCreateValidation, roleIdValidation, roleListValidation, roleUpdateValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
   '/',
+  roleListValidation as any,
   // #swagger.tags = ['Roles']
   // #swagger.summary = 'List roles'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -13,6 +15,7 @@ Router.get(
 )
 Router.get(
   '/:id',
+  roleIdValidation as any,
   // #swagger.tags = ['Roles']
   // #swagger.summary = 'Get role by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -22,6 +25,7 @@ Router.get(
 )
 Router.post(
   '/create',
+  roleCreateValidation as any,
   // #swagger.tags = ['Roles']
   // #swagger.summary = 'Create role'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -31,6 +35,7 @@ Router.post(
 )
 Router.put(
   '/:id',
+  roleUpdateValidation as any,
   // #swagger.tags = ['Roles']
   // #swagger.summary = 'Update role'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -40,6 +45,7 @@ Router.put(
 )
 Router.delete(
   '/:id',
+  roleIdValidation as any,
   // #swagger.tags = ['Roles']
   // #swagger.summary = 'Delete role'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -48,6 +54,7 @@ Router.delete(
 )
 Router.post(
   '/assign',
+  roleAssignValidation as any,
   // #swagger.tags = ['Roles']
   // #swagger.summary = 'Assign role to user'
   // #swagger.security = [{ "bearerAuth": [] }]

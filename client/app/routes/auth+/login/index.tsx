@@ -130,6 +130,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       headers: {
         "Set-Cookie": await commitSession(session),
       },
+      status: 302,
     });
   } catch (error) {
     console.log("error", error);

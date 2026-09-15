@@ -5,6 +5,7 @@ import {
   DataType,
   CreatedAt,
   UpdatedAt,
+  DeletedAt,
   ForeignKey,
   BelongsTo,
   HasMany,
@@ -21,7 +22,7 @@ import { Transfer } from './transfer'
 import { Unit } from './units'
 import { Vendor } from './vendor'
 
-@Table({ tableName: 'products', modelName: 'product', timestamps: true })
+@Table({ tableName: 'products', modelName: 'product', timestamps: true, paranoid: true })
 export class Product extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
   declare id: number
@@ -56,6 +57,9 @@ export class Product extends Model {
   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
   declare isNegative: boolean
 
+  @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
+  declare type: number
+
   @Column({ type: DataType.STRING, allowNull: true })
   declare image: string | null
 
@@ -72,6 +76,10 @@ export class Product extends Model {
 
   @UpdatedAt
   declare updatedAt: Date
+
+  @DeletedAt
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare deletedAt: Date | null
 
   @BelongsToMany(() => Category, () => ProductCategory)
   declare categories: Category[]

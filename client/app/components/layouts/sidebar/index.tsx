@@ -41,28 +41,54 @@ const hasActiveDescendant = (items: ISidebarChild[] | undefined, pathname: strin
 
 /** Filter any level of entries down to what the user may see. */
 const filterVisible = <T extends ISidebarChild | ISideBarItem>(items: T[], role?: IRole | undefined): T[] => {
-  return items.filter((item) => !item.moduleKey || (role && checkPermission(role, item.moduleKey, "READ")));
+  const hidden: string[] =
+    typeof window !== "undefined" ? ((window as any).__NICHE_HIDDEN__ as string[] | undefined) || [] : [];
+  return items.filter(
+    (item) =>
+      (!item.moduleKey || (role && checkPermission(role, item.moduleKey, "READ"))) && !hidden.includes(item.moduleKey || ""),
+  );
+};
+
+/** Recursively drop hidden leaves inside groups (bottom-nav "More" sheet). */
+const filterVisibleDeep = (items: ISidebarChild[] | undefined, role?: IRole | undefined): ISidebarChild[] => {
+  const hidden: string[] =
+    typeof window !== "undefined" ? ((window as any).__NICHE_HIDDEN__ as string[] | undefined) || [] : [];
+  return (items || [])
+    .filter(
+      (item) =>
+        (!item.moduleKey || (role && checkPermission(role, item.moduleKey, "READ"))) &&
+        !hidden.includes(item.moduleKey || ""),
+    )
+    .map((item) => (item.items?.length ? { ...item, items: filterVisibleDeep(item.items, role) } : item));
 };
 
 export const Sidebar = () => {
   const { t } = useTranslation();
   const role = usePermissionStore();
   const { activeVendor } = useUser();
+  // Re-render when niche visibility changes (settings save dispatches the event).
+  const [hiddenTick, setHiddenTick] = useState(0);
+  useEffect(() => {
+    const onChange = () => setHiddenTick((v) => v + 1);
+    window.addEventListener("niche-theme-change", onChange);
+    return () => window.removeEventListener("niche-theme-change", onChange);
+  }, []);
 
-  // Requirement 4: group headers remain visible even when the user lacks
-  // permission for all children - only the children are filtered.
+  // Groups left with zero visible children (every child hidden by the niche
+  // settings or by permission) are dropped entirely - including the header.
   const visibleGroups = useMemo(() => {
     return SIDE_BAR.map((group) =>
-      group.items?.length ? { ...group, items: filterVisible(group.items, role) } : group,
-    );
-  }, [role]);
+      group.items?.length ? { ...group, items: filterVisibleDeep(group.items, role) } : group,
+    ).filter((group) => (group.items?.length ?? 0) > 0 || group.to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, hiddenTick]);
 
   return (
-    <div className="w-full max-w-60 h-full shrink-0 shadow-xl shadow-primary/20 bg-white flex flex-col">
-      <div className="p-2 min-w-40 text-center max-w-60 font-bold w-full bg-white shrink-0 h-10">
+    <div className="w-full max-w-60 h-full shrink-0 shadow-xl shadow-primary/20 bg-white dark:bg-transparent flex flex-col">
+      <div className="p-2 min-w-40 text-center max-w-60 font-bold w-full bg-white  dark:bg-transparent shrink-0 h-10">
         <Link to="/">{activeVendor?.name}</Link>
       </div>
-      <div className="flex flex-col flex-1 p-2 rounded-md gap-1 overflow-auto scrollbar h-[calc(100svh-40px)]">
+      <div className="flex flex-col flex-1 p-2 rounded-md gap-1 overflow-auto scrollbar h-[calc(100dvh-40px)]">
         {visibleGroups.map((group, index) => (
           <SideBarItem
             key={[group.labelKey, index].join("-")}
@@ -89,8 +115,8 @@ const SideBarItem = ({ to, label, iconName, items, divider, level = 0 }: ISideba
   let location = useLocation();
   const pathname = location.pathname;
 
-  // Top-level groups always render as collapsible headers even when
-  // all children are filtered (requirement 4). Only leaf levels fall
+  // Top-level groups with no visible children are dropped by the parent
+  // memo, so this branch is a defensive fallback only. Nested levels fall
   // back to a plain link when empty.
   if (!items?.length) {
     if (level === 0) {

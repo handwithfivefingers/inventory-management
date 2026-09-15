@@ -16,6 +16,7 @@ export interface IOrderModel extends Model<InferAttributes<IOrderModel>, InferCr
   surcharge: number
   price: number
   paymentType: string
+  channel?: 'POS' | 'WHOLESALE' | 'ONLINE'
   providerId: ForeignKey<number>
   warehouseId: ForeignKey<number>
   vendorId?: number | null

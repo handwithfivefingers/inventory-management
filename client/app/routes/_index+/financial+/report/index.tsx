@@ -72,13 +72,13 @@ export default function FinancialReport() {
   const { t } = useTranslation();
 
   const rows = [
-    { key: "revenue", label: t("financial.revenue"), value: report.revenue, color: "text-green-500" },
-    { key: "vatCollected", label: t("financial.vatCollected"), value: report.vatCollected, color: "text-blue-500" },
-    { key: "netRevenue", label: t("financial.netRevenue") ?? "Net Revenue (excl. VAT)", value: (report as any).netRevenue ?? report.revenue - report.vatCollected, color: "text-emerald-600" },
-    { key: "importCost", label: t("financial.importCost"), value: report.importCost, color: "text-red-500" },
-    { key: "otherExpense", label: t("financial.otherExpense"), value: report.otherExpense, color: "text-red-500" },
-    { key: "totalExpense", label: t("financial.totalExpense"), value: report.totalExpense, color: "text-red-500" },
-    { key: "netProfit", label: t("financial.netProfit"), value: report.netProfit, color: "text-primary font-bold" },
+    { key: "revenue", label: t("financial.revenue"), value: report.revenue, color: "text-green-600 dark:text-green-400" },
+    { key: "vatCollected", label: t("financial.vatCollected"), value: report.vatCollected, color: "text-blue-600 dark:text-blue-400" },
+    { key: "netRevenue", label: t("financial.netRevenue") ?? "Net Revenue (excl. VAT)", value: (report as any).netRevenue ?? report.revenue - report.vatCollected, color: "text-emerald-600 dark:text-emerald-400" },
+    { key: "importCost", label: t("financial.importCost"), value: report.importCost, color: "text-red-500 dark:text-red-400" },
+    { key: "otherExpense", label: t("financial.otherExpense"), value: report.otherExpense, color: "text-red-500 dark:text-red-400" },
+    { key: "totalExpense", label: t("financial.totalExpense"), value: report.totalExpense, color: "text-red-500 dark:text-red-400" },
+    { key: "netProfit", label: t("financial.netProfit"), value: report.netProfit, color: "text-primary dark:text-indigo-300 font-bold" },
   ];
 
   return (

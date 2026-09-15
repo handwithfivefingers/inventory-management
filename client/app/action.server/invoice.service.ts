@@ -11,6 +11,7 @@ interface IInvoiceQueryParams extends BaseQueryParams {
   vendorId?: number | string;
   status?: string;
   customerId?: number;
+  orderId?: number | string;
 }
 
 const http = HTTPService.getInstance();

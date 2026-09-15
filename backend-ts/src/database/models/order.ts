@@ -39,6 +39,22 @@ export class Order extends Model {
   @Column({ type: DataType.ENUM('cash', 'transfer', 'credit'), defaultValue: 'cash' })
   declare paymentType: string
 
+  @Column({
+    type: DataType.ENUM('POS', 'WHOLESALE', 'ONLINE'),
+    allowNull: false,
+    defaultValue: 'WHOLESALE',
+    comment: 'sales channel: POS (in-store), WHOLESALE (B2B), ONLINE (e-commerce)'
+  })
+  declare channel: 'POS' | 'WHOLESALE' | 'ONLINE'
+
+  @Column({
+    type: DataType.ENUM('draft', 'completed', 'partially_returned', 'returned'),
+    allowNull: false,
+    defaultValue: 'completed',
+    comment: 'lifecycle: completed = normal sale; partially_returned/returned set by return documents'
+  })
+  declare status: string
+
   @ForeignKey(() => Provider)
   @Column(DataType.INTEGER)
   declare providerId: number

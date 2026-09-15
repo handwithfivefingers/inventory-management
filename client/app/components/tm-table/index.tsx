@@ -8,6 +8,8 @@ interface ICol<T> {
   render?: (record: T, index?: number) => React.ReactNode;
   width?: number | string;
   className?: string;
+  /** Hide this column below the `sm` breakpoint (mobile-app-style compact rows) */
+  hideOnMobile?: boolean;
 }
 
 interface IRow<T extends object> {
@@ -53,7 +55,7 @@ export const TMTable = <T extends object>({
         }}
       />
       {loading && <Loader />}
-      <div className="relative rounded-md h-full flex flex-col">
+      <div className="relative rounded-md h-full flex flex-col ">
         <div
           className={cn("shadow-sm flex-1 min-h-0", {
             ["overflow-auto"]: scrollable,
@@ -63,7 +65,11 @@ export const TMTable = <T extends object>({
             scrollbarWidth: "thin",
           }}
         >
-          <table className={cn("border-collapse table-fixed text-sm w-max min-w-full", className)}>
+          <table
+            className={cn("border-collapse table-fixed text-sm w-max min-w-full", className, {
+              ["h-full"]: !data?.length,
+            })}
+          >
             <TMTable.Header columns={columns} />
             <tbody className="bg-white dark:bg-slate-800">
               {isEmpty && (
@@ -102,7 +108,8 @@ TMTable.Header = <T extends object>({ columns }: { columns: ICol<T>[] }) => {
           <th
             key={`header-${i}`}
             className={cn(
-              "sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600 font-medium p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left py-3",
+              "sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-600 font-medium p-2 sm:p-4 pt-0 pb-3 text-slate-400 dark:text-slate-200 text-left py-3 whitespace-nowrap",
+              col.hideOnMobile ? "hidden sm:table-cell" : "",
               col.className,
             )}
             style={{
@@ -123,10 +130,20 @@ TMTable.Row = <T extends object>({ columns, data, onClick, index }: IRow<T>) => 
     }
   };
   return (
-    <tr onClick={handleCellClick} className={cn("cursor-pointer group", styles.row)}>
+    <tr
+      onClick={handleCellClick}
+      className={cn(
+        "cursor-pointer group bg-white dark:bg-slate-800 even:[&>td]:bg-slate-100 even:dark:[&>td]:bg-slate-700/40",
+        styles.row,
+      )}
+    >
       {columns.map((item, i) => {
         return (
-          <TMTable.Cell className={cn(styles.cell, item.className)} key={`cell_${i}`} style={{ width: item.width }}>
+          <TMTable.Cell
+            className={cn(styles.cell, item.hideOnMobile ? "hidden sm:table-cell" : "", item.className)}
+            key={`cell_${i}`}
+            style={{ width: item.width }}
+          >
             {item?.render ? item?.render(data as T, index) : (data as T)?.[item?.dataIndex as keyof T]}
           </TMTable.Cell>
         );
@@ -139,7 +156,7 @@ TMTable.Cell = ({ children, className, style }: any) => {
   return (
     <td
       className={cn(
-        " dark:border-slate-600 p-4 text-slate-500 dark:text-slate-400 group-hover:bg-slate-100 transition-all",
+        "dark:border-slate-600 p-2 sm:p-4 text-slate-500 dark:text-slate-300 group-hover:bg-slate-100 dark:group-hover:bg-slate-700/60 transition-colors break-words",
         className,
       )}
       style={style}

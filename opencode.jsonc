@@ -1,5 +1,11 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "skills": [".opencode/skills"],
-  "instructions": [".opencode/rules/CODE_INSTRUCTION/SKILL.md"],
+  "instructions": [
+    ".opencode/rules/CODE_INSTRUCTION/SKILL.md",
+    ".opencode/rules/DOCUMENT_UPDATE/SKILL.md",
+    ".opencode/rules/PROJECT_WORKFLOW/SKILL.md",
+    ".opencode/rules/REMIX_RULES/SKILL.md",
+    ".opencode/rules/TESTING_GUIDE/SKILL.md",
+  ],
 }

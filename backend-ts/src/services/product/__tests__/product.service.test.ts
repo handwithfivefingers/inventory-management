@@ -61,6 +61,9 @@ const db = vi.hoisted(() => {
 });
 
 vi.mock("#/database", () => ({ default: db }));
+// The service imports the Product model directly: point it at the same mock
+// (this overrides the global test setup's instance for this file).
+vi.mock("#/database/models/product", () => ({ default: db.product, Product: db.product }));
 import database from "#/database";
 import { ProductService } from "../index";
 
@@ -186,8 +189,11 @@ describe("ProductService", () => {
       });
 
       await expect(
-        service.create({ body: { warehouseId: 1, quantity: 5, code: "C1", name: "Cola" } } as any),
-      ).rejects.toThrow("Product creation failed");
+        service.create({
+          body: { warehouseId: 1, vendorId: 1, quantity: 5, code: "C1", name: "Cola" },
+          user: { vendorIds: [1] },
+        } as any),
+      ).rejects.toThrow("db down");
       expect(tx.rollback).toHaveBeenCalled();
       expect(tx.commit).not.toHaveBeenCalled();
     });
@@ -336,24 +342,50 @@ describe("ProductService", () => {
       expect(tx.rollback).toHaveBeenCalled();
     });
 
-    it("syncProductVariants rejects foreign product", async () => {
+    it("updateProduct rejects foreign product", async () => {
       const tx = { commit: vi.fn(), rollback: vi.fn() };
       database.sequelize.transaction.mockResolvedValue(tx as any);
       database.product.findByPk.mockResolvedValue({ id: 3, vendorId: 1 } as any);
       await expect(
-        service.syncProductVariants({ params: { id: 3 }, body: {}, user: { vendorIds: [2] } } as any),
+        service.updateProduct({ params: { id: 3 }, body: { name: "X" }, user: { vendorIds: [2] } } as any),
       ).rejects.toThrow("Unauthorized");
       expect(tx.rollback).toHaveBeenCalled();
     });
 
-    it("updateVariant rejects when variant belongs to foreign product", async () => {
+    it("updateProduct updates a simple product base + stock", async () => {
       const tx = { commit: vi.fn(), rollback: vi.fn() };
       database.sequelize.transaction.mockResolvedValue(tx as any);
-      database.product.findByPk.mockResolvedValue({ id: 3, vendorId: 1 } as any);
-      await expect(
-        service.updateVariant({ params: { id: 3, variantId: 1 }, body: {}, user: { vendorIds: [2] } } as any),
-      ).rejects.toThrow("Unauthorized");
-      expect(tx.rollback).toHaveBeenCalled();
+      const product: any = {
+        id: 1,
+        vendorId: 1,
+        code: "P1",
+        type: 0,
+        get: vi.fn((k: string) => (k === "vendorId" ? 1 : k === "code" ? "P1" : k === "type" ? 0 : 1)),
+        update: vi.fn().mockResolvedValue(undefined),
+        $set: vi.fn().mockResolvedValue(undefined),
+      };
+      database.product.findByPk.mockResolvedValue(product);
+      database.productVariant.count.mockResolvedValue(0);
+      database.product.findOne.mockResolvedValue(null);
+      database.warehouse.findByPk.mockResolvedValue({ vendorId: 1 } as any);
+      database.inventory.findOne.mockResolvedValue(null);
+      const inv = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 5 } };
+      const tr = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 6 } };
+      database.inventory.build.mockReturnValue(inv as any);
+      database.transfer.build.mockReturnValue(tr as any);
+      database.product.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 1 });
+
+      await service.updateProduct({
+        params: { id: 1 },
+        body: { name: "New", quantity: 7, warehouseId: 2 },
+        user: { vendorIds: [1] },
+      } as any);
+
+      expect(product.update).toHaveBeenCalledWith(expect.objectContaining({ name: "New", type: 0 }), expect.anything());
+      expect(database.inventory.build).toHaveBeenCalledWith(
+        expect.objectContaining({ productId: 1, quantity: 7, warehouseId: 2 }),
+      );
+      expect(tx.commit).toHaveBeenCalled();
     });
 
     it("stress: handles string vendorId, empty string, NaN, null", async () => {

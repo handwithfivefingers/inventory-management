@@ -1,10 +1,12 @@
 import { InvoiceController } from '#/controllers/invoice'
 import express from 'express'
+import { invoiceCreateValidation, invoiceIdValidation, invoiceListValidation, invoiceStatusValidation, invoiceUpdateValidation } from './validator'
 
 const router = express.Router()
 
 router.get(
   '/',
+  invoiceListValidation as any,
   // #swagger.tags = ['Invoices']
   // #swagger.summary = 'List invoices'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -14,6 +16,7 @@ router.get(
 )
 router.get(
   '/:id',
+  invoiceIdValidation as any,
   // #swagger.tags = ['Invoices']
   // #swagger.summary = 'Get invoice by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -21,6 +24,7 @@ router.get(
 )
 router.post(
   '/',
+  invoiceCreateValidation as any,
   // #swagger.tags = ['Invoices']
   // #swagger.summary = 'Create invoice'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -29,6 +33,7 @@ router.post(
 )
 router.put(
   '/:id',
+  invoiceUpdateValidation as any,
   // #swagger.tags = ['Invoices']
   // #swagger.summary = 'Update invoice'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -37,6 +42,7 @@ router.put(
 )
 router.delete(
   '/:id',
+  invoiceIdValidation as any,
   // #swagger.tags = ['Invoices']
   // #swagger.summary = 'Delete invoice'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -44,6 +50,7 @@ router.delete(
 )
 router.put(
   '/:id/status',
+  invoiceStatusValidation as any,
   // #swagger.tags = ['Invoices']
   // #swagger.summary = 'Update invoice status'
   // #swagger.security = [{ "bearerAuth": [] }]

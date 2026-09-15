@@ -5,7 +5,7 @@ import { Link, useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { warehouseService } from "~/action.server/warehouse.service";
 import { CardItem } from "~/components/card-item";
-import { CheckboxInput } from "~/components/form/checkbox-input";
+import { SwitchInput } from "~/components/form/switch-input";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
@@ -133,7 +133,7 @@ export default function WarehouseAdd() {
                     </div>
                     <FormControl name="isMain" className="!gap-0">
                       {(field) => (
-                        <CheckboxInput
+                        <SwitchInput
                           value={!!field.value}
                           onChange={(e: any) => field.onChange(e?.target ? e.target.checked : !!e)}
                         />

@@ -101,6 +101,9 @@ export const SelectInput = forwardRef<HTMLDivElement, ISelectInput & actions>(
       if (onSelect) {
         onSelect?.(option.value, option);
       }
+      if (closeOnSelect) {
+        setIsFocus(false);
+      }
     };
     const selectedOption = options.find((option) => option.value == rest.value);
 
@@ -167,7 +170,7 @@ export const SelectInput = forwardRef<HTMLDivElement, ISelectInput & actions>(
               >
                 <ul className="max-h-[400px] overflow-y-auto p-1 flex flex-col gap-1">
                   {options?.length <= 0 && (
-                    <li className="px-2 py-4 flex flex-col gap-2 justify-center items-center text-slate-500">
+                    <li className="px-2 py-4 flex flex-col gap-2 justify-center items-center text-slate-500 dark:text-slate-400">
                       <Icon name="hard-drive" fontSize={28}></Icon>
                       <span>No options</span>
                     </li>
@@ -180,7 +183,7 @@ export const SelectInput = forwardRef<HTMLDivElement, ISelectInput & actions>(
                         className={cn(
                           "px-2 rounded-xs py-1 text-sm flex justify-between items-center",
                           isDisabled
-                            ? "opacity-40 cursor-not-allowed bg-slate-50 text-slate-400"
+                            ? "opacity-40 cursor-not-allowed bg-slate-50 text-slate-400 dark:bg-slate-800"
                             : "cursor-pointer bg-white hover:bg-slate-100 dark:bg-transparent dark:hover:bg-slate-500 text-neutral-700/90 hover:text-neutral-900 dark:text-slate-300",
                         )}
                         onClick={(e: any) => handleSelect(item)}

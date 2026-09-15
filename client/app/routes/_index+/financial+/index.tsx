@@ -8,6 +8,7 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { DateRangePicker } from "~/components/form/date-picker";
 import { PermissionGuard } from "~/components/permission-guard";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -116,6 +117,9 @@ export default function Financial() {
 
   return (
     <div className="w-full flex flex-col p-2 gap-4">
+      <PermissionGuard permission="CREATE" module={MODULE_ENUM.financial} requireAdmin>
+        <CreateFab to="./add" label={t("financial.addVoucher")} />
+      </PermissionGuard>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         <SummaryCard
           label={t("financial.revenue")}
@@ -144,56 +148,59 @@ export default function Financial() {
           )}
         />
       </div>
-      <CardItem title={t("financial.title")} className="p-4">
-        <div className="py-2">
+      <CardItem
+        title={t("financial.title")}
+        className="p-4"
+        action={
           <div className="flex gap-2 items-center justify-end flex-wrap">
-            <PermissionGuard requireAdmin>
-              <TMButton component={Link} to={"./add"} size="sm">
+            <PermissionGuard permission="CREATE" module={MODULE_ENUM.financial} requireAdmin>
+              <TMButton component={Link} to={"./add"} size="sm" className="hidden sm:inline-flex">
                 <Icon name="plus" />
                 {t("financial.addVoucher")}
               </TMButton>
             </PermissionGuard>
-            <PermissionGuard requireAdmin>
+            <PermissionGuard permission="READ" module={MODULE_ENUM.financial} requireAdmin>
               <TMButton component={Link} to={"./report"} size="sm">
                 <Icon name="file-text" fontSize={16} />
                 {t("financial.report")}
               </TMButton>
             </PermissionGuard>
-            <PermissionGuard requireAdmin>
-              <TMButton component={Link} size="sm">
+            <PermissionGuard permission="READ" module={MODULE_ENUM.financial} requireAdmin>
+              <TMButton component={Link} size="sm" className="hidden sm:inline-flex">
                 <Icon name="file-plus" fontSize={16} />
                 {t("common.exportExcel")}
               </TMButton>
             </PermissionGuard>
           </div>
-          <div className="flex gap-2 items-end flex-wrap mt-2">
-            <DateRangePicker
-              fromLabel={t("financial.from")}
-              toLabel={t("financial.to")}
-              from={range.from}
-              to={range.to}
-              onChange={setRange}
-              clearable
-            />
-            <TMButton
-              size="sm"
-              variant="light"
-              disabled={!range.from || !range.to}
-              onClick={() => navigateWith({ from: range.from, to: range.to })}
-            >
-              {t("common.apply")}
-            </TMButton>
-            <TMButton
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setRange({ from: "", to: "" });
-                navigateWith({ from: "", to: "" });
-              }}
-            >
-              {t("common.reset")}
-            </TMButton>
-          </div>
+        }
+      >
+        <div className="flex gap-2 items-end flex-wrap pb-4">
+          <DateRangePicker
+            fromLabel={t("financial.from")}
+            toLabel={t("financial.to")}
+            from={range.from}
+            to={range.to}
+            onChange={setRange}
+            clearable
+          />
+          <TMButton
+            size="sm"
+            variant="light"
+            disabled={!range.from || !range.to}
+            onClick={() => navigateWith({ from: range.from, to: range.to })}
+          >
+            {t("common.apply")}
+          </TMButton>
+          <TMButton
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setRange({ from: "", to: "" });
+              navigateWith({ from: "", to: "" });
+            }}
+          >
+            {t("common.reset")}
+          </TMButton>
         </div>
         <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn">
           <TMTable
@@ -207,14 +214,15 @@ export default function Financial() {
                 dataIndex: "type",
                 render: (record) =>
                   record.type == "expense" ? (
-                    <span className="text-red-500">{t("financial.expense")}</span>
+                    <span className="text-red-500 dark:text-red-400">{t("financial.expense")}</span>
                   ) : (
-                    <span className="text-green-500">{t("financial.revenue")}</span>
+                    <span className="text-green-600 dark:text-green-400">{t("financial.revenue")}</span>
                   ),
               },
               {
                 title: t("financial.category"),
                 dataIndex: "category",
+                hideOnMobile: true,
               },
               {
                 title: t("financial.amount"),
@@ -224,11 +232,13 @@ export default function Financial() {
               {
                 title: t("financial.staff"),
                 dataIndex: "staffName",
+                hideOnMobile: true,
                 render: (record) => record["staffName"] || t("financial.defaultStaff"),
               },
               {
                 title: t("common.createdAt"),
                 dataIndex: "transactionDate",
+                hideOnMobile: true,
                 render: (record) => dayjs(record.transactionDate).format("DD/MM/YYYY HH:mm"),
               },
               {
@@ -303,8 +313,8 @@ const SummaryCard = ({
   variant?: "green" | "red" | "indigo";
 }) => {
   return (
-    <div className="bg-white p-4 flex flex-col gap-2 rounded shadow-2xl shadow-slate-200">
-      <span>{label}</span>
+    <div className="bg-white dark:bg-slate-800 p-4 flex flex-col gap-2 rounded shadow-2xl shadow-slate-200 dark:shadow-black/20">
+      <span className="text-slate-600 dark:text-slate-300">{label}</span>
       <span
         className={cn("text-xl font-semibold", {
           ["text-green-600"]: variant === "green",
@@ -314,7 +324,7 @@ const SummaryCard = ({
       >
         {value}
       </span>
-      {delta != null && <span className="text-xs text-slate-500">{delta}</span>}
+      {delta != null && <span className="text-xs text-slate-500 dark:text-slate-400">{delta}</span>}
     </div>
   );
 };

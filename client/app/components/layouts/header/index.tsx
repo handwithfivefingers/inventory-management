@@ -1,6 +1,7 @@
 import { useFetcher } from "@remix-run/react";
 import { AuthService } from "~/action.client/auth.service";
 import { Icon } from "~/components/icon";
+import { ThemeToggle } from "~/components/theme-toggle";
 import { TMDropdown } from "~/components/tm-dropdown";
 import { VendorWarehouseSwitcher } from "~/components/vendor-warehouse-switcher";
 import { useTranslation } from "~/i18n";
@@ -16,7 +17,7 @@ export const Header = () => {
     fetcher.submit({}, { method: "POST", action: "/api/auth" });
   };
   return (
-    <div className="flex bg-white items-center w-full overflow-hidden px-2 py-1">
+    <div className="flex bg-white dark:bg-transparent items-center w-full overflow-hidden px-2 py-1">
       <nav className=" flex flex-row gap-4 flex-1">
         <div className="flex items-center flex-row gap-2">
           {/* Vendor/Warehouse Switcher */}
@@ -41,6 +42,8 @@ export const Header = () => {
 
           {/* <ThemeToggle />
           <LanguageToggle /> */}
+
+          <ThemeToggle className="shrink-0" />
 
           <TMDropdown
             placement="right"

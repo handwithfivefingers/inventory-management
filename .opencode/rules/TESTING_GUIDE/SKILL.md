@@ -1,3 +1,10 @@
+---
+name: tesing-guide
+description: Inventory Management ERP/POS System
+compatibility: opencode
+metadata: Updated Aug 24, 2026, V1.0
+---
+
 # Testing Guide
 
 ## Overview

@@ -7,6 +7,7 @@ import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import PermissionGuard from "~/components/permission-guard";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { MODULE_ENUM, MODULES } from "~/constants/modules";
@@ -135,15 +136,18 @@ export default function RoleManagementRoute() {
 
   return (
     <div className="w-full flex flex-col gap-4">
+      <PermissionGuard permission="CREATE" module="role" requireAdmin>
+        <CreateFab to="./add" label="Tạo vai trò mới" />
+      </PermissionGuard>
       <CardItem
         title="Quản lý vai trò"
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">Quản lý các vai trò và phân quyền trong hệ thống</p>
             <PermissionGuard permission="CREATE" module="role" requireAdmin>
-              <TMButton component={Link} to="./add" size="sm">
+              <TMButton component={Link} to="./add" size="sm" className="hidden sm:inline-flex">
                 <Icon name="plus" className="w-4 h-4 mr-2" />
                 Tạo vai trò mới
               </TMButton>
@@ -177,6 +181,7 @@ export default function RoleManagementRoute() {
                 title: "Số quyền",
                 dataIndex: "permissions",
                 width: 120,
+                hideOnMobile: true,
                 render: (record) => (
                   <span className="text-sm text-gray-600">{record?.permissions?.length || 0} quyền</span>
                 ),
@@ -184,6 +189,7 @@ export default function RoleManagementRoute() {
               {
                 title: "Mô tả",
                 dataIndex: "description",
+                hideOnMobile: true,
                 render: (record: IRole) => (
                   <span className="text-sm text-gray-500">
                     {record.name.toLowerCase() === "admin" && "Quản trị viên cao cấp - Toàn quyền"}

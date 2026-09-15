@@ -114,6 +114,8 @@ export default function Invoices() {
 
   return (
     <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      {/* Manual invoice creation from an order is disabled: invoices are now
+          auto-created with the order. The ./add route is kept but unlinked. */}
       <CardItem
         title={
           <div className="flex items-start justify-between gap-4">
@@ -132,7 +134,7 @@ export default function Invoices() {
             </div>
           </div>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0 justify-between items-center flex-wrap">
@@ -162,12 +164,13 @@ export default function Invoices() {
                 />
               </div>
             </div>
-            <PermissionGuard permission="CREATE" module={MODULE_ENUM.invoice} requireAdmin>
-              <TMButton component={Link} to={"./add"} size="sm">
+            {/* Manual create disabled — invoices auto-create with orders. */}
+            {/* <PermissionGuard permission="CREATE" module={MODULE_ENUM.invoice} requireAdmin>
+              <TMButton component={Link} to={"./add"} size="sm" className="hidden sm:inline-flex">
                 <Icon name="plus" fontSize={16} />
                 {t("invoices.create")}
               </TMButton>
-            </PermissionGuard>
+            </PermissionGuard> */}
           </div>
 
           <div className="flex-1 overflow-auto">
@@ -197,6 +200,7 @@ export default function Invoices() {
                   title: t("invoices.paidAmount"),
                   dataIndex: "paid",
                   width: 120,
+                  hideOnMobile: true,
                   render: (item: IInvoice) => formatCurrency(item.paid),
                   className: "text-sm",
                 },
@@ -204,6 +208,7 @@ export default function Invoices() {
                   title: t("invoices.remaining"),
                   dataIndex: "remaining",
                   width: 120,
+                  hideOnMobile: true,
                   render: (item: IInvoice) => formatCurrency(item.remaining),
                   className: "text-sm",
                 },
@@ -252,7 +257,7 @@ export default function Invoices() {
                           </TMButton>
                         </PermissionGuard>
                       )}
-                      {item.status === "draft" && (
+                      {/* {item.status === "draft" && (
                         <PermissionGuard permission="UPDATE" module={MODULE_ENUM.invoice} requireAdmin>
                           <button
                             onClick={() => handleUpdateStatus(item.id, "issued")}
@@ -273,7 +278,7 @@ export default function Invoices() {
                             <Icon name="check-circle" fontSize={16} />
                           </button>
                         </PermissionGuard>
-                      )}
+                      )} */}
                       {/* 
                     // stopPropagation so clicking an action doesn't also trigger the row navigation
                     <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>

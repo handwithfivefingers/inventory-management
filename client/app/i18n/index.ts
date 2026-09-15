@@ -1,5 +1,6 @@
 import en from "~/assets/lang/en.json";
 import vi from "~/assets/lang/vi.json";
+import { nicheTerm } from "~/libs/niche-theme";
 import { useLocale } from "~/store/locale.store";
 
 export const LOCALES = ["vi", "en"] as const;
@@ -29,6 +30,10 @@ export const translate = (
   key: string,
   options?: { defaultValue?: string },
 ): string => {
+  // Niche terminology override first (e.g. food vendors see "Món ăn" instead
+  // of "Sản phẩm") — set at runtime by applyNicheTheme from vendor settings.
+  const term = nicheTerm(key);
+  if (term) return term;
   const value = lookup(resources[locale] ?? {}, key);
   if (typeof value === "string") {
     return value;

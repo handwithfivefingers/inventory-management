@@ -45,6 +45,17 @@ const db = vi.hoisted(() => {
 });
 
 vi.mock("#/database", () => ({ default: db }));
+vi.mock("#/database/models/product", () => ({ default: db.product, Product: db.product }));
+vi.mock("#/database/models/productVariant", () => ({ default: db.productVariant, ProductVariant: db.productVariant }));
+vi.mock("#/database/models/productAttribute", () => ({ default: db.productAttribute, ProductAttribute: db.productAttribute }));
+vi.mock("#/database/models/productAttributeValue", () => ({
+  default: db.productAttributeValue,
+  ProductAttributeValue: db.productAttributeValue,
+}));
+vi.mock("#/database/models/inventory", () => ({ default: db.inventory, Inventory: db.inventory }));
+vi.mock("#/database/models/category", () => ({ default: db.category, Category: db.category }));
+vi.mock("#/database/models/tag", () => ({ default: db.tag, Tag: db.tag }));
+vi.mock("#/database/models/units", () => ({ default: db.units, Unit: db.units }));
 import database from "#/database";
 import { ProductService } from "../index";
 
@@ -291,7 +302,7 @@ describe("ProductService.create validation (shared with variants flow)", () => {
   });
 });
 
-describe("ProductService.syncProductVariants", () => {
+describe("ProductService.updateProduct (variant branch)", () => {
   let service: ProductService;
   const makeTx2 = () => ({ commit: vi.fn(), rollback: vi.fn() });
 
@@ -300,102 +311,147 @@ describe("ProductService.syncProductVariants", () => {
     service = new ProductService();
     database.sequelize.transaction.mockResolvedValue(makeTx2());
     database.setting.findOne.mockResolvedValue(null);
+    database.warehouse.findByPk.mockResolvedValue({ vendorId: 1 });
   });
 
-  const makeVariantInstance = (id: number, values: string[], extra: any = {}) => ({
+  const makeVariantInstance = (id: number, extra: any = {}) => ({
     id,
+    productId: 1,
     get: (key: string) => {
-      if (key === "attributeValues") return values.map((v) => ({ get: () => v }));
-      if (key === "skuCode") return `SKU1-${values.join("-")}`;
       if (key === "id") return id;
       if (key === "productId") return 1;
-      return null;
+      if (key === "skuCode") return `SKU1-V${id}`;
+      if (key === "code") return `P1-V${id}`;
+      if (key === "attributeValues") return [];
+      return (extra as any)[key] ?? null;
     },
     update: vi.fn().mockResolvedValue(undefined),
     destroy: vi.fn().mockResolvedValue(undefined),
-    setAttributeValues: vi.fn().mockResolvedValue(undefined),
+    $set: vi.fn().mockResolvedValue(undefined),
     save: vi.fn().mockImplementation(function (this: any) { return Promise.resolve(this); }),
     ...extra,
   });
 
-  it("manual mode: syncs attributes without backfill, removes and upserts variants", async () => {
-    // Parent product
-    database.product.findByPk.mockResolvedValue({ skuCode: "SKU1", code: "A1", vendorId: 1 });
+  const makeProduct = (overrides: any = {}) => {
+    const data: any = { id: 1, vendorId: 1, code: "P1", skuCode: "SKU1", type: 1, ...overrides };
+    return {
+      ...data,
+      id: 1,
+      get: (key: string) => (data as any)[key] ?? null,
+      update: vi.fn().mockImplementation(function (this: any, fields: any) {
+        Object.assign(data, fields);
+        return Promise.resolve(this);
+      }),
+      $set: vi.fn().mockResolvedValue(undefined),
+    };
+  };
 
-    // Attribute lookup (rename check) + value list replacement
-    database.productAttribute.findByPk.mockResolvedValue({ get: () => "Color" });
-    database.productAttributeValue.findAll.mockImplementation(({ where, include }: any) => {
-      if (include && where?.productId != null) {
-        // P6 batched option-value resolution (one query, not one per option)
-        const mk = (id: number, value: string) => ({
-          get: (k: string) =>
-            k === "id" ? id : k === "value" ? value : k === "productAttribute"
-              ? { get: () => "Color" }
-              : null,
-          productAttribute: { name: "Color" },
-        });
-        return Promise.resolve([mk(11, "Red"), mk(12, "Blue")]);
-      }
-      // attribute-values listing for the edited attribute (Red/Blue)
-      return Promise.resolve([
-        { get: (k: string) => (k === "value" ? "Red" : 11) },
-        { get: (k: string) => (k === "value" ? "Blue" : 12) },
-      ]);
+  it("removes deleted variants and upserts the rest with barcodes", async () => {
+    const product = makeProduct();
+    database.product.findByPk.mockResolvedValue(product);
+    database.productVariant.count.mockResolvedValue(2);
+    database.product.findOne.mockResolvedValue(null); // no code/sku clash
+    database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
+    database.productAttributeValue.findAll.mockResolvedValue([
+      { id: 11, value: "Red", attributeId: 5, attribute: { vendorId: 1 } },
+      { id: 12, value: "Blue", attributeId: 5, attribute: { vendorId: 1 } },
+    ]);
+
+    const removed = makeVariantInstance(99);
+    const redVariant = makeVariantInstance(21);
+    database.productVariant.findByPk.mockImplementation(async (id: number) => {
+      if (Number(id) === 99) return removed;
+      if (Number(id) === 21) return redVariant;
+      return null;
     });
-    database.productAttributeValue.bulkCreate.mockResolvedValue([]);
-    // syncAttribute find-or-create lookups
-    database.productAttributeValue.findOne.mockResolvedValue({});
-
-    // Existing variant "Red"; variant 99 was removed in the editor
-    const redVariant = makeVariantInstance(21, ["Red"]);
-    database.productVariant.findAll
-      .mockResolvedValueOnce([redVariant]) // upsert scan
-      .mockResolvedValue([]); // deleteVariantsByValueIds (none expected)
-    database.productVariant.findByPk.mockResolvedValue(makeVariantInstance(99, ["Red"]));
+    database.productVariant.findAll.mockResolvedValue([redVariant]);
     database.inventory.destroy.mockResolvedValue(1);
+    database.product.findOne
+      .mockResolvedValueOnce(null) // duplicate guard
+      .mockResolvedValueOnce({ id: 1 }); // refreshed product
 
-    // New variant build ("Blue")
     let seq = 30;
-    database.productVariant.build.mockImplementation((data: any) => makeVariantInstance(++seq, [], data));
+    database.productVariant.build.mockImplementation((data: any) => makeVariantInstance(++seq, data));
     const stockRow = (data: any) => ({ dataValues: data, save: vi.fn().mockResolvedValue(undefined) });
     database.inventory.build.mockImplementation((data: any) => stockRow(data));
     database.transfer.build.mockImplementation((data: any) => stockRow(data));
 
-    await service.syncProductVariants({
+    await service.updateProduct({
       params: { id: "1" },
       body: {
-        generateAll: false,
-        warehouseId: 2,
-        attributes: [{ id: 5, name: "Color", values: ["Red", "Blue"] }],
-        deletedAttributeIds: [],
+        type: 1,
+        name: "Ao thun",
         removedVariantIds: [99],
         variants: [
-          { optionValues: { Color: "Red" }, salePrice: 200, isNegative: true },
-          { optionValues: { Color: "Blue" }, quantity: 4 },
+          { variantId: 21, attributeValues: [11], code: "P1-RED", salePrice: 200, isNegative: true },
+          { attributeValues: [12], quantity: 4 },
         ],
       },
+      query: { warehouseId: "2" },
+      user: { vendorIds: [1] },
     } as any);
 
-    // Manual mode must NOT backfill combinations on its own
-    expect(database.productAttribute.findAll).not.toHaveBeenCalled();
+    // Removed variant soft-deleted (paranoid); inventory history is kept
+    expect(removed.destroy).toHaveBeenCalled();
+    expect(database.inventory.destroy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { variantId: 99 } }),
+    );
 
-    // Existing "Red" combo updated with the new fields
+    // Existing variant updated with manual barcode kept
     expect(redVariant.update).toHaveBeenCalledWith(
-      expect.objectContaining({ salePrice: 200, isNegative: true }),
+      expect.objectContaining({ code: "P1-RED", salePrice: 200, isNegative: true }),
       expect.anything(),
     );
 
-    // Missing "Blue" combo created from base SKU + opening stock
+    // New Blue variant auto-extends the parent barcode (P1-...)
     expect(database.productVariant.build).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: 1, skuCode: "SKU1-BLUE" }),
+      expect.objectContaining({ productId: 1, code: expect.stringMatching(/^P1-/) }),
     );
-    expect(database.inventory.build).toHaveBeenCalledWith(
-      expect.objectContaining({ warehouseId: 2, quantity: 4 }),
-    );
+  });
 
-    // Removed variant destroyed together with its stock rows
-    expect(database.inventory.destroy).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { variantId: 99 }, transaction: expect.anything() }),
+  it("clears a variant barcode when an explicit blank is sent", async () => {
+    const product = makeProduct();
+    database.product.findByPk.mockResolvedValue(product);
+    database.productVariant.count.mockResolvedValue(1);
+    database.product.findOne.mockResolvedValue(null);
+    database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
+    database.productAttributeValue.findAll.mockResolvedValue([
+      { id: 11, value: "Red", attributeId: 5, attribute: { vendorId: 1 } },
+    ]);
+    const redVariant = makeVariantInstance(21);
+    database.productVariant.findByPk.mockResolvedValue(redVariant);
+    database.productVariant.findAll.mockResolvedValue([redVariant]);
+    database.product.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 1 });
+
+    await service.updateProduct({
+      params: { id: "1" },
+      body: { type: 1, variants: [{ variantId: 21, attributeValues: [11], code: "" }] },
+      user: { vendorIds: [1] },
+    } as any);
+
+    expect(redVariant.update).toHaveBeenCalledWith(
+      expect.objectContaining({ code: null }),
+      expect.anything(),
     );
+  });
+
+  it("rejects attribute values from another vendor", async () => {
+    const product = makeProduct();
+    database.product.findByPk.mockResolvedValue(product);
+    database.productVariant.count.mockResolvedValue(0);
+    database.product.findOne.mockResolvedValue(null);
+    database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
+    database.productAttributeValue.findAll.mockResolvedValue([
+      { id: 11, value: "Red", attributeId: 5, attribute: { vendorId: 9 } },
+    ]);
+    database.productVariant.findAll.mockResolvedValue([]);
+
+    await expect(
+      service.updateProduct({
+        params: { id: "1" },
+        body: { type: 1, variants: [{ attributeValues: [11] }] },
+        user: { vendorIds: [1] },
+      } as any),
+    ).rejects.toThrow("Attribute value vendor mismatch");
   });
 });

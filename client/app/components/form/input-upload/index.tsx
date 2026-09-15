@@ -37,15 +37,15 @@ export const InputUpload = (props: IInputUpload) => {
         <div className="flex flex-col gap-2 w-full ">
           <div
             onClick={handleUploadTarget}
-            className="px-4 py-12 border border-dashed rounded-md bg-neutral-100/50 w-full cursor-pointer max-w-[400px] mt-6 "
+            className="px-4 py-12 border border-dashed rounded-md bg-neutral-100/50 dark:bg-slate-700/50 w-full cursor-pointer max-w-[400px] mt-6 "
           >
             {!fileInformation ? (
-              <div className="flex justify-center gap-2 flex-col items-center text-indigo-800/80 w-full">
+              <div className="flex justify-center gap-2 flex-col items-center text-indigo-800/80 dark:text-slate-300 w-full">
                 <Icon name="file-plus" />
                 <span>Upload file here</span>
               </div>
             ) : (
-              <div className="flex justify-center gap-2 flex-col  text-indigo-800/80 w-full">
+              <div className="flex justify-center gap-2 flex-col  text-indigo-800/80 dark:text-slate-300 w-full">
                 <span>Name: {fileInformation.name}</span>
                 <span>Size:{(fileInformation.size / 1024 / 1024).toFixed(2)} Mb</span>
               </div>

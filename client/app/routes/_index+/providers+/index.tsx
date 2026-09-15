@@ -6,6 +6,7 @@ import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import PermissionGuard from "~/components/permission-guard";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -46,6 +47,9 @@ export default function Products() {
   const { t } = useTranslation();
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
+        <CreateFab to="/providers/add" label={t("common.add")} />
+      </PermissionGuard>
       <CardItem
         title={
           <div className="flex items-start justify-between gap-4">
@@ -64,33 +68,34 @@ export default function Products() {
             </div>
           </div>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        action={
+          <div className="flex gap-2 flex-wrap flex-row">
+            <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
+              <TMButton size="sm" component={Link} to="/providers/add" className="hidden sm:inline-flex">
+                <Icon name="plus" fontSize={16} />
+                {t("common.add")}
+              </TMButton>
+            </PermissionGuard>
+            <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
+              <TMButton size="sm">
+                <Icon name="file-plus" fontSize={16} />
+                {t("common.importExcel")}
+              </TMButton>
+            </PermissionGuard>
+            <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
+              <TMButton size="sm">
+                <Icon name="file-text" fontSize={16} />
+                {t("common.exportExcel")}
+              </TMButton>
+            </PermissionGuard>
+          </div>
+        }
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 p-1">
             <TextInput placeholder={t("providers.searchPlaceholder")} />
-            <div className="ml-auto block my-auto">
-              <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
-                  <TMButton size="sm" component={Link} to="/providers/add">
-                    <Icon name="plus" fontSize={16} />
-                    {t("common.add")}
-                  </TMButton>
-                </PermissionGuard>
-                <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
-                  <TMButton size="sm">
-                    <Icon name="file-plus" fontSize={16} />
-                    {t("common.importExcel")}
-                  </TMButton>
-                </PermissionGuard>
-                <PermissionGuard permission="READ" module={MODULE_ENUM.provider} requireAdmin>
-                  <TMButton size="sm">
-                    <Icon name="file-text" fontSize={16} />
-                    {t("common.exportExcel")}
-                  </TMButton>
-                </PermissionGuard>
-              </div>
-            </div>
+            {/* <div className="ml-auto block my-auto"></div> */}
           </div>
           <div className="flex gap-2 flex-col items-end flex-1">
             <TMTable
@@ -102,18 +107,22 @@ export default function Products() {
                 {
                   title: t("providers.phone"),
                   dataIndex: "phone",
+                  hideOnMobile: true,
                 },
                 {
                   title: t("providers.email"),
                   dataIndex: "email",
+                  hideOnMobile: true,
                 },
                 {
                   title: t("providers.address"),
                   dataIndex: "address",
+                  hideOnMobile: true,
                 },
                 {
                   title: t("common.createdAt"),
                   dataIndex: "createdAt",
+                  hideOnMobile: true,
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
               ]}

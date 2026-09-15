@@ -6,11 +6,14 @@ import { IOrder } from "./order";
 
 export type InvoiceStatus = "draft" | "issued" | "paid" | "cancelled";
 export type PaymentType = "cash" | "transfer" | "credit";
+export type InvoiceType = "FULL" | "PARTIAL";
 
 export interface IInvoiceDetail {
   id: number;
   invoiceId: number;
+  orderDetailId?: number | null;
   productId?: number | null;
+  variantId?: number | null;
   product?: IProduct;
   quantity: number;
   unitPrice: number;
@@ -44,6 +47,7 @@ export interface IInvoice {
   currency: string;
   paymentType: PaymentType;
   status: InvoiceStatus;
+  invoiceType?: InvoiceType;
   dueDate?: string | null;
   notes?: string | null;
   createdAt: string;

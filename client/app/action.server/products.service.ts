@@ -54,30 +54,12 @@ const productService = {
       Cookie: cookie,
     });
   },
-  updateVariant: ({
-    id,
-    variantId,
-    cookie,
-    ...params
-  }: {
-    id: string | number;
-    variantId: string | number;
-    cookie: string;
-    [key: string]: any;
-  }) => {
-    return http.put(`${API_PATH.products}/${id}/variants/${variantId}`, params, { Cookie: cookie });
-  },
-  deleteVariant: ({ id, variantId, cookie }: { id: string | number; variantId: string | number; cookie: string }) => {
-    return http.delete(`${API_PATH.products}/${id}/variants/${variantId}`, { Cookie: cookie });
-  },
-  /** Bulk-sync attributes + variants from the combined editor */
-  syncProductVariants: ({ id, cookie, ...params }: { id: string | number; cookie: string; [key: string]: any }) => {
-    return http.put(`${API_PATH.products}/${id}/variants/sync`, params, { Cookie: cookie });
-  },
-  getProductAttributes: ({ id, cookie }: { id: string | number; cookie: string }) => {
-    return http.get<{ data: IProductAttribute[] }>(`${API_PATH.products}/${id}/attributes`, {
-      Cookie: cookie,
-    });
+  updateProduct: ({ id, warehouseId, cookie, vendorId, ...params }: IUpdateParams & { vendorId?: string | number }) => {
+    const paramsQS = new URLSearchParams();
+    if (warehouseId) paramsQS.set("warehouseId", `${warehouseId}`);
+    if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") paramsQS.set("vendorId", `${vendorId}`);
+    const qs = paramsQS.toString() ? `?${paramsQS.toString()}` : "";
+    return http.put(`${API_PATH.products}/${id}${qs}`, params, { Cookie: cookie });
   },
   getAttributes: ({ cookie, vendorId }: { cookie: string; vendorId?: string | number }) => {
     const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
@@ -156,13 +138,6 @@ const productService = {
   importProduct: ({ cookie, vendorId, ...params }: any) => {
     const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
     return http.post(`${API_PATH.products}/import${qs}`, params, { Cookie: cookie });
-  },
-  updateProduct: ({ id, warehouseId, cookie, vendorId, ...params }: IUpdateParams & { vendorId?: string | number }) => {
-    const paramsQS = new URLSearchParams();
-    if (warehouseId) paramsQS.set("warehouseId", `${warehouseId}`);
-    if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") paramsQS.set("vendorId", `${vendorId}`);
-    const qs = paramsQS.toString() ? `?${paramsQS.toString()}` : "";
-    return http.post(`${API_PATH.products}/${id}${qs}`, params, { Cookie: cookie });
   },
 };
 

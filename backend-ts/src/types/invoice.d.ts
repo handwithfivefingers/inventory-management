@@ -30,6 +30,7 @@ export interface IInvoiceModel
   currency: string
   paymentType: PaymentType
   status: InvoiceStatus
+  invoiceType?: 'FULL' | 'PARTIAL'
   dueDate?: Date | null
   notes?: string | null
 }

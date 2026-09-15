@@ -4,18 +4,9 @@ import { invoiceService } from "~/action.server/invoice.service";
 import { TMButton } from "~/components/tm-button";
 import { PermissionGuard } from "~/components/permission-guard";
 import { IInvoice } from "~/types/invoice";
-import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
-import {
-  IReceipt,
-  IPrinterConfig,
-  printReceiptToDevice,
-  getReceiptColumns,
-  stripDiacritics,
-} from "~/libs/device-print";
-import { useState } from "react";
 import { useTranslation } from "~/i18n";
-import { ReceiptPrinter, loadPrinterSettings } from "~/components/receipt-printer";
+import { ReceiptPrinter, printInvoiceViaBrowser } from "~/components/receipt-printer";
 import { CardItem } from "~/components/card-item";
 import { Icon } from "~/components/icon";
 import { MODULE_ENUM } from "~/constants/modules";
@@ -64,65 +55,9 @@ export default function InvoiceDetail() {
     fetcher.submit({ id: String(data.id), status: "issued" }, { method: "post" });
   };
 
-  // Direct USB (ESC/POS) printing — falls back to the browser dialog.
-  // Reads the saved printer model so the printed receipt matches the on-screen
-  // preview. Safe to read localStorage here: this only runs on click (client).
-  const [devicePrinting, setDevicePrinting] = useState(false);
-  const handleDevicePrint = async () => {
-    setDevicePrinting(true);
-    try {
-      const settings = loadPrinterSettings();
-      // Device printing is thermal-only; A5/A4 fall back to printer defaults
-      const deviceConfig: IPrinterConfig | undefined =
-        settings.paperSize === "k58" || settings.paperSize === "k80"
-          ? {
-              paperSize: settings.paperSize,
-              fontSize: settings.fontSize,
-              letterSpacing: settings.letterSpacing,
-              widthAdjust: settings.widthAdjust,
-            }
-          : undefined;
-
-      // Columns shrink with a bigger font / narrower roll, so rows align correctly
-      const width = getReceiptColumns(deviceConfig);
-      const row = (left: string, right: string) => {
-        const l = stripDiacritics(left);
-        const r = stripDiacritics(right);
-        return l + " ".repeat(Math.max(1, width - l.length - r.length)) + r;
-      };
-      const details = data.invoiceDetails || [];
-      const receipt: IReceipt = {
-        title: data.vendor?.name || "",
-        subtitle: `${t("invoices.detail.receiptTitle")} - ${data.invoiceNumber}`,
-        lines: [
-          // KiotViet-style items: product name on its own line, qty x price … amount below
-          ...details.flatMap((detail) => [
-            { text: (detail.product as any)?.name || `#${detail.productId}`, bold: true },
-            {
-              text: row(`  ${detail.quantity} x ${formatCurrency(detail.unitPrice)}`, formatCurrency(detail.subtotal)),
-            },
-          ]),
-          { text: "-".repeat(width) },
-          { text: row(t("invoices.detail.subtotalLabel"), formatCurrency(data.subtotal)) },
-          { text: row(t("invoices.detail.discount"), `-${formatCurrency(data.discount)}`) },
-          { text: row(t("invoices.detail.tax"), formatCurrency(data.taxAmount)) },
-          { text: row(t("invoices.detail.surcharge"), formatCurrency(data.surcharge)) },
-          { text: "" },
-          { text: row(t("invoices.total"), formatCurrency(data.total)), bold: true, large: true },
-          { text: row(t("invoices.paidAmount"), formatCurrency(data.paid)) },
-          { text: row(t("invoices.remaining"), formatCurrency(data.remaining)), bold: true },
-          ...(data.notes ? [{ text: "" }, { text: data.notes }] : []),
-          { text: "" },
-          { text: t("invoices.detail.thanks"), center: true },
-        ],
-        footer: undefined,
-      };
-      const ok = await printReceiptToDevice(receipt, deviceConfig);
-      if (!ok) window.print();
-    } finally {
-      setDevicePrinting(false);
-    }
-  };
+  // QZ Tray device printing is disabled — browser print only.
+  // NOTE (re-enable later): restore `handleDevicePrint` via
+  // `printReceiptToDevice` + `loadPrinterSettings` (see git history).
 
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
@@ -144,10 +79,7 @@ export default function InvoiceDetail() {
           className="p-5 sm:p-6"
           action={
             <div className="flex gap-2 justify-center items-center flex-wrap">
-              <TMButton variant="outline" type="button" onClick={handleDevicePrint} loading={devicePrinting} size="sm">
-                🖨️ {t("invoices.detail.printDevice")}
-              </TMButton>
-              <TMButton variant="outline" type="button" onClick={() => window.print()} size="sm">
+              <TMButton variant="outline" type="button" onClick={printInvoiceViaBrowser} size="sm">
                 🖨 {t("invoices.detail.print")}
               </TMButton>
               {data.status === "draft" && (

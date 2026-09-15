@@ -1,6 +1,7 @@
 import { HTTPService } from "~/http";
 import { BaseQueryParams } from "~/types/common";
-import { IOrder } from "~/types/order";
+import { IOrder, IOrderInvoiceLine, OrderChannel } from "~/types/order";
+import { IInvoice } from "~/types/invoice";
 
 const API_PATH = {
   orders: "/orders",
@@ -26,6 +27,7 @@ interface IOrderCreateParams {
   surcharge?: number | string;
   paid: number | string;
   paymentType: "cash" | "transfer" | "credit";
+  channel?: OrderChannel;
   warehouseId: number | string;
   cookie: string;
   vendorId: string;
@@ -53,6 +55,38 @@ const orderService = {
     return HTTPService.getInstance().put(`${API_PATH.orders}/${id}?vendorId=${params.vendorId}`, params, {
       Cookie: cookie,
     });
+  },
+  createOrderInvoice: ({
+    id,
+    cookie,
+    ...params
+  }: {
+    id: string | number;
+    cookie: string;
+    vendorId?: string;
+    lines: IOrderInvoiceLine[];
+    paymentType?: "cash" | "transfer" | "credit";
+    notes?: string;
+  }) => {
+    const qs = params.vendorId ? `?vendorId=${params.vendorId}` : "";
+    return HTTPService.getInstance().post<{ data: IInvoice }, any>(`${API_PATH.orders}/${id}/invoices${qs}`, params, {
+      Cookie: cookie,
+    });
+  },
+  returnOrder: ({
+    id,
+    cookie,
+    ...params
+  }: {
+    id: string | number;
+    cookie: string;
+    vendorId?: string;
+    items: { orderDetailId: number; quantity: number }[];
+    reason?: string;
+    refundAmount?: number;
+  }) => {
+    const qs = params.vendorId ? `?vendorId=${params.vendorId}` : "";
+    return HTTPService.getInstance().post(`${API_PATH.orders}/${id}/return${qs}`, params, { Cookie: cookie });
   },
 };
 

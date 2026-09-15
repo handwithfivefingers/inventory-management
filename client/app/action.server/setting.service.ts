@@ -23,6 +23,18 @@ export interface IShipDeliveryConfig {
   note?: string | null;
 }
 
+export interface IAppearanceConfig {
+  /** Niche preset key (fashion | food | retail | electronics | pharmacy | beauty) */
+  preset?: string;
+  primaryColor?: string;
+  accentColor?: string;
+  logoUrl?: string;
+  /** Label overrides keyed by i18n key, e.g. { "sidebar.products": "Món ăn" } */
+  terminology?: Record<string, string>;
+  /** Module keys hidden from sidebar/bottom-nav (admin-only, FE-only). */
+  sidebarHidden?: string[];
+}
+
 export interface IVendorSettings {
   id?: number;
   vendorId?: number | null;
@@ -39,6 +51,8 @@ export interface IVendorSettings {
   defaultTaxRate?: number;
   defaultDiscount?: number;
   defaultSurcharge?: number;
+  /** Niche-based UI customization (preset palette, colors, logo, terminology) */
+  appearance?: IAppearanceConfig;
 }
 
 export const DEFAULT_SETTINGS: IVendorSettings = {
@@ -54,6 +68,7 @@ export const DEFAULT_SETTINGS: IVendorSettings = {
   defaultTaxRate: 0,
   defaultDiscount: 0,
   defaultSurcharge: 0,
+  appearance: {},
 };
 
 export const settingService = {

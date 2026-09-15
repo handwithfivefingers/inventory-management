@@ -4,6 +4,7 @@ import { IWareHouse } from "~/types/warehouse";
 const API_PATH = {
   warehouse: "/warehouses",
   inventory: "/inventories",
+  transfer: "/warehouses/transfer",
 };
 
 interface IWarehouseById {
@@ -54,6 +55,31 @@ const warehouseService = {
   }: Partial<IWareHouse> & { id: string | number; cookie: string; vendorId?: string }) => {
     const qs = vendorId ? `?vendorId=${vendorId}` : "";
     return HTTPService.getInstance().put(API_PATH.warehouse + "/" + id + qs, params, { Cookie: cookie });
+  },
+};
+
+export interface ITransferItem {
+  productId: number;
+  variantId?: number | null;
+  quantity: number;
+}
+
+export const transferService = {
+  /** POST /warehouses/transfer — move stock between two warehouses */
+  createTransfer: ({
+    cookie,
+    vendorId,
+    ...params
+  }: {
+    cookie: string;
+    vendorId?: string;
+    fromWarehouseId: number;
+    toWarehouseId: number;
+    note?: string;
+    items: ITransferItem[];
+  }) => {
+    const qs = vendorId ? `?vendorId=${vendorId}` : "";
+    return HTTPService.getInstance().post(API_PATH.transfer + qs, params, { Cookie: cookie });
   },
 };
 

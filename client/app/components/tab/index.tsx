@@ -25,14 +25,14 @@ export const Tab = (props: Props) => {
   const activeTab = props.items.find((tab) => tab.value === activeValue) ?? props.items[0];
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex">
-        <div className="flex rounded-md shrink-0 bg-slate-50 border-slate-900/10 border">
+      <div className="flex overflow-x-auto max-w-full">
+        <div className="flex rounded-md shrink-0 bg-slate-50 border-slate-900/10 border dark:bg-slate-800 dark:border-slate-700">
           {props.items.map((tab, index) => {
             return (
               <button
                 type="button"
                 className={cn(
-                  "px-4 transition-all py-1.5 text-sm cursor-pointer active:translate-y-0.25 active:shadow-inner",
+                  "px-3 sm:px-4 transition-all py-1.5 text-sm cursor-pointer active:translate-y-0.25 active:shadow-inner whitespace-nowrap",
 
                   {
                     "bg-indigo-700 text-white": tab.value === activeValue,
@@ -49,7 +49,7 @@ export const Tab = (props: Props) => {
           })}
         </div>
       </div>
-      <div className="p-4 bg-slate-50 rounded-md">{activeTab?.content}</div>
+      <div className="p-3 sm:p-4 bg-slate-50 rounded-md dark:bg-slate-800/60 overflow-x-auto">{activeTab?.content}</div>
     </div>
   );
 };

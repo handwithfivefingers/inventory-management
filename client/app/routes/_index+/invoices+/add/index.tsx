@@ -102,6 +102,9 @@ export default function CreateInvoiceFromOrder() {
           }
         >
           <div className="flex flex-col gap-4 h-full overflow-hidden">
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              Invoices are now auto-created with the order — this manual matching page is kept for fallback/retry only.
+            </p>
             {(fetcher.data as any)?.error && <p className="text-red-600 text-sm">{(fetcher.data as any).error}</p>}
 
             <div className="flex-1 overflow-auto">

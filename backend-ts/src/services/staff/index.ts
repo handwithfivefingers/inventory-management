@@ -3,8 +3,7 @@ import { ApiError } from '#/response'
 import { getPagination } from '#/utils'
 import { nextSequence } from '#/utils/sequence'
 import { Op, Sequelize } from 'sequelize'
-import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
-import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
+import { invalidateUserAuthCache, invalidateUsersByVendorId } from '#/services/authenticate/userAuth'
 
 const ALLOWED_STAFF_FIELDS = [
   'fullName',
@@ -23,6 +22,14 @@ function pickStaffFields(input: any): Record<string, any> {
     if (input[key] !== undefined) out[key] = input[key]
   }
   return out
+}
+
+/** Normalize vendor reassignment input; `null` = no vendor change requested. */
+function normalizeVendorIds(input: unknown): number[] | null {
+  if (input === undefined || input === null || input === '') return null
+  const list = Array.isArray(input) ? input : [input]
+  const ids = list.map(Number).filter((n) => Number.isFinite(n))
+  return ids
 }
 
 interface StaffBodyParams {
@@ -194,7 +201,7 @@ export class StaffService {
     }
   }
 
-  async update(id: number, body: Partial<StaffBodyParams>) {
+  async update(id: number, body: Partial<StaffBodyParams> & { vendorIds?: number[] }) {
     try {
       const payload: Omit<Partial<StaffBodyParams>, 'hireDate'> & { hireDate?: Date } = pickStaffFields(body)
       // if ('fullName' in payload && (!payload.fullName || String(payload.fullName).trim() === '')) {
@@ -230,16 +237,50 @@ export class StaffService {
       delete (payload as any).email
       delete (payload as any).code
 
-      if (Object.keys(payload).length === 0) {
+      // Vendor reassignment is handled via staff_vendor below, so a
+      // vendor-only update is valid even when no staff columns change.
+      const nextVendorIds = normalizeVendorIds((body as any)?.vendorId ?? (body as any)?.vendorIds)
+      if (Object.keys(payload).length === 0 && !nextVendorIds) {
         throw new Error('No valid fields to update')
       }
       console.log('payload', payload)
-      const [affectedRows] = await database.staff.update(payload, { where: { id } })
-      // Invalidate auth cache for owner user (role/status changes affect permissions & vendor scope)
-      if (affectedRows) {
+      let affectedRows = 0
+      if (Object.keys(payload).length > 0) {
+        ;[affectedRows] = await database.staff.update(payload, { where: { id } })
+      }
+
+      // Vendor reassignment changes the user's vendorIds scope: persist the
+      // staff_vendor links and invalidate the owner's cached auth context.
+      if (nextVendorIds) {
+        try {
+          const staffRow: any = await database.staff.findByPk(id)
+          const target = staffRow ?? staff
+          if (target && typeof (target as any).$set === 'function') {
+            await (target as any).$set('vendors', nextVendorIds)
+          } else {
+            await database.sequelize.query(`DELETE FROM staff_vendor WHERE staffId = :id`, {
+              replacements: { id }
+            } as any)
+            for (const vendorId of nextVendorIds) {
+              await (database as any).staff_vendor?.create?.({ staffId: id, vendorId })
+            }
+          }
+        } catch (e) {
+          console.log('staff vendor reassign error', e)
+        }
+      }
+      // Invalidate auth cache for owner user (role/status/vendor changes affect permissions & vendor scope)
+      if (affectedRows || nextVendorIds) {
         try {
           const userId = (staff as any).userId ?? (staff as any).get?.('userId')
           if (userId) await invalidateUserAuthCache(Number(userId))
+          if (nextVendorIds) {
+            for (const vendorId of nextVendorIds) {
+              try {
+                await invalidateUsersByVendorId(Number(vendorId))
+              } catch {}
+            }
+          }
         } catch {}
       }
       return affectedRows

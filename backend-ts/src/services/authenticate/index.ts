@@ -8,6 +8,7 @@ import User from '#/database/models/user'
 import Vendor from '#/database/models/vendor'
 import Warehouse from '#/database/models/warehouse'
 import { ApiError } from '#/response'
+import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { IStaffModel } from '#/types/staff'
 import bcrypt from 'bcryptjs'
 import { Sequelize, Transaction } from 'sequelize'
@@ -110,10 +111,16 @@ export default class AuthenticateService {
       const isMatchPassword = await bcrypt.compare(password, user.password)
       if (!isMatchPassword) {
         await cacheDel(cacheKeyStr)
+        try {
+          await invalidateUserAuthCache(Number(user.id))
+        } catch {}
         throw new Error(ERROR.USR_NOT_VALID)
       }
       if (user.staff.status !== 'active') {
         await cacheDel(cacheKeyStr)
+        try {
+          await invalidateUserAuthCache(Number(user.id))
+        } catch {}
         throw new Error(ERROR.USR_INACTIVE)
       }
       const staff = user.staff.parsed as IStaffModel
@@ -227,6 +234,12 @@ export default class AuthenticateService {
   async clearUserCache(email: string): Promise<void> {
     try {
       await cacheDel(cacheKey('User', email))
+      try {
+        const found: any = await User.findOne({ where: { email } })
+        if (found) {
+          await invalidateUserAuthCache(Number(found.get ? found.get('id') : found.id))
+        }
+      } catch {}
     } catch (error) {
       console.log('Cache clear error', error)
     }

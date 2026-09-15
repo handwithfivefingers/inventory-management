@@ -1,3 +1,10 @@
+---
+name: remix-rule
+description: Inventory Management ERP/POS System
+compatibility: opencode
+metadata: Updated Aug 24, 2026   , V1.0
+---
+
 # RemixJS Route Standard Template
 
 > Purpose: Define consistent structure and best practices for Remix

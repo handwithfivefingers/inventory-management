@@ -113,7 +113,7 @@ describe('InvoiceService.create (C1 + S1)', () => {
       surcharge: 0,
       paymentType: 'cash',
       orderDetails: [
-        { productId: 1, quantity: 1, price: 100 }
+        { id: 11, productId: 1, quantity: 1, price: 100, variantId: null }
       ]
     }
     db.order.findByPk.mockResolvedValue(order)

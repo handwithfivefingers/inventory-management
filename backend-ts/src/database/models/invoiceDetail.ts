@@ -1,6 +1,8 @@
 import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
 import { Invoice } from './invoice'
 import { Product } from './product'
+import { OrderDetail } from './orderDetail'
+import { ProductVariant } from './productVariant'
 
 @Table({ tableName: 'invoiceDetails', modelName: 'invoiceDetail', timestamps: true })
 export class InvoiceDetail extends Model {
@@ -11,9 +13,17 @@ export class InvoiceDetail extends Model {
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare invoiceId: number
 
+  @ForeignKey(() => OrderDetail)
+  @Column({ type: DataType.INTEGER, allowNull: true, comment: '1 orderDetail -> N invoiceDetails; each invoiceDetail belongs to exactly 1 orderDetail' })
+  declare orderDetailId: number | null
+
   @ForeignKey(() => Product)
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare productId: number | null
+
+  @ForeignKey(() => ProductVariant)
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  declare variantId: number | null
 
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare quantity: number
@@ -42,8 +52,14 @@ export class InvoiceDetail extends Model {
   @BelongsTo(() => Invoice, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare invoice: Invoice
 
+  @BelongsTo(() => OrderDetail, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  declare orderDetail: OrderDetail
+
   @BelongsTo(() => Product, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare product: Product
+
+  @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  declare variant: ProductVariant
 }
 
 export default InvoiceDetail

@@ -1,16 +1,30 @@
-import { Redis } from '#/configs/redis'
+import redisClient from '#/configs/redis'
 import database from '#/database'
-import { cacheDel, cacheItem, cacheKey } from '#/services/authenticate/cache'
+import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { IRequestLocal } from '#/types/common'
 import { NextFunction, Request, Response } from 'express'
+
+/**
+ * User cache helpers backed by the single `UserAuth:{userId}` entry
+ * (see services/authenticate/userAuth). Mutation paths only INVALIDATE —
+ * the next authenticated request reloads fresh from the DB and repopulates
+ * the short-TTL cache, so `vendorIds`/roles can never serve stale scope
+ * beyond the TTL.
+ */
 
 /**
  * Update user profile with cache invalidation
  */
 export async function updateUserProfile(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
   try {
-    const userId = req.user?.id
-    const userEmail = req.user?.email
+    const userId = Number((req as any)?.user?.id ?? (req as any)?.locals?.id)
+    if (!Number.isFinite(userId)) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        status: 401
+      })
+      return
+    }
     const updates = req.body
 
     // Update user in database
@@ -25,34 +39,8 @@ export async function updateUserProfile(req: IRequestLocal, res: Response, next:
 
     await user.update(updates)
 
-    // Invalidate cache for this user
-    await cacheDel(cacheKey('User', userEmail))
-
-    // Optionally refresh cache with new data
-    await cacheItem({
-      key: cacheKey('User', userEmail),
-      callback: async () => {
-        const updatedUser = await database.user.findOne({
-          where: { id: userId },
-          include: [
-            {
-              model: database.role,
-              include: {
-                model: database.permission,
-                through: { attributes: ['C', 'R', 'U', 'D'] }
-              } as any
-            },
-            {
-              model: database.vendor,
-              include: {
-                model: database.warehouse
-              } as any
-            }
-          ]
-        })
-        return updatedUser
-      }
-    })
+    // Invalidate the unified auth cache; next request starts fresh.
+    await invalidateUserAuthCache(userId)
 
     res.status(200).json({
       data: {
@@ -70,8 +58,14 @@ export async function updateUserProfile(req: IRequestLocal, res: Response, next:
  */
 export async function updateUserRoles(req: IRequestLocal, res: Response, next: NextFunction): Promise<void> {
   try {
-    const userId = req.user.id
-    const userEmail = req.user.email
+    const userId = Number((req as any)?.user?.id ?? (req as any)?.locals?.id)
+    if (!Number.isFinite(userId)) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        status: 401
+      })
+      return
+    }
     const { roleIds } = req.body
 
     const user = await database.user.findByPk(userId, {
@@ -110,8 +104,8 @@ export async function updateUserRoles(req: IRequestLocal, res: Response, next: N
     }
     await user.setRoles(roles)
 
-    // Invalidate cache
-    await cacheDel(cacheKey('User', userEmail))
+    // Invalidate the unified auth cache; next request starts fresh.
+    await invalidateUserAuthCache(userId)
 
     res.status(200).json({
       data: {
@@ -130,17 +124,17 @@ export async function updateUserRoles(req: IRequestLocal, res: Response, next: N
  */
 export async function invalidateUserCache(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { userId, email } = req.body
+    const { userId } = req.body
 
-    if (!email) {
+    if (!Number.isFinite(Number(userId))) {
       res.status(400).json({
-        error: 'Email is required',
+        error: 'userId is required',
         status: 400
       })
       return
     }
 
-    await cacheDel(cacheKey('User', email))
+    await invalidateUserAuthCache(Number(userId))
 
     res.status(200).json({
       data: {
@@ -159,18 +153,12 @@ export async function invalidateUserCache(req: Request, res: Response, next: Nex
  */
 export async function invalidateAllUserCaches(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const redisInstance = new Redis()
-    const pattern = cacheKey('User', '*')
-    const keys = await redisInstance.redis.keys(pattern)
-
-    if (keys.length > 0) {
-      await redisInstance.redis.del(...keys)
-    }
+    const count = await redisClient.cacheDelPattern(redisClient.cacheKey('UserAuth', '*'))
 
     res.status(200).json({
       data: {
-        message: `Invalidated ${keys.length} user caches`,
-        count: keys.length
+        message: `Invalidated ${count} user caches`,
+        count
       }
     })
     return

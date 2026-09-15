@@ -1,10 +1,11 @@
 import { ProviderController } from '#/controllers/provider'
-import { providerCreateValidation } from './validate'
+import { providerCreateValidation, providerIdValidation, providerListValidation } from './validate'
 import express from 'express'
 const Router = express.Router()
 
 Router.get(
   '/',
+  providerListValidation as any,
   // #swagger.tags = ['Providers']
   // #swagger.summary = 'List providers'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -15,6 +16,7 @@ Router.get(
 )
 Router.get(
   '/:id',
+  providerIdValidation as any,
   // #swagger.tags = ['Providers']
   // #swagger.summary = 'Get provider by ID'
   // #swagger.security = [{ "bearerAuth": [] }]

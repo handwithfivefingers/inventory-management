@@ -21,6 +21,7 @@ const schema = z.object({
   surcharge: StrOrNum.default("0"),
   paid: StrOrNum.default("0"),
   paymentType: z.enum(["cash", "transfer"]).default("cash"),
+  channel: z.enum(["POS", "WHOLESALE", "ONLINE"]).default("WHOLESALE"),
   providerId: StrOrNum.optional(),
   customer: StrOrNum.optional(),
 });

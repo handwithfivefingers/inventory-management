@@ -57,16 +57,16 @@ export default function ProductItem() {
       // from the vendor prefix/suffix & SKU template settings.
       code: "",
       skuCode: "",
-      quantity: 10,
+      quantity: 0,
       unit: undefined,
       categories: undefined,
       description: undefined,
       tags: undefined,
-      costPrice: "20000",
-      regularPrice: "50000",
-      salePrice: "45000",
-      wholeSalePrice: "40000",
-      VAT: 5,
+      costPrice: "0",
+      regularPrice: "0",
+      salePrice: "0",
+      wholeSalePrice: "0",
+      VAT: 0,
       expiredAt: undefined,
       isNegative: false,
       variantAttributes: [],
@@ -190,11 +190,11 @@ export default function ProductItem() {
                 </div>
               }
               action={
-                <div className="flex items-center justify-end gap-2">
-                  <TMButton variant="ghost" size="sm" component={Link} to="/products" type="button">
+                <div className="flex items-center justify-stretch sm:justify-end gap-2 pt-2 sm:pt-0 sm:border-t-0 border-t border-slate-100 dark:border-slate-700 w-full sm:w-auto">
+                  <TMButton variant="ghost" size="sm" component={Link} to="/products" type="button" className="flex-1 sm:flex-none">
                     {t("common.cancel")}
                   </TMButton>
-                  <TMButton htmlType="submit" loading={isLoading} size="sm">
+                  <TMButton htmlType="submit" loading={isLoading} size="sm" className="flex-1 sm:flex-none">
                     <Icon name="save" fontSize={16} />
                     {t("common.save")}
                   </TMButton>

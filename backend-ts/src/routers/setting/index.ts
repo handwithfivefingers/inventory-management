@@ -1,5 +1,6 @@
 import { SettingController } from '#/controllers/setting'
 import express from 'express'
+import { settingUpdateValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
@@ -12,6 +13,7 @@ Router.get(
 )
 Router.put(
   '/',
+  settingUpdateValidation as any,
   // #swagger.tags = ['Settings']
   // #swagger.summary = 'Update settings'
   // #swagger.security = [{ "bearerAuth": [] }]

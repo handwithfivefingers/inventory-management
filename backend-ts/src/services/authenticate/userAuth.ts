@@ -61,6 +61,56 @@ export const invalidateUsersByRoleId = async (roleId: number): Promise<void> => 
   }
 }
 
+/**
+ * Invalidate every cached auth context affected by a vendor change
+ * (owner transfer, staff assignment, vendor delete).
+ * Best-effort: TTL bounds staleness when lookups fail.
+ */
+export const invalidateUsersByVendorId = async (vendorId: number): Promise<void> => {
+  if (!Number.isFinite(vendorId)) return
+  try {
+    const ids = await resolveUserIdsByVendorId(vendorId)
+    await invalidateManyUserAuthCache(ids)
+  } catch {
+    // best-effort
+  }
+}
+
+export const resolveUserIdsByVendorId = async (vendorId: number): Promise<number[]> => {
+  const ids = new Set<number>()
+  try {
+    const vendor: any = await (database as any).vendor.findByPk(Number(vendorId), {
+      attributes: ['userId']
+    } as any)
+    const ownerId = Number(vendor?.get ? vendor.get('userId') : vendor?.userId)
+    if (Number.isFinite(ownerId)) ids.add(ownerId)
+  } catch {
+    // vendor lookup failed -> still try staff_vendor below
+  }
+  try {
+    const links: any[] = await (database as any).sequelize.query(
+      `SELECT staffId FROM staff_vendor WHERE vendorId = :vendorId`,
+      { replacements: { vendorId: Number(vendorId) }, type: (database as any).sequelize.QueryTypes?.SELECT }
+    )
+    const rows: any[] = Array.isArray(links) ? links : []
+    const staffIds = rows.map((r: any) => Number(r?.staffId ?? r?.staff_id)).filter(Number.isFinite)
+    if (staffIds.length) {
+      const staffs: any[] = await (database as any).staff.findAll({
+        where: { id: staffIds },
+        attributes: ['userId'],
+        raw: true
+      } as any)
+      for (const s of staffs) {
+        const uid = Number((s as any)?.userId)
+        if (Number.isFinite(uid)) ids.add(uid)
+      }
+    }
+  } catch {
+    // staff_vendor table may not exist yet
+  }
+  return Array.from(ids)
+}
+
 const loadFromDatabase = async (userId: number): Promise<IUserAuthContext | null> => {
   const user: any = await database.user.findByPk(userId)
   if (!user) return null
@@ -145,9 +195,9 @@ export const loadUserAuthContext = async (userId: number): Promise<IUserAuthCont
   if (!userId) return null
   const key = userAuthCacheKey(userId)
   try {
-    const cached = await cacheGet(key)
-    if (cached && typeof cached === 'object') {
-      return cached as IUserAuthContext
+    const cached = await cacheGet<IUserAuthContext>(key)
+    if (cached != null && typeof cached === 'object') {
+      return cached
     }
   } catch {
     // Redis unavailable -> fall through to the database.

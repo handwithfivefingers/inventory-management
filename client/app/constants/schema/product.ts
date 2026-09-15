@@ -28,9 +28,14 @@ const variantAttributeSchema = z.object({
 
 /** Fields supported on each generated/selected variant - new schema uses ID arrays */
 const variantOverrideSchema = z.object({
+  /** Per-variant barcode (extends the parent product barcode; blank allowed) */
+  code: z.string().optional(),
   skuCode: StrOrNum.optional(),
   quantity: StrOrNum.optional(),
-  costPrice: StrOrNum.optional(),
+  costPrice: StrOrNum.refine(
+    (v) => !isFinite(parseFloat(v as string)) && parseFloat(v as string) >= 0,
+    "Cost price must be non-negative",
+  ),
   regularPrice: StrOrNum.optional(),
   salePrice: StrOrNum.optional(),
   wholeSalePrice: StrOrNum.optional(),
@@ -45,6 +50,8 @@ const productSchema = z.object({
   name: z.string().min(1),
   code: z.string().optional(),
   skuCode: z.string().optional(),
+  /** 0 = simple, 1 = variant, 2 = combo */
+  type: StrOrNum.optional(),
   unit: StrOrNum.optional(),
   categories: z.array(StrOrNum).optional(),
   tags: z.array(StrOrNum).optional(),
@@ -54,7 +61,7 @@ const productSchema = z.object({
   regularPrice: StrOrNum.optional(),
   salePrice: StrOrNum.optional(),
   wholeSalePrice: StrOrNum.optional(),
-  VAT: z.number().optional(),
+  VAT: StrOrNum.optional(),
   expiredAt: z.string().optional(),
   isNegative: z.boolean().optional(),
   image: z.string().optional(),

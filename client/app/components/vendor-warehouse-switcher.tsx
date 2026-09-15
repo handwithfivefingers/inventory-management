@@ -106,7 +106,7 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm bg-white hover:bg-indigo-50 border border-indigo-200 rounded-md transition-colors"
+          className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm bg-white hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-600 border border-indigo-200 rounded-md transition-colors dark:text-slate-200"
         >
           <Icon name="package" className="w-4 h-4 text-primary" />
           <span className="max-w-[150px] truncate">{name || "Select"}</span>
@@ -123,7 +123,7 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
               exit={{ opacity: 0, y: -20 }}
             >
               <div className="p-2">
-                <div className="text-xs font-medium text-gray-500 px-2 py-1">Kho hàng</div>
+                <div className="text-xs font-medium text-gray-500 dark:text-slate-400 px-2 py-1">Kho hàng</div>
                 <ul className="max-h-[300px] overflow-y-auto">
                   {data?.map((item, index) => (
                     <li
@@ -135,8 +135,8 @@ const Selector = <T extends { name: string; id: number }>({ name, onChange, data
                       className={cn(
                         "px-3 py-2 cursor-pointer rounded-md flex items-center gap-2 text-sm",
                         Number(selected) === +item.id
-                          ? "bg-indigo-50 text-indigo-700"
-                          : "hover:bg-gray-50 text-gray-700",
+                          ? "bg-indigo-50 text-indigo-700 dark:bg-slate-700 dark:text-slate-100"
+                          : "hover:bg-gray-50 text-gray-700 dark:hover:bg-slate-700 dark:text-slate-300",
                       )}
                     >
                       <Icon name={Number(selected) === +item.id ? "check-circle" : "circle"} className="w-4 h-4" />

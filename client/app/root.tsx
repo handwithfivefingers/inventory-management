@@ -8,7 +8,7 @@ import { ErrorComponent } from "./components/error-component";
 import { NotificationProvider } from "./components/notification";
 import { domAnimation, LazyMotion, useIsomorphicLayoutEffect } from "motion/react";
 import { useLocale } from "~/store/locale.store";
-import { applyTheme, useTheme } from "~/store/theme.store";
+import { applyTheme, initThemeSync, useTheme } from "~/store/theme.store";
 import { AuthService } from "./action.server/auth.service";
 import { commitSession, destroySession, parseCookieFromRequest } from "./sessions";
 import { LoaderFunctionArgs, redirect, Session } from "@remix-run/node";
@@ -17,6 +17,7 @@ import { IWareHouse } from "./types/warehouse";
 import { useUser } from "./store/user.store";
 import { usePermissionStore } from "./store/permission.store";
 import { DEFAULT_SETTINGS, settingService } from "./action.server/setting.service";
+import { applyNicheTheme } from "./libs/niche-theme";
 
 /**
  * Applies the persisted theme before first paint to avoid a flash
@@ -135,7 +136,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="bg-white dark:bg-slate-700">
+      <body className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 overflow-hidden h-screen">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -170,6 +171,9 @@ export default function App() {
     applyTheme(useTheme.getState().theme);
     const unsubscribe = useTheme.subscribe((state) => applyTheme(state.theme));
 
+    // Niche-based UI customization (colors via CSS variables + terminology)
+    applyNicheTheme((settings as any)?.appearance);
+
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onSystemChange = () => {
       if (useTheme.getState().theme === "system") {
@@ -177,10 +181,14 @@ export default function App() {
       }
     };
     media.addEventListener("change", onSystemChange);
+    // Live-sync the theme across tabs of the same session
+    const cleanupThemeSync = initThemeSync();
     return () => {
       unsubscribe();
+      cleanupThemeSync();
       media.removeEventListener("change", onSystemChange);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

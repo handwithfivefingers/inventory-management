@@ -7,7 +7,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { warehouseService } from "~/action.server/warehouse.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { CheckboxInput } from "~/components/form/checkbox-input";
+import { SwitchInput } from "~/components/form/switch-input";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
@@ -323,7 +323,7 @@ function EditForm({ data, onCancel, onSuccess }: { data: any; onCancel: () => vo
               </div>
               <FormControl name="isMain" className="!gap-0">
                 {(field) => (
-                  <CheckboxInput
+                  <SwitchInput
                     value={!!field.value}
                     onChange={(e: any) => field.onChange(e?.target ? e.target.checked : !!e)}
                   />

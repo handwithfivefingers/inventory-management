@@ -68,6 +68,14 @@ export class Setting extends Model {
   @Column({ type: DataType.BIGINT, defaultValue: 1000 })
   declare moneyStep: number
 
+  /**
+   * Vendor UI customization: { preset: 'fashion'|'food'|'electronics'|...,
+   * primaryColor, accentColor, logoUrl, terminology overrides per niche }
+   * Applied by the client via CSS variables (see client niche-theme.ts).
+   */
+  @Column({ type: DataType.TEXT, ...jsonField('appearance', {}) })
+  declare appearance: Record<string, any>
+
   @CreatedAt
   declare createdAt: Date
 

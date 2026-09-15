@@ -71,4 +71,24 @@ const useTheme = create<IThemeState & Actions>()(
   )
 );
 
+/**
+ * Keep every open tab of the session on the same theme: when one tab persists
+ * a new value, the others rehydrate from `localStorage` and re-apply it live
+ * (no reload needed). Returns a cleanup function.
+ */
+export const initThemeSync = (): (() => void) => {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+  const onStorage = (event: StorageEvent) => {
+    if (event.key && event.key !== "theme-storage") {
+      return;
+    }
+    useTheme.persist.rehydrate();
+    applyTheme(useTheme.getState().theme);
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
+};
+
 export { useTheme };

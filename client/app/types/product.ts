@@ -18,6 +18,7 @@ export interface IProductAttribute {
 export interface IProductVariant {
   id: number;
   productId: number;
+  /** Per-variant barcode, extended from the parent product barcode */
   code?: string | null;
   skuCode: string;
   salePrice?: number | null;
@@ -64,6 +65,10 @@ export interface IProduct {
   tags?: string | ICategory[];
   /** Number of variants (0 = simple product) */
   variantCount?: number;
+  /** 0 = simple, 1 = variant, 2 = combo */
+  type?: number;
+  /** Allow selling below zero (oversell). Product-level flag. */
+  isNegative?: boolean;
   attributes?: IProductAttribute[];
   variants?: IProductVariant[];
   variant?: IProductVariant;

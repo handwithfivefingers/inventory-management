@@ -62,6 +62,14 @@ export class Invoice extends Model {
   @Column({ type: DataType.ENUM('draft', 'issued', 'paid', 'cancelled'), allowNull: false, defaultValue: 'draft' })
   declare status: 'draft' | 'issued' | 'paid' | 'cancelled'
 
+  @Column({
+    type: DataType.ENUM('FULL', 'PARTIAL'),
+    allowNull: false,
+    defaultValue: 'FULL',
+    comment: 'FULL = covers all remaining order qty, PARTIAL = subset of lines/qty'
+  })
+  declare invoiceType: 'FULL' | 'PARTIAL'
+
   @Column({ type: DataType.DATE, allowNull: true })
   declare dueDate: Date | null
 

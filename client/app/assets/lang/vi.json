@@ -37,6 +37,7 @@
     "customers": "Khách hàng",
     "invoices": "Hóa đơn",
     "warehouses": "Kho, Bãi",
+    "stocktake": "Đồng kiểm kho",
     "importOrder": "Nhập đơn hàng",
     "catalog": "Danh mục",
     "categories": "Danh mục",
@@ -179,6 +180,7 @@
     "detailTitle": "Chi tiết đơn hàng",
     "editOrder": "Sửa đơn hàng",
     "createInvoice": "Tạo hóa đơn",
+    "viewInvoice": "Xem hóa đơn",
     "printTempInvoice": "In tạm tính",
     "tempInvoice": "Hóa đơn tạm tính",
     "tempInvoiceNotice": "Đây là hóa đơn tạm tính (nháp), chưa phải hóa đơn chính thức.",
@@ -356,7 +358,8 @@
     "inStock": "Tồn kho",
     "sold": "Đã bán",
     "createdAt": "Ngày tạo",
-    "newVariant": "Biến thể mới"
+    "newVariant": "Biến thể mới",
+    "barcode": "Mã vạch"
   },
   "settings": {
     "moneyStep": "Bước nhảy tiền tệ (+/-)",

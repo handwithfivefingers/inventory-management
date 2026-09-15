@@ -115,8 +115,8 @@ export const MultiSelectInput = forwardRef<HTMLDivElement, IMultiSelectInput & a
         <InputLabel label={label} name={name} />
         <div
           className={cn(
-            "relative rounded-md flex items-center py-1 px-1 bg-slate-50",
-            "ring-2 ring-transparent transition-all border border-slate-300 outline-none",
+            "relative rounded-md flex items-center py-1 px-1 bg-slate-50 dark:bg-slate-700",
+            "ring-2 ring-transparent transition-all border border-slate-300 dark:border-slate-600 outline-none",
             "text-slate-700 placeholder:text-gray-400 focus:ring-indigo-400/30",
             SizeClass[inputSize || "sm"],
             styles.input,
@@ -136,7 +136,7 @@ export const MultiSelectInput = forwardRef<HTMLDivElement, IMultiSelectInput & a
         >
           <div
             className={cn(
-              "min-h-5 flex flex-wrap gap-1 w-full bg-transparent rounded-md border-0  text-gray-700  placeholder:text-gray-400  text-sm cursor-pointer",
+              "min-h-5 flex flex-wrap gap-1 w-full bg-transparent rounded-md border-0  text-gray-700 dark:text-slate-200  placeholder:text-gray-400  text-sm cursor-pointer",
               "pr-6",
             )}
             ref={skeleton}
@@ -190,7 +190,7 @@ export const MultiSelectInput = forwardRef<HTMLDivElement, IMultiSelectInput & a
                     <li
                       value={item.value}
                       className={cn(
-                        " px-2 hover:bg-slate-100 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 py-1",
+                        " px-2 hover:bg-slate-100 cursor-pointer rounded bg-white transition-all text-neutral-700/90 hover:text-neutral-900 dark:bg-transparent dark:hover:bg-slate-500 dark:text-slate-300 py-1",
                       )}
                       onClick={(e: any) => handleSelect(item)}
                     >
@@ -220,7 +220,7 @@ export const MultiSelectInput = forwardRef<HTMLDivElement, IMultiSelectInput & a
 const InputLabel = ({ label, name }: { label?: string; name?: string }) => {
   if (!label) return;
   return (
-    <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900">
+    <label htmlFor={name} className="block text-sm/6 font-medium text-gray-900 dark:text-slate-200">
       {label}
     </label>
   );

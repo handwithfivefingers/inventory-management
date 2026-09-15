@@ -1,10 +1,12 @@
 import { CustomerController } from '#/controllers/customer'
 import express from 'express'
+import { customerCreateValidation, customerIdValidation, customerListValidation, customerUpdateValidation } from './validator'
 
 const router = express.Router()
 
 router.get(
   '/',
+  customerListValidation as any,
   // #swagger.tags = ['Customers']
   // #swagger.summary = 'List customers'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -15,6 +17,7 @@ router.get(
 )
 router.get(
   '/:id',
+  customerIdValidation as any,
   // #swagger.tags = ['Customers']
   // #swagger.summary = 'Get customer by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -22,6 +25,7 @@ router.get(
 )
 router.post(
   '/',
+  customerCreateValidation as any,
   // #swagger.tags = ['Customers']
   // #swagger.summary = 'Create customer'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -30,6 +34,7 @@ router.post(
 )
 router.put(
   '/:id',
+  customerUpdateValidation as any,
   // #swagger.tags = ['Customers']
   // #swagger.summary = 'Update customer'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -38,6 +43,7 @@ router.put(
 )
 router.delete(
   '/:id',
+  customerIdValidation as any,
   // #swagger.tags = ['Customers']
   // #swagger.summary = 'Delete customer'
   // #swagger.security = [{ "bearerAuth": [] }]

@@ -122,7 +122,7 @@ export default function Shift() {
 
         <TMTable
           columns={[
-            { title: t("shift.stt"), dataIndex: "id", width: 80, render: (_r, i) => Number(i) + 1 },
+            { title: t("shift.stt"), dataIndex: "id", width: 80, hideOnMobile: true, render: (_r, i) => Number(i) + 1 },
             { title: t("shift.code"), dataIndex: "code" },
             {
               title: t("shift.openTime"),
@@ -132,16 +132,19 @@ export default function Shift() {
             {
               title: t("shift.closeTime"),
               dataIndex: "closeTime",
+              hideOnMobile: true,
               render: (r) => (r.closeTime ? dayjs(r.closeTime).format("DD/MM/YYYY HH:mm") : "-"),
             },
             {
               title: t("shift.openingCash"),
               dataIndex: "openingCash",
+              hideOnMobile: true,
               render: (r) => <NumericFormat value={r.openingCash} displayType="text" thousandSeparator="," />,
             },
             {
               title: t("shift.closingCash"),
               dataIndex: "closingCash",
+              hideOnMobile: true,
               render: (r) =>
                 r.closingCash != null ? (
                   <NumericFormat value={r.closingCash} displayType="text" thousandSeparator="," />
@@ -152,6 +155,7 @@ export default function Shift() {
             {
               title: t("shift.difference"),
               dataIndex: "difference",
+              hideOnMobile: true,
               render: (r) =>
                 r.difference != null ? (
                   <NumericFormat value={r.difference} displayType="text" thousandSeparator="," />

@@ -141,7 +141,7 @@ export const CreatableSelectInput: React.FC<Props> = ({
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={selectedOption?.label || placeholder}
-              className="w-full bg-transparent outline-none text-sm text-slate-700 placeholder:text-gray-400"
+              className="w-full bg-transparent outline-none text-sm text-slate-700 dark:text-slate-200 placeholder:text-gray-400"
             />
           )}
         </div>
@@ -163,8 +163,8 @@ export const CreatableSelectInput: React.FC<Props> = ({
                   className={cn(
                     "px-2 py-1.5 rounded text-sm flex justify-between items-center",
                     item.disabled
-                      ? "opacity-40 cursor-not-allowed bg-slate-50"
-                      : "cursor-pointer bg-white hover:bg-slate-100 text-neutral-700 hover:text-neutral-900"
+                      ? "opacity-40 cursor-not-allowed bg-slate-50 dark:bg-slate-800"
+                      : "cursor-pointer bg-white hover:bg-slate-100 text-neutral-700 hover:text-neutral-900 dark:bg-transparent dark:hover:bg-slate-500 dark:text-slate-300"
                   )}
                 >
                   <span>{item.label}</span>
@@ -175,14 +175,14 @@ export const CreatableSelectInput: React.FC<Props> = ({
                 <li
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleCreate}
-                  className="px-2 py-1.5 hover:bg-indigo-50 cursor-pointer rounded text-sm text-primary flex gap-2 items-center border-t mt-1"
+                  className="px-2 py-1.5 hover:bg-indigo-50 dark:hover:bg-slate-700 cursor-pointer rounded text-sm text-primary flex gap-2 items-center border-t border-slate-100 dark:border-slate-700 mt-1"
                 >
                   <Icon name="plus" fontSize={14} />
                   <span>Tạo "{inputValue.trim()}"</span>
                 </li>
               )}
               {filtered.length === 0 && !canCreate && (
-                <li className="px-2 py-4 flex flex-col items-center text-slate-500 text-sm">
+                <li className="px-2 py-4 flex flex-col items-center text-slate-500 dark:text-slate-400 text-sm">
                   <Icon name="hard-drive" fontSize={28} />
                   <span>Không có tùy chọn</span>
                 </li>

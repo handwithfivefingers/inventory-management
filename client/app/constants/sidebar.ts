@@ -99,6 +99,12 @@ export const SIDE_BAR: ISideBarItem[] = [
         iconName: "home",
         moduleKey: "warehouse",
       },
+      {
+        to: "/warehouses/stocktake",
+        labelKey: "sidebar.stocktake",
+        iconName: "clipboard",
+        moduleKey: "warehouse",
+      },
     ],
   },
   {

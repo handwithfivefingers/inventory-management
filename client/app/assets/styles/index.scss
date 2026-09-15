@@ -1,15 +1,20 @@
+// `color-scheme` is owned by JS (theme.store.ts sets it on <html> inline so it
+// always follows the *chosen* theme). A media-query here would force the OS
+// scheme on <body> and make native controls (inputs, selects, scrollbars)
+// keep the OS look even after switching to the opposite theme.
 html,
 body {
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
-  // @media (prefers-color-scheme: light) {
-  //   color-scheme: light;
-  // }
+  color-scheme: light dark;
 }
 
 .scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
   scrollbar-gutter: stable;
+
+  @media (prefers-color-scheme: dark) {
+    html.dark & {
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+  }
 }

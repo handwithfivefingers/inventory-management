@@ -19,7 +19,7 @@ interface ICacheItem {
 const cacheItem = async ({ key, callback, ttl = 3600 * 24 }: ICacheItem) => {
   try {
     const data = await cacheGet(key)
-    if (!data) {
+    if (data == null) {
       const result = await callback()
       await cacheSet(key, result, ttl)
       return result

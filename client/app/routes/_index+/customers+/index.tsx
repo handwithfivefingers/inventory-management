@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { customerService } from "~/action.server/customer.service";
 import { CardItem } from "~/components/card-item";
 import { TextInput } from "~/components/form/text-input";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -83,6 +84,9 @@ export default function Customers() {
 
   return (
     <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <PermissionGuard permission="CREATE" module="customer">
+        <CreateFab to="add" label={t("customers.create")} />
+      </PermissionGuard>
       <CardItem
         title={
           <div className="flex items-start justify-between gap-4">
@@ -101,7 +105,7 @@ export default function Customers() {
             </div>
           </div>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0 justify-between items-center p-1">
@@ -115,7 +119,7 @@ export default function Customers() {
               className="max-w-sm w-full"
             />
             <PermissionGuard permission="CREATE" module="customer">
-              <TMButton component={Link} to="add" size="sm">
+              <TMButton component={Link} to="add" size="sm" className="hidden sm:inline-flex">
                 <Icon name="plus" fontSize={16} />
                 {t("customers.create")}
               </TMButton>
@@ -128,9 +132,9 @@ export default function Customers() {
               columns={[
                 // { title: t("customers.id"), dataIndex: "id", width: 60 },
                 { title: t("customers.name"), dataIndex: "name", width: 200 },
-                { title: t("customers.phone"), dataIndex: "phone", width: 150 },
-                { title: t("customers.email"), dataIndex: "email" },
-                { title: t("customers.taxCode"), dataIndex: "taxCode" },
+                { title: t("customers.phone"), dataIndex: "phone", width: 150, hideOnMobile: true },
+                { title: t("customers.email"), dataIndex: "email", hideOnMobile: true },
+                { title: t("customers.taxCode"), dataIndex: "taxCode", hideOnMobile: true },
                 {
                   title: t("common.actions"),
                   dataIndex: "actions",

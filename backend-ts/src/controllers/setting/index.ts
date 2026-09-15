@@ -5,7 +5,9 @@ export class SettingController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const data = await new SettingService().get(req as IRequestLocal)
+      const vendorId = (req.query.vendorId as string) || undefined
+      const userId = (req as IRequestLocal).user?.id || undefined
+      const data = await new SettingService().get({ vendorId, userId })
       res.status(200).json({ data })
     } catch (error) {
       next(error)

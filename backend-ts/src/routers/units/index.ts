@@ -1,9 +1,11 @@
 import { UnitsController } from '#/controllers/units'
 import express from 'express'
+import { unitCreateValidation, unitIdValidation, unitListValidation, unitUpdateValidation } from './validator'
 const route = express.Router()
 
 route.get(
   '/',
+  unitListValidation as any,
   // #swagger.tags = ['Units']
   // #swagger.summary = 'List units'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -12,6 +14,7 @@ route.get(
 )
 route.get(
   '/:id',
+  unitIdValidation as any,
   // #swagger.tags = ['Units']
   // #swagger.summary = 'Get unit by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -20,6 +23,7 @@ route.get(
 )
 route.post(
   '/',
+  unitCreateValidation as any,
   // #swagger.tags = ['Units']
   // #swagger.summary = 'Create unit'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -28,6 +32,7 @@ route.post(
 )
 route.post(
   '/:id',
+  unitUpdateValidation as any,
   // #swagger.tags = ['Units']
   // #swagger.summary = 'Update unit'
   // #swagger.security = [{ "bearerAuth": [] }]

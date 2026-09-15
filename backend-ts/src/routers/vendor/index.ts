@@ -1,5 +1,6 @@
 import VendorController from '#/controllers/vendor'
 import express from 'express'
+import { vendorCreateValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
@@ -11,6 +12,7 @@ Router.get(
 )
 Router.post(
   '/',
+  vendorCreateValidation as any,
   // #swagger.tags = ['Vendors']
   // #swagger.summary = 'Create a new vendor'
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/VendorBody' } } */

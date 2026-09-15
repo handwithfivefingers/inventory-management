@@ -1,9 +1,11 @@
 import ImportOrderController from '#/controllers/importOrder'
 import express from 'express'
+import { importOrderCreateValidation, importOrderIdValidation, importOrderListValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
   '/',
+  importOrderListValidation as any,
   // #swagger.tags = ['ImportOrders']
   // #swagger.summary = 'List import orders'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -13,6 +15,7 @@ Router.get(
 )
 Router.get(
   '/:id',
+  importOrderIdValidation as any,
   // #swagger.tags = ['ImportOrders']
   // #swagger.summary = 'Get import order by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -20,6 +23,7 @@ Router.get(
 )
 Router.post(
   '/',
+  importOrderCreateValidation as any,
   // #swagger.tags = ['ImportOrders']
   // #swagger.summary = 'Create import order'
   // #swagger.security = [{ "bearerAuth": [] }]

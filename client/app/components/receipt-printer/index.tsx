@@ -4,6 +4,7 @@ import { formatCurrency } from "~/libs/format-currency";
 import { IInvoice } from "~/types/invoice";
 import { InputSlider } from "../form/input-slider";
 import { SelectInput } from "../form/select-input";
+import { Portal } from "../portal";
 
 export interface IPrinterModel {
   id: string;
@@ -14,36 +15,95 @@ export interface IPrinterModel {
   widthAdjust: number; // mm added/removed from the printable width
 }
 
-const PRINT_SIZES: Record<string, { label: string; page: string; width: string; padding: string; margin: string }> = {
+export const PRINT_SIZES: Record<string, { label: string; page: string; width: string; padding: string; margin: string }> = {
   k58: { label: "K58 (58mm)", page: "58mm auto", width: "48mm", padding: "3mm 2mm", margin: "0" },
   k80: { label: "K80 (80mm)", page: "80mm auto", width: "72mm", padding: "4mm 3mm", margin: "0" },
   a5: { label: "A5", page: "A5 portrait", width: "148mm", padding: "10mm", margin: "8mm" },
   a4: { label: "A4", page: "A4 portrait", width: "210mm", padding: "12mm", margin: "10mm" },
+  // Bypass: no `@page size` rule is emitted, so the browser / printer-dialog
+  // paper size wins instead of the forced size above.
+  auto: { label: "Auto (printer default)", page: "auto", width: "100%", padding: "4mm", margin: "0" },
 };
 
+const PAPER_SIZE_OPTIONS = (Object.keys(PRINT_SIZES) as Array<keyof typeof PRINT_SIZES>).map((key) => ({
+  label: PRINT_SIZES[key].label,
+  value: key,
+}));
+
+/**
+ * Print CSS for the browser path (`window.print`) — same pattern as
+ * `BarcodePrintSheet` (`barcode-print-portal` + `body.barcode-printing`).
+ *
+ * Why a body-level portal instead of the old `visibility: hidden` trick:
+ * - `visibility: hidden` keeps the hidden elements' layout space, and the old
+ *   `.invoice-print { position: absolute; top: 0 }` anchored to the nearest
+ *   positioned ancestor (the component's own `.relative` wrapper, which sits
+ *   BELOW the config sliders) — so the printed receipt started mid-page
+ *   instead of at the top.
+ * - The portal is a direct child of `document.body`, so it always starts at
+ *   the page top-left; everything else is `display: none` (no reserved space).
+ * - Screen preview keeps its centered (`mx-auto`) layout; the print portal
+ *   uses `margin: 0` + `text-align: left`.
+ */
 const getPrintStyles = (sizeKey: string) => {
   const size = PRINT_SIZES[sizeKey] ?? PRINT_SIZES.k80;
+  // `auto` bypasses the forced paper size: no `@page size` rule, so the
+  // browser / printer-dialog paper size wins.
+  const pageRule = size.page === "auto" ? "" : `@page { size: ${size.page}; margin: ${size.margin}; }`;
   return `
-        @media print {
-        body * { visibility: hidden; }
-        .invoice-print, .invoice-print * { visibility: visible; }
-        .invoice-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: ${size.width};
-            max-width: none;
-            padding: ${size.padding};
-            box-shadow: none !important;
-            border: none !important;
-        }
-        .no-print { display: none !important; }
-        }
-        @page {
-        size: ${size.page};
-        margin: ${size.margin};
-        }
+.invoice-print-root { display: block; }
+@media print {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body.invoice-printing > *:not(.invoice-print-portal) { display: none !important; }
+  body.invoice-printing > .invoice-print-portal {
+    display: block !important;
+    width: ${size.width};
+    max-width: ${size.width};
+    margin: 0;
+    padding: ${size.padding};
+    text-align: left;
+    color: #000;
+    background: #fff;
+    box-sizing: border-box;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .no-print { display: none !important; }
+  /* Long receipts: page breaks may fall BETWEEN items, never inside one
+     (name on one page, price on the next). The portal itself stays
+     breakable so Chrome flows excess content onto following pages. */
+  .invoice-print-portal .thermal-item,
+  .invoice-print-portal table tr { break-inside: avoid; page-break-inside: avoid; }
+}
+@media screen {
+  .invoice-print-portal { display: none !important; }
+}
+${pageRule}
 `;
+};
+
+/**
+ * Browser-print the invoice portal — mirrors
+ * `BarcodePrintModal.handleBrowserPrint`: toggles `body.invoice-printing`
+ * around `window.print()` so the portal is the only visible node.
+ */
+export const printInvoiceViaBrowser = (): void => {
+  if (typeof document === "undefined") return;
+  document.body.classList.add("invoice-printing");
+  const cleanup = () => {
+    document.body.classList.remove("invoice-printing");
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+  // Fallback for browsers that don't fire `afterprint` reliably.
+  window.setTimeout(cleanup, 1000);
 };
 
 const PRINTER_MODELS: IPrinterModel[] = [
@@ -110,8 +170,14 @@ const usePrintStyles = (paperSize: keyof typeof PRINT_SIZES) => {
 
 interface Props {
   invoice: IInvoice;
+  /** Temp print: same receipt + "temporal invoice" footer line (orders flow). */
+  temporal?: boolean;
+  /** Order reference footer: "Thuộc đơn hàng #ORD-x — Hóa đơn i/n". */
+  orderCode?: string | null;
+  invoiceIndex?: number | null;
+  invoiceTotal?: number | null;
 }
-export const ReceiptPrinter = ({ invoice }: Props) => {
+export const ReceiptPrinter = ({ invoice, temporal, orderCode, invoiceIndex, invoiceTotal }: Props) => {
   // Hydration-safe: the first render (server AND client) must be identical, so we
   // start from the deterministic default preset and only read localStorage AFTER
   // mount. Reading it during render (useState(loadPrinterSettings)) makes the
@@ -140,9 +206,26 @@ export const ReceiptPrinter = ({ invoice }: Props) => {
     }
   }, [printer, hydrated]);
 
+  const orderRef = orderCode ?? (invoice.order as any)?.code ?? (invoice.orderId ? `#${invoice.orderId}` : null);
+  // Shared receipt content: screen preview === print portal (same pattern as
+  // `BarcodePrintModal`'s `sheetProps`, so preview and print never diverge).
+  const receiptBody = isThermal ? (
+    <ThermalReceipt data={invoice} temporal={temporal} orderRef={orderRef} invoiceIndex={invoiceIndex} invoiceTotal={invoiceTotal} />
+  ) : (
+    <CustomReceipt data={invoice} temporal={temporal} orderRef={orderRef} invoiceIndex={invoiceIndex} invoiceTotal={invoiceTotal} />
+  );
+  // Inline styles win over the @media print rules, so the adjusted
+  // font/spacing/width apply to both screen preview AND printing.
+  const contentStyle = {
+    fontSize: printer.fontSize,
+    letterSpacing: `${printer.letterSpacing}px`,
+    width: `calc(${size.width} + ${printer.widthAdjust}mm)`,
+    padding: size.padding,
+  };
+
   return (
     <div className="flex relative flex-col gap-4 bg-slate-100 rounded py-2">
-      <div className="flex gap-1 justify-center">
+      <div className="flex gap-1 justify-center flex-wrap no-print">
         <div className="w-44">
           <SelectInput
             label="Printer model"
@@ -154,6 +237,20 @@ export const ReceiptPrinter = ({ invoice }: Props) => {
             }}
           />
         </div>
+        <div className="w-32">
+          {/* Independent paper-size selector: overrides the model preset so
+              thermal (K58/K80) and A5/A4 sheets are switchable without
+              changing the printer model itself. Persisted with the rest of
+              the printer settings through the same localStorage record. */}
+          <SelectInput
+            label="Paper size"
+            options={PAPER_SIZE_OPTIONS}
+            value={printer.paperSize}
+            onSelect={(v: any) => {
+              if (PRINT_SIZES[v as string]) updatePrinter({ paperSize: v });
+            }}
+          />
+        </div>
         <InputSlider
           min={10}
           max={20}
@@ -162,6 +259,8 @@ export const ReceiptPrinter = ({ invoice }: Props) => {
           value={printer.fontSize}
           onChange={(e) => updatePrinter({ fontSize: Number(e.target.value) })}
         />
+        {/* QZ printer picker disabled — browser print only.
+            Restore `<QzPrinterSelect />` here when re-enabling QZ. */}
         <InputSlider
           min={-4}
           max={4}
@@ -171,24 +270,34 @@ export const ReceiptPrinter = ({ invoice }: Props) => {
           onChange={(e) => updatePrinter({ letterSpacing: Number(e.target.value) })}
         />
       </div>
-      <div
-        className={`invoice-print mx-auto bg-white shadow ${isThermal ? "font-mono" : ""}`}
-        style={{
-          // Inline styles win over the @media print rules, so the adjusted
-          // font/spacing/width apply to both screen preview AND printing.
-          fontSize: printer.fontSize,
-          letterSpacing: `${printer.letterSpacing}px`,
-          width: `calc(${size.width} + ${printer.widthAdjust}mm)`,
-          padding: size.padding,
-        }}
-      >
-        {isThermal ? <ThermalReceipt data={invoice} /> : <CustomReceipt data={invoice} />}
+      <div className={`invoice-print mx-auto bg-white shadow ${isThermal ? "font-mono" : ""}`} style={contentStyle}>
+        {receiptBody}
       </div>
+      {/* Body-level print copy: hidden on screen, sole visible node in print. */}
+      <Portal>
+        <div className="invoice-print-root invoice-print-portal">
+          <div className={isThermal ? "font-mono" : ""} style={contentStyle}>
+            {receiptBody}
+          </div>
+        </div>
+      </Portal>
     </div>
   );
 };
 
-const ThermalReceipt = ({ data }: { data: IInvoice }) => {
+const ThermalReceipt = ({
+  data,
+  temporal,
+  orderRef,
+  invoiceIndex,
+  invoiceTotal,
+}: {
+  data: IInvoice;
+  temporal?: boolean;
+  orderRef?: string | null;
+  invoiceIndex?: number | null;
+  invoiceTotal?: number | null;
+}) => {
   const { t } = useTranslation();
   return (
     <div className="text-black">
@@ -224,7 +333,7 @@ const ThermalReceipt = ({ data }: { data: IInvoice }) => {
       {/* Line items — name on its own line, qty × price … amount below */}
       <div className="space-y-1.5">
         {(data.invoiceDetails || []).map((detail) => (
-          <div key={detail.id} className="space-y-0.5">
+          <div key={detail.id} className="thermal-item space-y-0.5">
             <div className="font-bold leading-tight break-words text-[0.95em]">
               {(detail.product as any)?.name || `#${detail.productId}`}
             </div>
@@ -266,16 +375,51 @@ const ThermalReceipt = ({ data }: { data: IInvoice }) => {
           </div>
         )}
         {data.notes && <p className="text-[0.85em] italic break-words">{data.notes}</p>}
+        {orderRef && (
+          <p className="text-[0.8em] text-gray-700">
+            {t("invoices.detail.orderRef", { defaultValue: `Thuộc đơn hàng ${orderRef}` })}
+            {invoiceIndex != null && invoiceTotal != null
+              ? ` — ${t("invoices.detail.batch", { defaultValue: `Hóa đơn ${invoiceIndex}/${invoiceTotal}` })}`
+              : ""}
+          </p>
+        )}
         <p className="font-bold italic text-[0.85em]">{t("invoices.detail.thanks")}</p>
+        {temporal && (
+          <p className="text-[0.8em] uppercase tracking-wide text-gray-600 border-t border-dashed border-black pt-1 mt-2">
+            {t("orders.tempInvoiceNotice")}
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
-const CustomReceipt = ({ data }: { data: IInvoice }) => {
+const CustomReceipt = ({
+  data,
+  temporal,
+  orderRef,
+  invoiceIndex,
+  invoiceTotal,
+}: {
+  data: IInvoice;
+  temporal?: boolean;
+  orderRef?: string | null;
+  invoiceIndex?: number | null;
+  invoiceTotal?: number | null;
+}) => {
   const { t } = useTranslation();
   const infoRows: Array<{ label: string; value: React.ReactNode }> = [
     { label: t("invoices.invoiceNumber"), value: data.invoiceNumber },
+    ...(orderRef
+      ? [
+          {
+            label: t("invoices.detail.sourceOrder", { defaultValue: "Đơn hàng gốc" }),
+            value: `${orderRef}${
+              invoiceIndex != null && invoiceTotal != null ? ` — ${t("invoices.detail.batch", { defaultValue: `Đợt giao ${invoiceIndex}/${invoiceTotal}` })}` : ""
+            }`,
+          },
+        ]
+      : []),
     { label: t("invoices.customer"), value: data.customer?.name || "-" },
     { label: t("invoices.detail.warehouse"), value: data.warehouse?.name || "-" },
     {
@@ -381,6 +525,9 @@ const CustomReceipt = ({ data }: { data: IInvoice }) => {
         <p className="text-xs text-gray-500 uppercase mb-1">{t("invoices.detail.notes")}</p>
         <p className="text-sm">{data.notes || t("invoices.detail.noNotes")}</p>
       </div>
+      {temporal && (
+        <p className="text-xs text-gray-500 text-center border-t pt-2">{t("orders.tempInvoiceNotice")}</p>
+      )}
     </div>
   );
 };

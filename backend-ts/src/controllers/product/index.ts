@@ -2,8 +2,58 @@
 
 import { ProductService } from '#/services/product'
 import { IRequestLocal } from '#/types/common'
+import multer from 'multer'
 import { Request, Response, NextFunction } from 'express'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
+
+/**
+ * Multer middleware for the Excel import: exposes the file on req.file.
+ * Exported so the router can reference the exact instance.
+ */
+export const productImportUpload = upload.single('file')
+
 export class ProductController {
+  async exportExcel(req: Request, res: Response, next: NextFunction) {
+    try {
+      // #swagger.tags = ['Products']
+      // #swagger.summary = 'Export products as xlsx'
+      const { buffer, filename } = await new ProductService().exportExcel(req as IRequestLocal)
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+      res.status(200).send(buffer)
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async importTemplate(req: Request, res: Response, next: NextFunction) {
+    try {
+      // #swagger.tags = ['Products']
+      // #swagger.summary = 'Download the product import template (xlsx)'
+      const buffer = await new ProductService().importTemplateExcel()
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      res.setHeader('Content-Disposition', 'attachment; filename="product-import-template.xlsx"')
+      res.status(200).send(buffer)
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async importExcel(req: Request, res: Response, next: NextFunction) {
+    try {
+      // #swagger.tags = ['Products']
+      // #swagger.summary = 'Import products from an xlsx/csv file (create + update by skuCode)'
+      const report = await new ProductService().importExcel(req as any)
+      res.status(200).json({ data: report })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
@@ -16,6 +66,7 @@ export class ProductController {
       next(error)
     }
   }
+
   // async importProduct(req: Request, res: Response, next: NextFunction) {
   //   try {
   //     const resp = await new ProductService().importProduct(req)
@@ -60,10 +111,36 @@ export class ProductController {
     }
   }
 
-  async updateVariant(req: Request, res: Response, next: NextFunction) {
+  async updateProduct(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
-      const resp = await new ProductService().updateVariant(req as IRequestLocal)
+      const resp = await new ProductService().updateProduct(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async deleteProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      // #swagger.tags = ['Products']
+      const resp = await new ProductService().deleteProduct(req as IRequestLocal)
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  async restoreProduct(req: Request, res: Response, next: NextFunction) {
+    try {
+      // #swagger.tags = ['Products']
+      const resp = await new ProductService().restoreProduct(req as IRequestLocal)
       res.status(200).json({
         data: resp
       })
@@ -77,19 +154,6 @@ export class ProductController {
     try {
       // #swagger.tags = ['Products']
       const resp = await new ProductService().deleteVariant(req as IRequestLocal)
-      res.status(200).json({
-        data: resp
-      })
-      return
-    } catch (error) {
-      next(error)
-    }
-  }
-
-  async syncProductVariants(req: Request, res: Response, next: NextFunction) {
-    try {
-      // #swagger.tags = ['Products']
-      const resp = await new ProductService().syncProductVariants(req as IRequestLocal)
       res.status(200).json({
         data: resp
       })

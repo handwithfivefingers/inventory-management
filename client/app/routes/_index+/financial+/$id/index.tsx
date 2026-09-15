@@ -52,32 +52,32 @@ export default function FinancialDetail() {
           }
           className="p-5 sm:p-6"
         >
-          <div className="grid grid-cols-2 gap-4 mt-2">
+          <div className="grid grid-cols-2 gap-4 mt-2 text-slate-700 dark:text-slate-200">
             <div>
-              <span className="text-gray-500">{t("financial.type")}: </span>
-              <span className={data.type === "expense" ? "text-red-500" : "text-green-500"}>
+              <span className="text-gray-500 dark:text-slate-400">{t("financial.type")}: </span>
+              <span className={data.type === "expense" ? "text-red-500 dark:text-red-400" : "text-green-600 dark:text-green-400"}>
                 {data.type === "expense" ? t("financial.expense") : t("financial.revenue")}
               </span>
             </div>
             <div>
-              <span className="text-gray-500">{t("financial.category")}: </span>
+              <span className="text-gray-500 dark:text-slate-400">{t("financial.category")}: </span>
               {data.category}
             </div>
             <div>
-              <span className="text-gray-500">{t("financial.amount")}: </span>
+              <span className="text-gray-500 dark:text-slate-400">{t("financial.amount")}: </span>
               <NumericFormat value={data.amount} displayType={"text"} thousandSeparator="," />
             </div>
             <div>
-              <span className="text-gray-500">{t("financial.date")}: </span>
+              <span className="text-gray-500 dark:text-slate-400">{t("financial.date")}: </span>
               {dayjs(data.transactionDate).format("DD/MM/YYYY HH:mm")}
             </div>
             <div className="col-span-2">
-              <span className="text-gray-500">{t("financial.note")}: </span>
+              <span className="text-gray-500 dark:text-slate-400">{t("financial.note")}: </span>
               {data.note || "-"}
             </div>
             {data.relatedType && (
               <div>
-                <span className="text-gray-500">Related: </span>
+                <span className="text-gray-500 dark:text-slate-400">Related: </span>
                 {data.relatedType} #{data.relatedId}
               </div>
             )}

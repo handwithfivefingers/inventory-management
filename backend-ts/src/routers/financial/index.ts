@@ -1,5 +1,6 @@
 import { FinancialController } from '#/controllers/financial'
 import express from 'express'
+import { voucherCreateValidation, voucherIdValidation, voucherReportValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
@@ -11,6 +12,7 @@ Router.get(
 )
 Router.get(
   '/report',
+  voucherReportValidation as any,
   // #swagger.tags = ['Financial']
   // #swagger.summary = 'Get financial report'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -21,6 +23,7 @@ Router.get(
 )
 Router.get(
   '/:id',
+  voucherIdValidation as any,
   // #swagger.tags = ['Financial']
   // #swagger.summary = 'Get voucher by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -28,6 +31,7 @@ Router.get(
 )
 Router.post(
   '/',
+  voucherCreateValidation as any,
   // #swagger.tags = ['Financial']
   // #swagger.summary = 'Create financial voucher'
   // #swagger.security = [{ "bearerAuth": [] }]

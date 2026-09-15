@@ -1,11 +1,18 @@
 import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { useMemo, useRef, useState } from "react";
 import { productService } from "~/action.server/products.service";
+import { BarcodePrintModal } from "~/components/barcode-print-modal";
+import { IBarcodeLabel } from "~/components/barcode-print-sheet";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
+import { CheckboxInput } from "~/components/form/checkbox-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
+import { ProductImportModal } from "~/components/product-import-modal";
 import { PermissionGuard } from "~/components/permission-guard";
+import { toast } from "~/components/notification";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -13,6 +20,7 @@ import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { debounce } from "~/libs/debounce";
+import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
 import { IProduct } from "~/types/product";
 
@@ -55,26 +63,68 @@ export default function Products() {
     s: string;
   }>();
   const isLoading = fetcher.state === "submitting" || fetcher.state === "loading";
-  console.log(`fetcher`, fetcher);
-  const handleImportUpload = (file: File) => {
-    alert("Function not build yet");
-    // const form = new FormData();
-    // form.append("products", file);
-    // if (warehouse?.id) {
-    //   form.append("warehouse", warehouse?.id as any);
-    // }
-    // fetch("http://localhost:3001/api/products/import", {
-    //   method: "POST",
-    //   body: form,
-    // });
-  };
+
+  // ---------- Barcode print selection ----------
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const products = fetcher.data?.data || data || [];
   const total = fetcher.data?.total || currentTotal || 0;
   const query = fetcher?.data?.s || s || "";
   const pageSize = Number(fetcher?.data?.pageSize || defaultPageSize || 10);
   const page = Number(fetcher?.data?.page || defaultPage || 1);
+
+  const toggleSelect = (id: string | number, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const barcodeLabels: IBarcodeLabel[] = useMemo(
+    () =>
+      products
+        .filter((p) => selectedIds.has(p.id))
+        .map((p) => ({ id: p.id, name: p.name, skuCode: p.skuCode || p.code, price: p.salePrice ?? p.regularPrice })),
+    [products, selectedIds],
+  );
+
+  // ---------- Excel export ----------
+  const exportRef = useRef<HTMLAnchorElement>(null);
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const qs = new URLSearchParams({ s: query });
+      const resp = await fetch(`/api/products/export?${qs.toString()}`, { credentials: "include" });
+      if (!resp.ok) throw new Error(await resp.text());
+      const blob = await resp.blob();
+      const disposition = resp.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?(.+?)"?$/);
+      const filename = match?.[1] || `products-${dayjs().format("YYYYMMDD-HHmm")}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      if (exportRef.current) {
+        exportRef.current.href = url;
+        exportRef.current.download = filename;
+        exportRef.current.click();
+      }
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast.danger({ title: "Lỗi", message: error?.message || "Xuất Excel thất bại" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <PermissionGuard permission="CREATE" module={MODULE_ENUM.product}>
+        <CreateFab to="./add" label={t("common.add")} />
+      </PermissionGuard>
+      {/* Hidden anchor used by the Excel export blob download */}
+      <a ref={exportRef} className="hidden" aria-hidden />
       <CardItem
         title={
           <div className="flex items-start justify-between gap-4">
@@ -86,7 +136,6 @@ export default function Products() {
                 <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
                   {t("sidebar.products")}
                 </h2>
-                {/* <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">{t("orders.titleHint")}</p> */}
               </div>
             </div>
           </div>
@@ -94,34 +143,43 @@ export default function Products() {
         action={
           <div className="ml-auto block my-auto">
             <div className="flex gap-2 flex-wrap flex-row">
-              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                <TMButton component={Link} to={"./add"} size="sm">
+              <PermissionGuard permission="CREATE" module={MODULE_ENUM.product}>
+                <TMButton component={Link} to={"./add"} size="sm" className="hidden sm:inline-flex">
                   <Icon name="plus" fontSize={16} />
                   <span>{t("common.add")}</span>
                 </TMButton>
               </PermissionGuard>
-              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                <TMButton component={Link} to={"./add"} size="sm">
+              <PermissionGuard permission="READ" module={MODULE_ENUM.product}>
+                <TMButton size="sm" onClick={() => setShowImportModal(true)} className="hidden sm:inline-flex">
                   <Icon name="file-plus" fontSize={16} />
-                  <span>{t("common.importExcel")}</span>
+                  <span className="hidden sm:inline">{t("common.importExcel")}</span>
                 </TMButton>
               </PermissionGuard>
-              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                <TMButton component={Link} to={"./add"} size="sm">
+              <PermissionGuard permission="READ" module={MODULE_ENUM.product}>
+                <TMButton size="sm" onClick={handleExport} loading={exporting} className="hidden sm:inline-flex">
                   <Icon name="file-text" fontSize={16} />
-                  <span>{t("common.exportExcel")}</span>
+                  <span className="hidden sm:inline">{t("common.exportExcel")}</span>
                 </TMButton>
               </PermissionGuard>
-              <PermissionGuard permission="READ" module={MODULE_ENUM.product} requireAdmin>
-                <TMButton component={Link} to={"./add"} size="sm">
+              <PermissionGuard permission="READ" module={MODULE_ENUM.product}>
+                <TMButton
+                  size="sm"
+                  disabled={barcodeLabels.length === 0}
+                  onClick={() => setShowBarcodeModal(true)}
+                  title={barcodeLabels.length === 0 ? "Chọn sản phẩm để in mã vạch" : undefined}
+                  className="hidden sm:inline-flex"
+                >
                   <Icon name="bar-chart-2" fontSize={16} />
-                  <span>{t("common.printBarcode")}</span>
+                  <span className="hidden sm:inline">
+                    {t("common.printBarcode")}
+                    {barcodeLabels.length > 0 ? ` (${barcodeLabels.length})` : ""}
+                  </span>
                 </TMButton>
               </PermissionGuard>
             </div>
           </div>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0">
@@ -146,6 +204,35 @@ export default function Products() {
               scrollable
               columns={[
                 {
+                  title: (
+                    <CheckboxInput
+                      label=""
+                      checked={products.length > 0 && products.every((p) => selectedIds.has(p.id))}
+                      onChange={(e: any) => {
+                        const checked = e.target.checked;
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          for (const p of products) {
+                            if (checked) next.add(p.id);
+                            else next.delete(p.id);
+                          }
+                          return next;
+                        });
+                      }}
+                    />
+                  ),
+                  dataIndex: "select",
+                  width: 50,
+                  render: (record) => (
+                    <CheckboxInput
+                      label=""
+                      checked={selectedIds.has(record.id)}
+                      onClick={(e: any) => e.stopPropagation()}
+                      onChange={(e: any) => toggleSelect(record.id, e.target.checked)}
+                    />
+                  ),
+                },
+                {
                   title: "Tên sản phẩm",
                   dataIndex: "name",
                   render: (record) => record["name"],
@@ -153,33 +240,42 @@ export default function Products() {
                 {
                   title: "Mã sản phẩm",
                   dataIndex: "skuCode",
-                  render: (record) => record["skuCode"],
+                  hideOnMobile: true,
+                  render: (record) => record["skuCode"] || record["code"],
+                },
+                {
+                  title: "Giá bán",
+                  dataIndex: "salePrice",
+                  render: (record) => formatCurrency(record.salePrice ?? record.regularPrice ?? 0),
                 },
                 {
                   title: "Tồn kho",
                   dataIndex: "quantity",
-                  render: (record) => record["quantity"] || 0,
+                  render: (record) => Number(record["quantity"]) || 0,
                 },
                 {
                   title: "Biến thể",
                   dataIndex: "variantCount",
+                  hideOnMobile: true,
                   render: (record) =>
                     Number(record.variantCount) > 0 ? (
-                      <span className="bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-xs">
+                      <span className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-full px-2 py-0.5 text-xs">
                         {record.variantCount} biến thể
                       </span>
                     ) : (
-                      <span className="text-slate-400 text-xs">—</span>
+                      <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>
                     ),
                 },
                 {
                   title: "Đã bán",
                   dataIndex: "sold",
+                  hideOnMobile: true,
                   render: (record) => record["sold"] || 0,
                 },
                 {
                   title: "Ngày tạo",
                   dataIndex: "createdAt",
+                  hideOnMobile: true,
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
               ]}
@@ -190,7 +286,7 @@ export default function Products() {
               }}
             />
           </div>
-          <div className="flex  gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 overflow-x-auto max-w-full">
             <TMPagination
               total={total || 0}
               current={page}
@@ -202,6 +298,9 @@ export default function Products() {
           </div>
         </div>
       </CardItem>
+
+      <BarcodePrintModal show={showBarcodeModal} close={() => setShowBarcodeModal(false)} labels={barcodeLabels} />
+      <ProductImportModal show={showImportModal} close={() => setShowImportModal(false)} />
     </div>
   );
 }

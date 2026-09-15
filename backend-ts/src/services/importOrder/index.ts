@@ -49,7 +49,7 @@ export class ImportOrderService {
     try {
       const resp = await Order.findOne({
         where: { id, providerId: { [Op.ne]: null } } as any,
-        include: [{ model: database.orderDetail, include: [Product] }, { model: database.provider }]
+        include: [{ model: database.orderDetail, include: [{ model: Product, paranoid: false }] }, { model: database.provider }]
       })
       if (resp) {
         // S1: scoped callers may only read their own vendors' imports.

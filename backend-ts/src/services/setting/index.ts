@@ -1,6 +1,7 @@
 import database from '#/database'
 import { IRequestLocal } from '#/types/common'
 import { ISettingModel } from '#/types/setting'
+import { cacheDel, cacheItem } from '#/utils/caching'
 import { Sequelize } from 'sequelize'
 
 const DEFAULT_CODE_FORMAT = { order: '', customer: '', product: '', category: '' }
@@ -42,7 +43,11 @@ export class SettingService {
   async getForVendor(vendorId?: number | string | null): Promise<ISettingModel> {
     if (!vendorId) throw new Error('vendorId is required')
     const id = Number(vendorId)
-    let settings = await this.setting.findOne({ where: { vendorId: id } })
+    // user:${vendorId}:
+    let settings = await cacheItem({
+      key: `setting:${vendorId}`,
+      callback: () => this.setting.findOne({ where: { vendorId: id } })
+    })
     if (!settings) {
       settings = await this.setting.create({
         vendorId: id,
@@ -54,23 +59,18 @@ export class SettingService {
     return settings
   }
 
-  async get(req: IRequestLocal) {
-    const vendorId =
-      (req.query?.vendorId as string | undefined) ?? (req as any)?.user?.vendorId
-    if (!vendorId && (req as any)?.locals?.id) {
-      // No explicit vendor on the request: fall back to the user's first vendor
+  async get({ vendorId, userId }: { vendorId?: number | string; userId?: number | string }) {
+    if (!userId) throw new Error('userId is required')
+    if (!vendorId && userId) {
       const vendor = await database.vendor.findOne({
-        where: { userId: Number((req as any).locals.id) }
+        where: { userId: userId }
       })
       if (vendor) return this.getForVendor(vendor.id)
     }
     return this.getForVendor(vendorId)
   }
 
-  async update(
-    req: IRequestLocal,
-    payload: Record<string, any> & { vendorId?: number | string }
-  ) {
+  async update(req: IRequestLocal, payload: Record<string, any> & { vendorId?: number | string }) {
     const t = await this.sequelize.transaction()
     try {
       const { vendorId, ...data } = payload || {}
@@ -85,8 +85,13 @@ export class SettingService {
       if (data.codeSuffix !== undefined) updateParams.codeSuffix = data.codeSuffix
       if (data.shipDelivery !== undefined) updateParams.shipDelivery = data.shipDelivery
       if (data.payment !== undefined) updateParams.payment = data.payment
+      // Niche-based UI customization (preset, colors, logo, terminology)
+      if (data.appearance !== undefined && typeof data.appearance === 'object') {
+        updateParams.appearance = data.appearance
+      }
 
       await settings.update(updateParams, { transaction: t })
+      await cacheDel(`setting:${finalVendorId}`)
       await t.commit()
       return settings.reload()
     } catch (error) {

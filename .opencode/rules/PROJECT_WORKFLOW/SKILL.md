@@ -1,8 +1,8 @@
-# Project Workflow - Inventory Management ERP/POS System
-
-**Last Updated**: February 26, 2026  
-**Version**: 2.0
-
+---
+name: project-workflow
+description: Inventory Management ERP/POS System
+compatibility: opencode
+metadata: Updated February 26, 2026   , V2.0
 ---
 
 ## Table of Contents
@@ -18,8 +18,6 @@
 9. [Build & Deployment](#build--deployment)
 10. [Testing Workflow](#testing-workflow)
 
----
-
 ## Project Overview
 
 This is a full-stack **Inventory Management ERP/POS System** built with a monorepo architecture. The system manages products, orders, warehouses, vendors, customers, invoices, and financial transactions with role-based access control (RBAC).
@@ -29,7 +27,6 @@ This is a full-stack **Inventory Management ERP/POS System** built with a monore
 - **Backend**: `backend-ts/` (Express 5 + TypeScript + Sequelize)
 - **Frontend**: `client/` (Remix v2.15 + React 18 + TypeScript)
 
----
 
 ## Architecture
 
@@ -70,8 +67,6 @@ This is a full-stack **Inventory Management ERP/POS System** built with a monore
 │  └──────────────┘         └──────────────┘                 │
 └─────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## Technology Stack
 
@@ -122,8 +117,6 @@ This is a full-stack **Inventory Management ERP/POS System** built with a monore
 | Containerization | Docker | Latest |
 | Orchestration | Docker Compose | v3.9 |
 | Database Admin | Adminer | Latest |
-
----
 
 ## Development Workflow
 
@@ -199,7 +192,6 @@ inventory-management/
 └── db/                      # Database scripts and configurations
 ```
 
----
 
 ## API Workflow
 
@@ -263,7 +255,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 ```
 
----
 
 ## Data Flow
 
@@ -311,11 +302,11 @@ const { cacheItem, cacheKey } = Redis;
 
 async function getProducts(req) {
   return await cacheItem({
-    key: cacheKey('Products', req.locals.vendorId),
+    key: cacheKey('Products', req.user.vendorId),
     callback: async () => {
       // Database query if cache miss
       return await database.product.findAll({
-        where: { vendorId: req.locals.vendorId }
+        where: { vendorId: req.user.vendorId }
       });
     }
   });
@@ -349,7 +340,6 @@ const useUser = create(
 const { user, activeVendor, setVendor } = useUser();
 ```
 
----
 
 ## Authentication & Authorization Flow
 
@@ -370,7 +360,7 @@ const auth = async (req, res, next) => {
   
   if (!user) throw new Error('Unauthorized');
   
-  req.locals = { email: user.email, id: user.id };
+  req.user = { ...req.user, email: user.email, id: user.id };
   next();
 };
 
@@ -395,7 +385,6 @@ const canCreate = usePermission('C', 'product');
 | Warehouses | ✅ | ✅ | ✅ | ✅ |
 | Financial | Admin only | Admin only | Admin only | Admin only |
 
----
 
 ## Database Workflow
 
@@ -435,7 +424,6 @@ database
   .catch((error) => console.error('Sync error:', error));
 ```
 
----
 
 ## Build & Deployment
 
@@ -481,7 +469,6 @@ docker-compose down
 # http://localhost:8080
 ```
 
----
 
 ## Testing Workflow
 
@@ -523,7 +510,6 @@ client/app/hooks/__tests__/use-permission.test.tsx
 client/app/components/__tests__/permission-guard.test.tsx
 ```
 
----
 
 ## Key Features Implementation
 
@@ -568,7 +554,6 @@ const user = await cacheItem({
 await cacheDel(cacheKey('User', userEmail));
 ```
 
----
 
 ## Environment Variables
 
@@ -591,7 +576,6 @@ JWT_SECRET=your-secret-key
 VITE_API_PATH=http://localhost:3001/api
 ```
 
----
 
 ## Common Workflows
 
@@ -625,7 +609,6 @@ redis-cli
 # Visit http://localhost:3001/debug-sentry
 ```
 
----
 
 ## Troubleshooting
 
@@ -672,7 +655,6 @@ yarn typecheck
 # - Check type definitions match usage
 ```
 
----
 
 ## Best Practices
 
@@ -705,7 +687,6 @@ yarn typecheck
 - Return consistent error responses
 - Show user-friendly error messages
 
----
 
 ## Support & Documentation
 
@@ -714,6 +695,5 @@ yarn typecheck
 - **Component Documentation**: See Storybook (if available)
 - **Test Examples**: See `__tests__/` directories
 
----
 
 **Developed with ❤️ for Inventory Management ERP/POS**

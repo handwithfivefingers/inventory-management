@@ -139,7 +139,7 @@ export const CreatableTagInput: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col gap-1 w-full">
-      {label && <label className="block text-sm/6 font-medium text-gray-900">{label}</label>}
+      {label && <label className="block text-sm/6 font-medium text-gray-900 dark:text-slate-200">{label}</label>}
       <div
         ref={wrapper}
         onClick={() => {
@@ -147,7 +147,7 @@ export const CreatableTagInput: React.FC<Props> = ({
           setTimeout(() => inputRef.current?.focus(), 0);
         }}
         className={cn(
-          "relative flex flex-wrap gap-1 items-center rounded-md bg-slate-50 border border-slate-300 px-2 py-1 cursor-text transition-all",
+          "relative flex flex-wrap gap-1 items-center rounded-md bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 px-2 py-1 cursor-text transition-all",
           "ring-2 ring-transparent focus-within:ring-indigo-400/30",
           SizeClass[inputSize || "sm"],
         )}
@@ -193,7 +193,7 @@ export const CreatableTagInput: React.FC<Props> = ({
                   key={o.value}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => addOption(o)}
-                  className="px-2 py-1.5 hover:bg-slate-100 cursor-pointer rounded text-sm text-neutral-700 flex justify-between items-center"
+                  className="px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-500 cursor-pointer rounded text-sm text-neutral-700 dark:text-slate-300 flex justify-between items-center"
                 >
                   <span>{o.label}</span>
                   <Icon name="plus" fontSize={12} className="text-slate-400" />
@@ -202,9 +202,7 @@ export const CreatableTagInput: React.FC<Props> = ({
               {canCreate && (
                 <li
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={createFromInput}
-                  className="px-2 py-1.5 hover:bg-indigo-50 cursor-pointer rounded text-sm text-primary flex gap-2 items-center border-t border-slate-100 mt-1"
-                >
+                  onClick={createFromInput}                  className="px-2 py-1.5 hover:bg-indigo-50 dark:hover:bg-slate-700 cursor-pointer rounded text-sm text-primary flex gap-2 items-center border-t border-slate-100 dark:border-slate-700 mt-1">
                   <Icon name="plus" fontSize={14} />
                   <span>Tạo "{inputValue.trim()}"</span>
                 </li>

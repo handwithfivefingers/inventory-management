@@ -4,6 +4,7 @@ import {
   Column,
   CreatedAt,
   DataType,
+  DeletedAt,
   ForeignKey,
   HasMany,
   Model,
@@ -20,6 +21,7 @@ import ProductAttributeValue from './productAttributeValue'
   tableName: 'productVariants',
   modelName: 'productVariant',
   timestamps: true,
+  paranoid: true,
   indexes: [{ unique: true, fields: ['productId', 'skuCode'] }]
 })
 export class ProductVariant extends Model {
@@ -62,6 +64,10 @@ export class ProductVariant extends Model {
 
   @UpdatedAt
   declare updatedAt: Date
+
+  @DeletedAt
+  @Column({ type: DataType.DATE, allowNull: true })
+  declare deletedAt: Date | null
 
   @BelongsTo(() => Product, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   declare product: Product

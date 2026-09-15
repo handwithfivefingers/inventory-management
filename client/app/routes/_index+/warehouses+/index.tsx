@@ -5,6 +5,7 @@ import { warehouseService } from "~/action.server/warehouse.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -40,6 +41,9 @@ export default function WareHouses() {
   console.log(`{ data, total, page, pageSize }`, { data, total, page, pageSize });
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <PermissionGuard permission="READ" module={MODULE_ENUM.warehouse} requireAdmin>
+        <CreateFab to="./add" label={t("common.add")} />
+      </PermissionGuard>
       <CardItem
         title={
           <div className="flex items-start justify-between gap-4">
@@ -58,15 +62,21 @@ export default function WareHouses() {
             </div>
           </div>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 p-1">
             <TextInput placeholder={t("warehouses.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
+                <PermissionGuard permission="UPDATE" module={MODULE_ENUM.warehouse} requireAdmin>
+                  <TMButton component={Link} to={"./transfer"} size="sm">
+                    <Icon name="repeat" fontSize={16} />
+                    <span>Chuyển kho</span>
+                  </TMButton>
+                </PermissionGuard>
                 <PermissionGuard permission="READ" module={MODULE_ENUM.warehouse} requireAdmin>
-                  <TMButton component={Link} to={"./add"} size="sm">
+                  <TMButton component={Link} to={"./add"} size="sm" className="hidden sm:inline-flex">
                     <Icon name="plus" fontSize={16} />
                     <span>{t("common.add")}</span>
                   </TMButton>
@@ -84,14 +94,17 @@ export default function WareHouses() {
                 {
                   title: t("warehouses.quantity"),
                   dataIndex: "quantity",
+                  hideOnMobile: true,
                 },
                 {
                   title: t("warehouses.phone"),
                   dataIndex: "phone",
+                  hideOnMobile: true,
                 },
                 {
                   title: t("warehouses.address"),
                   dataIndex: "address",
+                  hideOnMobile: true,
                 },
                 {
                   title: t("common.createdAt"),

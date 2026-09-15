@@ -235,3 +235,27 @@ Each phase leaves the app working (null `variantId` paths untouched first).
   - `DELETE /products/:id/attributes/:attributeId` — cascades to values,
     junction rows and dependent variants
 - Client service methods added for all of the above
+
+## Unified update + per-variant barcode (2026-09-14)
+
+- `products.type`: 0 = simple, 1 = variant, 2 = combo (model +
+  migration `20260914000001-add-products-type.js`, backfills 1 where variant
+  rows exist).
+- `PUT /products/:id` (`ProductService.updateProduct`) is the single update
+  entry point: base fields + `variants[]` + `removedVariantIds[]` in one
+  transaction; branches on `type` (stored type, then variant-row existence
+  for legacy rows). Simple updates base + product-level stock (`quantity`
+  requires `warehouseId`); variant updates base (parent prices/stock ignored)
+  and upserts variants; combo updates base only.
+- Removed after consolidation: `PUT /:id/variants/sync`,
+  `PUT /:id/variants/:variantId`, `DELETE /:id/variants/:variantId`
+  (routes, controller + service methods, validators) and the dead
+  product-scoped attribute helpers (`listAttributes`, `syncAttribute`,
+  `backfillVariants`, `destroyAttributeCascade`, `deleteVariantsByValueIds`).
+- Variants carry their own barcode (`productVariants.code`): manual value
+  wins, explicit blank clears to null, missing auto-extends
+  `{productCode}-{value segments}` (collision-safe); blank allowed until the
+  General settings auto-barcode switch exists.
+- Client `$id` page: info tab and variants tab both submit
+  `intent="updateProduct"` to the unified endpoint; variant table has a
+  Barcode column (`product.barcode` i18n en/vi).

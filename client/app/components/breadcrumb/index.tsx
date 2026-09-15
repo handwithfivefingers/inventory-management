@@ -17,7 +17,7 @@ const LABELS: Record<string, string> = {
   add: "Thêm mới",
   edit: "Chỉnh sửa",
   import: "Nhập hàng",
-  "importOrder": "Nhập hàng",
+  importOrder: "Nhập hàng",
 };
 
 function formatLabel(segment: string): string {
@@ -51,10 +51,7 @@ export function Breadcrumb() {
   });
 
   return (
-    <nav
-      aria-label="Breadcrumb"
-      className="w-full px-3 pt-3 pb-0 shrink-0 bg-slate-50/50 dark:bg-transparent"
-    >
+    <nav aria-label="Breadcrumb" className="w-full px-3 py-2 shrink-0 bg-slate-50/50 dark:bg-transparent">
       <ol className="flex items-center flex-wrap gap-1 text-sm text-slate-500 dark:text-slate-400">
         {crumbs.map((c, i) => (
           <li key={`${c.to}-${i}`} className="flex items-center gap-1">

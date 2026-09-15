@@ -1,9 +1,11 @@
 import { StatsController } from '#/controllers/stats'
 import express from 'express'
+import { dashboardValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
   '/dashboard',
+  dashboardValidation as any,
   // #swagger.tags = ['Stats']
   // #swagger.summary = 'Get dashboard statistics'
   // #swagger.security = [{ "bearerAuth": [] }]

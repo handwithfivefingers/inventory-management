@@ -1,23 +1,26 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useFetcher, useOutletContext } from "@remix-run/react";
+import { useFetcher, useNavigate, useOutletContext } from "@remix-run/react";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { orderService } from "~/action.server/order.service";
 import { IVendorSettings } from "~/action.server/setting.service";
-import { Link } from "@remix-run/react";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { Icon } from "~/components/icon";
-import { TMButton } from "~/components/tm-button";
 import { OrderForm } from "~/components/form/order-form";
-import { VariantPickerModal } from "~/components/variant-picker-modal";
+import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
-import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
-import { formatCurrency } from "~/libs/format-currency";
+import { TMButton } from "~/components/tm-button";
+import { VariantPickerModal } from "~/components/variant-picker-modal";
+import {
+  OrderDetailSchema,
+  OrderSchema,
+  orderSchema,
+} from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
+import { useTranslation } from "~/i18n";
+import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
 import { IProduct, IProductVariant } from "~/types/product";
-import { useTranslation } from "~/i18n";
 
 const PRINT_STYLES = `
 @media print {
@@ -41,7 +44,10 @@ export const meta: MetaFunction = () => {
 };
 
 export default function OrderItem() {
-  const searchFetcher = useFetcher<{ data: { data: IProduct[] } }>({ key: "Products-Search" });
+  const navigate = useNavigate();
+  const searchFetcher = useFetcher<{ data: { data: IProduct[] } }>({
+    key: "Products-Search",
+  });
   const { settings } = useOutletContext<{ settings: IVendorSettings }>();
   const { t } = useTranslation();
   const [showTempInvoice, setShowTempInvoice] = useState(false);
@@ -54,6 +60,7 @@ export default function OrderItem() {
       surcharge: "0",
       paid: 0,
       paymentType: "cash",
+      channel: "WHOLESALE",
     },
     resolver: orderSchema,
   });
@@ -64,7 +71,9 @@ export default function OrderItem() {
 
   // Variant picking: when a variable product is chosen, its variants are
   // loaded through the /products action (variantOf=<id>) and shown in a modal.
-  const variantsFetcher = useFetcher<{ data: { data: IProductVariant[]; total: number } }>({
+  const variantsFetcher = useFetcher<{
+    data: { data: IProductVariant[]; total: number };
+  }>({
     key: "Product-Variants",
   });
   const [variantTarget, setVariantTarget] = useState<IProduct | null>(null);
@@ -80,7 +89,7 @@ export default function OrderItem() {
 
   const addLine = (
     currentValue: OrderDetailSchema[],
-    line: Omit<OrderDetailSchema, "quantity"> & { quantity?: number | string },
+    line: Omit<OrderDetailSchema, "quantity"> & { quantity?: number | string }
   ): OrderDetailSchema[] => {
     const result = {
       ...line,
@@ -90,7 +99,8 @@ export default function OrderItem() {
     if (!currentValue.length) return [result];
     const index = currentValue.findIndex(
       (cItem) =>
-        cItem.productId === result.productId && (cItem.variantId ?? undefined) === (result.variantId ?? undefined),
+        cItem.productId === result.productId &&
+        (cItem.variantId ?? undefined) === (result.variantId ?? undefined)
     );
     if (index === -1) {
       currentValue.push(result);
@@ -111,21 +121,47 @@ export default function OrderItem() {
       addLine(form.getValues("orderDetails") || [], {
         productId: variantTarget.id,
         variantId: variant.id,
-        name: `${variantTarget.name} (${(variant.attributeValues || []).map((v: any) => v.value).join(" / ")})`,
+        name: `${variantTarget.name} (${(variant.attributeValues || [])
+          .map((v: any) => v.value)
+          .join(" / ")})`,
         price,
         note: "",
-      }),
+      })
     );
     setShowVariantPicker(false);
     setVariantTarget(null);
   };
 
-  const handleAdd = (item: IProduct) => {
+  const handleAdd = (item: IProduct, variant?: IProductVariant) => {
+    if (variant) {
+      const price = Number(
+        variant.salePrice ?? variant.regularPrice ?? item.regularPrice ?? 0
+      );
+      form.setValue(
+        "orderDetails",
+        addLine(form.getValues("orderDetails") || [], {
+          productId: item.id,
+          variantId: variant.id,
+          name: `${item.name} (${
+            (variant.attributeValues || [])
+              .map((v: any) => v.value)
+              .filter(Boolean)
+              .join(" / ") || variant.skuCode
+          })`,
+          price,
+          note: "",
+        })
+      );
+      return;
+    }
     // Variable products need a specific variant before a line can be added
     if (Number((item as any).variantCount) > 0) {
       setVariantTarget(item);
       setShowVariantPicker(true);
-      variantsFetcher.submit({ variantOf: String(item.id) }, { method: "POST", action: "/products" });
+      variantsFetcher.submit(
+        { variantOf: String(item.id) },
+        { method: "POST", action: "/products" }
+      );
       return;
     }
     form.setValue(
@@ -135,7 +171,7 @@ export default function OrderItem() {
         name: item.name,
         price: Number(item.regularPrice),
         note: "",
-      }),
+      })
     );
   };
 
@@ -146,9 +182,21 @@ export default function OrderItem() {
         // price: total,
         // paid: totalPaid,
       };
-      const resp = await submit<{ status: number }>({ data: JSON.stringify(params) }, { method: "POST" });
+      const resp = await submit<{ status: number; orderId?: number; invoiceId?: number }>(
+        { data: JSON.stringify(params) },
+        { method: "POST" }
+      );
       console.log("onSubmit Create Order", resp);
-      if (resp.status === 200) return toast.success({ title: "Created", message: "Tạo đơn hàng thành công" });
+      if (resp.status === 200 && resp.orderId) {
+        toast.success({
+          title: "Created",
+          message: "Tạo đơn hàng thành công",
+        });
+        // Backend auto-creates the invoice for sales orders — go to the order
+        // detail where the invoice can be viewed / temp-printed.
+        navigate(`/orders/${resp.orderId}`);
+        return;
+      }
       throw resp;
     } catch (err) {
       console.log("error", err);
@@ -159,7 +207,10 @@ export default function OrderItem() {
   const orderDetails = form.watch("orderDetails") as OrderDetailSchema[];
   const watchSurcharge = form.watch("surcharge");
   const watchVAT = form.watch("VAT");
-  const tempSubtotal = (orderDetails || []).reduce((sum, item) => sum + Number(item?.buyPrice || 0), 0);
+  const tempSubtotal = (orderDetails || []).reduce(
+    (sum, item) => sum + Number(item?.buyPrice || 0),
+    0
+  );
   const tempVatAmount = (tempSubtotal * Number(watchVAT || 0)) / 100;
   const tempTotal = tempSubtotal + Number(watchSurcharge || 0) + tempVatAmount;
 
@@ -187,14 +238,22 @@ export default function OrderItem() {
             >
               <div className="flex flex-col gap-4">
                 <p className="text-lg font-bold">{t("orders.tempInvoice")}</p>
-                <div className="border rounded overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="border rounded overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="p-2 text-left">{t("importOrder.product")}</th>
-                        <th className="p-2 w-24 text-right">{t("importOrder.quantity")}</th>
-                        <th className="p-2 w-32 text-right">{t("importOrder.price")}</th>
-                        <th className="p-2 w-32 text-right">{t("importOrder.total")}</th>
+                        <th className="p-2 text-left">
+                          {t("importOrder.product")}
+                        </th>
+                        <th className="p-2 w-24 text-right">
+                          {t("importOrder.quantity")}
+                        </th>
+                        <th className="p-2 w-32 text-right">
+                          {t("importOrder.price")}
+                        </th>
+                        <th className="p-2 w-32 text-right">
+                          {t("importOrder.total")}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -202,65 +261,92 @@ export default function OrderItem() {
                         <tr key={index} className="border-t">
                           <td className="p-2">{item.name}</td>
                           <td className="p-2 text-right">{item.quantity}</td>
-                          <td className="p-2 text-right">{formatCurrency(item.price)}</td>
-                          <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
+                          <td className="p-2 text-right">
+                            {formatCurrency(item.price)}
+                          </td>
+                          <td className="p-2 text-right">
+                            {formatCurrency(item.buyPrice)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
                 <div className="flex justify-end">
-                  <div className="w-72 space-y-2">
+                  <div className="w-full sm:w-72 sm:ml-auto space-y-2">
                     <div className="flex justify-between">
                       <span>{t("invoices.detail.subtotalLabel")}</span>
-                      <span className="font-medium">{formatCurrency(tempSubtotal)}</span>
+                      <span className="font-medium">
+                        {formatCurrency(tempSubtotal)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t("invoices.detail.surcharge")}</span>
-                      <span className="font-medium">{formatCurrency(watchSurcharge || 0)}</span>
+                      <span className="font-medium">
+                        {formatCurrency(watchSurcharge || 0)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>
                         {t("importOrder.VAT")} ({Number(watchVAT || 0)}%)
                       </span>
-                      <span className="font-medium">{formatCurrency(tempVatAmount)}</span>
+                      <span className="font-medium">
+                        {formatCurrency(tempVatAmount)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-lg font-bold border-t pt-2">
                       <span>{t("importOrder.totalPayable")}</span>
-                      <span className="text-blue-600">{formatCurrency(tempTotal)}</span>
+                      <span className="text-blue-600">
+                        {formatCurrency(tempTotal)}
+                      </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end no-print">
-                  <TMButton variant="outline" onClick={() => setShowTempInvoice(false)}>
+                  <TMButton
+                    variant="outline"
+                    onClick={() => setShowTempInvoice(false)}
+                  >
                     {t("common.cancel")}
                   </TMButton>
                   <TMButton variant="outline" onClick={() => window.print()}>
                     🖨 {t("common.print", { defaultValue: "Print" })}
                   </TMButton>
                 </div>
-                <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
+                <p className="text-xs text-gray-400 text-center">
+                  {t("orders.tempInvoiceNotice")}
+                </p>
               </div>
             </CardItem>
           )}
           <CardItem
             title={
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
+                <div className="flex gap-3 min-w-0">
                   <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
                     <Icon name="shopping-cart" fontSize={20} />
                   </div>
-                  <div>
-                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Tạo đơn hàng</h2>
-                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Tạo đơn hàng mới</p>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                      Tạo đơn hàng
+                    </h2>
+                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                      Tạo đơn hàng mới
+                    </p>
                   </div>
                 </div>
-                <TMButton variant="outline" size="xs" type="button" onClick={() => setShowTempInvoice(true)}>
+                <TMButton
+                  variant="outline"
+                  size="xs"
+                  type="button"
+                  onClick={() => setShowTempInvoice(true)}
+                  className="self-start sm:self-auto shrink-0"
+                >
                   🧾 {t("orders.printTempInvoice")}
                 </TMButton>
               </div>
             }
-            className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+            className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
           >
             <OrderForm
               products={data}
@@ -295,7 +381,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
-  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
+  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(
+    request
+  );
   const params = {
     ...dataJson,
     warehouseId,
@@ -303,9 +391,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     cookie,
   };
   const resp = await orderService.createOrder(params);
-  // return resp;
   if (resp.status === 200) {
-    return Response.json({ resp, status: 200 });
+    const payload: any = (resp as any)?.data;
+    // Backend: { data: { order, invoice, invoiceError } }
+    const order = payload?.data?.order ?? payload?.order;
+    const invoice = payload?.data?.invoice ?? payload?.invoice;
+    return Response.json({
+      orderId: order?.id,
+      invoiceId: invoice?.id ?? null,
+      status: 200,
+    });
   }
   return Response.json({ ...resp, status: 400 }, { status: 400 });
 };

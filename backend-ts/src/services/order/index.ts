@@ -3,6 +3,7 @@ import FinancialRecord from '#/database/models/financialRecord'
 import Inventory from '#/database/models/inventory'
 import Order from '#/database/models/order'
 import OrderDetail from '#/database/models/orderDetail'
+import OrderReturn from '#/database/models/orderReturn'
 import Product from '#/database/models/product'
 import ProductVariant from '#/database/models/productVariant'
 import { IRequestLocal } from '#/types/common'
@@ -16,6 +17,8 @@ import { getPagination } from '#/utils'
 import { ApiError } from '#/response'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductAttribute from '#/database/models/productAttribute'
+import { InvoiceService } from '../invoice'
+type OrderChannel = 'POS' | 'WHOLESALE' | 'ONLINE'
 interface IOrderCreateParams {
   price?: number | string
   VAT?: number | string
@@ -24,9 +27,10 @@ interface IOrderCreateParams {
   orderDetails: any[]
   paid: number | string
   paymentType: 'cash' | 'transfer' | 'credit'
+  channel?: OrderChannel
   warehouseId: number | string
   providerId: number | string
-  vendorId?: number | string
+  vendorId: number | string
   staffId?: number
   customerId?: number
   createdAt?: string | Date
@@ -80,6 +84,7 @@ export default class OrderService {
       VAT,
       surcharge,
       paymentType,
+      channel = 'WHOLESALE',
       warehouseId,
       providerId,
       orderDetails,
@@ -93,21 +98,28 @@ export default class OrderService {
     /** Multi-tenant scope from auth middleware (null = platform admin). */
     vendorScope: TVendorScope = null
   ) {
+    console.log(`vendorScope`, vendorScope)
+    console.log(`vendorId`, vendorId)
+    assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized to create orders for this vendor')
+
     // Imports (providerId set) are inbound stock (type '0'), sales are outbound ('1')
     if (providerId != null) type = '0'
     // Tenant check: the warehouse must belong to one of the caller's vendors
     // and any explicitly requested vendorId must be within scope.
-    const warehouseVendorId = await assertWarehouseAccess(warehouseId, vendorScope)
-    if (vendorId != null) {
-      assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized to create orders for this vendor')
-    }
-    const effectiveVendorId =
-      vendorId != null
-        ? Number(vendorId)
-        : (warehouseVendorId ?? (vendorScope && vendorScope.length ? vendorScope[0] : null))
+    // const warehouseVendorId = await assertWarehouseAccess(warehouseId, vendorScope)
+    // if (vendorId != null) {
+    //   assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized to create orders for this vendor')
+    // }
+    // const effectiveVendorId =
+    //   vendorId != null
+    //     ? Number(vendorId)
+    //     : (warehouseVendorId ?? (vendorScope && vendorScope.length ? vendorScope[0] : null))
 
     const totalPrice = orderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
     const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
+
+    const validChannels = ['POS', 'WHOLESALE', 'ONLINE'] as const
+    const effectiveChannel = validChannels.includes(channel as any) ? (channel as any) : 'WHOLESALE'
 
     const orderParams: Partial<Omit<Order, 'id'>> & { createdAt?: Date; updatedAt?: Date } = {
       VAT: Number(VAT),
@@ -115,11 +127,13 @@ export default class OrderService {
       paid: totalPaid,
       price: totalPrice,
       paymentType,
+      channel: effectiveChannel,
       warehouseId: Number(warehouseId),
-      vendorId: effectiveVendorId,
+      vendorId: Number(vendorId),
       staffId,
       customerId
     }
+
     // Allow caller (e.g. e2e-vendor4) to backdate orders across 01/08-31/08
     if (createdAt) {
       const d = new Date(createdAt)
@@ -145,28 +159,82 @@ export default class OrderService {
       if ((orderParams as any).createdAt) {
         const d = (orderParams as any).createdAt as Date
         await p.update({ createdAt: d, updatedAt: d } as any, { transaction: t })
-        // Keep transfer/history timestamps aligned with the order date
-        // (transfers are created inside createOrderDetails with transaction: t, defaulting to now;
-        // we patch them post-create if needed)
       }
 
       // Generate the order code from the vendor's prefix/suffix settings
-      let code = await this.getOrderCode(String(p.id), String(effectiveVendorId ?? ''))
+      let code = await this.getOrderCode(String(p.id), String(vendorId ?? ''))
 
       if (code) p.code = code
 
       await p.save({ transaction: t })
 
+      // Stock guard: block sale lines whose product/variant is out of stock
+      // unless the oversell flag (isNegative) allows it. The inventory
+      // decrement below is still atomic — this pre-check just gives a clear,
+      // early error naming the offending product instead of a generic one.
+      if (type !== '0') {
+        const productIds = [...new Set(orderDetails.map((i: any) => Number(i.productId)))].filter(Boolean)
+        const variantIds = orderDetails
+          .map((i: any) => (i.variantId != null ? Number(i.variantId) : null))
+          .filter((v: any): v is number => v != null)
+        const productRows: any[] = productIds.length
+          ? await Product.findAll({
+              where: { id: { [Op.in]: productIds } },
+              attributes: ['id', 'name', 'isNegative'],
+              transaction: t
+            })
+          : []
+        const variantRows: any[] = variantIds.length
+          ? await ProductVariant.findAll({
+              where: { id: { [Op.in]: variantIds } },
+              attributes: ['id', 'skuCode', 'isNegative'],
+              transaction: t
+            })
+          : []
+        const productById = new Map(productRows.map((p) => [Number(p.get('id')), p]))
+        const variantById = new Map(variantRows.map((v) => [Number(v.get('id')), v]))
+        const stockRows: any[] = productIds.length
+          ? await Inventory.findAll({ where: { productId: { [Op.in]: productIds }, warehouseId }, transaction: t })
+          : []
+        // Key: productId or productId:variantId -> available quantity
+        const stockOf = (productId: number, variantId?: number | null): number => {
+          const row = stockRows.find(
+            (r: any) =>
+              Number(r.get('productId')) === productId &&
+              (variantId != null ? Number(r.get('variantId')) === variantId : r.get('variantId') == null)
+          )
+          return Number(row?.get('quantity') ?? 0)
+        }
+        for (const item of orderDetails) {
+          const qty = Number(item.quantity ?? 0)
+          if (qty <= 0) continue
+          const product = productById.get(Number(item.productId))
+          if (!product) {
+            const deleted = await Product.findByPk(Number(item.productId), { paranoid: false, transaction: t } as any)
+            if (deleted) throw new Error(`Product ${item.productId} is deleted/discontinued and cannot be sold`)
+            throw new Error(`Product ${item.productId} not found`)
+          }
+          const allowNegative =
+            item.variantId != null
+              ? Boolean(variantById.get(Number(item.variantId))?.get('isNegative'))
+              : Boolean(product.get('isNegative'))
+          if (allowNegative) continue
+          const available = stockOf(Number(item.productId), item.variantId != null ? Number(item.variantId) : null)
+          if (available < qty) {
+            const variant = item.variantId != null ? variantById.get(Number(item.variantId)) : null
+            const label = variant ? `${product.get('name')} [${variant.get('skuCode')}]` : String(product.get('name'))
+            throw new Error(
+              `Sản phẩm "${label}" không đủ tồn kho (cần ${qty}, còn ${available}). Chỉ định isNegative để cho phép bán âm.`
+            )
+          }
+        }
+      }
+
       const detailPromises = orderDetails.map((item) =>
         this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
       )
 
-      const details = await Promise.all(detailPromises)
-      console.log('details', details)
-      // // // Create order details for each item
-      // for (let item of orderDetails) {
-      //   await this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
-      // }
+      await Promise.all(detailPromises)
 
       // Financial voucher: only for provider imports (expense PC) - sales
       // revenue is now booked when the invoice is issued/paid, not on Order.
@@ -182,6 +250,8 @@ export default class OrderService {
               : undefined
         })
       }
+
+      await this.attemptCreateInvoice({ order: p, transaction: t })
 
       // Commit the transaction
       await t.commit()
@@ -218,7 +288,6 @@ export default class OrderService {
     type,
     note,
     transaction,
-
     ...orderDetail
   }: IOrderDetailCreateParams) {
     const orderDetailBuilder = OrderDetail.build({
@@ -235,6 +304,40 @@ export default class OrderService {
     await this.updateInventory({ quantity, productId, variantId: variantId ?? null, warehouseId, transaction, type })
     await this.updateProductQuantity({ quantity, productId, variantId: variantId ?? null, transaction, type })
     await this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
+  }
+
+  /**
+   * POS channel: create FULL invoice for the whole order inside the SAME
+   * transaction (stock decrement + invoice + ledger commit atomically).
+   * Non-POS channels skip auto-invoice; invoices are created on demand via
+   * POST /orders/:id/invoices (partial allowed).
+   */
+  async attemptCreateInvoice({ order, transaction }: { order: Order; transaction: Transaction }) {
+    try {
+      if ((order as any).providerId != null) return null
+      if ((order as any).channel !== 'POS') return null
+      const details = await OrderDetail.findAll({ where: { orderId: (order as any).id }, transaction })
+      if (!details.length) return null
+      const lines = details.map((d: any) => ({
+        order_detail_id: Number(d.get('id')),
+        quantity: Number(d.get('quantity'))
+      }))
+      return await new InvoiceService().createFromOrderLines(
+        Number((order as any).id),
+        lines,
+        {
+          vendorId: (order as any).vendorId,
+          warehouseId: (order as any).warehouseId,
+          customerId: (order as any).customerId ?? undefined,
+          paymentType: (order as any).paymentType
+        },
+        null,
+        transaction
+      )
+    } catch (error) {
+      // POS auto-invoice failure must rollback the whole order (same tx).
+      throw error
+    }
   }
 
   async updateInventory({ productId, variantId, warehouseId, quantity, transaction, type }: IInventoryUpdateParams) {
@@ -258,6 +361,8 @@ export default class OrderService {
     if (operator === 'decrement') {
       const product = await Product.findByPk(productId, { transaction } as any)
       if (!product) {
+        const deleted = await Product.findByPk(productId, { paranoid: false, transaction } as any)
+        if (deleted) throw ApiError.from(`Product ${productId} is deleted/discontinued and cannot be sold`)
         throw ApiError.from(`Product ${productId} not found`)
       }
       let label = product.name
@@ -265,6 +370,11 @@ export default class OrderService {
       if (variantId != null) {
         variant = await ProductVariant.findByPk(variantId, { transaction } as any)
         if (!variant) {
+          const deletedVariant = await ProductVariant.findByPk(variantId, {
+            paranoid: false,
+            transaction
+          } as any)
+          if (deletedVariant) throw ApiError.from(`Variant ${variantId} is deleted/discontinued and cannot be sold`)
           throw ApiError.from(`Variant ${variantId} not found`)
         }
         label = `${label} [${variant.get('skuCode')}]`
@@ -621,6 +731,162 @@ export default class OrderService {
     }
   }
 
+  /**
+   * Return part or all of a sale order: creates a return document, flows the
+   * goods back into warehouse stock (IN transfers), decrements `sold`, and
+   * books a refund expense voucher. The order status becomes
+   * 'partially_returned' or 'returned' depending on coverage.
+   * body: { items: [{ orderDetailId | productId, variantId?, quantity }], reason?, refundAmount? }
+   */
+  async returnOrder(req: IRequestLocal) {
+    const t = await this.sequelize.transaction()
+    try {
+      const scope = getVendorScope(req)
+      const orderId = Number((req.params as any).id)
+      if (!orderId) throw new Error('order id is required')
+      const body: any = (req as any).body || {}
+      const returnItems: any[] = Array.isArray(body.items) ? body.items : []
+      if (!returnItems.length) throw new Error('items are required')
+
+      const order: any = await Order.findByPk(orderId, { transaction: t })
+      if (!order) throw new Error('Order not found')
+      // Import (provider) orders flow the opposite direction - returns are for sales only
+      if (order.providerId != null) throw new Error('Import orders cannot be returned. Use a new export instead.')
+      await assertWarehouseAccess(order.warehouseId, scope)
+      assertVendorAccess(scope, order.vendorId, 'Unauthorized to return this order')
+      if (order.status === 'returned') throw new Error('Order has already been fully returned')
+
+      const warehouseId = Number(order.warehouseId)
+      const details: any[] = await OrderDetail.findAll({ where: { orderId }, transaction: t })
+      const detailById = new Map<number, any>()
+      for (const d of details as any[]) detailById.set(Number(d.get('id')), d)
+
+      // Accumulate returned quantity per (product, variant) across prior returns
+      const priorReturns: any[] = await OrderReturn.findAll({ where: { orderId }, transaction: t })
+      const returnedByLine = new Map<number, number>()
+      for (const ret of priorReturns as any[]) {
+        let items: any[] = []
+        try {
+          items = JSON.parse(ret.get('items') || '[]')
+        } catch {}
+        for (const item of items) {
+          const lineId = Number(item.orderDetailId)
+          if (lineId) returnedByLine.set(lineId, (returnedByLine.get(lineId) ?? 0) + Number(item.quantity || 0))
+        }
+      }
+
+      const snapshot: any[] = []
+      let refundTotal = 0
+      for (const item of returnItems) {
+        const detail = detailById.get(Number(item.orderDetailId))
+        if (!detail) throw new Error(`Order detail ${item.orderDetailId} not found on this order`)
+        const qty = Number(item.quantity)
+        if (!qty || qty <= 0) throw new Error('Return quantity must be positive')
+        const alreadyReturned = returnedByLine.get(Number(detail.get('id'))) ?? 0
+        const bought = Number(detail.get('quantity'))
+        const returnable = bought - alreadyReturned
+        if (qty > returnable) {
+          throw new Error(
+            `Cannot return ${qty} of detail ${detail.get('id')}: only ${returnable} remaining (bought ${bought}, returned ${alreadyReturned})`
+          )
+        }
+        const unitPrice = Number(detail.get('price') ?? 0)
+        refundTotal += unitPrice * qty
+
+        // 1) Goods flow back into stock (IN transfer, type '0')
+        await this.updateInventory({
+          productId: Number(detail.get('productId')),
+          variantId: (detail.get('variantId') as number | null) ?? null,
+          warehouseId,
+          quantity: qty,
+          transaction: t,
+          type: '0'
+        })
+        await this.createTransfer({
+          productId: Number(detail.get('productId')),
+          variantId: (detail.get('variantId') as number | null) ?? null,
+          warehouseId,
+          quantity: qty,
+          transaction: t,
+          type: '0'
+        })
+        // 2) sold counter goes down (sales only)
+        await this.adjustSoldByDelta({
+          productId: Number(detail.get('productId')),
+          variantId: (detail.get('variantId') as number | null) ?? null,
+          quantity: qty,
+          delta: -qty,
+          type: '1',
+          transaction: t
+        })
+
+        snapshot.push({
+          orderDetailId: Number(detail.get('id')),
+          productId: Number(detail.get('productId')),
+          variantId: (detail.get('variantId') as number | null) ?? null,
+          name: (detail as any).name ?? '',
+          quantity: qty,
+          price: unitPrice
+        })
+      }
+
+      // Optional explicit refund override (e.g. restocking fee)
+      const refundAmount = body.refundAmount != null ? Number(body.refundAmount) : refundTotal
+
+      // 3) Return document
+      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const code = `RET-${datePart}-${orderId}`
+      const returnDoc: any = await OrderReturn.create(
+        {
+          code,
+          orderId,
+          warehouseId,
+          vendorId: (order as any).vendorId ?? null,
+          staffId: (order as any).staffId ?? null,
+          items: JSON.stringify(snapshot),
+          refundAmount,
+          reason: body.reason ? String(body.reason) : null
+        } as any,
+        { transaction: t }
+      )
+
+      // 4) Refund voucher (expense) linked to this return
+      if (refundAmount > 0) {
+        await FinancialRecord.create(
+          {
+            code: `PC-RET-${returnDoc.get('id')}`,
+            type: 'expense',
+            category: 'return',
+            amount: refundAmount,
+            relatedType: 'orderReturn',
+            relatedId: returnDoc.get('id'),
+            warehouseId,
+            note: `Hoàn tiền cho đơn ${order.code ?? order.id}`
+          } as any,
+          { transaction: t }
+        )
+      }
+
+      // 5) Order status: returned when every line is fully returned
+      const totalReturnedByLine = new Map<number, number>()
+      for (const [lineId, qty] of returnedByLine) totalReturnedByLine.set(lineId, qty)
+      for (const item of snapshot) {
+        totalReturnedByLine.set(item.orderDetailId, (totalReturnedByLine.get(item.orderDetailId) ?? 0) + item.quantity)
+      }
+      const fullyReturned = (details as any[]).every((d) => {
+        const returned = totalReturnedByLine.get(Number(d.get('id'))) ?? 0
+        return returned >= Number(d.get('quantity'))
+      })
+      await order.update({ status: fullyReturned ? 'returned' : 'partially_returned' }, { transaction: t })
+
+      await t.commit()
+      return { return: returnDoc, refundAmount, status: fullyReturned ? 'returned' : 'partially_returned' }
+    } catch (error) {
+      await t.rollback()
+      throw ApiError.from(error, 400)
+    }
+  }
+
   async getOrders(req: Request) {
     try {
       const { warehouseId, isProvider, vendorId } = req.query
@@ -687,7 +953,7 @@ export default class OrderService {
       // S1: the caller may only read orders inside warehouses they own.
       await assertWarehouseAccess(warehouseId, vendorScope)
 
-      const resp = await Order.findOne({
+      const resp: any = await Order.findOne({
         where: {
           id: id,
           warehouseId: warehouseId
@@ -698,15 +964,16 @@ export default class OrderService {
             include: [
               {
                 model: Product,
-                attributes: []
+                attributes: [],
+                paranoid: false
               },
               {
                 model: ProductVariant,
                 attributes: ['id', 'skuCode'],
+                paranoid: false,
                 include: [
                   {
                     model: ProductAttributeValue,
-                    // as: 'attributeValues',
                     attributes: ['id', 'value', 'attributeId'],
                     through: { attributes: [] },
                     include: [{ model: ProductAttribute, attributes: ['id', 'name'] }]
@@ -723,56 +990,18 @@ export default class OrderService {
           ]
         }
       })
+      if (resp) {
+        // Compute realtime invoice progress per order line (compute, never stored).
+        const invoicedMap = await new InvoiceService().getInvoicedMap(Number(id))
+        const details: any[] = resp.orderDetails ?? []
+        for (const d of details) {
+          const ordered = Number(d.get('quantity') ?? 0)
+          const invoiced = invoicedMap.get(Number(d.get('id'))) ?? 0
+          d.setDataValue('invoicedQty' as any, invoiced)
+          d.setDataValue('remainingQty' as any, Math.max(ordered - invoiced, 0))
+        }
+      }
       return resp
-      // const unitModel = (database as any).unit ?? (database as any).units
-      // const pavModel = (database as any).productAttributeValue
-      // const paModel = (database as any).productAttribute
-      // const productInclude: any = {
-      //   model: Product,
-      //   attributes: []
-      //   // ...(unitModel ? { include: [{ model: unitModel, attributes: [] }] } : {})
-      // }
-      // const variantInclude: any = {
-      //   model: ProductVariant,
-      //   ...(pavModel
-      //     ? {
-      //         include: [
-      //           {
-      //             model: pavModel,
-      //             as: 'attributeValues',
-      //             attributes: ['id', 'value', 'attributeId'],
-      //             through: { attributes: [] },
-      //             ...(paModel ? { include: [{ model: paModel, attributes: ['id', 'name'] }] } : {})
-      //           }
-      //         ]
-      //       }
-      //     : {})
-      // }
-      // const resp = await Order.findOne({
-      //   where: {
-      //     id: id,
-      //     warehouseId: warehouseId
-      //   },
-      //   include: [
-      //     {
-      //       model: database.orderDetail,
-      //       include: [productInclude, variantInclude]
-      //     }
-      //   ] as IncludeOptions
-      // })
-      // // Backwards-compat: ensure each detail exposes a `name` derived from product.name
-      // // so existing clients that read `detail.name` keep working when orderDetails.name column is empty.
-      // if (resp && (resp as any).orderDetails) {
-      //   for (const d of (resp as any).orderDetails as any[]) {
-      //     const detailAny = d as any
-      //     const productName = detailAny.product?.name ?? detailAny.product?.dataValues?.name
-      //     if (!detailAny.name && productName) {
-      //       detailAny.name = productName
-      //       if (detailAny.dataValues) detailAny.dataValues.name = productName
-      //     }
-      //   }
-      // }
-      // return resp
     } catch (error) {
       throw ApiError.from(error, 400)
     }

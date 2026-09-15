@@ -12,7 +12,9 @@ export interface IInvoiceDetailModel
   extends Model<InferAttributes<IInvoiceDetailModel>, InferCreationAttributes<IInvoiceDetailModel>> {
   id: CreationOptional<number>
   invoiceId: number
+  orderDetailId?: number | null
   productId?: number | null
+  variantId?: number | null
   quantity: number
   unitPrice: number
   discount: number

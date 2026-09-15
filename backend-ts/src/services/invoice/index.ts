@@ -1,11 +1,11 @@
 import database from '#/database'
-import { IRequestLocal } from '#/types/common'
-import { IInvoiceStatic } from '#/types/invoice'
-import { assertVendorAccess, getVendorScope } from '#/utils/tenant'
-import { isDuplicateEntryError, nextSequence } from '#/utils/sequence'
-import { Sequelize } from 'sequelize'
-import { Op } from 'sequelize'
+import Invoice from '#/database/models/invoice'
 import { ApiError } from '#/response'
+import { IRequestLocal } from '#/types/common'
+import { IInvoiceStatic, InvoiceStatus, PaymentType } from '#/types/invoice'
+import { isDuplicateEntryError, nextSequence } from '#/utils/sequence'
+import { assertVendorAccess, getVendorScope } from '#/utils/tenant'
+import { Op, Sequelize } from 'sequelize'
 
 export class InvoiceService {
   invoice: IInvoiceStatic = database.invoice
@@ -55,7 +55,7 @@ export class InvoiceService {
    * Get all invoices with pagination and filtering
    */
   async getInvoices(req: IRequestLocal) {
-    const { page = 1, limit = 10, search, vendorId, status, customerId } = req.query
+    const { page = 1, limit = 10, search, vendorId, status, customerId, orderId } = req.query as any
     const offset = (Number(page) - 1) * Number(limit)
 
     const where: any = {}
@@ -64,7 +64,7 @@ export class InvoiceService {
     // invoices; an explicit out-of-scope filter is rejected.
     const scope = getVendorScope(req)
     if (vendorId) {
-      assertVendorAccess(scope, Number(vendorId), 'Unauthorized to read this vendor\'s invoices')
+      assertVendorAccess(scope, Number(vendorId), "Unauthorized to read this vendor's invoices")
       where.vendorId = Number(vendorId)
     } else if (scope !== null) {
       where.vendorId = { [Op.in]: scope }
@@ -80,11 +80,14 @@ export class InvoiceService {
       where.customerId = customerId
     }
 
+    // Filter by order (used by order detail page to show the auto-created invoice)
+    if (orderId) {
+      where.orderId = Number(orderId)
+    }
+
     // Search by invoice number or customer name
     if (search) {
-      where[Op.or] = [
-        { invoiceNumber: { [Op.like]: `%${search}%` } }
-      ]
+      where[Op.or] = [{ invoiceNumber: { [Op.like]: `%${search}%` } }]
     }
 
     const { count, rows } = await this.invoice.findAndCountAll({
@@ -107,14 +110,15 @@ export class InvoiceService {
         },
         {
           model: database.order,
-          attributes: ['id', 'price', 'paymentType']
+          attributes: ['id', 'code', 'price', 'paymentType', 'channel', 'VAT', 'surcharge']
         },
         {
           model: database.invoiceDetail,
           include: [
             {
               model: database.product,
-              attributes: ['id', 'name', 'code', 'skuCode']
+              attributes: ['id', 'name', 'code', 'skuCode'],
+              paranoid: false
             }
           ]
         }
@@ -146,14 +150,15 @@ export class InvoiceService {
         },
         {
           model: database.order,
-          attributes: ['id', 'price', 'paymentType', 'VAT', 'surcharge']
+          attributes: ['id', 'code', 'price', 'paymentType', 'channel', 'VAT', 'surcharge']
         },
         {
           model: database.invoiceDetail,
           include: [
             {
               model: database.product,
-              attributes: ['id', 'name', 'code', 'skuCode', 'salePrice']
+              attributes: ['id', 'name', 'code', 'skuCode', 'salePrice'],
+              paranoid: false
             }
           ]
         }
@@ -177,58 +182,132 @@ export class InvoiceService {
    * final safety net against duplicate codes under extreme concurrency.
    */
   async create(req: IRequestLocal) {
+    const body: any = (req as any).body ?? {}
+    // New per-line API: POST /orders/:id/invoices { lines: [{ order_detail_id, quantity }] }
+    // also accepts { orderId, lines } via POST /invoices for backward-compat routing.
+    const orderId = body.orderId ?? (req as any).params?.orderId ?? (req as any).params?.id
     try {
-      return await this.createAttempt(req)
+      return await this.createAttempt({ ...body, orderId }, getVendorScope(req))
     } catch (error) {
       if (isDuplicateEntryError(error)) {
-        return await this.createAttempt(req)
+        return await this.createAttempt({ ...body, orderId }, getVendorScope(req))
       }
       throw error
     }
   }
 
-  private async createAttempt(req: IRequestLocal) {
-    const t = await this.sequelize.transaction()
-
+  /**
+   * Core invoice creation from explicit order lines.
+   * - Server re-validates quantity <= (ordered - already invoiced) inside the
+   *   transaction with row locks, so two concurrent creators cannot oversell.
+   * - invoiceType is derived: FULL when the request covers ALL remaining qty
+   *   of every order line, otherwise PARTIAL. No manual type from client.
+   * - When `externalTx` is given (POS order+invoice in 1 transaction) the
+   *   caller owns commit/rollback.
+   */
+  async createFromOrderLines(
+    orderId: number,
+    lines: Array<{ order_detail_id: number; quantity: number }>,
+    opts: { vendorId?: number; warehouseId?: number; customerId?: number; paymentType?: string; notes?: string; dueDate?: any } = {},
+    vendorScope: any = null,
+    externalTx?: any
+  ) {
+    const t = externalTx ?? (await this.sequelize.transaction())
+    const ownTx = !externalTx
     try {
-      const {
-        orderId,
-        customerId,
-        warehouseId,
-        items,
-        VAT,
-        discount = 0,
-        surcharge = 0,
-        paymentType = 'cash',
-        status = 'draft',
-        dueDate,
-        notes
-      } = req.body
+      const result = await this.createAttempt(
+        {
+          orderId,
+          lines,
+          vendorId: opts.vendorId,
+          warehouseId: opts.warehouseId,
+          customerId: opts.customerId,
+          paymentType: opts.paymentType as any,
+          notes: opts.notes,
+          dueDate: opts.dueDate,
+        } as any,
+        vendorScope,
+        t
+      )
+      if (ownTx) await t.commit()
+      return result
+    } catch (error) {
+      if (ownTx) await t.rollback()
+      throw error
+    }
+  }
 
+  /** Read a field from either a Sequelize instance or a plain mock object. */
+  private static field(row: any, key: string): any {
+    try {
+      if (row && typeof row.get === 'function') return row.get(key)
+    } catch {}
+    return row?.[key]
+  }
+
+  /** Invoiced (non-cancelled) quantities per orderDetailId — single source for progress. */
+  async getInvoicedMap(orderId: number, transaction?: any): Promise<Map<number, number>> {
+    const rows: any[] =
+      ((await database.invoiceDetail.findAll({
+        attributes: ['orderDetailId', [this.sequelize.fn('SUM', this.sequelize.col('quantity')), 'invoicedQty']],
+        include: [{ model: database.invoice, attributes: [], where: { orderId, status: { [Op.ne]: 'cancelled' } } }],
+        group: ['orderDetailId'],
+        raw: true,
+        transaction,
+      } as any)) ?? []) as any[]
+    const map = new Map<number, number>()
+    for (const r of rows) {
+      const key = Number(InvoiceService.field(r, 'orderDetailId'))
+      if (Number.isFinite(key)) map.set(key, Number(InvoiceService.field(r, 'invoicedQty') ?? 0))
+    }
+    return map
+  }
+
+  private async createAttempt(
+    body: {
+      orderId: number
+      lines?: Array<{ order_detail_id: number; quantity: number }>
+      items?: any[]
+      customerId?: number
+      warehouseId?: number
+      vendorId?: number
+      VAT?: number
+      discount?: number
+      surcharge?: number
+      paymentType?: 'cash' | 'transfer' | 'credit'
+      status?: string
+      dueDate?: any
+      notes?: string
+    },
+    vendorScope: any,
+    externalTx?: any
+  ) {
+    const t = externalTx ?? (await this.sequelize.transaction())
+    const ownTx = !externalTx
+    try {
+      const { orderId } = body
       // BUSINESS RULE: an invoice can only be created from an existing order.
       // Stock movement is handled by the order; the invoice is a financial document.
       if (!orderId) {
         throw new Error('orderId is required: invoices can only be created from an order')
       }
 
-      // Validate that the order exists
-      const order = await database.order.findByPk(Number(orderId), {
-        include: [{ model: database.orderDetail }]
+      // Lock the order row so concurrent invoice creators serialize here.
+      const order: any = await database.order.findByPk(Number(orderId), {
+        include: [{ model: database.orderDetail }],
+        ...(t?.LOCK?.UPDATE != null ? { lock: t.LOCK.UPDATE } : {}),
+        transaction: t,
       })
       if (!order) {
         throw new Error('Order not found')
       }
 
-      // Resolve vendorId: explicit body value > authenticated user's primary
-      // vendor > the order's own vendor. Scoped callers must stay inside
-      // their vendor scope.
-      const scope = getVendorScope(req)
-      const requestedVendorId = (req.body as any).vendorId ?? (req as any).user?.vendorId
+      const requestedVendorId = (body as any).vendorId
       if (requestedVendorId != null) {
-        assertVendorAccess(scope, Number(requestedVendorId), 'Unauthorized to create invoices for this vendor')
+        assertVendorAccess(vendorScope, Number(requestedVendorId), 'Unauthorized to create invoices for this vendor')
       }
       const vendorId = Number(
-        requestedVendorId || (order as any).vendorId || (scope && scope.length ? scope[0] : null)
+        requestedVendorId ?? (order as any).vendorId ?? (vendorScope && vendorScope.length ? vendorScope[0] : null)
       )
       if (!vendorId) {
         throw new Error('vendorId is required')
@@ -236,50 +315,112 @@ export class InvoiceService {
 
       // S1: enforced - even when falling back to the ORDER's vendor, scoped
       // callers may never mint invoices outside their vendor scope.
-      assertVendorAccess(scope, vendorId, 'Unauthorized to create an invoice for this order')
+      assertVendorAccess(vendorScope, vendorId, 'Unauthorized to create an invoice for this order')
 
       if ((order as any).vendorId && Number((order as any).vendorId) !== vendorId) {
         throw new Error('Unauthorized to create an invoice for this order')
       }
 
-      // Prevent duplicate invoices for the same order (cancelled ones don't count)
-      const existingInvoice = await this.invoice.findOne({
-        where: { orderId: Number(orderId), status: { [Op.ne]: 'cancelled' } },
-        transaction: t
-      })
-      if (existingInvoice) {
-        throw new Error(`This order already has invoice ${existingInvoice.invoiceNumber}`)
-      }
+      // NOTE: multiple invoices per order are allowed (partial deliveries).
+      // The old single-invoice guard was removed intentionally.
 
-      // If no items are provided, derive them from the order details so an
-      // invoice can be generated from an order in one click
-      let sourceItems = items
-      let effectiveVAT = VAT
-      let effectiveSurcharge = surcharge
-      let effectivePaymentType = paymentType
-      if (!sourceItems || sourceItems.length === 0) {
-        const details = (order as any).orderDetails ?? []
-        if (!details.length) {
-          throw new Error('Order has no items to invoice')
-        }
-        sourceItems = details.map((detail: any) => ({
-          productId: detail.productId,
-          quantity: Number(detail.quantity),
-          unitPrice: Number(detail.price || 0),
-          taxRate: Number((order as any).VAT || 0)
+      const { items, VAT, discount = 0, surcharge, paymentType, status, dueDate, notes, customerId, warehouseId } = body
+      // Normalize requested lines: explicit per-line payload wins; legacy
+      // `items` (full-order, no quantities) falls back to all remaining qty.
+      const invoicedMap = await this.getInvoicedMap(Number(orderId), t)
+      const orderDetails: any[] = (order as any).orderDetails ?? []
+      if (!orderDetails.length) throw new Error('Order has no items to invoice')
+      const F = InvoiceService.field
+      const detailById = new Map<number, any>()
+      for (const d of orderDetails) detailById.set(Number(F(d, 'id')), d)
+
+      let requested: Array<{ orderDetailId: number; quantity: number }>
+      if (body.lines && body.lines.length > 0) {
+        requested = body.lines.map((l: any) => ({
+          orderDetailId: Number(l.order_detail_id ?? l.orderDetailId),
+          quantity: Number(l.quantity),
         }))
-        effectiveVAT = effectiveVAT ?? undefined
-        effectiveSurcharge =
-          surcharge === undefined ? Number((order as any).surcharge || 0) : surcharge
-        if (!paymentType || !['cash', 'transfer', 'credit'].includes(paymentType)) {
-          effectivePaymentType = (order as any).paymentType === 'transfer' ? 'transfer' : 'cash'
+      } else if (items && items.length > 0) {
+        // Legacy items carry productId only — resolve to order lines with remaining qty.
+        requested = []
+        for (const item of items) {
+          const match = orderDetails.find((d: any) => Number(F(d, 'productId')) === Number(item.productId))
+          if (!match) throw new Error(`Product ${item.productId} is not on this order`)
+          requested.push({ orderDetailId: Number(F(match, 'id')), quantity: Number(item.quantity) })
+        }
+      } else {
+        // One-click full remainder: every line with remaining qty.
+        requested = []
+        for (const d of orderDetails) {
+          const remainingQty = Number(F(d, 'quantity')) - (invoicedMap.get(Number(F(d, 'id'))) ?? 0)
+          if (remainingQty > 0) requested.push({ orderDetailId: Number(F(d, 'id')), quantity: remainingQty })
         }
       }
 
-      // Validate required fields
-      if (!sourceItems || sourceItems.length === 0) {
-        throw new Error('Invoice items are required')
+      // Validate: at least 1 line with qty > 0, each line exists on this order
+      // and never exceeds ordered - already invoiced (re-checked in DB tx).
+      if (!requested.length) throw new Error('No remaining quantity to invoice on this order')
+      const seen = new Set<number>()
+      for (const r of requested) {
+        if (!Number.isFinite(r.orderDetailId)) throw new Error('order_detail_id is required for each line')
+        if (seen.has(r.orderDetailId)) throw new Error(`Duplicate line for order detail ${r.orderDetailId}`)
+        seen.add(r.orderDetailId)
+        if (!Number.isFinite(r.quantity) || r.quantity <= 0) throw new Error('Invoice quantity must be > 0')
+        if (!Number.isInteger(r.quantity)) throw new Error('Invoice quantity must be an integer')
+        const od = detailById.get(r.orderDetailId)
+        if (!od) throw new Error(`Order detail ${r.orderDetailId} is not on this order`)
+        const orderedQty = Number(F(od, 'quantity'))
+        const already = invoicedMap.get(r.orderDetailId) ?? 0
+        const remainingQty = orderedQty - already
+        if (r.quantity > remainingQty) {
+          throw new Error(
+            `Quantity ${r.quantity} exceeds remaining ${remainingQty} for order detail ${r.orderDetailId} (ordered ${orderedQty}, invoiced ${already})`
+          )
+        }
       }
+
+      // Derive FULL vs PARTIAL: FULL only when every line with remaining qty
+      // is included at its full remaining quantity.
+      let isFull = true
+      for (const d of orderDetails) {
+        const id = Number(F(d, 'id'))
+        const remainingQty = Number(F(d, 'quantity')) - (invoicedMap.get(id) ?? 0)
+        if (remainingQty <= 0) continue
+        const req = requested.find((r) => r.orderDetailId === id)
+        if (!req || req.quantity !== remainingQty) {
+          isFull = false
+          break
+        }
+      }
+      const invoiceType = isFull ? 'FULL' : 'PARTIAL'
+
+      let effectiveVAT = VAT ?? Number((order as any).VAT ?? 0)
+      const priorCount = Number(
+        (await this.invoice.count({
+          where: { orderId: Number(orderId), status: { [Op.ne]: 'cancelled' } },
+          transaction: t,
+        })) ?? 0
+      )
+      // Order-level surcharge rides on the single FULL invoice only; partial
+      // batches carry 0 so the surcharge is never double-counted.
+      const effectiveSurcharge = surcharge !== undefined ? Number(surcharge) : isFull && priorCount === 0 ? Number((order as any).surcharge || 0) : 0
+      let effectivePaymentType: string = paymentType as any
+      if (!effectivePaymentType || !['cash', 'transfer', 'credit'].includes(effectivePaymentType)) {
+        effectivePaymentType = (order as any).paymentType === 'transfer' ? 'transfer' : 'cash'
+      }
+
+      const sourceItems = requested.map((r) => {
+        const od: any = detailById.get(r.orderDetailId)
+        return {
+          orderDetailId: r.orderDetailId,
+          productId: Number(F(od, 'productId')),
+          variantId: (F(od, 'variantId') as number | null) ?? null,
+          quantity: r.quantity,
+          unitPrice: Number(F(od, 'price') || 0),
+          taxRate: Number((order as any).VAT || 0),
+          discount: 0,
+        }
+      })
 
       // Generate invoice number (inside the transaction: the atomic counter
       // and the insert must share a connection; retry once on the rare race
@@ -300,7 +441,9 @@ export class InvoiceService {
         taxAmount += itemTax
 
         return {
+          orderDetailId: item.orderDetailId ?? null,
           productId: item.productId,
+          variantId: item.variantId ?? null,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           discount: itemDiscount,
@@ -318,11 +461,11 @@ export class InvoiceService {
       const effectiveStatus = isImmediate ? 'paid' : status || 'draft'
 
       // Create invoice
-      const invoice = await this.invoice.create(
+      const invoice = await Invoice.create(
         {
           invoiceNumber,
           orderId: Number(orderId),
-          customerId,
+          customerId: customerId ?? (order as any).customerId ?? null,
           vendorId,
           warehouseId: warehouseId ?? (order as any).warehouseId,
           subtotal,
@@ -334,8 +477,9 @@ export class InvoiceService {
           paid,
           remaining,
           currency: 'VND',
-          paymentType: effectivePaymentType,
-          status: effectiveStatus,
+          paymentType: effectivePaymentType as PaymentType,
+          status: effectiveStatus as InvoiceStatus,
+          invoiceType,
           dueDate,
           notes
         },
@@ -372,7 +516,7 @@ export class InvoiceService {
         )
       }
 
-      await t.commit()
+      if (ownTx) await t.commit()
 
       // Reload invoice with details
       const createdInvoice = await this.invoice.findByPk(invoice.id, {
@@ -382,7 +526,8 @@ export class InvoiceService {
             include: [
               {
                 model: database.product,
-                attributes: ['id', 'name', 'code', 'skuCode']
+                attributes: ['id', 'name', 'code', 'skuCode'],
+                paranoid: false
               }
             ]
           },
@@ -395,7 +540,7 @@ export class InvoiceService {
 
       return createdInvoice
     } catch (error) {
-      await t.rollback()
+      if (ownTx) await t.rollback()
       throw error
     }
   }
@@ -408,19 +553,8 @@ export class InvoiceService {
 
     try {
       const { id } = req.params
-      const {
-        customerId,
-        warehouseId,
-        items,
-        VAT,
-        discount,
-        surcharge,
-        paymentType,
-        status,
-        dueDate,
-        notes,
-        paid
-      } = req.body
+      const { customerId, warehouseId, items, VAT, discount, surcharge, paymentType, status, dueDate, notes, paid } =
+        req.body
 
       const invoice = await this.invoice.findByPk(id, {
         include: [database.invoiceDetail]
@@ -509,7 +643,8 @@ export class InvoiceService {
             include: [
               {
                 model: database.product,
-                attributes: ['id', 'name', 'code', 'skuCode']
+                attributes: ['id', 'name', 'code', 'skuCode'],
+                paranoid: false
               }
             ]
           },

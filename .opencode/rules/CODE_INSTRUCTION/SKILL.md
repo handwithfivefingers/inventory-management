@@ -1,8 +1,8 @@
-# Coding Instruction - Inventory Management ERP/POS System
-
-**Last Updated**: August 24, 2026  
-**Version**: 1.0
-
+---
+name: coding-instruction
+description: Inventory Management ERP/POS System
+compatibility: opencode
+metadata: Updated August 24, 2026,  V1.0
 ---
 
 ## Table of Contents
@@ -13,7 +13,6 @@
 4. [Improvement](#improvement)
 5. [Testing](#testing)
 
----
 
 ## Overview
 

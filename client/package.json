@@ -32,6 +32,7 @@
     "jsbarcode": "3.11.6",
     "motion": "^13.1.0",
     "quagga": "0.12.1",
+    "qz-tray": "2.3.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hook-form": "7.53.2",

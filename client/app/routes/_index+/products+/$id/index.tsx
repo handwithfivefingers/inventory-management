@@ -4,11 +4,9 @@ import { ActionFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useOutletContext } from "@remix-run/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { NumericFormat } from "react-number-format";
 import { namedAction } from "remix-utils/named-action";
 import { historyService } from "~/action.server/history.service";
 import { productService } from "~/action.server/products.service";
-import { BarCode } from "~/components/barcode";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { ProductForm } from "~/components/form/product-form";
@@ -20,8 +18,6 @@ import { TMTimeline } from "~/components/tm-timeline";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
-import { dayjs } from "~/libs/date";
-import { cn } from "~/libs/utils";
 import { parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
 import { IProduct, IProductAttribute, IProductAttributeValue, IProductVariant } from "~/types/product";
@@ -65,7 +61,7 @@ export default function ProductItem() {
   const { t } = useTranslation();
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-      <div className="w-full mx-auto">
+      <div className="max-w-5xl w-full mx-auto">
         <CardItem
           title={
             <div className="flex gap-3">
@@ -193,6 +189,7 @@ const VariantsManager = ({
           av.value,
         ]),
       ),
+      code: (v as any).code ?? "",
       skuCode: v.skuCode,
       quantity: invSum(v),
       costPrice: (v.costPrice ?? "") as any,
@@ -256,7 +253,7 @@ const VariantsManager = ({
     const list = v.variants || [];
     const variantsPayload = list
       .filter((m: any) => m?.options && Object.keys(m.options).length > 0)
-      .map(({ variantId, options, ...fields }: any) => {
+      .map(({ variantId, options, code, ...fields }: any) => {
         const attributeIds: number[] = [];
         const attributeValueIds: number[] = [];
         for (const [name, val] of Object.entries(options as Record<string, string>)) {
@@ -270,6 +267,9 @@ const VariantsManager = ({
           variantId,
           id: variantId,
           ...fields,
+          // Per-variant barcode: manual value wins, blank clears to null on the
+          // server, missing auto-extends the parent barcode.
+          ...(code !== undefined ? { code: String(code ?? "").trim() } : {}),
           attributes: attributeIds,
           attributeValues: attributeValueIds,
         };
@@ -279,10 +279,14 @@ const VariantsManager = ({
     );
     submit(
       {
-        intent: "syncVariants",
-        payload: JSON.stringify({
-          variants: variantsPayload,
-          removedVariantIds,
+        intent: "updateProduct",
+        data: JSON.stringify({
+          data: {
+            // Preserve combo products (server ignores variants for type 2).
+            type: (loaderData as any)?.data?.type === 2 ? 2 : 1,
+            variants: variantsPayload,
+            removedVariantIds,
+          },
         }),
       },
       { method: "POST" },
@@ -311,93 +315,26 @@ const VariantsManager = ({
   );
 };
 
-const Detail = () => {
-  const { data } = useLoaderData<typeof loader>();
-  return (
-    <div className="w-full grid grid-cols-5 gap-4">
-      <div className="col-span-2 flex gap-2 flex-col ">
-        {data?.image ? (
-          <img src={data.image} alt={data?.name} className="w-full h-full p-8 rounded-lg aspect-square object-cover" />
-        ) : (
-          <div className="bg-slate-50 w-full h-full p-8 rounded-lg aspect-square" />
-        )}
-        <div className="w-full py-2 rounded-md flex justify-center">
-          <BarCode code={data?.code || ""} />
-        </div>
-      </div>
-      <div className="col-span-3 px-12">
-        <ul className="flex flex-col gap-2">
-          <li className="flex justify-between">
-            <span>Ngày tạo: </span>
-            <span>{dayjs(data?.createdAt).format("DD/MM/YYYY")}</span>
-          </li>
-          <li className="flex justify-between">
-            <span>Mã hàng hóa: </span>
-            <span>{data?.code} </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Mã sku: </span>
-            <span>{data?.skuCode} </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Đã bán: </span>
-            <span>{data?.sold} </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Tồn kho: </span>
-            <span>{data?.quantity} </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Đơn vị tính: </span>
-            <span>{data?.unitName} </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Danh mục: </span>
-            <span>
-              {data?.categories?.length
-                ? (data?.categories as ICategory[])?.map((item: ICategory) => item.name).join(", ")
-                : ""}
-            </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Giá bán lẻ: </span>
-            <span>
-              <NumericFormat value={data?.regularPrice} displayType="text" thousandSeparator="," />
-            </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Giá khuyến mại: </span>
-            <span>
-              <NumericFormat value={data?.salePrice} displayType="text" thousandSeparator="," />
-            </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Giá bán sỉ: </span>
-            <span>
-              <NumericFormat value={data?.wholeSalePrice} displayType="text" thousandSeparator="," />
-            </span>
-          </li>
-          <li className="flex justify-between">
-            <span>Giá vốn: </span>
-            <span>
-              <NumericFormat value={data?.costPrice} displayType="text" thousandSeparator="," />
-            </span>
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-};
 const EditForm = () => {
   const { data } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
   const hasVariants = (data?.variants || []).length > 0;
+  const productType = (data as any)?.type ?? (hasVariants ? 1 : 0);
+  let moneyStep = 1000;
+  try {
+    const ctx = useOutletContext<{ settings?: { moneyStep?: number | string } }>();
+    const step = Number(ctx?.settings?.moneyStep);
+    if (step > 0) moneyStep = step;
+  } catch {
+    // no layout context -> default step
+  }
   const { submit, isLoading } = useSubmitPromise();
   const formMethods = useForm<ProductSchemaType>({
     defaultValues: {
       name: data?.name ?? "",
       code: data?.code ?? "",
       skuCode: data?.skuCode ?? "",
+      type: productType as any,
       quantity: (data?.quantity as number) ?? undefined,
       unit: (data as any)?.unitId || undefined,
       categories: ((data?.categories as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
@@ -428,13 +365,22 @@ const EditForm = () => {
   }, []);
 
   const onSubmit = (v: ProductSchemaType) => {
+    const { unit, quantity, ...rest } = v as any;
     submit(
       {
         data: JSON.stringify({
-          data: { ...v, id: data?.id },
+          // Unified PUT /products/:id: simple products update base + stock,
+          // variant products update base only (prices/stock live on variants).
+          data: {
+            ...rest,
+            unitId: unit,
+            ...(hasVariants ? {} : { quantity }),
+            type: productType,
+          },
         }),
+        intent: "updateProduct",
       },
-      { method: "POST", action: "/products/edit" },
+      { method: "POST" },
     );
   };
   return (
@@ -444,11 +390,21 @@ const EditForm = () => {
         onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
       >
         <ProductForm
+          barcode={data?.code}
           categories={categories?.data || []}
           tags={tags?.data || []}
           units={units?.data || []}
-          moneyStep={1000}
-        />{" "}
+          moneyStep={moneyStep}
+        />
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+          <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
+            {t("common.cancel")}
+          </TMButton>
+          <TMButton htmlType="submit" loading={isLoading} size="sm">
+            <Icon name="save" fontSize={16} />
+            {t("common.save")}
+          </TMButton>
+        </div>
       </form>
     </FormProvider>
   );
@@ -465,7 +421,7 @@ const HistoryList = ({ history }: { history: IProduct[] }) => {
             description: (
               <span>
                 SKU:{" "}
-                <span className="bg-slate-100 border border-slate-200/50 px-2 py-0.5 rounded">
+                <span className="bg-slate-100 dark:bg-slate-700 border border-slate-200/50 dark:border-slate-600 px-2 py-0.5 rounded">
                   {item.variant?.skuCode || item?.skuCode}
                 </span>
               </span>
@@ -485,42 +441,25 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (!id) throw new Error("Không tìm thấy sản phẩm");
   const formData = await request.formData();
   return namedAction(formData, {
-    syncVariants: async () => {
-      const payload = JSON.parse((formData.get("payload") as string) || "{}");
-      const response = await productService.syncProductVariants({ id, cookie, warehouseId, vendorId, ...payload });
-      return Response.json(response);
-    },
-    updateVariant: async () => {
-      const variantId = formData.get("variantId") as string | null;
-      const skuCode = formData.get("skuCode") as string | null;
-      // Empty price input clears the override -> variant inherits product price
-      const prices: Record<string, unknown> = {};
-      for (const key of ["salePrice", "regularPrice", "wholeSalePrice", "costPrice"]) {
-        const raw = formData.get(key);
-        if (raw !== null) {
-          const str = String(raw).trim();
-          prices[key] = str === "" ? null : Number(str.replace(/,/g, ""));
-        }
+    updateProduct: async () => {
+      const raw = formData.get("data");
+      if (!raw) return Response.json({ error: "Missing data" }, { status: 400 });
+      let data: any;
+      try {
+        data = JSON.parse(String(raw));
+      } catch {
+        return Response.json({ error: "Invalid JSON" }, { status: 400 });
       }
-      const quantityRaw = formData.get("quantity");
-      const hasQuantity = quantityRaw !== null && String(quantityRaw).trim() !== "";
-      const response = await productService.updateVariant({
+      const payload = data?.data ?? data;
+      if (typeof payload !== "object" || payload === null) {
+        return Response.json({ error: "Invalid product payload" }, { status: 400 });
+      }
+      const response = await productService.updateProduct({
         id,
-        variantId: variantId || "",
         cookie,
         warehouseId,
-        ...(skuCode ? { skuCode } : {}),
-        ...prices,
-        ...(hasQuantity ? { quantity: Number(String(quantityRaw).replace(/,/g, "")) } : {}),
-        ...(formData.get("isNegative") !== null ? { isNegative: formData.get("isNegative") === "1" } : {}),
-      });
-      return Response.json(response);
-    },
-    deleteVariant: async () => {
-      const response = await productService.deleteVariant({
-        id,
-        variantId: (formData.get("variantId") as string) || "",
-        cookie,
+        vendorId,
+        ...payload,
       });
       return Response.json(response);
     },

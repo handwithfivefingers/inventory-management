@@ -1,8 +1,9 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo } from 'sequelize-typescript'
+import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript'
 import { Order } from './order'
 import { Product } from './product'
 import { Warehouse } from './warehouse'
 import { ProductVariant } from './productVariant'
+import { InvoiceDetail } from './invoiceDetail'
 
 @Table({ tableName: 'orderDetails', modelName: 'orderDetail', timestamps: true })
 export class OrderDetail extends Model {
@@ -54,6 +55,9 @@ export class OrderDetail extends Model {
 
   @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare variant: ProductVariant
+
+  @HasMany(() => InvoiceDetail)
+  declare invoiceDetails: InvoiceDetail[]
 }
 
 export default OrderDetail

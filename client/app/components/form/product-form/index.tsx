@@ -6,18 +6,20 @@ import { FormControl } from "../form-control";
 import { TextInput } from "../text-input";
 import { NumberStepper } from "../number-stepper";
 import { DatePicker } from "../date-picker";
-import { CheckboxInput } from "../checkbox-input";
+import { SwitchInput } from "../switch-input";
 import { SelectInput } from "../select-input";
 import { MultiSelectInput } from "../multi-select-input";
 import { NumberInput } from "../number-input";
+import { BarCode } from "~/components/barcode";
 
 interface Props {
   categories: ICategory[];
   units: ICategory[];
   tags: ICategory[];
+  barcode?: string;
   moneyStep: number;
 }
-export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
+export const ProductForm = ({ categories, units, tags, moneyStep, barcode }: Props) => {
   const { t } = useTranslation();
   const form = useFormContext();
   const watchedAttrs = (form.watch("variantAttributes") || []) as any[];
@@ -25,16 +27,21 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
     (a) => (a?.name || "").trim() && (Array.isArray(a?.values) ? a.values.length > 0 : String(a?.values || "").trim()),
   );
   return (
-    <div className="w-full flex gap-4">
+    <div className="w-full flex flex-col md:flex-row gap-4">
       {/* Image column */}
-      <div className="w-full max-w-xs flex flex-col gap-1">
+      <div className="w-full md:max-w-xs mx-auto md:mx-0 flex flex-col gap-1 shrink-0">
         {/* <span className="font-medium text-sm">{t("product.image")}</span> */}
         <ImagePreview />
+        {barcode && (
+          <div className="w-full py-2 rounded-md flex justify-center">
+            <BarCode code={barcode || ""} />
+          </div>
+        )}
       </div>
 
       {/* Fields column */}
-      <div className="grid grid-cols-12 gap-4 flex-1">
-        <div className="grid grid-cols-12 col-span-12 border rounded-md p-4 border-primary/30 gap-2 bg-white shadow-xl shadow-slate-300/10">
+      <div className="grid grid-cols-12 gap-4 flex-1 min-w-0">
+        <div className="grid grid-cols-12 col-span-12 border rounded-md p-3 sm:p-4 border-primary/30 gap-2 bg-white shadow-xl shadow-slate-300/10 dark:bg-slate-800/60 dark:shadow-black/20">
           <div className="col-span-12 pb-2 border-b border-primary flex items-center gap-2 text-sm font-medium text-primary">
             <Icon name="package" fontSize={16} />
             Thông tin cơ bản / Basic Information
@@ -46,13 +53,14 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
               prefix={<Icon name="package" fontSize={16} className="text-slate-400" />}
             />
           </FormControl>
-          <FormControl name="code" className="col-span-6">
+          <FormControl name="code" className="col-span-12 sm:col-span-6">
             <TextInput
               label={t("product.code")}
+              placeholder={`Barcode`}
               prefix={<Icon name="hash" fontSize={16} className="text-slate-400" />}
             />
           </FormControl>
-          <FormControl name="skuCode" className="col-span-6">
+          <FormControl name="skuCode" className="col-span-12 sm:col-span-6">
             {(field) => (
               <>
                 <TextInput
@@ -67,7 +75,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
             )}
           </FormControl>
 
-          <FormControl name="categories" className="col-span-4">
+          <FormControl name="categories" className="col-span-12 sm:col-span-4">
             {(field) => {
               return (
                 <MultiSelectInput
@@ -79,7 +87,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
               );
             }}
           </FormControl>
-          <FormControl name="tags" className="col-span-4">
+          <FormControl name="tags" className="col-span-12 sm:col-span-4">
             {(field) => {
               return (
                 <MultiSelectInput
@@ -92,7 +100,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
             }}
           </FormControl>
 
-          <FormControl name="unit" className="col-span-4">
+          <FormControl name="unit" className="col-span-12 sm:col-span-4">
             {(field) => {
               return (
                 <SelectInput
@@ -105,8 +113,8 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
             }}
           </FormControl>
         </div>
-        <div className="grid grid-cols-4 col-span-12 border rounded-md p-4 border-primary/30 gap-2 bg-white shadow-xl shadow-slate-300/10">
-          <div className="col-span-4 pb-2 border-b border-primary flex items-center gap-2 text-sm font-medium text-primary">
+        <div className="grid grid-cols-1 sm:grid-cols-4 col-span-12 border rounded-md p-3 sm:p-4 border-primary/30 gap-2 bg-white shadow-xl shadow-slate-300/10 dark:bg-slate-800/60 dark:shadow-black/20">
+          <div className="col-span-1 sm:col-span-4 pb-2 border-b border-primary flex items-center gap-2 text-sm font-medium text-primary">
             <Icon name="dollar-sign" fontSize={16} className="text-primary" />
             Giá cả & Thuế phí / Pricing & Tax
           </div>
@@ -115,11 +123,12 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
             {(field) => {
               return (
                 <NumberInput
+                  required
                   label={t("product.costPrice")}
                   disabled={hasVariantAttrs}
                   {...field}
                   value={field.value as any}
-                  onValueChange={(v) => field.onChange(v.value)}
+                  onValueChange={(v) => field.onChange(v.floatValue)}
                 />
               );
             }}
@@ -132,7 +141,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
                   disabled={hasVariantAttrs}
                   {...field}
                   value={field.value as any}
-                  onValueChange={(v) => field.onChange(v.value)}
+                  onValueChange={(v) => field.onChange(v.floatValue)}
                 />
               );
             }}
@@ -145,7 +154,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
                   disabled={hasVariantAttrs}
                   {...field}
                   value={field.value as any}
-                  onValueChange={(v) => field.onChange(v.value)}
+                  onValueChange={(v) => field.onChange(v.floatValue)}
                 />
               );
             }}
@@ -179,8 +188,8 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
           </FormControl>
         </div>
 
-        <div className="grid grid-cols-3 col-span-12 border rounded-md p-4 border-primary/30 gap-2 bg-white shadow-xl shadow-slate-300/10">
-          <div className="col-span-3 pb-2 border-b border-primary flex items-center gap-2 text-sm font-medium text-primary">
+        <div className="grid grid-cols-1 sm:grid-cols-3 col-span-12 border rounded-md p-3 sm:p-4 border-primary/30 gap-2 bg-white shadow-xl shadow-slate-300/10 dark:bg-slate-800/60 dark:shadow-black/20">
+          <div className="col-span-1 sm:col-span-3 pb-2 border-b border-primary flex items-center gap-2 text-sm font-medium text-primary">
             <Icon name="truck" fontSize={16} className="text-primary" />
             Kho hàng & Vận chuyển / Inventory & Logistics
           </div>
@@ -206,7 +215,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
           <FormControl name="isNegative">
             {(field) => {
               return (
-                <CheckboxInput
+                <SwitchInput
                   label={t("product.allowNegative")}
                   disabled={hasVariantAttrs}
                   {...field}
@@ -216,7 +225,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep }: Props) => {
             }}
           </FormControl>
 
-          <FormControl name="description" className="col-span-3">
+          <FormControl name="description" className="col-span-1 sm:col-span-3">
             <TextInput label={t("product.note")} multiline rows={3} />
           </FormControl>
         </div>
@@ -229,7 +238,7 @@ const ImagePreview = () => {
   const image = form.watch("image") as string | undefined;
   if (!image) {
     return (
-      <div className="w-full aspect-square rounded-lg bg-slate-50 border-2 border-dashed flex items-center justify-center text-sm text-slate-400">
+      <div className="w-full aspect-square rounded-lg bg-slate-50 dark:bg-slate-700 border-2 border-dashed border-slate-200 dark:border-slate-600 flex items-center justify-center text-sm text-slate-400">
         <Icon name="image" fontSize={100} />
       </div>
     );

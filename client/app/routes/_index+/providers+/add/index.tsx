@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
+// import { json } from "@remix-run/node";
 import { Link, useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { providerService } from "~/action.server/provider.service";
@@ -63,8 +63,12 @@ export default function ProviderAdd() {
                   <Icon name="truck" fontSize={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">{t("providers.addTitle")}</h2>
-                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">{t("providers.formHint", { defaultValue: "" })}</p>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {t("providers.addTitle")}
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                    {t("providers.formHint", { defaultValue: "" })}
+                  </p>
                 </div>
               </div>
             </div>
@@ -135,9 +139,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const formData = await request.formData();
     const data = JSON.parse(Object.fromEntries(formData)?.data as string);
     const resp = await providerService.create({ ...data, vendorId, cookie });
-    return json(resp);
+    return Response.json(resp);
   } catch (error) {
-    return json(
+    return Response.json(
       { status: 400, error: (error as any)?.error?.errors ?? (error as any)?.message },
       { status: 400 },
     );

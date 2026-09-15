@@ -1,14 +1,12 @@
-# Skill: Document Updater - Inventory Management ERP/POS System
-
-**Last Updated**: August 24, 2026  
-**Version**: 1.1
-
+---
+name: document-updater
+description: Inventory Management ERP/POS System
+compatibility: opencode
+metadata: Updated August 24, 2026 , V1.1
 ---
 
 ## Overview
 Ensure system documentation remains accurate and up-to-date in `./document` after completing every work session.
-
----
 
 ## Session Completion Workflow
 

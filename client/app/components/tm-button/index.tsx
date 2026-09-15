@@ -24,7 +24,7 @@ const variants: IButtonVariants = {
   light:
     "bg-indigo-100 hover:bg-indigo-200 outline outline-transparent active:outline-indigo-200 text-primary dark:text-slate-200 dark:bg-slate-700 transition-all",
   ghost:
-    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-primary dark:text-slate-200 dark:dark:bg-transparent transition-all",
+    "bg-transparent outline outline-transparent  active:outline-indigo-200 text-primary dark:text-slate-200 dark:bg-transparent transition-all",
   outline:
     "bg-transparent border border-indigo-200 text-primary hover:bg-indigo-50 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700 transition-all",
 };

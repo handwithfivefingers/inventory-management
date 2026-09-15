@@ -225,8 +225,8 @@ const AttributeValueRow = ({ value }: { value: { id: number; value: string } }) 
   };
 
   return (
-    <div className="flex gap-2 items-end">
-      <div className="flex-1">
+    <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+      <div className="flex-1 min-w-0">
         <TextInput
           label=""
           placeholder="Giá trị"
@@ -236,6 +236,7 @@ const AttributeValueRow = ({ value }: { value: { id: number; value: string } }) 
           disabled={isLoading}
         />
       </div>
+      <div className="flex gap-2 shrink-0">
       <TMButton
         size="sm"
         variant="primary"
@@ -243,21 +244,23 @@ const AttributeValueRow = ({ value }: { value: { id: number; value: string } }) 
         disabled={!isDirty || isEmpty || isLoading}
         loading={isLoading}
         title={isDirty ? "Cập nhật" : "Chưa thay đổi"}
+        className="flex-1 sm:flex-none"
       >
         <Icon name="save" fontSize={14} />
-        Cập nhật
+        <span className="hidden sm:inline">Cập nhật</span>
       </TMButton>
       <TMButton
         size="sm"
         variant="ghost"
         onClick={handleDelete}
         disabled={isLoading}
-        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+        className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-1 sm:flex-none"
         title="Xóa"
       >
         <Icon name="trash-2" fontSize={14} />
-        Xóa
+        <span className="hidden sm:inline">Xóa</span>
       </TMButton>
+      </div>
     </div>
   );
 };
@@ -276,8 +279,8 @@ const CreateValueForm = () => {
   return (
     <form onSubmit={handleCreate} className="flex flex-col gap-2">
       <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Thêm giá trị mới</label>
-      <div className="flex gap-2 items-end">
-        <div className="flex-1">
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+        <div className="flex-1 min-w-0">
           <TextInput
             label=""
             placeholder="Nhập giá trị mới và nhấn Thêm"

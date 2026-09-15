@@ -54,6 +54,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     ref,
   ) => {
     const prefixRef = useRef<HTMLSpanElement>(null);
+    const suffixRef = useRef<HTMLSpanElement>(null);
     const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
     const { clearErrors } = name ? useFormContext() : { clearErrors: (arg: string) => {} };
     const hasError = error || (name && errors?.[name]?.message);
@@ -61,14 +62,18 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
       return (
         <div className={cn(styles.inputWrapper, styles.wrapperClassName)}>
           <InputLabel name={name} label={label} required={required} />
-          <div className={cn("relative rounded-md flex items-center w-full bg-slate-50")}>
+          <div
+            className={cn(
+              "relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600",
+            )}
+          >
             <textarea
               name={name}
               id={name}
               className={cn(
-                "block w-full bg-transparent rounded-md border-0 text-xs",
-                "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 border border-slate-300 outline-none",
-                "text-slate-700  placeholder:text-gray-400",
+                "block w-full bg-transparent rounded-md text-xs",
+                "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 outline-none",
+                "text-slate-700 dark:text-slate-300 placeholder:text-gray-400",
                 SizeClass[inputSize || "sm"],
                 styles.input,
                 className,
@@ -94,7 +99,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
       <div className={cn(styles.inputWrapper)}>
         <InputLabel name={name} label={label} required={required} />
         <div className={cn("relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700")}>
-          <InputPrefix prefix={prefix} prefixRef={prefixRef} />
+          <InputPrefix prefix={prefix} prefixRef={prefixRef} className={"left-1 pl-1"} />
           <input
             name={name}
             id={name}
@@ -121,11 +126,12 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
             style={style}
             disabled={disabled}
           />
-          {suffix && (
+          {/* {suffix && (
             <div className="pointer-events-none inset-y-0 left-0 flex items-center pl-1 z-[1]">
               <span className="text-gray-500 sm:text-sm">{suffix}</span>
             </div>
-          )}
+          )} */}
+          {suffix && <InputPrefix prefix={suffix} prefixRef={suffixRef} className={"right-1 pr-1"} />}
         </div>
       </div>
     );
@@ -142,10 +148,23 @@ const InputLabel = ({ label, name, required }: { label?: string; name?: string; 
   );
 };
 
-const InputPrefix = ({ prefix, prefixRef }: { prefix: string; prefixRef: React.RefObject<HTMLSpanElement> }) => {
+const InputPrefix = ({
+  prefix,
+  prefixRef,
+  className,
+}: {
+  className?: string;
+  prefix: string;
+  prefixRef: React.RefObject<HTMLSpanElement>;
+}) => {
   if (!prefix) return "";
   return (
-    <div className="pointer-events-none inset-y-0 flex items-center pl-1 z-[1] absolute top-1/2 left-1 -translate-y-1/2">
+    <div
+      className={cn(
+        "pointer-events-none inset-y-0 flex items-center z-[1] absolute top-1/2 -translate-y-1/2",
+        className,
+      )}
+    >
       <span className="text-indigo-950  sm:text-sm" ref={prefixRef}>
         {prefix}
       </span>

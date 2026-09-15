@@ -1,5 +1,6 @@
 import { forwardRef, useRef } from "react";
 import { useFormState } from "react-hook-form";
+import { Icon } from "~/components/icon";
 import { cn } from "~/libs/utils";
 
 interface IFieldError {
@@ -13,6 +14,16 @@ interface ICheckboxInput {
   disabled?: boolean;
   [key: string]: any;
 }
+
+/**
+ * Square check control, consistent with TextInput/SelectInput styling.
+ *
+ * The native input stays in the DOM (accessible + form-compatible) and the
+ * styled box mirrors its state. Works both standalone and inside FormControl:
+ * it accepts `value`/`checked` for the state and `onChange` as a real change
+ * event (`e.target.checked`). Extra props like `onClick` are attached to the
+ * outer wrapper so callers can, e.g., stop row-click propagation in tables.
+ */
 export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
   (
     {
@@ -22,52 +33,68 @@ export const CheckboxInput = forwardRef<HTMLInputElement, ICheckboxInput>(
       wrapperClassName,
       style,
       onChange,
+      onClick,
       inputClassName,
       suffix,
       value = false,
+      checked,
       disabled = false,
       ...rest
     },
     ref,
   ) => {
     const { errors } = name ? (useFormState() as { errors: IFieldError }) : { errors: undefined };
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+
+    const isChecked = checked ?? !!value;
 
     return (
-      <div className={cn("")}>
-        {label ? (
-          <label htmlFor={name} className="block text-sm/6 font-medium text-indigo-950 dark:text-slate-200">
-            {label}
-          </label>
-        ) : (
-          ""
-        )}
-        <div className={cn("relative rounded-md flex items-center ")}>
-          <div
-            className={cn("rounded-full w-9 bg-white border-[2px] h-5 relative cursor-pointer border-slate-400", {
-              ["border-primary"]: value,
-            })}
-            onClick={() => inputRef.current?.click()}
+      <div className={cn("inline-flex", wrapperClassName)} onClick={onClick}>
+        <label
+          className={cn(
+            "inline-flex items-center gap-2 cursor-pointer select-none",
+            disabled ? "cursor-not-allowed opacity-50" : "",
+            className,
+          )}
+          style={style}
+        >
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            checked={isChecked}
+            name={name}
+            onChange={onChange}
+            ref={(node) => {
+              inputRef.current = node;
+              if (typeof ref === "function") ref(node);
+              else if (ref) (ref as any).current = node;
+            }}
+            disabled={disabled}
+            {...rest}
+          />
+          <span
+            aria-hidden
+            className={cn(
+              "w-4.5 h-4.5 shrink-0 rounded border flex items-center justify-center transition-colors",
+              "bg-white dark:bg-slate-700",
+              "border-slate-300 dark:border-slate-500",
+              "peer-checked:bg-primary peer-checked:border-primary",
+              "peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-400/40",
+              inputClassName,
+            )}
           >
-            <input
-              type="checkbox"
-              className={cn("hidden")}
-              checked={value}
-              name={name}
-              onChange={onChange}
-              ref={inputRef}
-              disabled={disabled}
+            <Icon
+              name="check"
+              fontSize={12}
+              strokeWidth={3}
+              className={cn("text-white transition-opacity", isChecked ? "opacity-100" : "opacity-0")}
             />
-            <span
-              className={cn(
-                "w-3.5 h-3.5 bg-slate-400 shadow-xl flex items-center justify-center rounded-full absolute top-1/2 left-0 transform  -translate-y-1/2 translate-x-0.5 transition-all",
-                {
-                  "translate-x-[calc(100%+2px)] bg-primary": value,
-                },
-              )}
-            />
-          </div>
-        </div>
+          </span>
+          {label ? (
+            <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>
+          ) : null}
+          {suffix}
+        </label>
         {name && errors?.[name]?.message && <p className="text-red-500 p-2">{errors?.[name]?.message as string}</p>}
       </div>
     );

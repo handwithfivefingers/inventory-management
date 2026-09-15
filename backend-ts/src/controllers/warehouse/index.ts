@@ -1,11 +1,27 @@
 import { WarehouseService } from '#/services/warehouse'
-import { IRequestHandler } from '#/types/common'
+import { IRequestHandler, IRequestLocal } from '#/types/common'
 import { getPagination } from '#/utils'
 export class WarehouseController {
+  async transferStock(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      // #swagger.tags = ['Warehouses']
+      // #swagger.summary = 'Transfer stock between two warehouses'
+      const resp = await new WarehouseService().transferStock(req as IRequestLocal)
+      res.status(200).json({ data: resp })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new WarehouseService().create(req.body)
+      // Tenant guard: a warehouse created without a vendorId would be invisible
+      // to vendor-scoped queries (transfers would 403 on it).
+      const body: any = { ...(req.body || {}) }
+      if (!body.vendorId) body.vendorId = (req.query as any)?.vendorId
+      const resp = await new WarehouseService().create(body)
       res.status(200).json({
         data: resp
       })

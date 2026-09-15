@@ -1,12 +1,12 @@
-import { useFetcher, useLoaderData, useOutletContext } from "@remix-run/react";
-import { useCallback, useMemo } from "react";
+import { useFetcher, useLoaderData, useOutletContext, useRevalidator } from "@remix-run/react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { IVendorSettings } from "~/action.server/setting.service";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { useTranslation } from "~/i18n";
-import { CheckboxInput } from "../checkbox-input";
+import { SwitchInput } from "../switch-input";
 import { CreatableSelectInput } from "../creatable-select-input";
 import { CreatableTagInput, Option } from "../creatable-tag-input";
 import { NumberStepper } from "../number-stepper";
@@ -25,6 +25,8 @@ export interface IVariantAttributeDraft {
 export interface IVariantDraft {
   variantId?: number | string;
   options: Record<string, string>;
+  /** Per-variant barcode extending the parent product barcode */
+  code?: string;
   skuCode?: number | string;
   quantity?: number | string;
   costPrice?: number | string;
@@ -189,6 +191,17 @@ export const VariantEditor = () => {
       className: "w-64",
     },
     {
+      title: t("product.barcode"),
+      dataIndex: "code",
+      render: (r: any) => (
+        <TextInput
+          value={(form.watch(`variants.${r.index}.code`) as string) || ""}
+          onChange={(e: any) => form.setValue(`variants.${r.index}.code`, e.target.value as any)}
+        />
+      ),
+      className: "w-40",
+    },
+    {
       title: t("product.sku"),
       dataIndex: "skuCode",
       render: (r: any) => (
@@ -215,7 +228,7 @@ export const VariantEditor = () => {
       title: t("product.allowNegative"),
       dataIndex: "isNegative",
       render: (r: any) => (
-        <CheckboxInput
+        <SwitchInput
           value={!!form.watch(`variants.${r.index}.isNegative`)}
           onChange={(e: any) => form.setValue(`variants.${r.index}.isNegative`, e.target.checked)}
         />
@@ -305,8 +318,35 @@ const AttributeVariant = () => {
   const { t } = useTranslation();
   const watchedAttrs: IVariantAttributeDraft[] = useWatch({ control: form.control, name: "variantAttributes" }) || [];
   const createAttrFetcher = useFetcher();
-  const createValueFetcher = useFetcher();
   const { submit, isLoading } = useSubmitPromise();
+  const revalidator = useRevalidator();
+
+  // Refetch the vendor attribute catalog (suggestedAttributes from the route
+  // loader) once a newly created attribute/value has been persisted, so the
+  // suggestions (globalMap) pick up the new entries without a page reload.
+  const wasCreatingAttr = useRef(false);
+  useEffect(() => {
+    if (createAttrFetcher.state !== "idle") {
+      wasCreatingAttr.current = true;
+      return;
+    }
+    if (wasCreatingAttr.current && createAttrFetcher.data) {
+      wasCreatingAttr.current = false;
+      revalidator.revalidate();
+    }
+  }, [createAttrFetcher.state, createAttrFetcher.data, revalidator.revalidate]);
+
+  const wasCreatingValue = useRef(false);
+  useEffect(() => {
+    if (isLoading) {
+      wasCreatingValue.current = true;
+      return;
+    }
+    if (wasCreatingValue.current) {
+      wasCreatingValue.current = false;
+      revalidator.revalidate();
+    }
+  }, [isLoading, revalidator.revalidate]);
 
   // Vendor-global attribute catalog: unique per vendor (Size {sm,md,lg}, Color {red,green})
   let vendorAttrs: { id: number | string; name: string; values: { id: number | string; value: string }[] }[] = [];
@@ -417,8 +457,8 @@ const AttributeVariant = () => {
           : [];
         const suggestions = getValueSuggestions(currentName, normalizedValue);
         return (
-          <div key={field.id} className="flex gap-2 items-end">
-            <div className="w-56">
+          <div key={field.id} className="flex flex-col sm:flex-row gap-2 sm:items-end">
+            <div className="w-full sm:w-56 shrink-0">
               <CreatableSelectInput
                 label={index === 0 ? t("product.attributeName") : undefined}
                 value={currentName || undefined}
@@ -488,10 +528,10 @@ const AttributeVariant = () => {
                       (o) => !existingLower.has(o.value.toLowerCase()) && !prevLower.has(o.value.toLowerCase()),
                     );
                     if (toCreate.length && createOption) {
-                      // createValueFetcher.submit(
-                      //   { values: JSON.stringify(toCreate.map((o) => o.value)), _action: "createValues" },
-                      //   { method: "POST", action: `/products/attributes/${attr.id}` },
-                      // );
+                      // Optimistically merge the new value into the local
+                      // suggestion map so it stays visible even before the
+                      // loader revalidation lands.
+                      globalMap[key] = [...(globalMap[key] || []), { label: createOption.label ?? createOption.value, value: createOption.value }];
                       submit(
                         { values: createOption.value, intent: "createValue" },
                         { method: "POST", action: `/products/attributes/${attr.id}` },

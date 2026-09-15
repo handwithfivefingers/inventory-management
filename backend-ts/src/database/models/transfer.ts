@@ -45,7 +45,7 @@ export class Transfer extends Model {
   @BelongsTo(() => Warehouse, { foreignKey: 'toWarehouseId', as: 'toWarehouse', onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare toWarehouse: Warehouse
 
-  @BelongsTo(() => Product, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
+  @BelongsTo(() => Product, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare product: Product
 
   @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })

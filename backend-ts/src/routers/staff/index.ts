@@ -1,9 +1,11 @@
 import StaffController from '#/controllers/staff'
 import express from 'express'
+import { staffCreateValidation, staffIdValidation, staffListValidation, staffUpdateValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
   '/',
+  staffListValidation as any,
   // #swagger.tags = ['Staff']
   // #swagger.summary = 'List staff'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -13,6 +15,7 @@ Router.get(
 )
 Router.get(
   '/:id',
+  staffIdValidation as any,
   // #swagger.tags = ['Staff']
   // #swagger.summary = 'Get staff by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -20,6 +23,7 @@ Router.get(
 )
 Router.post(
   '/',
+  staffCreateValidation as any,
   // #swagger.tags = ['Staff']
   // #swagger.summary = 'Create staff'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -29,6 +33,7 @@ Router.post(
 )
 Router.put(
   '/:id',
+  staffUpdateValidation as any,
   // #swagger.tags = ['Staff']
   // #swagger.summary = 'Update staff'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -37,6 +42,7 @@ Router.put(
 )
 Router.delete(
   '/:id',
+  staffIdValidation as any,
   // #swagger.tags = ['Staff']
   // #swagger.summary = 'Delete staff'
   // #swagger.security = [{ "bearerAuth": [] }]

@@ -7,6 +7,7 @@ import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { PermissionGuard } from "~/components/permission-guard";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -59,13 +60,16 @@ export default function Staff() {
   };
   return (
     <div className="w-full flex flex-col p-4 gap-4">
+      <PermissionGuard requireAdmin>
+        <CreateFab to="./add" label={t("staff.add")} />
+      </PermissionGuard>
       <CardItem title={t("staff.title")} className="p-4">
         <div className="py-2">
           <div className="flex gap-2">
             <TextInput label="Name" placeholder={t("staff.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <PermissionGuard requireAdmin>
-                <TMButton component={Link} to={"./add"} size="sm">
+                <TMButton component={Link} to={"./add"} size="sm" className="hidden sm:inline-flex">
                   <Icon name="plus" fontSize={16} />
                   {t("staff.add")}
                 </TMButton>
@@ -78,10 +82,10 @@ export default function Staff() {
             scrollable
             loading={isLoading}
             columns={[
-              { title: t("staff.stt"), dataIndex: "id", width: 80, render: (record, i) => Number(i) + 1 },
-              { title: t("staff.code"), dataIndex: "code" },
+              { title: t("staff.stt"), dataIndex: "id", width: 80, hideOnMobile: true, render: (record, i) => Number(i) + 1 },
+              { title: t("staff.code"), dataIndex: "code", hideOnMobile: true },
               { title: t("staff.fullName"), dataIndex: "fullName" },
-              { title: t("staff.phone"), dataIndex: "phone" },
+              { title: t("staff.phone"), dataIndex: "phone", hideOnMobile: true },
               { title: t("staff.roles"), dataIndex: "roles" },
               {
                 title: t("staff.status"),

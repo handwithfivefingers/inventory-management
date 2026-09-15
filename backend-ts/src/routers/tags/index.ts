@@ -1,9 +1,11 @@
 import { TagsController } from '#/controllers/tags'
 import express from 'express'
+import { tagCreateValidation, tagIdValidation, tagListValidation, tagUpdateValidation } from './validator'
 const route = express.Router()
 
 route.get(
   '/',
+  tagListValidation as any,
   // #swagger.tags = ['Tags']
   // #swagger.summary = 'List tags'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -12,6 +14,7 @@ route.get(
 )
 route.get(
   '/:id',
+  tagIdValidation as any,
   // #swagger.tags = ['Tags']
   // #swagger.summary = 'Get tag by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -19,6 +22,7 @@ route.get(
 )
 route.post(
   '/',
+  tagCreateValidation as any,
   // #swagger.tags = ['Tags']
   // #swagger.summary = 'Create tag'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -27,6 +31,7 @@ route.post(
 )
 route.post(
   '/:id',
+  tagUpdateValidation as any,
   // #swagger.tags = ['Tags']
   // #swagger.summary = 'Update tag'
   // #swagger.security = [{ "bearerAuth": [] }]

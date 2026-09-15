@@ -5,6 +5,7 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
@@ -44,6 +45,7 @@ export default function Products() {
   const { t } = useTranslation();
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <CreateFab to="./add" label={t("common.add")} />
       <CardItem
         title={
           <div className="flex items-start justify-between gap-4">
@@ -58,14 +60,14 @@ export default function Products() {
             </div>
           </div>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <div className="flex gap-2 shrink-0 p-1">
             <TextInput placeholder={t("tags.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <TMButton component={Link} to="./add" variant="light" size="sm">
+                <TMButton component={Link} to="./add" variant="light" size="sm" className="hidden sm:inline-flex">
                   <Icon name="plus" fontSize={16} />
                   {t("common.add")}
                 </TMButton>
@@ -83,6 +85,7 @@ export default function Products() {
                 {
                   title: t("common.createdAt"),
                   dataIndex: "createdAt",
+                  hideOnMobile: true,
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
               ]}

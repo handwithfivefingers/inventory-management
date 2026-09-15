@@ -18,6 +18,7 @@ import staff from './staff'
 import shift from './shift'
 import setting from './setting'
 import importOrder from './importOrder'
+import stocktake from './stocktake'
 // import qr from './qr'
 import { auth } from '#/middleware/authenticate'
 import authorize from '#/middleware/authorize'
@@ -45,6 +46,8 @@ router.use('/staff', auth, vendorGuard, authorize('staff'), staff)
 router.use('/shift', auth, vendorGuard, authorize('shift', { 'POST /close': 'U' }), shift)
 router.use('/settings', auth, vendorGuard, authorize('setting'), setting)
 router.use('/import-order', auth, vendorGuard, authorize('import-order'), importOrder)
+// Stocktake (đồng kiểm) is gated by the warehouse module - it mutates stock.
+router.use('/stocktake', auth, vendorGuard, authorize('warehouse'), stocktake)
 router.use('/permission', auth, vendorGuard, authorize('permission'), permission)
 // Canonical module catalog for role editors & permission sync status.
 // router.use('/qr', auth, qr)

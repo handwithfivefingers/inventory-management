@@ -1,9 +1,11 @@
 import { CategoriesController } from '#/controllers/categories'
 import express from 'express'
+import { categoryCreateValidation, categoryIdValidation, categoryListValidation, categoryUpdateValidation } from './validator'
 const route = express.Router()
 
 route.get(
   '/',
+  categoryListValidation as any,
   // #swagger.tags = ['Categories']
   // #swagger.summary = 'List categories'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -14,6 +16,7 @@ route.get(
 )
 route.get(
   '/:id',
+  categoryIdValidation as any,
   // #swagger.tags = ['Categories']
   // #swagger.summary = 'Get category by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -21,6 +24,7 @@ route.get(
 )
 route.post(
   '/',
+  categoryCreateValidation as any,
   // #swagger.tags = ['Categories']
   // #swagger.summary = 'Create category'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -30,6 +34,7 @@ route.post(
 )
 route.post(
   '/:id',
+  categoryUpdateValidation as any,
   // #swagger.tags = ['Categories']
   // #swagger.summary = 'Update category'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -38,6 +43,7 @@ route.post(
 )
 route.delete(
   '/:id',
+  categoryIdValidation as any,
   // #swagger.tags = ['Categories']
   // #swagger.summary = 'Delete category'
   // #swagger.security = [{ "bearerAuth": [] }]

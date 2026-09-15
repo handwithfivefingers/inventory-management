@@ -170,7 +170,7 @@ export class StatsService {
           ]
         ] as FindAttributeOptions,
         include: [
-          { model: database.product, attributes: [] },
+          { model: database.product, attributes: [], paranoid: false },
           {
             model: database.order,
             attributes: [],

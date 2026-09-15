@@ -6,9 +6,12 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
+import { CreateFab } from "~/components/layouts/create-fab";
+import { PermissionGuard } from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { getLoaderRequestQuery } from "~/libs/utils";
@@ -40,6 +43,9 @@ export default function Orders() {
   const { t } = useTranslation();
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <PermissionGuard permission="CREATE" module={MODULE_ENUM.order}>
+        <CreateFab to="./add" label={t("common.add")} />
+      </PermissionGuard>
       <CardItem
         title={
           <div className="flex items-start justify-between gap-4">
@@ -57,18 +63,20 @@ export default function Orders() {
         action={
           <div className="ml-auto block my-auto">
             <div className="flex gap-2 flex-wrap flex-row">
-              <TMButton component={Link} to={"./add"} size="sm">
-                <Icon name="plus" fontSize={16} />
-                <span>Thêm</span>
-              </TMButton>
-              <TMButton component={Link} size="sm">
+              <PermissionGuard permission="CREATE" module={MODULE_ENUM.order}>
+                <TMButton component={Link} to={"./add"} size="sm" className="hidden sm:inline-flex">
+                  <Icon name="plus" fontSize={16} />
+                  <span>Thêm</span>
+                </TMButton>
+              </PermissionGuard>
+              <TMButton component={Link} size="sm" className="hidden sm:inline-flex">
                 <Icon name="file-plus" fontSize={16} />
-                <span>Xuất Excel</span>
+                <span className="hidden sm:inline">Xuất Excel</span>
               </TMButton>
             </div>
           </div>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden p-1">
           <div className="flex shrink-0 gap-2 ">
@@ -82,6 +90,7 @@ export default function Orders() {
                   title: "STT",
                   dataIndex: "id",
                   width: 80,
+                  hideOnMobile: true,
                 },
                 {
                   title: "Tên khách hàng",
@@ -98,11 +107,13 @@ export default function Orders() {
                 {
                   title: "Nhân viên",
                   dataIndex: "staffName",
+                  hideOnMobile: true,
                   render: (record) => record["staffName"] || "Nhân viên",
                 },
                 {
                   title: "Ngày tạo",
                   dataIndex: "createdAt",
+                  hideOnMobile: true,
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
               ]}
@@ -113,7 +124,7 @@ export default function Orders() {
               }}
             />
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 gap-2 overflow-x-auto max-w-full">
             <TMPagination
               total={total || 0}
               current={page}

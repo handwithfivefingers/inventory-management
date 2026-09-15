@@ -5,6 +5,7 @@ import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { Icon } from "~/components/icon";
+import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { useTranslation } from "~/i18n";
@@ -28,6 +29,7 @@ export default function ProductAttributes() {
 
   return (
     <div className="w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
+      <CreateFab to="/products/attributes/add" label={t("common.add")} />
       <CardItem
         title={
           <div className="flex gap-3">
@@ -45,12 +47,12 @@ export default function ProductAttributes() {
           </div>
         }
         action={
-          <TMButton size="sm" component={Link} to="/products/attributes/add">
+          <TMButton size="sm" component={Link} to="/products/attributes/add" className="hidden sm:inline-flex">
             <Icon name="plus" fontSize={14} />
             {t("common.add")}
           </TMButton>
         }
-        className="flex flex-col w-full rounded-md dark:bg-slate-500 bg-white shadow-2xl shadow-slate-200 gap-2 dark:shadow-slate-600 p-5 sm:p-6 h-full"
+        className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
           <TMTable
@@ -67,7 +69,7 @@ export default function ProductAttributes() {
                 render: (r) => (
                   <div className="flex flex-wrap gap-1">
                     {(r.values || []).map((v: any) => (
-                      <span key={v.id} className="bg-slate-100 rounded px-1.5 py-0.5 text-xs">
+                      <span key={v.id} className="bg-slate-100 dark:bg-slate-700 rounded px-1.5 py-0.5 text-xs">
                         {v.value}
                       </span>
                     ))}

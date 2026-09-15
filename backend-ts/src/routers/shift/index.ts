@@ -1,5 +1,6 @@
 import ShiftController from '#/controllers/shift'
 import express from 'express'
+import { shiftCloseValidation, shiftCurrentValidation, shiftIdValidation, shiftOpenValidation } from './validator'
 const Router = express.Router()
 
 Router.get(
@@ -11,6 +12,7 @@ Router.get(
 )
 Router.get(
   '/current',
+  shiftCurrentValidation as any,
   // #swagger.tags = ['Shifts']
   // #swagger.summary = 'Get current shift'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -19,6 +21,7 @@ Router.get(
 )
 Router.get(
   '/:id',
+  shiftIdValidation as any,
   // #swagger.tags = ['Shifts']
   // #swagger.summary = 'Get shift by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -26,6 +29,7 @@ Router.get(
 )
 Router.post(
   '/open',
+  shiftOpenValidation as any,
   // #swagger.tags = ['Shifts']
   // #swagger.summary = 'Open a new shift'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -34,6 +38,7 @@ Router.post(
 )
 Router.post(
   '/:id/close',
+  shiftCloseValidation as any,
   // #swagger.tags = ['Shifts']
   // #swagger.summary = 'Close a shift'
   // #swagger.security = [{ "bearerAuth": [] }]

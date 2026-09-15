@@ -6,7 +6,7 @@ import { roleService } from "~/action.server/role.service";
 import { staffService } from "~/action.server/staff.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { CheckboxInput } from "~/components/form/checkbox-input";
+import { SwitchInput } from "~/components/form/switch-input";
 import { DatePicker } from "~/components/form/date-picker";
 import { FormControl } from "~/components/form/form-control";
 import { NumberInput } from "~/components/form/number-input";
@@ -208,7 +208,7 @@ export default function StaffAdd() {
                 <div className="flex-1">
                   <FormControl name="createAccount">
                     {(field) => (
-                      <CheckboxInput
+                      <SwitchInput
                         label={t("staff.createAccount") as string}
                         value={field.value as boolean}
                         onChange={(e: any) => field.onChange(e.target.checked)}
