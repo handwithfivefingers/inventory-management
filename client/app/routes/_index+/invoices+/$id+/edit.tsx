@@ -15,34 +15,33 @@ import { ICustomer } from "~/types/customer";
 import { IInvoiceItem, PaymentType } from "~/types/invoice";
 import { IProduct } from "~/types/product";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  // const { cookie, vendorId } = await parseCookieFromRequest(request);
 
   const [invoiceResp, customersResp, productsResp] = await Promise.all([
-    invoiceService.getInvoiceById({ id: params.id as string, cookie, vendorId }),
-    customerService.getCustomers({ cookie, vendorId, pageSize: "100" }),
-    productService.getProducts({ cookie, vendorId, pageSize: "100" }),
+    invoiceService.getInvoiceById(params.id as string),
+    customerService.getCustomers({ pageSize: "100" }),
+    productService.getProducts({ pageSize: "100" }),
   ]);
-
-  console.log("invoiceResp, customersResp, productsResp", invoiceResp, customersResp, productsResp);
+  // console.log("invoiceResp, customersResp, productsResp", invoiceResp, customersResp, productsResp);
   return {
     invoice: (invoiceResp.data as any)?.data ?? invoiceResp.data,
     customers: customersResp.data?.data ?? [],
     products: productsResp.data?.data ?? [],
   };
-};
+}
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request, params }: ActionFunctionArgs) {
+  // const { cookie, vendorId } = await parseCookieFromRequest(request);
   const data = await request.json();
 
   try {
-    await invoiceService.updateInvoice({ id: Number(params.id), cookie, vendorId, ...data });
+    await invoiceService.updateInvoice({ id: Number(params.id), ...data });
     return { ok: true };
   } catch (error: any) {
     return { error: error.message || "Cập nhật hóa đơn thất bại" };
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chỉnh sửa hóa đơn" }, { name: "description", content: "Chỉnh sửa hóa đơn" }];

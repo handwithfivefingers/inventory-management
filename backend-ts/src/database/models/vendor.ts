@@ -29,6 +29,34 @@ export class Vendor extends Model {
   @Column(DataType.STRING)
   declare niche: string
 
+  /**
+   * Registered legal name used on invoices/documents. Nullable: individual
+   * sellers / small shops may not have one. Document generation falls back
+   * to `name`, then to the owner's email (see SettingService).
+   */
+  @Column({ type: DataType.STRING, field: 'legal_name', allowNull: true })
+  declare legalName: string | null
+
+  @Column({ type: DataType.STRING, field: 'tax_number', allowNull: true })
+  declare taxNumber: string | null
+
+  @Column({ type: DataType.TEXT, allowNull: true })
+  declare address: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare email: string | null
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare phone: string | null
+
+  /**
+   * Custom prefix for generated invoice numbers (e.g. "HD", "INV-25").
+   * Nullable: falls back to the derived vendor code. Changing it only
+   * affects FUTURE invoices - issued numbers are immutable.
+   */
+  @Column({ type: DataType.STRING(20), field: 'invoice_series_prefix', allowNull: true })
+  declare invoiceSeriesPrefix: string | null
+
   @ForeignKey(() => User)
   @Column(DataType.INTEGER)
   declare userId: number

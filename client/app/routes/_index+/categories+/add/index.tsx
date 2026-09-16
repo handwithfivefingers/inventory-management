@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Link, redirect } from "@remix-run/react";
@@ -107,23 +107,21 @@ const CategoryForm = () => {
     </FormProvider>
   );
 };
-export const action = async ({ request }: any) => {
+export async function action({ request, context }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = await formData.get("data");
-    const dataJson = JSON.parse(data);
-    dataJson.vendorId = vendorId;
-    const resp = await categoryService.create({ ...dataJson, cookie });
+    const dataJson = JSON.parse(data as string);
+    dataJson.vendorId = context.vendorId;
+    const resp = await categoryService.create({ ...dataJson });
     if (resp.status === 200) {
-      // return Response.json(resp, { status: 200 });
       return redirect("/categories");
     }
     throw resp;
   } catch (error) {
     return Response.json({ error, status: 400 }, { status: 400 });
   }
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

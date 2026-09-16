@@ -8,6 +8,7 @@ import { ApiError } from '#/response'
 import { IRequestLocal } from '#/types/common'
 import { IWarehouseModel, IWarehouseStatic } from '#/types/warehouse'
 import { getPagination } from '#/utils'
+import { evictCachedEntity, getCachedEntity, setCachedEntity } from '#/utils/entity-cache'
 import { assertVendorAccess, getVendorScope } from '#/utils/tenant'
 import { FindAttributeOptions, Op, Optional, Sequelize, Transaction } from 'sequelize'
 
@@ -23,10 +24,7 @@ export class WarehouseService {
     const t = await this.sequelize.transaction()
     try {
       if (isMain === true && vendorId) {
-        await this.warehouse.update(
-          { isMain: false },
-          { where: { vendorId, isMain: true }, transaction: t }
-        )
+        await this.warehouse.update({ isMain: false }, { where: { vendorId, isMain: true }, transaction: t })
       }
       const builder = this.warehouse.build({
         name,
@@ -39,6 +37,8 @@ export class WarehouseService {
       const p = await builder.save({ transaction: t })
 
       await t.commit()
+      // Cache-Aside: prime `warehouse:<id>` after a successful DB write.
+      await setCachedEntity('warehouse', (p as any)?.id ?? (p as any)?.get?.('id'), p)
       return {
         warehouse: p
       }
@@ -76,16 +76,25 @@ export class WarehouseService {
   }
   async getWarehouseById({ id, vendorId }: Partial<IWarehouseModel>) {
     try {
-      const resp = await this.warehouse.findOne({
-        where: {
-          id,
-          vendorId
-        },
-        include: { model: database.inventory, attributes: [] },
-        attributes: {
-          include: [[this.sequelize.col('inventories.quantity'), 'quantity']]
-        }
-      })
+      // Cache-Aside on `warehouse:<id>`: Hit returns immediately, Miss loads
+      // from DB then populates Redis. The cached row still carries `vendorId`
+      // so the tenant filter below is re-checked on a Hit (no cross-vendor leak).
+      const resp: any = await getCachedEntity('warehouse', Number(id), () =>
+        this.warehouse.findOne({
+          where: {
+            id,
+            vendorId
+          },
+          include: { model: database.inventory, attributes: [] },
+          attributes: {
+            include: [[this.sequelize.col('inventories.quantity'), 'quantity']]
+          }
+        })
+      )
+      if (resp && vendorId != null && String(vendorId).trim() !== '') {
+        const rowVendorId = Number(resp?.vendorId ?? resp?.get?.('vendorId'))
+        if (Number.isFinite(rowVendorId) && rowVendorId !== Number(vendorId)) return null
+      }
       return resp
     } catch (error) {
       throw error
@@ -111,10 +120,7 @@ export class WarehouseService {
 
       // Enforce single main warehouse per vendor
       if (isMain === true) {
-        await this.warehouse.update(
-          { isMain: false },
-          { where: { vendorId, isMain: true }, transaction: t }
-        )
+        await this.warehouse.update({ isMain: false }, { where: { vendorId, isMain: true }, transaction: t })
       }
 
       const updatable: Partial<IWarehouseModel> = {}
@@ -126,6 +132,8 @@ export class WarehouseService {
 
       await warehouse.update(updatable, { transaction: t })
       await t.commit()
+      // DB succeeded first -> evict `warehouse:<id>` to avoid stale reads.
+      await evictCachedEntity('warehouse', Number(id))
       return warehouse
     } catch (error) {
       await t.rollback()

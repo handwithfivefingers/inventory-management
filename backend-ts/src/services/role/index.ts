@@ -2,6 +2,7 @@ import database from '#/database'
 import { ApiError } from '#/response'
 import { invalidateUsersByRoleId, invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { RoleStatic } from '#/types/role'
+import { evictCachedEntity, getCachedEntity, setCachedEntity } from '#/utils/entity-cache'
 import { NextFunction, Request, Response } from 'express'
 import { Op, Sequelize } from 'sequelize'
 
@@ -82,27 +83,41 @@ export class RoleService {
 
   /**
    * Get role by ID (permissions flattened, see getRoles).
+   * Cache-Aside on `role:<id>`: Hit returns immediately, Miss loads from DB
+   * then populates Redis. Tenant check runs on a Hit as well (global roles
+   * are visible to every vendor, vendor roles only to their owner).
    */
   async getRoleById({ id, vendorId }: { id: number; vendorId: number }): Promise<GetRoleByIdResponse> {
     try {
       // vendorId filter must allow global roles (vendorId IS NULL)
       const where: any = vendorId ? { id, [Op.or]: [{ vendorId }, { isGlobal: true }] } : { id }
       // if you want strict per-vendor: use { id, vendorId } instead
-      const role = await database.role.findOne({
-        where,
-        include: [
-          {
-            model: database.permission,
-            as: 'permissions',
-            attributes: ['id', 'name', 'method'],
-            through: { attributes: [] }
-          } as any
-        ]
-      })
+      const role: any = await getCachedEntity('role', Number(id), () =>
+        database.role.findOne({
+          where,
+          include: [
+            {
+              model: database.permission,
+              as: 'permissions',
+              attributes: ['id', 'name', 'method'],
+              through: { attributes: [] }
+            } as any
+          ]
+        })
+      )
       if (!role) {
         throw new Error('Role not found')
       }
-      return { ...role.toJSON() }
+      const plain = typeof role?.toJSON === 'function' ? role.toJSON() : { ...role }
+      // Re-validate scope on a cache Hit to avoid cross-vendor leaks via `role:<id>`.
+      if (vendorId) {
+        const rowVendorId = plain?.vendorId
+        const isGlobal = plain?.isGlobal === true
+        if (!isGlobal && rowVendorId != null && Number(rowVendorId) !== Number(vendorId)) {
+          throw new Error('Role not found')
+        }
+      }
+      return { ...plain }
     } catch (error) {
       throw ApiError.from(error, 400)
     }
@@ -167,6 +182,9 @@ export class RoleService {
 
       await t?.commit()
 
+      // Cache-Aside: prime `role:<id>` after a successful DB write.
+      await setCachedEntity('role', (_role as any)?.id, (_role as any)?.toJSON?.() ?? _role)
+
       return _role.toJSON() as Omit<GetRoleByIdResponse, 'permissions'>
     } catch (error) {
       await t?.rollback()
@@ -200,6 +218,9 @@ export class RoleService {
       try {
         await invalidateUsersByRoleId(Number(id))
       } catch {}
+
+      // DB succeeded first -> evict `role:<id>` to avoid stale reads.
+      await evictCachedEntity('role', Number(id))
 
       const updatedRole = await this.getRoleById({ id: Number(id), vendorId: Number(vendorId) })
       return updatedRole as GetRoleByIdResponse
@@ -244,6 +265,9 @@ export class RoleService {
       try {
         await invalidateUsersByRoleId(Number(role.id))
       } catch {}
+
+      // DB succeeded first -> evict `role:<id>` to avoid stale reads.
+      await evictCachedEntity('role', Number(role.id))
 
       return {
         message: 'Role deleted successfully'

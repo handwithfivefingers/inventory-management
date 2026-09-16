@@ -1,4 +1,4 @@
-import { HTTPService } from "~/http";
+import { HTTPService } from "~/http/index.server";
 import { BaseQueryParams, IResponse } from "~/types/common";
 import { IProduct, IProductAttribute, IProductDetails, IProductVariant } from "~/types/product";
 
@@ -28,116 +28,48 @@ interface IUpdateParams extends ICreateProductParams {
 }
 interface IGetParamsByID {
   id: string;
-  cookie: string;
-  warehouseId: string;
 }
 
 const http = HTTPService.getInstance();
 const productService = {
-  getProducts: ({ cookie, ...params }: IProductParams) => {
+  getProducts: ({ ...params }: IProductParams) => {
     const qs = new URLSearchParams(params);
-    return http.get<{ data: IProduct[]; total: number }>(API_PATH.products + "?" + qs.toString(), { Cookie: cookie });
+    return http.get<{ data: IProduct[]; total: number }>(API_PATH.products + "?" + qs.toString());
   },
-  getProductVariants: ({
-    id,
-    cookie,
-    ...params
-  }: {
-    id: string | number;
-    cookie: string;
-    warehouseId?: string;
-    vendorId?: string | number;
-  }) => {
+  getProductVariants: ({ id, ...params }: { id: string | number }) => {
     const qs = new URLSearchParams(params as any);
     const suffix = qs.toString() ? "?" + qs.toString() : "";
-    return http.get<{ data: IProductVariant[]; total: number }>(`${API_PATH.products}/${id}/variants${suffix}`, {
-      Cookie: cookie,
-    });
+    return http.get<{ data: IProductVariant[]; total: number }>(`${API_PATH.products}/${id}/variants${suffix}`);
   },
-  updateProduct: ({ id, warehouseId, cookie, vendorId, ...params }: IUpdateParams & { vendorId?: string | number }) => {
+  updateProduct: ({ id, ...params }: IUpdateParams) => {
     const paramsQS = new URLSearchParams();
-    if (warehouseId) paramsQS.set("warehouseId", `${warehouseId}`);
-    if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") paramsQS.set("vendorId", `${vendorId}`);
     const qs = paramsQS.toString() ? `?${paramsQS.toString()}` : "";
-    return http.put(`${API_PATH.products}/${id}${qs}`, params, { Cookie: cookie });
+    return http.put(`${API_PATH.products}/${id}`, params);
   },
-  getAttributes: ({ cookie, vendorId }: { cookie: string; vendorId?: string | number }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.get<{ data: IProductAttribute[] }>(`${API_PATH.products}/attributes${qs}`, {
-      Cookie: cookie,
-    });
+  getAttributes: () => {
+    return http.get<{ data: IProductAttribute[] }>(`${API_PATH.products}/attributes`, {});
   },
-  getAttributeById: ({
-    attributeId,
-    cookie,
-    vendorId,
-  }: {
-    attributeId: string | number;
-    cookie: string;
-    vendorId?: string | number;
-  }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.get<{ data: IProductAttribute }>(`${API_PATH.products}/attributes/${attributeId}${qs}`, {
-      Cookie: cookie,
-    });
+  getAttributeById: ({ attributeId }: { attributeId: string | number }) => {
+    return http.get<{ data: IProductAttribute }>(`${API_PATH.products}/attributes/${attributeId}`);
   },
-  createAttribute: ({
-    cookie,
-    vendorId,
-    name,
-    values,
-  }: {
-    cookie: string;
-    vendorId?: string | number;
-    name: string;
-    values?: string[];
-  }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.post(`${API_PATH.products}/attributes${qs}`, { name, values }, { Cookie: cookie });
+  createAttribute: ({ name, values }: { name: string; values?: string[] }) => {
+    return http.post(`${API_PATH.products}/attributes`, { name, values });
   },
-  updateAttribute: ({
-    attributeId,
-    cookie,
-    vendorId,
-    ...params
-  }: {
-    attributeId: string | number;
-    cookie: string;
-    vendorId?: string | number;
-    [key: string]: any;
-  }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.put(`${API_PATH.products}/attributes/${attributeId}${qs}`, params, {
-      Cookie: cookie,
-    });
+  updateAttribute: ({ attributeId, ...params }: { attributeId: string | number; [key: string]: any }) => {
+    return http.put(`${API_PATH.products}/attributes/${attributeId}`, params);
   },
-  deleteAttribute: ({
-    attributeId,
-    cookie,
-    vendorId,
-  }: {
-    attributeId: string | number;
-    cookie: string;
-    vendorId?: string | number;
-  }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.delete(`${API_PATH.products}/attributes/${attributeId}${qs}`, { Cookie: cookie });
+  deleteAttribute: ({ attributeId }: { attributeId: string | number }) => {
+    return http.delete(`${API_PATH.products}/attributes/${attributeId}`);
   },
 
-  getProductById: ({ id, warehouseId, cookie, vendorId }: IGetParamsByID & { vendorId?: string | number }) => {
-    const params = new URLSearchParams();
-    if (warehouseId) params.set("warehouseId", `${warehouseId}`);
-    if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") params.set("vendorId", `${vendorId}`);
-    const qs = params.toString();
-    return http.get<{ data: IProduct }>(API_PATH.products + "/" + id + (qs ? "?" + qs : ""), { Cookie: cookie });
+  getProductById: (id: string | number) => {
+    return http.get<{ data: IProduct }>(API_PATH.products + "/" + id);
   },
-  createProduct: ({ cookie, vendorId, ...params }: ICreateProductParams & { vendorId?: string | number }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.post(API_PATH.products + qs, params, { Cookie: cookie });
+  createProduct: (params: ICreateProductParams & { vendorId?: string | number }) => {
+    return http.post(API_PATH.products, params);
   },
-  importProduct: ({ cookie, vendorId, ...params }: any) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.post(`${API_PATH.products}/import${qs}`, params, { Cookie: cookie });
+  importProduct: (params: any) => {
+    return http.post(`${API_PATH.products}/import`, params);
   },
 };
 

@@ -49,6 +49,7 @@
     "shift": "Shift",
     "settings": "Settings",
     "generalSettings": "General",
+    "vendorSettings": "Shop profile",
     "payment": "Payment",
     "role": "Roles",
     "other": "Other",
@@ -361,6 +362,29 @@
   },
   "settings": {
     "moneyStep": "Money step (+/-)",
-    "moneyStepHint": "Applied to price +/- buttons. E.g. 1000 for VND"
+    "moneyStepHint": "Applied to price +/- buttons. E.g. 1000 for VND",
+    "vendor": {
+      "title": "Shop profile",
+      "subtitle": "Brand name, legal identity, tax info and invoice prefix",
+      "save": "Save profile",
+      "displayName": "Name on documents:",
+      "displayNameHint": "Legal name is used when set, otherwise the brand name.",
+      "identity": "Brand & legal identity",
+      "brandName": "Brand name",
+      "nameRequired": "Brand name is required",
+      "legalName": "Legal name (optional)",
+      "legalNameHint": "Registered name for invoices. Leave empty for individual sellers.",
+      "taxNumber": "Tax number",
+      "invoicePrefix": "Invoice series prefix",
+      "invoicePrefixHint": "Letters, digits and dashes only (max 20). Applies to future invoices only.",
+      "prefixInvalid": "Prefix may only contain letters, digits and dashes (max 20)",
+      "contact": "Contact",
+      "address": "Address",
+      "email": "Email",
+      "emailInvalid": "Email must be a valid email address",
+      "phone": "Phone",
+      "immutableNote": "Note: updating this profile never changes already-issued invoices — they keep the data from issue time.",
+      "readOnlyNote": "You can view this page but only managers can edit it."
+    }
   }
 }

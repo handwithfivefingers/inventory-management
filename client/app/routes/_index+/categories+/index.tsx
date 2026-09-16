@@ -1,28 +1,25 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { categoryService } from "~/action.server/category.service";
+import { LoaderArgs, withContext } from "~/action.server/context.server";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
-import { Icon } from "~/components/icon";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request, context }: LoaderArgs) {
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
   const pageSize = params.get("pageSize") || "10";
   const resp = await categoryService.get({
-    vendorId: vendorId as string,
     page,
     pageSize,
-    cookie,
   });
   return {
     data: resp.data?.data,
@@ -30,7 +27,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     page: Number(page),
     pageSize: Number(pageSize),
   };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Danh mục" }];

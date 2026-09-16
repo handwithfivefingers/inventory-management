@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, useFetcher, useNavigate } from "@remix-run/react";
-import { useState } from "react";
+import { Link, useFetcher, useNavigate, useOutletContext } from "@remix-run/react";
+import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
@@ -14,6 +14,7 @@ import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { parseCookieFromRequest } from "~/sessions";
 import { IProduct, IProductVariant } from "~/types/product";
+import { MainLayoutContext } from "../_layout";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Bán hàng (POS)" }];
@@ -25,6 +26,7 @@ export const meta: MetaFunction = () => {
  * inside ONE transaction (attemptCreateInvoice runs in the same tx).
  */
 export default function SellPage() {
+  const { setOpenSidebar } = useOutletContext<MainLayoutContext>();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const searchFetcher = useFetcher<{ data: { data: IProduct[] } }>({ key: "Products-Search" });
@@ -56,12 +58,13 @@ export default function SellPage() {
 
   const addLine = (
     currentValue: OrderDetailSchema[],
-    line: Omit<OrderDetailSchema, "quantity"> & { quantity?: number | string }
+    line: Omit<OrderDetailSchema, "quantity"> & { quantity?: number | string },
   ): OrderDetailSchema[] => {
     const result = { ...line, quantity: line.quantity ?? 1, buyPrice: Number(line.price) } as OrderDetailSchema;
     if (!currentValue.length) return [result];
     const index = currentValue.findIndex(
-      (cItem) => cItem.productId === result.productId && (cItem.variantId ?? undefined) === (result.variantId ?? undefined)
+      (cItem) =>
+        cItem.productId === result.productId && (cItem.variantId ?? undefined) === (result.variantId ?? undefined),
     );
     if (index === -1) {
       currentValue.push(result);
@@ -85,7 +88,7 @@ export default function SellPage() {
         name: `${variantTarget.name} (${(variant.attributeValues || []).map((v: any) => v.value).join(" / ")})`,
         price,
         note: "",
-      })
+      }),
     );
     setShowVariantPicker(false);
     setVariantTarget(null);
@@ -99,10 +102,15 @@ export default function SellPage() {
         addLine(form.getValues("orderDetails") || [], {
           productId: item.id,
           variantId: variant.id,
-          name: `${item.name} (${(variant.attributeValues || []).map((v: any) => v.value).filter(Boolean).join(" / ") || variant.skuCode})`,
+          name: `${item.name} (${
+            (variant.attributeValues || [])
+              .map((v: any) => v.value)
+              .filter(Boolean)
+              .join(" / ") || variant.skuCode
+          })`,
           price,
           note: "",
-        })
+        }),
       );
       return;
     }
@@ -119,7 +127,7 @@ export default function SellPage() {
         name: item.name,
         price: Number(item.regularPrice),
         note: "",
-      })
+      }),
     );
   };
 
@@ -127,7 +135,7 @@ export default function SellPage() {
     try {
       const resp = await submit<{ status: number; orderId?: number }>(
         { data: JSON.stringify({ ...v, channel: "POS" }) },
-        { method: "POST" }
+        { method: "POST" },
       );
       if (resp.status === 200 && resp.orderId) {
         toast.success({ title: "Success", message: "Thanh toán thành công" });
@@ -140,6 +148,13 @@ export default function SellPage() {
       toast.danger({ title: "Error", message: "Thanh toán thất bại" });
     }
   };
+
+  useEffect(() => {
+    setOpenSidebar(false);
+    return () => {
+      setOpenSidebar(true);
+    };
+  }, []);
 
   return (
     <FormProvider {...form}>
@@ -185,20 +200,22 @@ export default function SellPage() {
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
-  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
-  const params = { ...dataJson, channel: "POS", warehouseId, vendorId, cookie };
+  // const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
+  const params = { ...dataJson, channel: "POS" };
   const resp = await orderService.createOrder(params);
   if (resp.status === 200) {
+    // Backend POST /orders/create -> 200 { data: order }. HTTPService wraps as
+    // { data: backendJson, status }, so payload = { data: order }.
     const payload: any = (resp as any)?.data;
-    const order = payload?.data?.order ?? payload?.order;
+    const order = payload?.data?.order ?? payload?.data ?? payload?.order ?? payload;
     return Response.json({ orderId: order?.id, status: 200 });
   }
   return Response.json({ ...resp, status: 400 }, { status: 400 });
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

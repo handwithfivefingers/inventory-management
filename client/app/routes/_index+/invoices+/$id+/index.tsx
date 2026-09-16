@@ -1,5 +1,6 @@
 import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useRouteError } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData, useRouteError, useSearchParams } from "@remix-run/react";
+import { useEffect } from "react";
 import { invoiceService } from "~/action.server/invoice.service";
 import { TMButton } from "~/components/tm-button";
 import { PermissionGuard } from "~/components/permission-guard";
@@ -11,17 +12,15 @@ import { CardItem } from "~/components/card-item";
 import { Icon } from "~/components/icon";
 import { MODULE_ENUM } from "~/constants/modules";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
-  const resp = await invoiceService.getInvoiceById({ id: params.id as string, cookie, vendorId });
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  const resp = await invoiceService.getInvoiceById(params.id as string);
 
   return {
     invoice: (resp.data as any)?.data ?? resp.data,
   };
-};
+}
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const id = Number(formData.get("id"));
 
@@ -29,14 +28,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     await invoiceService.updateInvoiceStatus({
       id,
       status: formData.get("status") as any,
-      cookie,
-      vendorId,
     });
     return new Response(null, { status: 200 });
   } catch (error: any) {
     return { error: error.message || "Request failed" };
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chi tiết hóa đơn" }, { name: "description", content: "Chi tiết hóa đơn" }];
@@ -47,6 +44,7 @@ export default function InvoiceDetail() {
   const fetcher = useFetcher();
   const { t } = useTranslation();
   const data = invoice as IInvoice;
+  const [searchParams] = useSearchParams();
 
   const handleMarkAsPaid = () => {
     fetcher.submit({ id: String(data.id), status: "paid" }, { method: "post" });
@@ -58,6 +56,20 @@ export default function InvoiceDetail() {
   // QZ Tray device printing is disabled — browser print only.
   // NOTE (re-enable later): restore `handleDevicePrint` via
   // `printReceiptToDevice` + `loadPrinterSettings` (see git history).
+
+  // Support ?print=true (way B): auto-trigger browser print after the
+  // printable portal (ReceiptPrinter's Portal) has mounted and hydrated.
+  // The print helper itself waits for the portal DOM + injected print <style>
+  // before calling window.print(), so a blank snapshot never occurs.
+  useEffect(() => {
+    if (searchParams.get("print") === "true" && data?.id) {
+      // Defer one tick so ReceiptPrinter's Portal second commit + style injection complete.
+      const timer = window.setTimeout(() => {
+        void printInvoiceViaBrowser();
+      }, 400);
+      return () => window.clearTimeout(timer);
+    }
+  }, [searchParams, data?.id]);
 
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">

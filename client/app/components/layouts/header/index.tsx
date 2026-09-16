@@ -1,5 +1,5 @@
-import { useFetcher } from "@remix-run/react";
-import { AuthService } from "~/action.client/auth.service";
+import { Link, useFetcher } from "@remix-run/react";
+// import { AuthService } from "~/action.client/auth.service";
 import { Icon } from "~/components/icon";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { TMDropdown } from "~/components/tm-dropdown";
@@ -13,7 +13,7 @@ export const Header = () => {
   const { t } = useTranslation();
   const handleLogOut = async () => {
     useUser.getState().reset();
-    await AuthService.logout();
+    // await AuthService.logout();
     fetcher.submit({}, { method: "POST", action: "/api/auth" });
   };
   return (
@@ -24,6 +24,14 @@ export const Header = () => {
           <VendorWarehouseSwitcher />
         </div>
         <div className="ml-auto min-w-12 text-center rounded-sm flex gap-4 items-center">
+          <Link
+            to="/sell"
+            className="flex gap-2 items-center text-sm relative px-2 cursor-pointer hover:text-indigo-300"
+          >
+            <Icon name="package" className="w-4 h-4" />
+            <span>{t("header.sell")}</span>
+          </Link>
+
           {/* <Link
             to="/sell"
             className="flex gap-2 items-center text-sm relative px-2 cursor-pointer hover:text-indigo-300"

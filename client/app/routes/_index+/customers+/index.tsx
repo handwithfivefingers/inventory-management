@@ -18,8 +18,8 @@ interface IFilter {
   s?: string;
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
+export async function loader({ request }: LoaderFunctionArgs) {
+  // const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -27,11 +27,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const search = params.get("s") || "";
 
   const resp = await customerService.getCustomers({
-    vendorId,
+    // vendorId,
+    // cookie,
     page,
     pageSize,
     search,
-    cookie,
   } as any);
 
   return {
@@ -41,20 +41,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     page: Number(page),
     pageSize: Number(pageSize),
   };
-};
+}
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
+export async function action({ request }: ActionFunctionArgs) {
+  // const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const formData = await request.formData();
   const id = Number(formData.get("id"));
 
   try {
-    await customerService.deleteCustomer({ id, cookie, vendorId });
+    await customerService.deleteCustomer(id);
     return new Response(null, { status: 200 });
   } catch (error: any) {
     return { error: error.message || "Delete failed" };
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Khách hàng" }, { name: "description", content: "Quản lý khách hàng" }];

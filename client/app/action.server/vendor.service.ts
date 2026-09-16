@@ -1,4 +1,4 @@
-import { HTTPService } from "~/http";
+import { HTTPService } from "~/http/index.server";
 import { IVendor } from "~/types/vendor";
 
 const API_PATH = {

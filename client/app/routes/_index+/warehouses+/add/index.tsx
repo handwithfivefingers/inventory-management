@@ -13,7 +13,7 @@ import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { warehouseSchema, WarehouseSchema } from "~/constants/schema/warehouse";
 import { useSubmitPromise } from "~/hooks";
-import { ResponseError } from "~/http";
+import { ResponseError } from "~/http/index.server";
 import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 
@@ -127,9 +127,7 @@ export default function WarehouseAdd() {
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                         {t("warehouses.isMain")}
                       </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        {t("warehouses.isMainHint")}
-                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t("warehouses.isMainHint")}</p>
                     </div>
                     <FormControl name="isMain" className="!gap-0">
                       {(field) => (

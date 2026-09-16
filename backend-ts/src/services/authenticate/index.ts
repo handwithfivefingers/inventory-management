@@ -10,6 +10,7 @@ import Warehouse from '#/database/models/warehouse'
 import { ApiError } from '#/response'
 import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { IStaffModel } from '#/types/staff'
+import { evictCachedEntity, getCachedEntity } from '#/utils/entity-cache'
 import bcrypt from 'bcryptjs'
 import { Sequelize, Transaction } from 'sequelize'
 
@@ -36,52 +37,65 @@ interface LoginResponse {
 export default class AuthenticateService {
   sequelize: Sequelize = database.sequelize
   constructor() {}
+  /**
+   * Get user by id (Cache-Aside on `user:<id>`).
+   * The FINAL transformed payload is cached (not the Sequelize instance) so
+   * a Hit returns the exact same shape without relying on VIRTUAL/`parsed`
+   * getters that are lost in the JSON round-trip.
+   */
   async get(id: number): Promise<any> {
     try {
-      const user: any = await User.findByPk(id, {
-        include: [
-          {
-            model: Staff,
-            include: [
-              {
-                model: Role,
-                attributes: {
-                  exclude: ['createdAt', 'updatedAt', 'description']
+      return await getCachedEntity('user', Number(id), async () => {
+        const user: any = await User.findByPk(id, {
+          include: [
+            {
+              model: Staff,
+              include: [
+                {
+                  model: Role,
+                  attributes: {
+                    exclude: ['createdAt', 'updatedAt', 'description']
+                  },
+                  include: {
+                    model: Permission,
+                    as: 'permissions',
+                    attributes: ['id', 'name', 'method'],
+                    through: { attributes: [] }
+                  } as any
                 },
-                include: {
-                  model: Permission,
-                  as: 'permissions',
-                  attributes: ['id', 'name', 'method'],
-                  through: { attributes: [] }
-                } as any
-              },
-              {
-                model: Vendor,
-                as: 'vendors',
-                include: {
-                  model: Warehouse
-                } as any
-              }
-            ]
-          }
-        ],
-        attributes: {
-          exclude: ['createdAt', 'updatedAt']
-        },
-        logging: console.log
-      })
-      if (!user) throw new Error(ERROR.USR_NOT_VALID)
-      const staff = user.staff
-      const vendors = staff.vendors.map((v: Vendor & { warehouses: Warehouse[] }) => ({
-        id: v.id,
-        name: v.name,
-        warehouses: v?.warehouses?.map((w: Warehouse) => ({
-          id: w.id,
-          name: w.name,
-          isMain: w.isMain
+                {
+                  model: Vendor,
+                  as: 'vendors',
+                  include: {
+                    model: Warehouse
+                  } as any
+                }
+              ]
+            }
+          ],
+          attributes: {
+            exclude: ['createdAt', 'updatedAt']
+          },
+          logging: console.log
+        })
+        if (!user) throw new Error(ERROR.USR_NOT_VALID)
+        const staff = user.staff ?? user.get?.('staff')
+        const parsed = user.parsed ?? user.get?.('parsed') ?? { id: user.id ?? user.get?.('id') }
+        const staffParsed =
+          (staff as any)?.parsed ??
+          (typeof (staff as any)?.get === 'function' ? (staff as any).get('parsed') : undefined) ??
+          staff
+        const vendors = (staff?.vendors ?? []).map((v: Vendor & { warehouses: Warehouse[] }) => ({
+          id: (v as any).id ?? (v as any).get?.('id'),
+          name: (v as any).name ?? (v as any).get?.('name'),
+          warehouses: (v as any)?.warehouses?.map((w: Warehouse) => ({
+            id: (w as any).id ?? (w as any).get?.('id'),
+            name: (w as any).name ?? (w as any).get?.('name'),
+            isMain: (w as any).isMain ?? (w as any).get?.('isMain')
+          }))
         }))
-      }))
-      return { ...user.parsed, ...staff.parsed, vendors, role: user.staff.role } as LoginResponse
+        return { ...parsed, ...staffParsed, vendors, role: (staff as any)?.role } as LoginResponse
+      })
     } catch (error) {
       throw ApiError.from(error, 400)
     }
@@ -237,7 +251,10 @@ export default class AuthenticateService {
       try {
         const found: any = await User.findOne({ where: { email } })
         if (found) {
-          await invalidateUserAuthCache(Number(found.get ? found.get('id') : found.id))
+          const foundId = Number(found.get ? found.get('id') : found.id)
+          await invalidateUserAuthCache(foundId)
+          // DB unchanged here, but the explicit clear must also drop `user:<id>`.
+          await evictCachedEntity('user', foundId)
         }
       } catch {}
     } catch (error) {

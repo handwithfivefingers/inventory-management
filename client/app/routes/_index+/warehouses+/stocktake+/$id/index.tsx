@@ -13,14 +13,13 @@ import { TMTable } from "~/components/tm-table";
 import { cn } from "~/libs/utils";
 import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
   if (!id) throw new Error("Không tìm thấy phiên kiểm kho");
-  const resp = await stocktakeService.getById({ id, cookie, vendorId });
+  const resp = await stocktakeService.getById(id);
   const session: any = (resp.data as any)?.data;
   return { session };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Phiên kiểm kho" }];
@@ -65,7 +64,8 @@ export default function StocktakeSession() {
     .filter((l) => counts[l.id] !== undefined || notes[l.id] !== undefined)
     .map((l) => ({
       id: l.id,
-      actualQuantity: counts[l.id] !== undefined ? (counts[l.id] === "" ? null : Number(counts[l.id])) : l.actualQuantity,
+      actualQuantity:
+        counts[l.id] !== undefined ? (counts[l.id] === "" ? null : Number(counts[l.id])) : l.actualQuantity,
       note: notes[l.id] !== undefined ? notes[l.id] : l.note,
     }));
 
@@ -121,7 +121,12 @@ export default function StocktakeSession() {
                   </div>
                 ),
               },
-              { title: "Tồn hệ thống", dataIndex: "expectedQuantity", width: 110, render: (r: Line) => r.expectedQuantity },
+              {
+                title: "Tồn hệ thống",
+                dataIndex: "expectedQuantity",
+                width: 110,
+                render: (r: Line) => r.expectedQuantity,
+              },
               {
                 title: "Thực tế",
                 dataIndex: "actualQuantity",
@@ -130,10 +135,12 @@ export default function StocktakeSession() {
                   isOpen ? (
                     <NumberInput
                       value={getValue(r)}
-                      onValueChange={(v: any) => setCounts((prev) => ({ ...prev, [r.id]: v.value != null ? String(v.value) : "" }))}
+                      onValueChange={(v: any) =>
+                        setCounts((prev) => ({ ...prev, [r.id]: v.value != null ? String(v.value) : "" }))
+                      }
                     />
                   ) : (
-                    (r.actualQuantity ?? "—")
+                    r.actualQuantity ?? "—"
                   ),
               },
               {
@@ -144,7 +151,12 @@ export default function StocktakeSession() {
                   const v = varianceOf(r);
                   if (v === null) return <span className="text-slate-300">—</span>;
                   return (
-                    <span className={cn("font-medium", v > 0 ? "text-green-600" : v < 0 ? "text-red-600" : "text-slate-500")}>
+                    <span
+                      className={cn(
+                        "font-medium",
+                        v > 0 ? "text-green-600" : v < 0 ? "text-red-600" : "text-slate-500",
+                      )}
+                    >
                       {v > 0 ? `+${v}` : v}
                     </span>
                   );
@@ -160,7 +172,7 @@ export default function StocktakeSession() {
                       onChange={(e: any) => setNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
                     />
                   ) : (
-                    (r.note || "—")
+                    r.note || "—"
                   ),
               },
             ]}
@@ -179,7 +191,13 @@ export default function StocktakeSession() {
               <TMButton variant="ghost" size="sm" onClick={() => navigate("/warehouses/stocktake")}>
                 Đóng
               </TMButton>
-              <TMButton variant="outline" size="sm" disabled={!dirtyLines.length} loading={fetcher.state !== "idle"} onClick={handleSave}>
+              <TMButton
+                variant="outline"
+                size="sm"
+                disabled={!dirtyLines.length}
+                loading={fetcher.state !== "idle"}
+                onClick={handleSave}
+              >
                 <Icon name="save" fontSize={14} />
                 Lưu tạm
               </TMButton>
@@ -195,30 +213,29 @@ export default function StocktakeSession() {
   );
 }
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+export async function action({ request, params }: ActionFunctionArgs) {
   const { id } = params;
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
   try {
     if (intent === "save") {
       const data = JSON.parse((formData.get("data") as string) || "{}");
-      await stocktakeService.updateLines({ id: id as string, cookie, vendorId, lines: data.lines || [] });
+      await stocktakeService.updateLines({ id: id as string, lines: data.lines || [] });
       return Response.json({ success: true, message: "Đã lưu số kiểm" });
     }
     if (intent === "complete") {
       const data = JSON.parse((formData.get("data") as string) || "{}");
       if (data.lines?.length) {
-        await stocktakeService.updateLines({ id: id as string, cookie, vendorId, lines: data.lines });
+        await stocktakeService.updateLines({ id: id as string, lines: data.lines });
       }
-      await stocktakeService.complete({ id: id as string, cookie, vendorId });
+      await stocktakeService.complete(id as string);
       return Response.json({ success: true, message: "Đã hoàn tất kiểm kho", completed: true });
     }
     return Response.json({ success: false, error: "Hành động không hợp lệ" }, { status: 400 });
   } catch (error: any) {
     return Response.json({ success: false, error: error?.message || "Thất bại" }, { status: 400 });
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

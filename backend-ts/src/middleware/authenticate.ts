@@ -35,8 +35,6 @@ const auth: any = async (req: IRequestLocal, res: Response, next: NextFunction) 
       roles: context.roles,
       vendorId: context.vendorIds[0] ?? null
     }
-    console.log('---------- Auth Guard Middleware next')
-
     next()
   } catch (error) {
     console.log('---------- Auth Guard Middleware catched')

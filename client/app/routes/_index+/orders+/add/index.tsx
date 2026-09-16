@@ -3,7 +3,7 @@ import { useFetcher, useNavigate, useOutletContext } from "@remix-run/react";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { orderService } from "~/action.server/order.service";
-import { IVendorSettings } from "~/action.server/setting.service";
+import type { IVendorSettings } from "~/types/setting";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { OrderForm } from "~/components/form/order-form";
@@ -11,11 +11,7 @@ import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
-import {
-  OrderDetailSchema,
-  OrderSchema,
-  orderSchema,
-} from "~/constants/schema/order";
+import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
@@ -89,7 +85,7 @@ export default function OrderItem() {
 
   const addLine = (
     currentValue: OrderDetailSchema[],
-    line: Omit<OrderDetailSchema, "quantity"> & { quantity?: number | string }
+    line: Omit<OrderDetailSchema, "quantity"> & { quantity?: number | string },
   ): OrderDetailSchema[] => {
     const result = {
       ...line,
@@ -99,8 +95,7 @@ export default function OrderItem() {
     if (!currentValue.length) return [result];
     const index = currentValue.findIndex(
       (cItem) =>
-        cItem.productId === result.productId &&
-        (cItem.variantId ?? undefined) === (result.variantId ?? undefined)
+        cItem.productId === result.productId && (cItem.variantId ?? undefined) === (result.variantId ?? undefined),
     );
     if (index === -1) {
       currentValue.push(result);
@@ -121,12 +116,10 @@ export default function OrderItem() {
       addLine(form.getValues("orderDetails") || [], {
         productId: variantTarget.id,
         variantId: variant.id,
-        name: `${variantTarget.name} (${(variant.attributeValues || [])
-          .map((v: any) => v.value)
-          .join(" / ")})`,
+        name: `${variantTarget.name} (${(variant.attributeValues || []).map((v: any) => v.value).join(" / ")})`,
         price,
         note: "",
-      })
+      }),
     );
     setShowVariantPicker(false);
     setVariantTarget(null);
@@ -134,9 +127,7 @@ export default function OrderItem() {
 
   const handleAdd = (item: IProduct, variant?: IProductVariant) => {
     if (variant) {
-      const price = Number(
-        variant.salePrice ?? variant.regularPrice ?? item.regularPrice ?? 0
-      );
+      const price = Number(variant.salePrice ?? variant.regularPrice ?? item.regularPrice ?? 0);
       form.setValue(
         "orderDetails",
         addLine(form.getValues("orderDetails") || [], {
@@ -150,7 +141,7 @@ export default function OrderItem() {
           })`,
           price,
           note: "",
-        })
+        }),
       );
       return;
     }
@@ -158,10 +149,7 @@ export default function OrderItem() {
     if (Number((item as any).variantCount) > 0) {
       setVariantTarget(item);
       setShowVariantPicker(true);
-      variantsFetcher.submit(
-        { variantOf: String(item.id) },
-        { method: "POST", action: "/products" }
-      );
+      variantsFetcher.submit({ variantOf: String(item.id) }, { method: "POST", action: "/products" });
       return;
     }
     form.setValue(
@@ -171,7 +159,7 @@ export default function OrderItem() {
         name: item.name,
         price: Number(item.regularPrice),
         note: "",
-      })
+      }),
     );
   };
 
@@ -184,7 +172,7 @@ export default function OrderItem() {
       };
       const resp = await submit<{ status: number; orderId?: number; invoiceId?: number }>(
         { data: JSON.stringify(params) },
-        { method: "POST" }
+        { method: "POST" },
       );
       console.log("onSubmit Create Order", resp);
       if (resp.status === 200 && resp.orderId) {
@@ -207,10 +195,7 @@ export default function OrderItem() {
   const orderDetails = form.watch("orderDetails") as OrderDetailSchema[];
   const watchSurcharge = form.watch("surcharge");
   const watchVAT = form.watch("VAT");
-  const tempSubtotal = (orderDetails || []).reduce(
-    (sum, item) => sum + Number(item?.buyPrice || 0),
-    0
-  );
+  const tempSubtotal = (orderDetails || []).reduce((sum, item) => sum + Number(item?.buyPrice || 0), 0);
   const tempVatAmount = (tempSubtotal * Number(watchVAT || 0)) / 100;
   const tempTotal = tempSubtotal + Number(watchSurcharge || 0) + tempVatAmount;
 
@@ -242,18 +227,10 @@ export default function OrderItem() {
                   <table className="w-full min-w-[520px] text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="p-2 text-left">
-                          {t("importOrder.product")}
-                        </th>
-                        <th className="p-2 w-24 text-right">
-                          {t("importOrder.quantity")}
-                        </th>
-                        <th className="p-2 w-32 text-right">
-                          {t("importOrder.price")}
-                        </th>
-                        <th className="p-2 w-32 text-right">
-                          {t("importOrder.total")}
-                        </th>
+                        <th className="p-2 text-left">{t("importOrder.product")}</th>
+                        <th className="p-2 w-24 text-right">{t("importOrder.quantity")}</th>
+                        <th className="p-2 w-32 text-right">{t("importOrder.price")}</th>
+                        <th className="p-2 w-32 text-right">{t("importOrder.total")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -261,12 +238,8 @@ export default function OrderItem() {
                         <tr key={index} className="border-t">
                           <td className="p-2">{item.name}</td>
                           <td className="p-2 text-right">{item.quantity}</td>
-                          <td className="p-2 text-right">
-                            {formatCurrency(item.price)}
-                          </td>
-                          <td className="p-2 text-right">
-                            {formatCurrency(item.buyPrice)}
-                          </td>
+                          <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                          <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -276,46 +249,33 @@ export default function OrderItem() {
                   <div className="w-full sm:w-72 sm:ml-auto space-y-2">
                     <div className="flex justify-between">
                       <span>{t("invoices.detail.subtotalLabel")}</span>
-                      <span className="font-medium">
-                        {formatCurrency(tempSubtotal)}
-                      </span>
+                      <span className="font-medium">{formatCurrency(tempSubtotal)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t("invoices.detail.surcharge")}</span>
-                      <span className="font-medium">
-                        {formatCurrency(watchSurcharge || 0)}
-                      </span>
+                      <span className="font-medium">{formatCurrency(watchSurcharge || 0)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>
                         {t("importOrder.VAT")} ({Number(watchVAT || 0)}%)
                       </span>
-                      <span className="font-medium">
-                        {formatCurrency(tempVatAmount)}
-                      </span>
+                      <span className="font-medium">{formatCurrency(tempVatAmount)}</span>
                     </div>
                     <div className="flex justify-between text-lg font-bold border-t pt-2">
                       <span>{t("importOrder.totalPayable")}</span>
-                      <span className="text-blue-600">
-                        {formatCurrency(tempTotal)}
-                      </span>
+                      <span className="text-blue-600">{formatCurrency(tempTotal)}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end no-print">
-                  <TMButton
-                    variant="outline"
-                    onClick={() => setShowTempInvoice(false)}
-                  >
+                  <TMButton variant="outline" onClick={() => setShowTempInvoice(false)}>
                     {t("common.cancel")}
                   </TMButton>
                   <TMButton variant="outline" onClick={() => window.print()}>
                     🖨 {t("common.print", { defaultValue: "Print" })}
                   </TMButton>
                 </div>
-                <p className="text-xs text-gray-400 text-center">
-                  {t("orders.tempInvoiceNotice")}
-                </p>
+                <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
               </div>
             </CardItem>
           )}
@@ -327,12 +287,8 @@ export default function OrderItem() {
                     <Icon name="shopping-cart" fontSize={20} />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
-                      Tạo đơn hàng
-                    </h2>
-                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
-                      Tạo đơn hàng mới
-                    </p>
+                    <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Tạo đơn hàng</h2>
+                    <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Tạo đơn hàng mới</p>
                   </div>
                 </div>
                 <TMButton
@@ -377,33 +333,25 @@ export default function OrderItem() {
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
-  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(
-    request
-  );
-  const params = {
-    ...dataJson,
-    warehouseId,
-    vendorId,
-    cookie,
-  };
-  const resp = await orderService.createOrder(params);
+  const resp = await orderService.createOrder(dataJson);
   if (resp.status === 200) {
+    // Backend POST /orders/create -> 200 { data: order } (OrderService.create
+    // returns the Sequelize Order directly; POS auto-invoice runs in the same
+    // tx but its return value is discarded, WHOLESALE has no auto-invoice).
     const payload: any = (resp as any)?.data;
-    // Backend: { data: { order, invoice, invoiceError } }
-    const order = payload?.data?.order ?? payload?.order;
-    const invoice = payload?.data?.invoice ?? payload?.invoice;
+    const order = payload?.data?.order ?? payload?.data ?? payload?.order ?? payload;
     return Response.json({
       orderId: order?.id,
-      invoiceId: invoice?.id ?? null,
+      invoiceId: null,
       status: 200,
     });
   }
   return Response.json({ ...resp, status: 400 }, { status: 400 });
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

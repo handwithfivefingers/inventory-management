@@ -12,6 +12,7 @@ import { ApiError } from '#/response'
 import { IRequestLocal } from '#/types/common'
 import { getPagination } from '#/utils'
 import { applyCodeFormat, generateSkuFromTemplate, getCodeFormat, padSeq } from '#/utils/code-generator'
+import { evictCachedEntity, getCachedEntity, setCachedEntity } from '#/utils/entity-cache'
 import { nextSequence } from '#/utils/sequence'
 import { assertVendorAccess, assertWarehouseAccess, getVendorScope } from '#/utils/tenant'
 import { buildVariantSkuWithTemplate } from '#/utils/variant'
@@ -272,6 +273,8 @@ export class ProductService {
             .build({ fromWarehouseId: warehouseId, quantity: qty, productId: (_prod as any).id, type: '0' })
             .save({ transaction: t })
           await t.commit()
+          // Cache-Aside: prime `product:<id>` after a successful DB write.
+          await setCachedEntity('product', (_prod as any)?.id, (_prod as any)?.dataValues ?? _prod)
           return {
             product: (_prod as any).dataValues,
             inventory: (inv as any).dataValues,
@@ -281,6 +284,8 @@ export class ProductService {
         }
       }
       await t.commit()
+      // Cache-Aside: prime `product:<id>` after a successful DB write.
+      await setCachedEntity('product', (_prod as any)?.id, (_prod as any)?.dataValues ?? _prod)
       return { product: (_prod as any).dataValues, variants: createdVariants }
 
       // const hasVariants = hasVariantAttributes
@@ -909,52 +914,56 @@ export class ProductService {
       if (rawVendorId != null && String(rawVendorId).trim() !== '') {
         assertVendorAccess(scope, Number(rawVendorId), 'Unauthorized vendor filter')
       }
-      const product: any = await (database as any).product.findOne({
-        where: {
-          id: params.id
-        },
-        include: [
-          { model: Inventory, attributes: [] },
-          {
-            model: Category,
-            attributes: ['id', 'name'],
-            through: {
-              attributes: []
-            }
+      // Cache-Aside on `product:<id>`: Hit returns immediately, Miss loads
+      // from DB then populates Redis. Tenant checks below still run on a Hit.
+      const product: any = await getCachedEntity('product', Number(params.id), () =>
+        (database as any).product.findOne({
+          where: {
+            id: params.id
           },
-          {
-            model: Tag,
-            attributes: ['id', 'name'],
-            through: {
-              attributes: []
-            }
-          },
-          {
-            model: Unit,
-            attributes: ['id', 'name']
-          },
-          {
-            model: ProductVariant,
-            as: 'variants',
-            include: [
-              {
-                model: ProductAttributeValue,
-                as: 'attributeValues',
-                attributes: ['id', 'value', 'attributeId'],
-                through: { attributes: [] },
-                include: [{ model: database.productAttribute, attributes: ['id', 'name'] }]
+          include: [
+            { model: Inventory, attributes: [] },
+            {
+              model: Category,
+              attributes: ['id', 'name'],
+              through: {
+                attributes: []
               }
+            },
+            {
+              model: Tag,
+              attributes: ['id', 'name'],
+              through: {
+                attributes: []
+              }
+            },
+            {
+              model: Unit,
+              attributes: ['id', 'name']
+            },
+            {
+              model: ProductVariant,
+              as: 'variants',
+              include: [
+                {
+                  model: ProductAttributeValue,
+                  as: 'attributeValues',
+                  attributes: ['id', 'value', 'attributeId'],
+                  through: { attributes: [] },
+                  include: [{ model: database.productAttribute, attributes: ['id', 'name'] }]
+                }
+              ]
+            }
+          ],
+          attributes: {
+            include: [
+              [database.sequelize.col('inventories.quantity'), 'quantity'],
+              [database.sequelize.col('unit.id'), 'unitId'],
+              [database.sequelize.col('unit.name'), 'unitName']
             ]
           }
-        ],
-        attributes: {
-          include: [
-            [database.sequelize.col('inventories.quantity'), 'quantity'],
-            [database.sequelize.col('unit.id'), 'unitId'],
-            [database.sequelize.col('unit.name'), 'unitName']
-          ]
-        }
-      })
+        })
+      )
       if (!product) return product
       const productVendorId = Number((product as any).vendorId ?? (product.get ? product.get('vendorId') : undefined))
       assertVendorAccess(scope, productVendorId, 'Unauthorized to view this product')
@@ -1051,15 +1060,14 @@ export class ProductService {
       })
       const storedType = Number(product.type ?? product.get?.('type') ?? (existingVariantCount > 0 ? 1 : 0))
       const nextType =
-        body.type !== undefined && body.type !== null && String(body.type) !== ''
-          ? Number(body.type)
-          : storedType
+        body.type !== undefined && body.type !== null && String(body.type) !== '' ? Number(body.type) : storedType
       if (![0, 1, 2].includes(nextType)) throw new Error('Invalid type: must be 0 (simple), 1 (variant) or 2 (combo)')
 
       const warehouseIdRaw = body.warehouseId ?? query.warehouseId
-      const warehouseId = warehouseIdRaw !== undefined && warehouseIdRaw !== null && String(warehouseIdRaw) !== ''
-        ? Number(warehouseIdRaw)
-        : null
+      const warehouseId =
+        warehouseIdRaw !== undefined && warehouseIdRaw !== null && String(warehouseIdRaw) !== ''
+          ? Number(warehouseIdRaw)
+          : null
       if (warehouseId) await assertWarehouseAccess(warehouseId, scope)
 
       // Base fields whitelist (unit accepts `unit` alias from the client form)
@@ -1144,6 +1152,8 @@ export class ProductService {
       // Combo (2): base fields only; variant payload intentionally ignored.
 
       await t.commit()
+      // DB succeeded first -> evict `product:<id>` to avoid stale reads.
+      await evictCachedEntity('product', productId)
       return await (database as any).product.findOne({
         where: { id: productId },
         include: [
@@ -1200,12 +1210,14 @@ export class ProductService {
     })
     // Include soft-deleted SKUs/codes so auto-generation never violates the
     // DB unique [productId, skuCode] occupied by a paranoid-deleted row.
-    const deletedVariants: any[] = await (database as any).productVariant.findAll({
-      where: { productId },
-      paranoid: false,
-      attributes: ['skuCode', 'code', 'deletedAt'],
-      transaction: t
-    }).then((rows: any[]) => rows.filter((r: any) => r.get?.('deletedAt')))
+    const deletedVariants: any[] = await (database as any).productVariant
+      .findAll({
+        where: { productId },
+        paranoid: false,
+        attributes: ['skuCode', 'code', 'deletedAt'],
+        transaction: t
+      })
+      .then((rows: any[]) => rows.filter((r: any) => r.get?.('deletedAt')))
     const productCode = (product as any).code ?? product.get?.('code') ?? null
     const baseSku = (product as any).skuCode || (product as any).code || String(productId)
     let skuTemplate: string | undefined
@@ -1221,9 +1233,7 @@ export class ProductService {
       ...deletedVariants.map((v: any) => v.get('skuCode'))
     ])
     const takenCodes = new Set<string>(
-      [...currentVariants, ...deletedVariants]
-        .map((v: any) => String(v.get('code') ?? '').trim())
-        .filter(Boolean)
+      [...currentVariants, ...deletedVariants].map((v: any) => String(v.get('code') ?? '').trim()).filter(Boolean)
     )
     if (productCode) takenCodes.add(String(productCode).trim())
 
@@ -1327,7 +1337,13 @@ export class ProductService {
             .build({ warehouseId, quantity: qty, productId, variantId: variantRow.get('id') })
             .save({ transaction: t })
           await (database as any).transfer
-            .build({ fromWarehouseId: warehouseId, quantity: qty, productId, variantId: variantRow.get('id'), type: '0' })
+            .build({
+              fromWarehouseId: warehouseId,
+              quantity: qty,
+              productId,
+              variantId: variantRow.get('id'),
+              type: '0'
+            })
             .save({ transaction: t })
         }
       }
@@ -1415,6 +1431,8 @@ export class ProductService {
       for (const v of variants) await v.destroy({ transaction: t })
       await product.destroy({ transaction: t })
       await t.commit()
+      // DB succeeded first -> evict `product:<id>` to avoid stale reads.
+      await evictCachedEntity('product', productId)
       return { message: 'Product deleted successfully', id: productId }
     } catch (error) {
       await t.rollback()
@@ -1461,6 +1479,8 @@ export class ProductService {
         transaction: t
       })
       await t.commit()
+      // Restore resurrects the row -> evict so the next read reloads fresh.
+      await evictCachedEntity('product', productId)
       return { message: 'Product restored successfully', id: productId }
     } catch (error) {
       await t.rollback()
@@ -1487,6 +1507,8 @@ export class ProductService {
         throw ApiError.notFound(`Variant ${variantId} not found for product ${productId}`)
       await variant.destroy({ transaction: t })
       await t.commit()
+      // Variant shape is embedded in the cached product -> evict parent.
+      await evictCachedEntity('product', productId)
       return { message: 'Variant deleted successfully', id: variantId }
     } catch (error) {
       await t.rollback()

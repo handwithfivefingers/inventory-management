@@ -215,7 +215,7 @@ describe('StaffService', () => {
       const result = await service.create({
         fullName: 'Nguyen Van A',
         email: 'staff@example.com',
-        createAccount: true,
+
         password: 'password123',
         vendorId: 7,
         roleId: 10
@@ -264,7 +264,7 @@ describe('StaffService', () => {
       await service.create({
         fullName: 'Tran B',
         email: 'staff2@example.com',
-        createAccount: true,
+
         password: 'secret99',
         accountEmail: 'login@example.com',
         roleId: 77,
@@ -290,7 +290,7 @@ describe('StaffService', () => {
           vendorId: 1,
           fullName: 'Le C',
           email: 'le@example.com',
-          createAccount: true,
+
           password: 'abcdef123'
         })
       ).rejects.toThrow('roleId is required')
@@ -347,7 +347,7 @@ describe('StaffService', () => {
         vendorId: 1,
         fullName: 'Madonna',
         email: 'madonna@example.com',
-        createAccount: true,
+
         password: 'pass1234',
         roleId: 10
       })
@@ -362,9 +362,9 @@ describe('StaffService', () => {
       mockCounterSeq(1)
       database.staff.findOne.mockResolvedValue(null as any)
 
-      await expect(
-        service.create({ vendorId: 1, fullName: 'No Email', createAccount: true, password: 'password123' })
-      ).rejects.toThrow('Email is required to create login account')
+      await expect(service.create({ vendorId: 1, fullName: 'No Email', password: 'password123' })).rejects.toThrow(
+        'Email is required to create login account'
+      )
       expect(tx.rollback).toHaveBeenCalled()
       expect(tx.commit).not.toHaveBeenCalled()
       expect(database.staff.create).not.toHaveBeenCalled()
@@ -376,7 +376,7 @@ describe('StaffService', () => {
           vendorId: 1,
           fullName: 'Bad Email',
           email: 'not-an-email',
-          createAccount: true,
+
           password: 'password123',
           roleId: 1
         })
@@ -390,7 +390,7 @@ describe('StaffService', () => {
           vendorId: 1,
           fullName: 'Short Pass',
           email: 'a@b.com',
-          createAccount: true,
+
           password: '123',
           roleId: 1
         })
@@ -408,7 +408,6 @@ describe('StaffService', () => {
           vendorId: 1,
           fullName: 'Dup',
           email: 'dup@example.com',
-          createAccount: true,
           password: 'password123',
           roleId: 1
         })
@@ -430,7 +429,6 @@ describe('StaffService', () => {
           vendorId: 1,
           fullName: 'Bad Role',
           email: 'badrole@example.com',
-          createAccount: true,
           password: 'password123',
           roleId: 9999
         })
@@ -452,7 +450,7 @@ describe('StaffService', () => {
           vendorId: 1,
           fullName: 'Rollback',
           email: 'rollback@example.com',
-          createAccount: true,
+
           password: 'password123',
           roleId: 10
         })
@@ -470,7 +468,10 @@ describe('StaffService', () => {
 
       expect(result.userId).toBe(88)
       expect((database as any).user.create).not.toHaveBeenCalled()
-      expect(database.staff.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 88, vendorId: 1 }), expect.any(Object))
+      expect(database.staff.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 88, vendorId: 1 }),
+        expect.any(Object)
+      )
     })
 
     it('rolls back when counter query fails', async () => {
@@ -486,7 +487,7 @@ describe('StaffService', () => {
           vendorId: 1,
           fullName: 'Counter Fail',
           email: 'counter@example.com',
-          createAccount: true,
+
           password: 'password123',
           roleId: 10
         })

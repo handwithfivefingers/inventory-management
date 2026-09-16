@@ -1,4 +1,4 @@
-import { HTTPService } from "~/http";
+import { HTTPService } from "~/http/index.server";
 import { BaseQueryParams, IResponse } from "~/types/common";
 import { IProduct } from "~/types/product";
 

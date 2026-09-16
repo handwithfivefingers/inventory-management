@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { withContext } from "~/action.server/context.server";
 import { tagsService } from "~/action.server/tags.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
@@ -11,21 +12,15 @@ import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
-import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // const cookie = request.headers.get("cookie") as string;
-  // const { vendorId } = await getSessionValues(cookie);
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
   const pageSize = params.get("pageSize") || "10";
   const resp = await tagsService.get({
-    vendorId: vendorId as string,
     page,
     pageSize,
-    cookie,
   });
   return {
     data: resp.data?.data ?? [],
@@ -33,7 +28,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     page: Number(page),
     pageSize: Number(pageSize),
   };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Tags" }];

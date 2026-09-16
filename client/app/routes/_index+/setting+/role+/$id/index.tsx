@@ -1,9 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
-import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { z } from "zod";
+import { Link, useActionData, useLoaderData, useNavigate } from "@remix-run/react";
+import { useEffect, useMemo } from "react";
+import { FormProvider, useForm, useWatch, type Path } from "react-hook-form";
 import { roleService } from "~/action.server/role.service";
 import { CardItem } from "~/components/card-item";
 import { Divider } from "~/components/divider";
@@ -12,144 +12,213 @@ import { CheckboxInput } from "~/components/form/checkbox-input";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
+import PermissionGuard from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { MODULES } from "~/constants/modules";
 import { useSubmitPromise } from "~/hooks";
+import {
+  flatPermissionsToMatrix,
+  isModuleFullyGranted,
+  matrixToGrants,
+  matrixToModuleNames,
+  roleFormSchema,
+  type PermissionMatrix,
+  type RoleFormValues,
+} from "~/libs/role-permission";
 import { parseCookieFromRequest } from "~/sessions";
-import { IRole } from "~/types/user";
+import type { IRole } from "~/types/user";
 
 const MODULES_FOR_EDITOR = MODULES.map((module) => ({ key: module.key, label: module.label }));
 
-const roleSchema = z.object({
-  name: z.string().min(1, "Tên vai trò là bắt buộc"),
-  permissions: z.record(
-    z.object({
-      C: z.boolean(),
-      R: z.boolean(),
-      U: z.boolean(),
-      D: z.boolean(),
-    }),
-  ),
-});
+interface RoleDetailLoaderData {
+  role: IRole;
+  vendorId: string | number;
+  unknownModules: string[];
+}
 
-type RoleFormValues = z.infer<typeof roleSchema> & { id?: number };
-
-interface IPermissionMatrix {
-  [module: string]: { C: boolean; R: boolean; U: boolean; D: boolean };
+interface RoleUpdateActionData {
+  success: boolean;
+  error?: string;
+  fieldErrors?: Array<{ field: string; message: string }>;
 }
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chỉnh sửa vai trò" }, { name: "description", content: "Cập nhật vai trò và phân quyền" }];
 };
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  if (!params.id) throw redirect("/setting/role");
-  try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
-    const response = await roleService.getRoleById({ cookie, id: Number(params.id), vendorId });
-    // HTTPService.get returns { data, status } where data is the JSON body { data: IRole }
-    // On error status !==200, throw.
-    if (response.status !== 200) {
-      throw new Error((response as any).error || "Không thể tải vai trò");
-    }
-    const payload = response.data as { data: IRole };
-    if (!payload?.data) throw new Error("Role not found");
-    return payload;
-  } catch (error: any) {
-    throw new Response(error.message || "Không thể tải vai trò", { status: 404 });
-  }
-};
-
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+/**
+ * GET /setting/role/:id -> GET /roles/:id?vendorId=...
+ * Throws a 404 Response when the id is invalid or the role does not exist.
+ */
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { cookie, vendorId } = await parseCookieFromRequest(request);
+
   const id = Number(params.id);
-  if (!id) return json({ error: "Missing id" }, { status: 400 });
+  if (!params.id || !Number.isInteger(id) || id < 1) {
+    throw new Response("Vai trò không tồn tại", { status: 404 });
+  }
+
+  try {
+    const response = await roleService.getRoleById(id);
+    if (response.status !== 200) {
+      throw new Response(response.message || "Không thể tải vai trò", { status: 404 });
+    }
+    const payload = response.data as { data: IRole } | undefined;
+    if (!payload?.data) {
+      throw new Response("Vai trò không tồn tại", { status: 404 });
+    }
+    const { unknownModules } = flatPermissionsToMatrix(payload.data.permissions);
+    return json<RoleDetailLoaderData>({ role: payload.data, vendorId, unknownModules });
+  } catch (error) {
+    if (error instanceof Response) throw error;
+    const message = error instanceof Error ? error.message : "Không thể tải vai trò";
+    throw new Response(message, { status: 404 });
+  }
+}
+
+/**
+ * POST /setting/role/:id (form field "data", JSON) -> PUT /roles/:id.
+ * Only backend-supported fields are forwarded: { name, description, vendorId, permissions }.
+ */
+export async function action({ request, params }: ActionFunctionArgs) {
+  const { cookie, vendorId } = await parseCookieFromRequest(request);
+
+  const id = Number(params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    return json<RoleUpdateActionData>({ success: false, error: "ID vai trò không hợp lệ" }, { status: 400 });
+  }
+
+  let raw: string | null;
   try {
     const formData = await request.formData();
-    const raw = formData.get("data") as string;
-    if (!raw) return json({ error: "Missing data" }, { status: 400 });
-    const parsed: RoleFormValues = JSON.parse(raw);
-    const permissions = Object.entries(parsed.permissions || {}).map(([name, v]) => ({
-      name,
-      C: !!v.C,
-      R: !!v.R,
-      U: !!v.U,
-      D: !!v.D,
-    }));
-    const result = await roleService.updateRole({
-      cookie,
-      id,
-      vendorId,
-      name: parsed.name,
-      description: parsed.name,
-      permissions,
-    });
-    if ((result as any).status === 200 || (result as any).status === undefined) {
-      return redirect("/setting/role");
-    }
-    return result;
-  } catch (error: any) {
-    return json({ error: error.message || "Cập nhật thất bại", success: false }, { status: 400 });
+    raw = formData.get("data") as string | null;
+  } catch {
+    return json<RoleUpdateActionData>({ success: false, error: "Không đọc được dữ liệu form" }, { status: 400 });
   }
-};
+  if (!raw) {
+    return json<RoleUpdateActionData>({ success: false, error: "Thiếu dữ liệu vai trò" }, { status: 400 });
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(raw);
+  } catch {
+    return json<RoleUpdateActionData>({ success: false, error: "Dữ liệu JSON không hợp lệ" }, { status: 400 });
+  }
+
+  const validation = roleFormSchema.safeParse(parsedJson);
+  if (!validation.success) {
+    return json<RoleUpdateActionData>(
+      {
+        success: false,
+        error: "Dữ liệu không hợp lệ, vui lòng kiểm tra lại",
+        fieldErrors: validation.error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      },
+      { status: 400 },
+    );
+  }
+
+  const values = validation.data;
+  try {
+    const response = await roleService.updateRole({
+      id,
+      name: values.name,
+      description: values.description || values.name,
+      permissions: matrixToModuleNames(values.permissions),
+      permissionGrants: matrixToGrants(values.permissions),
+    });
+    if (response.status !== 200) {
+      return json<RoleUpdateActionData>(
+        { success: false, error: response.message || "Cập nhật vai trò thất bại" },
+        { status: response.status || 400 },
+      );
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message: unknown }).message)
+        : "Cập nhật vai trò thất bại";
+    return json<RoleUpdateActionData>({ success: false, error: message }, { status: 400 });
+  }
+  return redirect("/setting/role");
+}
 
 export default function RoleId() {
-  const { data } = useLoaderData<typeof loader>();
+  const { role, unknownModules } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  const { submit, isLoading } = useSubmitPromise();
+  const { submit, isLoading } = useSubmitPromise<RoleUpdateActionData>();
+  const actionData = useActionData<typeof action>();
 
-  const getDefaultMatrix = (): IPermissionMatrix => {
-    const matrix: IPermissionMatrix = {};
-    MODULES_FOR_EDITOR.forEach((module) => {
-      const existingPerm = data?.permissions?.find((p) => p.name === module.key);
-      matrix[module.key] = {
-        C: !!existingPerm?.C,
-        R: !!existingPerm?.R,
-        U: !!existingPerm?.U,
-        D: !!existingPerm?.D,
-      };
-    });
-    return matrix;
-  };
+  // Backend returns flat catalog rows [{ name, method }]; group them into the matrix.
+  const initialMatrix = useMemo<PermissionMatrix>(() => {
+    return flatPermissionsToMatrix(role.permissions).matrix;
+  }, [role.permissions]);
 
   const form = useForm<RoleFormValues>({
-    resolver: zodResolver(roleSchema),
+    resolver: zodResolver(roleFormSchema),
     defaultValues: {
-      name: data?.name || "",
-      permissions: getDefaultMatrix(),
+      name: role.name,
+      description: role.description ?? "",
+      permissions: initialMatrix,
     },
   });
 
-  const watchedPermissions = useWatch({ control: form.control, name: "permissions" }) as IPermissionMatrix | undefined;
+  // Re-populate safely when navigating between role ids (remix reuses the component).
+  useEffect(() => {
+    form.reset({
+      name: role.name,
+      description: role.description ?? "",
+      permissions: flatPermissionsToMatrix(role.permissions).matrix,
+    });
+  }, [form, role.id, role.name, role.description, role.permissions]);
 
-  const isModuleChecked = (moduleKey: string) => {
-    const perms = watchedPermissions?.[moduleKey] ?? form.getValues("permissions")?.[moduleKey];
-    return !!perms && perms.C && perms.R && perms.U && perms.D;
-  };
+  const watchedPermissions = useWatch({ control: form.control, name: "permissions" }) as PermissionMatrix | undefined;
+
+  const serverError =
+    actionData && typeof actionData === "object" && "error" in actionData
+      ? (actionData as RoleUpdateActionData).error ?? null
+      : null;
+
+  useEffect(() => {
+    if (actionData && typeof actionData === "object" && "success" in actionData) {
+      const data = actionData as RoleUpdateActionData;
+      if (data.success) navigate("/setting/role");
+      for (const fieldError of data.fieldErrors ?? []) {
+        form.setError(fieldError.field as Path<RoleFormValues>, { message: fieldError.message });
+      }
+    }
+  }, [actionData, form, navigate]);
 
   const handleSelectAllModule = (moduleKey: string) => {
-    const checked = !isModuleChecked(moduleKey);
+    const checked = !isModuleFullyGranted(watchedPermissions, moduleKey);
     form.setValue(
-      `permissions.${moduleKey}` as any,
-      { C: checked, R: checked, U: checked, D: checked },
+      `permissions.${moduleKey}` as Path<RoleFormValues>,
+      {
+        C: checked,
+        R: checked,
+        U: checked,
+        D: checked,
+      } as RoleFormValues["permissions"][string],
       { shouldDirty: true, shouldValidate: true },
     );
   };
 
   const onSubmit = async (values: RoleFormValues) => {
-    await submit({ data: JSON.stringify(values) }, { method: "POST" });
-  };
-
-  const handleError = (errors: any) => {
-    console.log("validation errors", errors);
+    const response = await submit<RoleUpdateActionData>({ data: JSON.stringify(values) }, { method: "POST" });
+    if (response?.success) navigate("/setting/role");
   };
 
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
       <div className="max-w-5xl w-full mx-auto">
         <FormProvider {...form}>
-          <form className="flex flex-col gap-5 mt-2" onSubmit={form.handleSubmit(onSubmit, handleError)}>
+          <form className="flex flex-col gap-5 mt-2" onSubmit={form.handleSubmit(onSubmit)}>
             <CardItem
               title={
                 <div className="flex items-start justify-between gap-4">
@@ -173,6 +242,17 @@ export default function RoleId() {
               }
               className="p-5 sm:p-6"
             >
+              {serverError ? (
+                <p role="alert" className="text-sm text-rose-600 bg-rose-50 rounded-md px-3 py-2">
+                  {serverError}
+                </p>
+              ) : null}
+              {unknownModules.length > 0 ? (
+                <p role="note" className="text-sm text-amber-700 bg-amber-50 rounded-md px-3 py-2">
+                  Vai trò chứa quyền của module lạ ({unknownModules.join(", ")}) - các quyền này được giữ nguyên khi
+                  lưu.
+                </p>
+              ) : null}
               <div className="flex gap-4 flex-col lg:flex-row mt-2">
                 <div className="w-full lg:w-64 flex-shrink-0 py-2">
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-100">Thông tin vai trò</h3>
@@ -186,8 +266,11 @@ export default function RoleId() {
                         prefix={<Icon name="shield" fontSize={16} className="text-slate-400" />}
                       />
                     </FormControl>
+                    <FormControl name="description">
+                      <TextInput label="Mô tả" placeholder="Mô tả ngắn về vai trò" multiline rows={3} />
+                    </FormControl>
                     <div className="text-xs text-gray-500">
-                      <p>ID: {data.id}</p>
+                      <p>ID: {role.id}</p>
                     </div>
                     <div className="p-3 bg-indigo-50 rounded-md">
                       <h4 className="text-sm font-semibold text-indigo-800 mb-2">Ghi chú:</h4>
@@ -230,7 +313,13 @@ export default function RoleId() {
                                 {(field) => (
                                   <CheckboxInput
                                     value={!!field.value}
-                                    onChange={(e: any) => field.onChange(e?.target ? e.target.checked : e)}
+                                    onChange={(event: unknown) =>
+                                      field.onChange(
+                                        typeof event === "object" && event !== null && "target" in event
+                                          ? (event as { target: { checked: boolean } }).target.checked
+                                          : event,
+                                      )
+                                    }
                                   />
                                 )}
                               </FormControl>
@@ -244,7 +333,13 @@ export default function RoleId() {
                                 {(field) => (
                                   <CheckboxInput
                                     value={!!field.value}
-                                    onChange={(e: any) => field.onChange(e?.target ? e.target.checked : e)}
+                                    onChange={(event: unknown) =>
+                                      field.onChange(
+                                        typeof event === "object" && event !== null && "target" in event
+                                          ? (event as { target: { checked: boolean } }).target.checked
+                                          : event,
+                                      )
+                                    }
                                   />
                                 )}
                               </FormControl>
@@ -258,7 +353,13 @@ export default function RoleId() {
                                 {(field) => (
                                   <CheckboxInput
                                     value={!!field.value}
-                                    onChange={(e: any) => field.onChange(e?.target ? e.target.checked : e)}
+                                    onChange={(event: unknown) =>
+                                      field.onChange(
+                                        typeof event === "object" && event !== null && "target" in event
+                                          ? (event as { target: { checked: boolean } }).target.checked
+                                          : event,
+                                      )
+                                    }
                                   />
                                 )}
                               </FormControl>
@@ -272,7 +373,13 @@ export default function RoleId() {
                                 {(field) => (
                                   <CheckboxInput
                                     value={!!field.value}
-                                    onChange={(e: any) => field.onChange(e?.target ? e.target.checked : e)}
+                                    onChange={(event: unknown) =>
+                                      field.onChange(
+                                        typeof event === "object" && event !== null && "target" in event
+                                          ? (event as { target: { checked: boolean } }).target.checked
+                                          : event,
+                                      )
+                                    }
                                   />
                                 )}
                               </FormControl>
@@ -283,7 +390,7 @@ export default function RoleId() {
                             dataIndex: "action",
                             render: (record) => (
                               <TMButton type="button" onClick={() => handleSelectAllModule(record.key)} size="sm">
-                                {!isModuleChecked(record.key) ? "Select all" : "Unselect"}
+                                {!isModuleFullyGranted(watchedPermissions, record.key) ? "Select all" : "Unselect"}
                               </TMButton>
                             ),
                           },
@@ -305,10 +412,12 @@ export default function RoleId() {
                 >
                   Hủy
                 </TMButton>
-                <TMButton htmlType="submit" size="sm" loading={isLoading}>
-                  <Icon name="save" fontSize={16} />
-                  <span>Lưu vai trò</span>
-                </TMButton>
+                <PermissionGuard permission="UPDATE" module="role" requireAdmin>
+                  <TMButton htmlType="submit" size="sm" loading={isLoading}>
+                    <Icon name="save" fontSize={16} />
+                    <span>Lưu vai trò</span>
+                  </TMButton>
+                </PermissionGuard>
               </div>
             </CardItem>
           </form>

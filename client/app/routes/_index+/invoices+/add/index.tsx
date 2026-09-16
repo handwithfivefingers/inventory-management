@@ -8,24 +8,23 @@ import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { parseCookieFromRequest } from "~/sessions";
-import { formatCurrency } from "~/libs/format-currency";
 import { useTranslation } from "~/i18n";
+import { formatCurrency } from "~/libs/format-currency";
 
 /**
  * Invoices can only be created FROM an order (enforced by the backend).
  * This page lists orders so the user can pick one to invoice.
  */
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request }: LoaderFunctionArgs) {
+  // const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
 
   const resp = await orderService.getOrders({
-    cookie,
-    warehouseId,
-    vendorId,
+    // cookie,
+    // warehouseId,
+    // vendorId,
     page,
     pageSize: "10",
   });
@@ -35,10 +34,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     total: resp.data?.total ?? 0,
     page: Number(page),
   };
-};
+}
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request }: ActionFunctionArgs) {
+  // const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const orderId = Number(formData.get("orderId"));
 
@@ -46,15 +45,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const resp: any = await invoiceService.createInvoice({
       orderId,
       status: "draft", // starts as a temp invoice
-      cookie,
-      vendorId,
-      ...(warehouseId ? { warehouseId: Number(warehouseId) } : {}),
+      // cookie,
+      // vendorId,
+      // ...(warehouseId ? { warehouseId: Number(warehouseId) } : {}),
     });
     return { invoiceId: resp?.data?.data?.id ?? resp?.data?.id };
   } catch (error: any) {
     return { error: error.message || "Tạo hóa đơn thất bại" };
   }
-};
+}
 
 export default function CreateInvoiceFromOrder() {
   const fetcher = useFetcher<typeof action>();
@@ -69,7 +68,7 @@ export default function CreateInvoiceFromOrder() {
         navigate(`/invoices/${result.invoiceId}`);
       }
     }
-  }, [fetcher.state, fetcher.data, navigate]);
+  }, [fetcher.state, fetcher.data]);
 
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">

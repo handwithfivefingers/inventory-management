@@ -6,22 +6,21 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
-import { dayjs } from "~/libs/date";
-import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
+import { dayjs } from "~/libs/date";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
+    // const { cookie, vendorId } = await parseCookieFromRequest(request);
     const { id } = params;
-    const resp = await financialService.getVoucherById(id as string, { cookie, vendorId });
+    const resp = await financialService.getVoucherById(id as string);
     return {
       data: resp.data?.data ?? null,
     };
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chi tiết phiếu" }, { name: "description", content: "Chi tiết phiếu thu/chi" }];
@@ -55,7 +54,11 @@ export default function FinancialDetail() {
           <div className="grid grid-cols-2 gap-4 mt-2 text-slate-700 dark:text-slate-200">
             <div>
               <span className="text-gray-500 dark:text-slate-400">{t("financial.type")}: </span>
-              <span className={data.type === "expense" ? "text-red-500 dark:text-red-400" : "text-green-600 dark:text-green-400"}>
+              <span
+                className={
+                  data.type === "expense" ? "text-red-500 dark:text-red-400" : "text-green-600 dark:text-green-400"
+                }
+              >
                 {data.type === "expense" ? t("financial.expense") : t("financial.revenue")}
               </span>
             </div>

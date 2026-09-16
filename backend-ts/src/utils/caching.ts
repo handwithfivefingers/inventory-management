@@ -10,13 +10,17 @@ const { cacheDel, cacheGet, cacheSet, cacheKey } = Redis
  * @returns {Promise<any>}
  */
 
-interface ICacheItem {
+interface CacheItem<T> {
   key: string
-  callback: () => Promise<any>
-  ttl?: number // Time to live in seconds (default: 24 hours)
+  callback: () => Promise<T>
+  /**
+   * @description TTL in second
+   * @description default 24h
+   */
+  ttl?: number
 }
 
-const cacheItem = async ({ key, callback, ttl = 3600 * 24 }: ICacheItem) => {
+const cacheItem = async <T>({ key, callback, ttl = 3600 * 24 }: CacheItem<T>) => {
   try {
     const data = await cacheGet(key)
     if (!data) {

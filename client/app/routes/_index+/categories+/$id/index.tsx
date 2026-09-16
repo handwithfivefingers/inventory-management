@@ -1,9 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { MetaFunction } from "@remix-run/node";
 import { Link, redirect, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { categoryService } from "~/action.server/category.service";
+import { LoaderArgs } from "~/action.server/context.server";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
@@ -16,12 +17,11 @@ import { dayjs } from "~/libs/date";
 import { parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request, params }: LoaderArgs) {
   const { id } = params;
-  const resp = await categoryService.getById({ id: id as string, vendorId, cookie });
+  const resp = await categoryService.getById(id as string);
   return resp;
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Category Detail" }];
@@ -136,7 +136,7 @@ const EditForm = ({ name, id }: Partial<ICategory>) => {
           data: v,
         }),
       },
-      { method: "POST", action: `/categories/${id}` }
+      { method: "POST", action: `/categories/${id}` },
     );
   };
   return (
@@ -145,7 +145,7 @@ const EditForm = ({ name, id }: Partial<ICategory>) => {
         className="flex flex-col gap-5 mt-2"
         onSubmit={formMethods.handleSubmit(
           (v) => onSubmit({ ...v }),
-          (error) => handleError(error)
+          (error) => handleError(error),
         )}
       >
         <FormControl name="name">
@@ -175,19 +175,18 @@ const EditForm = ({ name, id }: Partial<ICategory>) => {
   );
 };
 
-export const action = async ({ request, params }: any) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request, params }: any) {
   const formData = await request.formData();
   const { id } = params;
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson.data, id };
-  const resp = await categoryService.update({ ...bodyData, vendorId, cookie });
+  const resp = await categoryService.update(id, { ...bodyData });
   if (resp.status === 200) {
     return redirect(`/categories`, 302);
   }
   return resp;
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

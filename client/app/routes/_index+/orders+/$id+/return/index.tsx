@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
 import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
@@ -8,20 +8,18 @@ import { ErrorComponent } from "~/components/error-component";
 import { NumberInput } from "~/components/form/number-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
-import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
 import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
-  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   if (!id) throw new Error("Không tìm thấy đơn hàng");
-  const response = await orderService.getOrderById({ id, cookie, warehouseId, vendorId });
+  const response = await orderService.getOrderById({ id });
   return response.data;
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Trả hàng" }, { name: "description", content: "Tạo phiếu trả hàng cho đơn hàng" }];
@@ -179,16 +177,13 @@ export default function OrderReturnPage() {
   );
 }
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+export async function action({ request, params }: ActionFunctionArgs) {
   const { id } = params;
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
   try {
     const formData = await request.formData();
     const data = JSON.parse((formData.get("data") as string) || "{}");
     const resp = await orderService.returnOrder({
       id: id as string,
-      cookie,
-      vendorId,
       items: data.items || [],
       reason: data.reason,
     });
@@ -197,7 +192,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   } catch (error: any) {
     return Response.json({ success: false, error: error?.message || "Trả hàng thất bại" }, { status: 400 });
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

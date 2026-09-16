@@ -29,8 +29,11 @@ export class TagsController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      if (!req.query.vendorId) throw new Error('vendorId is required')
-      const { count, rows } = await new TagsService().getTags({ vendorId: req.query.vendorId as string })
+      const warehouseId = req.headers['x-warehouse']
+      const vendorId = req.headers['x-vendor']
+
+      // if (!req.query.vendorId) throw new Error('vendorId is required')
+      const { count, rows } = await new TagsService().getTags({ vendorId: vendorId as string })
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {

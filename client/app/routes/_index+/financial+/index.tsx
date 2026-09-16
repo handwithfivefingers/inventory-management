@@ -1,27 +1,26 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
-import { NumericFormat } from "react-number-format";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { NumericFormat } from "react-number-format";
 import { financialService } from "~/action.server/financial.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { DateRangePicker } from "~/components/form/date-picker";
-import { PermissionGuard } from "~/components/permission-guard";
+import { Icon } from "~/components/icon";
 import { CreateFab } from "~/components/layouts/create-fab";
+import { PermissionGuard } from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { cn } from "~/libs/utils";
-import { parseCookieFromRequest } from "~/sessions";
-import { Icon } from "~/components/icon";
-import { MODULE_ENUM } from "~/constants/modules";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
+    // const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || "1";
@@ -42,29 +41,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const previousTo = from.subtract(1, "day");
     const previousFrom = previousTo.subtract(duration - 1, "day");
     const [currentReport, previousReport] = await Promise.all([
+      financialService.getReport(rangeQuery),
       financialService.getReport({
-        warehouseId: warehouseId as string,
-        vendorId,
-        ...rangeQuery,
-        cookie,
-      }),
-      financialService.getReport({
-        warehouseId: warehouseId as string,
-        vendorId,
+        // warehouseId: warehouseId as string,
+        // vendorId,
         from: previousFrom.format("YYYY-MM-DD"),
         to: previousTo.format("YYYY-MM-DD"),
-        cookie,
+        // cookie,
       }),
     ]);
 
     const resp = await financialService.getVouchers({
-      warehouseId: warehouseId as string,
-      vendorId,
+      // warehouseId: warehouseId as string,
+      // vendorId,
       page,
       pageSize,
       type,
       ...rangeQuery,
-      cookie,
+      // cookie,
     });
 
     return {
@@ -82,7 +76,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
-};
+}
 
 const defaultSummary = () => ({
   revenue: 0,

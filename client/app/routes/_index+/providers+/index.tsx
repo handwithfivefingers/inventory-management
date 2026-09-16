@@ -13,11 +13,10 @@ import { TMTable } from "~/components/tm-table";
 import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
-import { parseCookieFromRequest } from "~/sessions";
 import { IProvider } from "~/types/provider";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request }: LoaderFunctionArgs) {
+  // const { cookie, vendorId } = await parseCookieFromRequest(request);
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -25,8 +24,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const response = await providerService.getProviders({
     page,
     pageSize,
-    cookie,
-    vendorId: vendorId as string,
+    // cookie,
+    // vendorId: vendorId as string,
     isProvider: true,
   });
   return {
@@ -35,7 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     page: Number(page),
     pageSize: Number(pageSize),
   };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Nhà cung cấp" }, { name: "description", content: "Quản lý nhà cung cấp" }];

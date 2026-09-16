@@ -1,24 +1,32 @@
-import { LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { redirect, Session } from "@remix-run/node";
 import { Outlet, useOutletContext } from "@remix-run/react";
+import { useState } from "react";
+import { LoaderArgs } from "~/action.server/context.server";
 import { ErrorComponent } from "~/components/error-component";
 import { AppLayout } from "~/components/layouts";
-import { destroySession, parseCookieFromRequest } from "~/sessions";
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { userId, session } = await parseCookieFromRequest(request);
+import { destroySession } from "~/sessions";
+export async function loader({ request, context }: LoaderArgs) {
+  const { userId, session } = context;
   if (!userId) {
     throw redirect("/auth/login", {
       headers: {
-        "Set-Cookie": await destroySession(session),
+        "Set-Cookie": await destroySession(session as Session),
       },
     });
   }
   return {};
-};
+}
+export interface MainLayoutContext {
+  settings: any;
+  setOpenSidebar: (open: boolean) => void;
+}
+
 const MainLayout = () => {
   const settings = useOutletContext<{ settings: any }>();
+  const [openSidebar, setOpenSidebar] = useState(true);
   return (
-    <AppLayout>
-      <Outlet context={{ settings }} />
+    <AppLayout showSidebar={openSidebar}>
+      <Outlet context={{ settings, setOpenSidebar }} />
     </AppLayout>
   );
 };

@@ -1,6 +1,4 @@
-import { HTTPService } from "~/http";
-import { ICategoryParams } from "~/types/category";
-import { IResponse } from "~/types/common";
+import { HTTPService } from "~/http/index.server";
 import { ITag, ITagParams, ITagQueryParams } from "~/types/tag";
 
 const API_PATH = {
@@ -8,32 +6,18 @@ const API_PATH = {
 };
 
 const tagsService = {
-  get: ({ cookie: Cookie, ...searchParams }: ITagQueryParams) => {
+  get: (searchParams: ITagQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<{ data: ITag[]; total: number }>(API_PATH.tags + "?" + qs.toString(), {
-      Cookie,
-    });
+    return HTTPService.getInstance().get<{ data: ITag[]; total: number }>(API_PATH.tags + "?" + qs.toString());
   },
-  update: ({ id, cookie: Cookie, vendorId, ...params }: ITagParams & { vendorId?: string | number }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return HTTPService.getInstance().post(`${API_PATH.tags}/${id}${qs}`, params, { Cookie });
+  update: ({ id, ...params }: ITagParams) => {
+    return HTTPService.getInstance().post(`${API_PATH.tags}/${id}`, params);
   },
-  create: ({ cookie: Cookie, ...params }: ITagParams) => {
-    return HTTPService.getInstance().post(API_PATH.tags, params, { Cookie });
+  create: ({ ...params }: ITagParams) => {
+    return HTTPService.getInstance().post(API_PATH.tags, params);
   },
-  getById: ({
-    id,
-    vendorId,
-    cookie: Cookie,
-  }: {
-    id: Partial<string | number>;
-    vendorId: Partial<string | number>;
-    cookie: string;
-  }) => {
-    const params = new URLSearchParams({});
-    if (vendorId !== undefined && vendorId !== null && `${vendorId}` !== "") params.set("vendorId", `${vendorId}`);
-    const qs = params.toString();
-    return HTTPService.getInstance().get<{ data: ITag }>(API_PATH.tags + "/" + id + (qs ? "?" + qs : ""), { Cookie });
+  getById: (id: Partial<string | number>) => {
+    return HTTPService.getInstance().get<{ data: ITag }>(API_PATH.tags + "/" + id);
   },
 };
 

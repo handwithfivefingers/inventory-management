@@ -1,4 +1,4 @@
-import { HTTPService } from "~/http";
+import { HTTPService } from "~/http/index.server";
 import { BaseQueryParams } from "~/types/common";
 import { IOrder, IOrderInvoiceLine, OrderChannel } from "~/types/order";
 import { IInvoice } from "~/types/invoice";
@@ -9,8 +9,6 @@ const API_PATH = {
 };
 
 interface IOrderQueryParams extends BaseQueryParams {
-  warehouseId: string;
-  vendorId?: string;
   isProvider?: boolean;
 }
 interface IOrderDetails {
@@ -34,59 +32,41 @@ interface IOrderCreateParams {
 }
 
 const orderService = {
-  getOrders: ({ cookie, ...searchParams }: IOrderQueryParams) => {
+  getOrders: ({ ...searchParams }: IOrderQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<{ data: IOrder[]; total: number }>(API_PATH.orders + "?" + qs.toString(), {
-      Cookie: cookie,
-    });
+    return HTTPService.getInstance().get<{ data: IOrder[]; total: number }>(API_PATH.orders + "?" + qs.toString());
   },
-  getOrderById: ({ id, cookie, ...searchParams }: IOrderQueryParams & { id: string }) => {
+  getOrderById: ({ id, ...searchParams }: IOrderQueryParams & { id: string }) => {
     const qs = new URLSearchParams(searchParams as any);
-    return HTTPService.getInstance().get<{ data: IOrder }>(`${API_PATH.orders}/${id}?${qs.toString()}`, {
-      Cookie: cookie,
-    });
+    return HTTPService.getInstance().get<{ data: IOrder }>(`${API_PATH.orders}/${id}?${qs.toString()}`);
   },
-  createOrder: ({ cookie, vendorId, ...params }: IOrderCreateParams & { vendorId: string }) => {
-    return HTTPService.getInstance().post(API_PATH.orderCreate + `?vendorId=${vendorId}`, params, {
-      Cookie: cookie,
-    });
+  createOrder: (params: IOrderCreateParams) => {
+    return HTTPService.getInstance().post(API_PATH.orderCreate, params);
   },
-  updateOrder: ({ id, cookie, ...params }: IOrderCreateParams & { id: string | number; cookie: string }) => {
-    return HTTPService.getInstance().put(`${API_PATH.orders}/${id}?vendorId=${params.vendorId}`, params, {
-      Cookie: cookie,
-    });
+  updateOrder: ({ id, ...params }: IOrderCreateParams & { id: string | number }) => {
+    return HTTPService.getInstance().put(`${API_PATH.orders}/${id}`, params);
   },
   createOrderInvoice: ({
     id,
-    cookie,
     ...params
   }: {
     id: string | number;
-    cookie: string;
-    vendorId?: string;
     lines: IOrderInvoiceLine[];
     paymentType?: "cash" | "transfer" | "credit";
     notes?: string;
   }) => {
-    const qs = params.vendorId ? `?vendorId=${params.vendorId}` : "";
-    return HTTPService.getInstance().post<{ data: IInvoice }, any>(`${API_PATH.orders}/${id}/invoices${qs}`, params, {
-      Cookie: cookie,
-    });
+    return HTTPService.getInstance().post<{ data: IInvoice }, any>(`${API_PATH.orders}/${id}/invoices`, params);
   },
   returnOrder: ({
     id,
-    cookie,
     ...params
   }: {
     id: string | number;
-    cookie: string;
-    vendorId?: string;
     items: { orderDetailId: number; quantity: number }[];
     reason?: string;
     refundAmount?: number;
   }) => {
-    const qs = params.vendorId ? `?vendorId=${params.vendorId}` : "";
-    return HTTPService.getInstance().post(`${API_PATH.orders}/${id}/return${qs}`, params, { Cookie: cookie });
+    return HTTPService.getInstance().post(`${API_PATH.orders}/${id}/return`, params);
   },
 };
 

@@ -2,6 +2,7 @@ import redisClient from '#/configs/redis'
 import database from '#/database'
 import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { IRequestLocal } from '#/types/common'
+import { evictCachedEntity } from '#/utils/entity-cache'
 import { NextFunction, Request, Response } from 'express'
 
 /**
@@ -41,6 +42,8 @@ export async function updateUserProfile(req: IRequestLocal, res: Response, next:
 
     // Invalidate the unified auth cache; next request starts fresh.
     await invalidateUserAuthCache(userId)
+    // DB succeeded first -> evict `user:<id>` to avoid stale reads.
+    await evictCachedEntity('user', userId)
 
     res.status(200).json({
       data: {
@@ -106,6 +109,8 @@ export async function updateUserRoles(req: IRequestLocal, res: Response, next: N
 
     // Invalidate the unified auth cache; next request starts fresh.
     await invalidateUserAuthCache(userId)
+    // DB succeeded first -> evict `user:<id>` to avoid stale reads.
+    await evictCachedEntity('user', userId)
 
     res.status(200).json({
       data: {

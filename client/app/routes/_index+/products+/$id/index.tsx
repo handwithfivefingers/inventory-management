@@ -5,6 +5,7 @@ import { Link, useFetcher, useLoaderData, useOutletContext } from "@remix-run/re
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { namedAction } from "remix-utils/named-action";
+import { withContext } from "~/action.server/context.server";
 import { historyService } from "~/action.server/history.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
@@ -22,34 +23,26 @@ import { parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
 import { IProduct, IProductAttribute, IProductAttributeValue, IProductVariant } from "~/types/product";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
-  if (!id || !warehouseId) throw new Error("Không tìm thấy sản phẩm");
-  const resp = await productService.getProductById({ id, cookie, warehouseId, vendorId });
+  if (!id) throw new Error("Không tìm thấy sản phẩm");
+  const resp = await productService.getProductById(id);
   if (resp.status !== 200) throw new Error("Không tìm thấy sản phẩm");
-  const variantsResp = await productService.getProductVariants({ id, cookie, warehouseId, vendorId });
+  const variantsResp = await productService.getProductVariants({ id });
   const productData = resp.data?.data;
   const data = {
     ...productData,
     variants: variantsResp.data?.data?.length ? variantsResp.data.data : productData?.variants,
   };
 
-  const history = await historyService.getProductHistory({
-    id: id as string,
-    warehouseId: [warehouseId],
-    cookie,
-    vendorId,
-  });
-  const suggestedAttributes = await productService
-    .getAttributes({ cookie, vendorId })
-    .catch(() => ({ data: { data: [] } } as any));
+  const history = await historyService.getProductHistory(id);
+  const suggestedAttributes = await productService.getAttributes().catch(() => ({ data: { data: [] } } as any));
   return {
     data,
     history: history.data,
     suggestedAttributes: (suggestedAttributes as any)?.data?.data || (suggestedAttributes as any)?.data || [],
   };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Product Item" }, { name: "description", content: "Welcome to Remix!" }];
@@ -435,8 +428,8 @@ const HistoryList = ({ history }: { history: IProduct[] }) => {
   );
 };
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
+export async function action({ request, params }: ActionFunctionArgs) {
+  // const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
   const { id } = params;
   if (!id) throw new Error("Không tìm thấy sản phẩm");
   const formData = await request.formData();
@@ -456,15 +449,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       }
       const response = await productService.updateProduct({
         id,
-        cookie,
-        warehouseId,
-        vendorId,
         ...payload,
       });
       return Response.json(response);
     },
   });
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

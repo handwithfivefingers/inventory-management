@@ -6,7 +6,8 @@ export class HistoryController {
     try {
       // #swagger.tags = ['History']
       const { id } = req.params
-      const { warehouseId, variantId } = req.query
+      const { variantId } = req.query
+      const warehouseId = req.headers['x-warehouse']
       if (!warehouseId) throw new Error('warehouseId is required')
       const { count, rows } = await new TransferService().getHistoryByProductId({
         id,

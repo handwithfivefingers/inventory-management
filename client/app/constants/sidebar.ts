@@ -174,6 +174,12 @@ export const SIDE_BAR: ISideBarItem[] = [
         moduleKey: "setting",
       },
       {
+        to: "/setting/vendor",
+        labelKey: "sidebar.vendorSettings",
+        iconName: "home",
+        moduleKey: "setting",
+      },
+      {
         to: "/setting/payment",
         labelKey: "sidebar.payment",
         iconName: "credit-card",

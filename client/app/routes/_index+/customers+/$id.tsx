@@ -5,17 +5,17 @@ import { CardItem } from "~/components/card-item";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  // const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const id = params.id;
 
   if (!id) {
     throw new Response("Not found", { status: 404 });
   }
 
-  const resp = await customerService.getCustomerById({ id, cookie, vendorId });
+  const resp = await customerService.getCustomerById(id);
   return resp.data?.data ?? null;
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chi tiết khách hàng" }];
@@ -39,7 +39,9 @@ export default function CustomerDetail() {
                   <Icon name="user" fontSize={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">Chi tiết khách hàng</h2>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    Chi tiết khách hàng
+                  </h2>
                   <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
                     {customer.name || `ID #${customer.id}`}
                   </p>
@@ -50,37 +52,37 @@ export default function CustomerDetail() {
           className="p-5 sm:p-6"
         >
           <div className="flex flex-col gap-5 mt-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-gray-500">ID</label>
-              <p className="font-medium">{customer.id}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-500">ID</label>
+                <p className="font-medium">{customer.id}</p>
+              </div>
+              <div>
+                <label className="text-sm text-gray-500">Tên khách hàng</label>
+                <p className="font-medium">{customer.name}</p>
+              </div>
             </div>
-            <div>
-              <label className="text-sm text-gray-500">Tên khách hàng</label>
-              <p className="font-medium">{customer.name}</p>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-gray-500">Số điện thoại</label>
-              <p>{customer.phone || "-"}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-500">Số điện thoại</label>
+                <p>{customer.phone || "-"}</p>
+              </div>
+              <div>
+                <label className="text-sm text-gray-500">Email</label>
+                <p>{customer.email || "-"}</p>
+              </div>
             </div>
+
             <div>
-              <label className="text-sm text-gray-500">Email</label>
-              <p>{customer.email || "-"}</p>
+              <label className="text-sm text-gray-500">Địa chỉ</label>
+              <p>{customer.address || "-"}</p>
             </div>
-          </div>
 
-          <div>
-            <label className="text-sm text-gray-500">Địa chỉ</label>
-            <p>{customer.address || "-"}</p>
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-500">Mã số thuế</label>
-            <p>{customer.taxCode || "-"}</p>
-          </div>
+            <div>
+              <label className="text-sm text-gray-500">Mã số thuế</label>
+              <p>{customer.taxCode || "-"}</p>
+            </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
               <TMButton variant="ghost" size="sm" component={Link} to="/customers" type="button">

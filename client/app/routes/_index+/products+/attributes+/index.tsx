@@ -1,7 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { productAttributeService } from "~/action.server/productAttribute.service";
-import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { Icon } from "~/components/icon";
@@ -9,18 +8,17 @@ import { CreateFab } from "~/components/layouts/create-fab";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
 import { useTranslation } from "~/i18n";
-import { parseCookieFromRequest } from "~/sessions";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Thuộc tính sản phẩm" }, { name: "description", content: "Quản lý thuộc tính biến thể" }];
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
-  if (!cookie) throw new Error("Unauthorized");
-  const resp = await productAttributeService.getAttributes({ cookie, vendorId });
+export async function loader({ request }: LoaderFunctionArgs) {
+  // const { cookie, vendorId } = await parseCookieFromRequest(request);
+  // if (!cookie) throw new Error("Unauthorized");
+  const resp = await productAttributeService.getAttributes();
   return { data: (resp.data as any)?.data || (resp.data as any)?.rows || [] };
-};
+}
 
 export default function ProductAttributes() {
   const { data } = useLoaderData<typeof loader>();

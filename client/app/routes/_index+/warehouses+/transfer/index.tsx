@@ -2,7 +2,7 @@ import { ActionFunctionArgs, json, LoaderFunctionArgs, MetaFunction } from "@rem
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { useState } from "react";
 import { productService } from "~/action.server/products.service";
-import { transferService } from "~/action.server/warehouse.service";
+import { transferService, warehouseService } from "~/action.server/warehouse.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { NumberInput } from "~/components/form/number-input";
@@ -19,27 +19,6 @@ import { parseCookieFromRequest } from "~/sessions";
 import { IProduct } from "~/types/product";
 import { IWareHouse } from "~/types/warehouse";
 import { debounce } from "~/libs/debounce";
-
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId, warehouseId } = await parseCookieFromRequest(request);
-  const resp = await warehouseLoaderData(cookie, vendorId, warehouseId);
-  return resp;
-};
-
-const warehouseLoaderData = async (cookie: string, vendorId: string, currentWarehouseId?: string) => {
-  const { warehouseService } = await import("~/action.server/warehouse.service");
-  const resp = await warehouseService.getWareHouses({ cookie, vendorId, page: "1", pageSize: "100" } as any);
-  const warehouses = (resp.data?.data || []) as IWareHouse[];
-  return {
-    warehouses,
-    currentWarehouseId: currentWarehouseId ? Number(currentWarehouseId) : undefined,
-  };
-};
-
-export const meta: MetaFunction = () => {
-  return [{ title: "Chuyển kho" }, { name: "description", content: "Chuyển hàng giữa các kho" }];
-};
-
 interface ITransferLine {
   key: string;
   productId: number;
@@ -49,6 +28,18 @@ interface ITransferLine {
   maxStock: number;
   quantity: number;
 }
+export async function loader({ request, context }: LoaderFunctionArgs) {
+  const resp = await warehouseService.getWareHouses({ page: "1", pageSize: "100" } as any);
+  const warehouses = (resp.data?.data || []) as IWareHouse[];
+  return {
+    warehouses,
+    currentWarehouseId: context.warehouseId,
+  };
+}
+
+export const meta: MetaFunction = () => {
+  return [{ title: "Chuyển kho" }, { name: "description", content: "Chuyển hàng giữa các kho" }];
+};
 
 export default function WarehouseTransfer() {
   const { warehouses, currentWarehouseId } = useLoaderData<typeof loader>();
@@ -158,9 +149,7 @@ export default function WarehouseTransfer() {
                 onSelect={(v: any) => setToId(Number(v))}
               />
             </div>
-            {fromId && fromId === toId && (
-              <p className="text-sm text-red-500">Kho nguồn và kho đích phải khác nhau</p>
-            )}
+            {fromId && fromId === toId && <p className="text-sm text-red-500">Kho nguồn và kho đích phải khác nhau</p>}
 
             {/* Product search */}
             <div className="relative">
@@ -187,12 +176,16 @@ export default function WarehouseTransfer() {
             {/* Lines */}
             <TMTable
               columns={[
-                { title: "Sản phẩm", dataIndex: "name", render: (r: ITransferLine) => (
-                  <div className="flex flex-col">
-                    <span>{r.name}</span>
-                    {r.skuCode && <span className="text-xs text-slate-400">{r.skuCode}</span>}
-                  </div>
-                ) },
+                {
+                  title: "Sản phẩm",
+                  dataIndex: "name",
+                  render: (r: ITransferLine) => (
+                    <div className="flex flex-col">
+                      <span>{r.name}</span>
+                      {r.skuCode && <span className="text-xs text-slate-400">{r.skuCode}</span>}
+                    </div>
+                  ),
+                },
                 { title: "Tồn tại kho nguồn", dataIndex: "maxStock", render: (r: ITransferLine) => r.maxStock },
                 {
                   title: "Số lượng",
@@ -220,7 +213,9 @@ export default function WarehouseTransfer() {
               data={lines}
               rowKey="key"
             />
-            {lines.length === 0 && <p className="text-sm text-slate-400">Chưa có sản phẩm nào. Tìm và thêm sản phẩm ở trên.</p>}
+            {lines.length === 0 && (
+              <p className="text-sm text-slate-400">Chưa có sản phẩm nào. Tìm và thêm sản phẩm ở trên.</p>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
               <TMButton variant="ghost" size="sm" component={Link} to="/warehouses">
@@ -240,24 +235,21 @@ export default function WarehouseTransfer() {
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request }: ActionFunctionArgs) {
   try {
     const formData = await request.formData();
     const data = JSON.parse((formData.get("data") as string) || "{}");
     await transferService.createTransfer({
-      cookie,
-      vendorId,
       fromWarehouseId: Number(data.fromWarehouseId),
       toWarehouseId: Number(data.toWarehouseId),
       note: data.note,
       items: data.items || [],
     });
-    return json({ success: true });
+    return Response.json({ success: true });
   } catch (error: any) {
-    return json({ success: false, error: error?.message || "Chuyển kho thất bại" }, { status: 400 });
+    return Response.json({ success: false, error: error?.message || "Chuyển kho thất bại" }, { status: 400 });
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

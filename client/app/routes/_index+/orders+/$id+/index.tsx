@@ -1,8 +1,9 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { namedAction } from "remix-utils/named-action";
 import { invoiceService } from "~/action.server/invoice.service";
 import { orderService } from "~/action.server/order.service";
 import { CardItem } from "~/components/card-item";
@@ -24,15 +25,12 @@ export const meta: MetaFunction = () => {
   return [{ title: "Chi tiết đơn hàng" }];
 };
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
   const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
   if (!id) throw new Error("Không tìm thấy đơn hàng");
   const response = await orderService.getOrderById({
     id,
-    cookie,
-    warehouseId,
-    vendorId,
   });
   const order = (response.data as any)?.data ?? response.data;
   // One order can have MANY invoices (partial deliveries) — load all so the
@@ -40,8 +38,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   let invoices: any[] = [];
   try {
     const invResp: any = await invoiceService.getInvoices({
-      cookie,
-      vendorId,
       orderId: id,
       page: "1",
       pageSize: "50",
@@ -52,48 +48,33 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     console.warn("load invoices for order failed", e);
   }
   return { data: order, invoices };
-};
+}
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+export async function action({ request, params }: ActionFunctionArgs) {
   const formData = await request.formData();
-  const intent = formData.get("intent");
-  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
 
   try {
-    if (intent === "create-invoice") {
-      // Per-line invoice creation — backend re-validates qty vs DB (never
-      // trusts the client) inside a locked transaction.
-      const rawLines = formData.get("lines");
-      let lines: any[] = [];
-      try {
-        lines = rawLines ? JSON.parse(String(rawLines)) : [];
-      } catch {
-        return { error: "Invalid lines JSON" };
-      }
-      const resp: any = await orderService.createOrderInvoice({
-        id: params.id as string,
-        lines,
-        cookie,
-        vendorId,
-      });
-      const created = (resp?.data as any)?.data ?? resp?.data;
-      return { invoiceId: created?.id ?? null, invoice: created ?? null };
-    }
-
-    // default: update order
-    const data: any = await formData.get("data");
-    const dataJson = data ? JSON.parse(data) : {};
-    await orderService.updateOrder({
-      id: params.id as string,
-      ...dataJson,
-      cookie,
-      vendorId,
+    return namedAction(formData, {
+      "create-invoice": async () => {
+        const rawLines = formData.get("lines");
+        let lines: any[] = [];
+        try {
+          lines = rawLines ? JSON.parse(String(rawLines)) : [];
+        } catch {
+          return Response.json({ error: "Invalid lines JSON" });
+        }
+        const resp: any = await orderService.createOrderInvoice({
+          id: params.id as string,
+          lines,
+        });
+        const created = (resp?.data as any)?.data ?? resp?.data;
+        return Response.json({ invoiceId: created?.id ?? null, invoice: created ?? null });
+      },
     });
-    return { ok: true };
   } catch (error: any) {
     return { error: error.message || "Request failed" };
   }
-};
+}
 
 export default function OrderItem() {
   const loaderData = useLoaderData<typeof loader>();
@@ -106,7 +87,8 @@ export default function OrderItem() {
   const { t } = useTranslation();
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selection, setSelection] = useState<Record<number, { checked: boolean; qty: number }>>({});
-  const [printTarget, setPrintTarget] = useState<any[] | null>(null);
+  const [printInvoices, setPrintInvoices] = useState<any[] | null>(null);
+  const [isPrintFetching, setIsPrintFetching] = useState(false);
 
   const searchFetcher = useFetcher<{ data: { data: IProduct[]; total: number } }>({ key: "Products-Search" });
   const form = useForm<OrderSchema>({
@@ -132,37 +114,85 @@ export default function OrderItem() {
 
   const { submit, isLoading } = useSubmitPromise();
 
-  // Print a single invoice or all invoices (concat) via browser print.
-  // The print container below renders ONLY the targeted invoice(s).
+  // Print a single invoice or all invoices via the body-level InvisiblePrintContainer.
+  // The container (InvoicePrintPortal) mounts ONLY the targeted invoice(s) and
+  // injects a single @media print stylesheet. We await waitForPrintReady() inside
+  // printInvoiceViaBrowser() so window.print() never snapshots a blank portal.
   useEffect(() => {
-    if (printTarget && printTarget.length > 0) {
-      printInvoiceViaBrowser();
-      const timer = window.setTimeout(() => setPrintTarget(null), 800);
-      return () => window.clearTimeout(timer);
+    if (printInvoices && printInvoices.length > 0) {
+      let cancelled = false;
+      void (async () => {
+        await printInvoiceViaBrowser();
+        if (!cancelled) {
+          window.setTimeout(() => setPrintInvoices(null), 1200);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [printTarget]);
+  }, [printInvoices]);
+
+  // Fetch full invoice detail(s) before printing (Way A). Falls back to
+  // opening /invoices/:id?print=true in a new tab (Way B) on failure so the
+  // user never sees a blank preview.
+  const fetchInvoiceDetail = async (invoiceId: number | string): Promise<any> => {
+    const res = await fetch(`/api/invoices/${invoiceId}`);
+    if (!res.ok) throw new Error(`Failed to fetch invoice ${invoiceId}: ${res.status}`);
+    return res.json();
+  };
+
+  const handlePrintSingle = async (summary: any) => {
+    const id = summary?.id;
+    if (!id) return;
+    setIsPrintFetching(true);
+    try {
+      const detail = await fetchInvoiceDetail(id);
+      setPrintInvoices([detail]);
+    } catch (e) {
+      console.warn("print single: detail fetch failed, falling back to new tab", e);
+      window.open(`/invoices/${id}?print=true`, "_blank");
+    } finally {
+      setIsPrintFetching(false);
+    }
+  };
+
+  const handlePrintAll = async () => {
+    if (!invoices.length) return;
+    setIsPrintFetching(true);
+    try {
+      const details = await Promise.all(invoices.map((inv: any) => fetchInvoiceDetail(inv.id)));
+      setPrintInvoices(details);
+    } catch (e) {
+      console.warn("print all: detail fetch failed, falling back to per-invoice tabs", e);
+      // Fallback: open the first invoice with print flag; user can print sequentially
+      window.open(`/invoices/${invoices[0].id}?print=true`, "_blank");
+    } finally {
+      setIsPrintFetching(false);
+    }
+  };
 
   // After creating an invoice, stay on the page: loader revalidates so the
   // per-line badges (đã xuất / còn lại) and the invoice list refresh.
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data && !("error" in (fetcher.data as any))) {
-      const result: any = fetcher.data;
-      if (result.invoiceId) {
-        toast.success({ title: "Success", message: "Đã tạo hóa đơn từ đơn hàng" });
-        setShowInvoiceModal(false);
-        setSelection({});
-      }
-      if ((result as any).error) {
-        toast.danger({ title: "Error", message: (result as any).error });
-      }
-      if (result.ok) {
-        toast.success({ title: "Success", message: "Cập nhật đơn hàng thành công" });
-        setSearchParams({}, { replace: true });
-        form.reset(form.getValues());
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetcher.state, fetcher.data]);
+  // useEffect(() => {
+  //   if (fetcher.state === "idle" && fetcher.data && !("error" in (fetcher.data as any))) {
+  //     const result: any = fetcher.data;
+  //     if (result.invoiceId) {
+  //       toast.success({ title: "Success", message: "Đã tạo hóa đơn từ đơn hàng" });
+  //       setShowInvoiceModal(false);
+  //       setSelection({});
+  //     }
+  //     if ((result as any).error) {
+  //       toast.danger({ title: "Error", message: (result as any).error });
+  //     }
+  //     if (result.ok) {
+  //       toast.success({ title: "Success", message: "Cập nhật đơn hàng thành công" });
+  //       setSearchParams({}, { replace: true });
+  //       form.reset(form.getValues());
+  //     }
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [fetcher.state, fetcher.data]);
 
   const handleError = (errors: any) => {
     console.log("errors", errors);
@@ -224,7 +254,7 @@ export default function OrderItem() {
     const line = lines.find((d: any) => Number(d.id) === detailId);
     const rem = line ? remainingOf(line) : 0;
     const clamped = clampLineQty(qty, rem);
-    setSelection((prev) => ({ ...prev, [detailId]: { checked: (prev[detailId]?.checked ?? true), qty: clamped } }));
+    setSelection((prev) => ({ ...prev, [detailId]: { checked: prev[detailId]?.checked ?? true, qty: clamped } }));
   };
 
   const selectedLines = useMemo(
@@ -232,7 +262,7 @@ export default function OrderItem() {
       Object.entries(selection)
         .filter(([, s]) => s.checked && s.qty > 0)
         .map(([id, s]) => ({ order_detail_id: Number(id), quantity: s.qty })),
-    [selection]
+    [selection],
   );
 
   const derivedType = useMemo(() => deriveInvoiceType(lines, selectedLines), [selectedLines, lines]);
@@ -242,7 +272,7 @@ export default function OrderItem() {
       toast.danger({ title: "Error", message: "Chọn ít nhất 1 dòng với số lượng > 0" });
       return;
     }
-    fetcher.submit({ intent: "create-invoice", lines: JSON.stringify(selectedLines) }, { method: "post" });
+    submit({ intent: "create-invoice", lines: JSON.stringify(selectedLines) }, { method: "post" });
   };
 
   // QZ Tray device printing is disabled — browser print only.
@@ -326,7 +356,13 @@ export default function OrderItem() {
       <div className="max-w-5xl w-full mx-auto flex flex-col gap-3">
         {/* Toolbar */}
         <div className="flex gap-2 shrink-0 no-print justify-start sm:justify-end flex-wrap">
-          <TMButton variant="outline" onClick={() => setPrintTarget(invoices)} size="sm" disabled={!invoices.length}>
+          <TMButton
+            variant="outline"
+            onClick={handlePrintAll}
+            size="sm"
+            disabled={!invoices.length || isPrintFetching}
+            loading={isPrintFetching}
+          >
             <Icon name="printer" fontSize={16} />
             <span className="hidden sm:inline">{t("orders.printAllInvoices", { defaultValue: "In gộp" })}</span>
           </TMButton>
@@ -421,7 +457,13 @@ export default function OrderItem() {
                         <TMButton variant="outline" size="xs" onClick={() => navigate(`/invoices/${inv.id}`)}>
                           {t("common.view", { defaultValue: "Xem" })}
                         </TMButton>{" "}
-                        <TMButton variant="outline" size="xs" onClick={() => setPrintTarget([inv])}>
+                        <TMButton
+                          variant="outline"
+                          size="xs"
+                          onClick={() => handlePrintSingle(inv)}
+                          loading={isPrintFetching}
+                          disabled={isPrintFetching}
+                        >
                           <Icon name="printer" fontSize={14} /> {t("common.print", { defaultValue: "In" })}
                         </TMButton>
                       </td>
@@ -458,15 +500,24 @@ export default function OrderItem() {
             {/* Header */}
             <div className="flex justify-between items-start flex-wrap gap-2">
               <div>
-                <p className="text-lg font-bold text-slate-900 dark:text-white">{order?.code || `#${order?.id}`}</p>
-                <p className="text-sm text-gray-500 dark:text-slate-400">{order?.createdAt ? new Date(order.createdAt).toLocaleString("vi-VN") : ""}</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">Mã đơn hàng: {order?.code || ""}</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400">
+                  Kho: {(order as any)?.warehouse?.name || order?.warehouseId || "-"}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-slate-400">
+                  {order?.createdAt ? new Date(order.createdAt).toLocaleString("vi-VN") : ""}
+                </p>
               </div>
               <div className="flex gap-2">
                 {order?.status === "partially_returned" && (
-                  <span className="px-3 py-1 rounded text-sm bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Trả một phần</span>
+                  <span className="px-3 py-1 rounded text-sm bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                    Trả một phần
+                  </span>
                 )}
                 {order?.status === "returned" && (
-                  <span className="px-3 py-1 rounded text-sm bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300">Đã trả hết</span>
+                  <span className="px-3 py-1 rounded text-sm bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300">
+                    Đã trả hết
+                  </span>
                 )}
                 <span className="px-3 py-1 rounded text-sm bg-gray-100 text-gray-800 dark:bg-slate-700 dark:text-slate-200">
                   {order?.paymentType === "transfer" ? t("invoices.detail.transfer") : t("invoices.detail.cash")}
@@ -479,76 +530,86 @@ export default function OrderItem() {
               <table className="w-full min-w-[680px] text-sm text-slate-700 dark:text-slate-200">
                 <thead className="bg-gray-50 dark:bg-slate-700/60">
                   <tr>
-                    <th className="p-2 text-left font-medium text-slate-500 dark:text-slate-300">{t("importOrder.product")}</th>
-                    <th className="p-2 w-20 text-right font-medium text-slate-500 dark:text-slate-300">{t("orders.ordered", { defaultValue: "Đã đặt" })}</th>
-                    <th className="p-2 w-20 text-right font-medium text-slate-500 dark:text-slate-300">{t("orders.invoiced", { defaultValue: "Đã xuất" })}</th>
-                    <th className="p-2 w-20 text-right font-medium text-slate-500 dark:text-slate-300">{t("orders.remaining", { defaultValue: "Còn lại" })}</th>
-                    <th className="p-2 w-32 text-right font-medium text-slate-500 dark:text-slate-300">{t("importOrder.price")}</th>
-                    <th className="p-2 w-32 text-right font-medium text-slate-500 dark:text-slate-300">{t("importOrder.total")}</th>
+                    <th className="p-2 text-left font-medium text-slate-500 dark:text-slate-300">
+                      {t("importOrder.product")}
+                    </th>
+                    <th className="p-2 text-right font-medium text-slate-500 dark:text-slate-300">
+                      {t("orders.quantity")}
+                    </th>
+                    <th className="p-2 text-right font-medium text-slate-500 dark:text-slate-300">
+                      {t("importOrder.price")}
+                    </th>
+                    <th className="p-2 text-right font-medium text-slate-500 dark:text-slate-300">
+                      Thành tiền (chưa VAT)
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-slate-800">
                   {items.map((item: any, index: number) => {
                     const ordered = Number(item.quantity || 0);
-                    const invoiced = Number(item.invoicedQty ?? 0);
-                    const remaining = Math.max(ordered - invoiced, 0);
-                    const badge =
-                      remaining === 0 ? (
-                        <span className="ml-2 px-2 py-0.5 rounded text-xs bg-green-100 text-green-800">{t("orders.invoicedDone", { defaultValue: "Đã xuất đủ" })}</span>
-                      ) : invoiced > 0 ? (
-                        <span className="ml-2 px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800">{t("orders.invoicedPartial", { defaultValue: "Một phần" })}</span>
-                      ) : (
-                        <span className="ml-2 px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{t("orders.invoicedNone", { defaultValue: "Chưa xuất" })}</span>
-                      );
-                    return (
-                    <tr key={`${item.id}-${index}`} className="border-t border-slate-100 dark:border-slate-700 odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40">
-                      <td className="p-2">
-                        <div className="flex flex-col text-slate-800 dark:text-slate-100">
-                          <div>{item.name || `#${item.productId}`}{badge}</div>
+                    const lineTotal = ordered * Number(item.price || 0);
+                    const vatRate = Number(order?.VAT || 0);
+                    const vatAmount = (lineTotal * vatRate) / 100;
 
-                          {item.variant?.attributeValues?.length ? (
-                            <div className="text-xs text-gray-500 dark:text-slate-400">
-                              {item.variant.attributeValues
-                                .map(
-                                  (attr: { attribute: { name: string }; value: string }) =>
-                                    `${attr.attribute?.name}: ${attr.value}`,
-                                )
-                                .join(", ")}
+                    return (
+                      <React.Fragment key={item.id}>
+                        <tr className="border-t border-slate-100 dark:border-slate-700 odd:bg-white even:bg-slate-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40">
+                          <td className="p-2">
+                            <div className="flex flex-col text-slate-800 dark:text-slate-100">
+                              <div className="font-medium">{item.name || `#${item.productId}`}</div>
+
+                              {item.variant?.attributeValues?.length ? (
+                                <div className="text-xs text-gray-500 dark:text-slate-400">
+                                  {item.variant.attributeValues
+                                    .map(
+                                      (attr: { attribute: { name: string }; value: string }) =>
+                                        `${attr.attribute?.name}: ${attr.value}`,
+                                    )
+                                    .join(", ")}
+                                </div>
+                              ) : null}
                             </div>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="p-2 text-right font-medium">{ordered}</td>
-                      <td className="p-2 text-right">{invoiced}</td>
-                      <td className="p-2 text-right font-medium">{remaining}</td>
-                      <td className="p-2 text-right">{formatCurrency(item.price)}</td>
-                      <td className="p-2 text-right">{formatCurrency(item.buyPrice)}</td>
-                    </tr>
+                          </td>
+                          <td className="p-2 text-right">{ordered}</td>
+                          <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                          <td className="p-2 text-right">{formatCurrency(lineTotal)}</td>
+                        </tr>
+                        {(vatRate > 0 || vatAmount > 0) && (
+                          <tr className="border-t-0 text-slate-500 dark:text-slate-400 italic">
+                            <td className="px-2 pb-2 pt-0 text-[0.9em]">└ VAT ({vatRate}%)</td>
+                            <td className="px-2 pb-2 pt-0"></td>
+                            <td className="px-2 pb-2 pt-0"></td>
+                            <td className="px-2 pb-2 pt-0 text-right text-[0.9em]">+ {formatCurrency(vatAmount)}</td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
 
-            {/* Totals */}
+            {/* Totals — Tạm tính (chưa VAT) / Tổng VAT / Giảm giá / Tổng thanh toán */}
             <div className="flex justify-end">
               <div className="w-full sm:w-72 sm:ml-auto space-y-2 text-slate-700 dark:text-slate-200">
                 <div className="flex justify-between">
-                  <span>{t("invoices.detail.subtotalLabel")}</span>
+                  <span>Tạm tính (chưa VAT)</span>
                   <span className="font-medium">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{t("invoices.detail.surcharge")}</span>
-                  <span className="font-medium">{formatCurrency(order?.surcharge || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>
-                    {t("importOrder.VAT")} ({Number(order?.VAT || 0)}%)
-                  </span>
+                  <span>Tổng VAT</span>
                   <span className="font-medium">{formatCurrency(vatAmount)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span>Giảm giá</span>
+                  <span className="font-medium">{formatCurrency((order as any)?.discount || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Phụ thu</span>
+                  <span className="font-medium">{formatCurrency(order?.surcharge || 0)}</span>
+                </div>
                 <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2">
-                  <span>{t("importOrder.totalPayable")}</span>
+                  <span>Tổng tiền thanh toán</span>
                   <span className="text-blue-600 dark:text-blue-400">{formatCurrency(totalPaid)}</span>
                 </div>
               </div>
@@ -572,7 +633,13 @@ export default function OrderItem() {
                   })}
                 </p>
               </div>
-              <button type="button" onClick={() => setShowInvoiceModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button
+                type="button"
+                onClick={() => setShowInvoiceModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
             </div>
             <div className="border rounded overflow-x-auto">
               <table className="w-full min-w-[480px] text-sm">
@@ -638,20 +705,29 @@ export default function OrderItem() {
         </div>
       )}
 
-      {/* Print-only container: renders ONLY targeted invoice(s), one ReceiptPrinter each */}
-      {printTarget && printTarget.length > 0 && (
+      {/* Print-only container: renders ONLY targeted invoice(s), one ReceiptPrinter each}.
+       * This stays mounted until afterprint fires so the portal has DOM content
+       * and the @media print styles are injected before window.print() snapshots.
+       * The data is pre-fetched via fetchInvoiceDetail() so the print preview contains
+       * full invoiceDetails (product names, prices, etc.) instead of a blank summary.
+       */}
+      {printInvoices && printInvoices.length > 0 && (
         <div style={{ display: "none" }}>
-          {printTarget.map((inv: any, idx: number) => (
+          {printInvoices.map((inv: any, idx: number) => (
             <ReceiptPrinter
               key={inv.id}
               invoice={inv}
               orderCode={order?.code}
               invoiceIndex={invoices.findIndex((v: any) => v.id === inv.id) + 1 || idx + 1}
-              invoiceTotal={invoices.length || printTarget.length}
+              invoiceTotal={invoices.length || printInvoices.length}
             />
           ))}
         </div>
       )}
+
+      <div className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
+        <p>Cảm ơn bạn đã mua hàng!</p>
+      </div>
     </div>
   );
 }

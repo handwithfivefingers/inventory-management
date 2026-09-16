@@ -5,29 +5,24 @@ import { importOrderService } from "~/action.server/importOrder.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
+import { Icon } from "~/components/icon";
 import { CreateFab } from "~/components/layouts/create-fab";
+import { PermissionGuard } from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
-import { PermissionGuard } from "~/components/permission-guard";
-import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
 import { useTranslation } from "~/i18n";
-import { Icon } from "~/components/icon";
+import { dayjs } from "~/libs/date";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const { cookie, warehouseId, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || "1";
     const pageSize = params.get("pageSize") || "10";
     const resp = await importOrderService.getOrders({
-      warehouseId: warehouseId as string,
-      vendorId,
       page,
       pageSize,
-      cookie,
     });
 
     return {
@@ -39,7 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Nhập hàng" }, { name: "description", content: "Nhập hàng" }];

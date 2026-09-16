@@ -1,7 +1,7 @@
-import { ILoginParams } from "~/action.client/auth.service";
-import { HTTPService } from "~/http";
+// import { ILoginParams } from "~/action.client/auth.service";
+// import { IResponse } from "~/types/common";
+import { HTTPService } from "~/http/index.server";
 import { ILoginResponse, IRegisterParams, IRegisterResponse } from "~/types/authenticate";
-import { IResponse } from "~/types/common";
 import { IUser } from "~/types/user";
 
 const API_PATH = {
@@ -10,6 +10,10 @@ const API_PATH = {
   me: "/auth/me",
   logout: "/auth/logout",
 };
+export interface ILoginParams {
+  email: string;
+  password: string;
+}
 
 export const AuthService = {
   login: async (params: ILoginParams) => {

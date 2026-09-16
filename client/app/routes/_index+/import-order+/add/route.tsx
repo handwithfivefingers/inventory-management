@@ -172,20 +172,13 @@ export default function OrderItem() {
     </FormProvider>
   );
 }
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const data: any = await formData.get("data");
   const dataJson = data ? JSON.parse(data) : {};
-  const { warehouseId, vendorId, cookie } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
-  const params = {
-    ...dataJson,
-    warehouseId,
-    vendorId,
-    cookie,
-  };
-  const resp = await importOrderService.createOrder(params);
+  const resp = await importOrderService.createOrder(dataJson);
   return resp;
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

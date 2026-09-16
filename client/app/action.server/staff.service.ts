@@ -1,4 +1,4 @@
-import { http } from "~/http";
+import { http } from "~/http/index.server";
 import { IStaff, IStaffQueryParams } from "~/types/staff";
 
 const API_PATH = {
@@ -6,27 +6,22 @@ const API_PATH = {
 };
 
 const staffService = {
-  get: ({ cookie, ...searchParams }: IStaffQueryParams) => {
+  get: (searchParams: IStaffQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return http.get<{ data: IStaff[]; total: number }>(API_PATH.staff + "?" + qs.toString(), { cookie });
+    return http.get<{ data: IStaff[]; total: number }>(API_PATH.staff + "?" + qs.toString());
   },
-  getById: (id: string | number, cookie: string, vendorId?: string | number) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.get<{ data: IStaff }>(`${API_PATH.staff}/${id}${qs}`, { cookie });
+  getById: (id: string | number) => {
+    return http.get<{ data: IStaff }>(`${API_PATH.staff}/${id}`);
   },
-  create: ({ cookie, vendorId, ...params }: Partial<IStaff> & { cookie: string; vendorId?: string | number }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.post(API_PATH.staff + qs, params, { cookie });
+  create: (params: Partial<IStaff>) => {
+    return http.post(API_PATH.staff, params);
   },
-  update: (id: string | number, params: Partial<IStaff> & { cookie?: string; vendorId?: string | number }) => {
+  update: (id: string | number, params: Partial<IStaff>) => {
     const { cookie, vendorId, ...body } = params as any;
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    const headers = cookie ? { cookie } : undefined;
-    return http.put(`${API_PATH.staff}/${id}${qs}`, body, headers);
+    return http.put(`${API_PATH.staff}/${id}`, params);
   },
-  remove: (id: string | number, cookie: string, vendorId?: string | number) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.delete(`${API_PATH.staff}/${id}${qs}`, { cookie });
+  remove: (id: string | number) => {
+    return http.delete(`${API_PATH.staff}/${id}`);
   },
 };
 

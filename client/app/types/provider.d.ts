@@ -14,8 +14,6 @@ export interface IProvider {
 }
 
 export interface IOrderQueryParams extends BaseQueryParams {
-  vendor?: string;
-  warehouseId?: string;
   isProvider?: boolean;
 }
 

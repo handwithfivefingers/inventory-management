@@ -6,10 +6,12 @@ export class CategoriesController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      // #swagger.tags = ['Categories']
+      const warehouseId = req.headers['x-warehouse']
+      const vendorId = req.headers['x-vendor']
+
       const params = {
         ...req.body,
-        vendorId: req.query.vendorId
+        vendorId: vendorId
       }
       const resp = await new CategoriesService().create(params)
       res.status(200).json({
@@ -53,8 +55,9 @@ export class CategoriesController {
     const [req, res, next] = arg
     try {
       // #swagger.tags = ['Categories']
-
-      const { limit, offset, vendorId } = getPagination(req.query)
+      const warehouseId = req.headers['x-warehouse']
+      const vendorId = req.headers['x-vendor'] as string
+      const { limit, offset } = getPagination(req.query)
       const { count, rows } = await new CategoriesService().getCategories({ limit, offset, vendorId })
       res.status(200).json({ total: count, data: rows })
       return

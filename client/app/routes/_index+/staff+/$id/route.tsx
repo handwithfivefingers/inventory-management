@@ -16,16 +16,15 @@ import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const { id } = params;
-    const resp = await staffService.getById(id as string, cookie, vendorId);
+    const resp = await staffService.getById(id as string);
     return { data: resp.data?.data ?? null, id };
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chi tiết nhân viên" }, { name: "description", content: "Chi tiết nhân viên" }];
@@ -200,18 +199,17 @@ export default function StaffDetail() {
   );
 }
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+export async function action({ request, params }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const { id } = params;
     const form = await request.formData();
     const data = form.get("data") as string;
-    const resp = await staffService.update(id as string, { ...JSON.parse(data), cookie, vendorId });
+    const resp = await staffService.update(id as string, { ...JSON.parse(data) });
     return resp;
   } catch (error) {
     return { status: 400, error: (error as any).message };
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

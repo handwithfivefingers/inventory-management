@@ -15,19 +15,15 @@ import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const params = url.searchParams;
     const page = params.get("page") || "1";
     const pageSize = params.get("pageSize") || "10";
     const resp = await staffService.get({
-      warehouseId: warehouseId as string,
-      vendorId,
       page,
       pageSize,
-      cookie,
     });
     return {
       data: resp.data?.data ?? [],
@@ -38,7 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Nhân viên" }, { name: "description", content: "Quản lý nhân viên" }];
@@ -82,7 +78,13 @@ export default function Staff() {
             scrollable
             loading={isLoading}
             columns={[
-              { title: t("staff.stt"), dataIndex: "id", width: 80, hideOnMobile: true, render: (record, i) => Number(i) + 1 },
+              {
+                title: t("staff.stt"),
+                dataIndex: "id",
+                width: 80,
+                hideOnMobile: true,
+                render: (record, i) => Number(i) + 1,
+              },
               { title: t("staff.code"), dataIndex: "code", hideOnMobile: true },
               { title: t("staff.fullName"), dataIndex: "fullName" },
               { title: t("staff.phone"), dataIndex: "phone", hideOnMobile: true },
@@ -140,14 +142,13 @@ export function ErrorBoundary() {
   return <ErrorComponent />;
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const staffId = formData.get("staffId") as string;
-    const response = await staffService.remove(staffId, cookie, vendorId);
+    const response = await staffService.remove(staffId);
     return Response.json(response, { status: 200 });
   } catch (error) {
     return Response.json(error, { status: 400 });
   }
-};
+}

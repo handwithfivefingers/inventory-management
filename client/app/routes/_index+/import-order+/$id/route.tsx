@@ -7,22 +7,22 @@ import { ErrorComponent } from "~/components/error-component";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
-import { dayjs } from "~/libs/date";
-import { getSession } from "~/sessions";
 import { useTranslation } from "~/i18n";
+import { dayjs } from "~/libs/date";
+// import { getSession } from "~/sessions";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
     const { id } = params;
-    const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
-    const resp = await importOrderService.getOrderById(id as string, { cookie, vendorId });
+    // const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
+    const resp = await importOrderService.getOrderById(id as string);
     return {
       data: resp.data?.data ?? null,
     };
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chi tiết nhập hàng" }, { name: "description", content: "Chi tiết phiếu nhập" }];

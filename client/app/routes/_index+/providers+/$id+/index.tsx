@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { providerService } from "~/action.server/provider.service";
@@ -13,18 +13,16 @@ import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { providerUpdateSchema, ProviderUpdateSchema } from "~/constants/schema/provider";
 import { useSubmitPromise } from "~/hooks";
-import { ResponseError } from "~/http";
-import { parseCookieFromRequest } from "~/sessions";
+import { ResponseError } from "~/http/index.server";
 import { useTranslation } from "~/i18n";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
   if (!id) return redirect("/providers");
-  const resp = await providerService.getProviderById({ id, cookie, vendorId });
+  const resp = await providerService.getProviderById(id);
   if (resp.status !== 200) throw new Response("Provider not found", { status: resp.status });
   return { ...resp.data };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chỉnh sửa nhà cung cấp" }, { name: "description", content: "Chỉnh sửa nhà cung cấp" }];
@@ -132,14 +130,13 @@ export function ErrorBoundary() {
   return <ErrorComponent />;
 }
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+export async function action({ request, params }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = JSON.parse(Object.fromEntries(formData)?.data as string);
-    const resp = await providerService.update({ ...data, id: params.id, vendorId, cookie });
-    return json(resp);
+    const resp = await providerService.update({ ...data, id: params.id });
+    return Response.json(resp);
   } catch (error) {
-    return json({ error: (error as any)?.message }, { status: 400 });
+    return Response.json({ error: (error as any)?.message }, { status: 400 });
   }
-};
+}

@@ -50,6 +50,7 @@
     "shift": "Chốt ca",
     "settings": "Cài đặt",
     "generalSettings": "Cài đặt chung",
+    "vendorSettings": "Hồ sơ cửa hàng",
     "payment": "Thanh toán",
     "role": "Vai trò",
     "other": "Khác",
@@ -363,6 +364,29 @@
   },
   "settings": {
     "moneyStep": "Bước nhảy tiền tệ (+/-)",
-    "moneyStepHint": "Áp dụng cho nút tăng/giảm giá tiền. VD: 1000 với VND"
+    "moneyStepHint": "Áp dụng cho nút tăng/giảm giá tiền. VD: 1000 với VND",
+    "vendor": {
+      "title": "Hồ sơ cửa hàng",
+      "subtitle": "Tên thương hiệu, pháp lý, thuế và tiền tố hóa đơn",
+      "save": "Lưu hồ sơ",
+      "displayName": "Tên trên chứng từ:",
+      "displayNameHint": "Ưu tiên tên pháp lý nếu có, ngược lại dùng tên thương hiệu.",
+      "identity": "Thương hiệu & pháp lý",
+      "brandName": "Tên thương hiệu",
+      "nameRequired": "Tên thương hiệu là bắt buộc",
+      "legalName": "Tên pháp lý (không bắt buộc)",
+      "legalNameHint": "Tên đăng ký dùng trên hóa đơn. Shop cá nhân có thể bỏ trống.",
+      "taxNumber": "Mã số thuế",
+      "invoicePrefix": "Tiền tố series hóa đơn",
+      "invoicePrefixHint": "Chỉ gồm chữ, số và gạch ngang (tối đa 20). Chỉ áp dụng cho hóa đơn mới.",
+      "prefixInvalid": "Tiền tố chỉ gồm chữ, số và gạch ngang (tối đa 20)",
+      "contact": "Liên hệ",
+      "address": "Địa chỉ",
+      "email": "Email",
+      "emailInvalid": "Email chưa đúng định dạng",
+      "phone": "Điện thoại",
+      "immutableNote": "Lưu ý: cập nhật hồ sơ không làm thay đổi hóa đơn đã phát hành — chúng giữ nguyên dữ liệu lúc phát hành.",
+      "readOnlyNote": "Bạn chỉ có quyền xem trang này, chỉ quản lý mới được chỉnh sửa."
+    }
   }
 }

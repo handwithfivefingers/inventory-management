@@ -1,90 +1,24 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_SETTINGS, ICodeFormatMap, IVendorSettings, settingService } from "~/action.server/setting.service";
+import { useMemo, useRef, useState } from "react";
+import type { IAppearanceConfig } from "~/types/setting";
+import { DEFAULT_SETTINGS } from "~/types/setting";
+import type { ICodeFormatMap, IVendorSettings } from "~/types/setting";
+import { settingService } from "~/action.server/setting.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { SwitchInput } from "~/components/form/switch-input";
 import { NumberInput } from "~/components/form/number-input";
 import { SelectInput } from "~/components/form/select-input";
+import { SwitchInput } from "~/components/form/switch-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
-import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
+import { useIsAdmin } from "~/hooks/use-permission";
 import { isLocale, useTranslation } from "~/i18n";
-import { parseCookieFromRequest } from "~/sessions";
+import { NICHE_DEFAULT_HIDDEN, NICHE_PRESETS, NICHE_SIDEBAR_TOGGLES, resolveHiddenSidebar } from "~/libs/niche-theme";
+import { cn } from "~/libs/utils";
 import { useLocale } from "~/store/locale.store";
 import { applyTheme, isTheme, useTheme } from "~/store/theme.store";
-import { useIsAdmin } from "~/hooks/use-permission";
-import {
-  applyNicheTheme,
-  NICHE_DEFAULT_HIDDEN,
-  NICHE_PRESETS,
-  NICHE_SIDEBAR_TOGGLES,
-  resolveHiddenSidebar,
-} from "~/libs/niche-theme";
-import type { IAppearanceConfig } from "~/action.server/setting.service";
-import { cn } from "~/libs/utils";
-
-export const meta: MetaFunction = () => {
-  return [
-    { title: "General - Cài đặt" },
-    { name: "description", content: "Cài đặt chung cho cửa hàng: ngôn ngữ, giao diện, tiền tệ, mã hàng..." },
-  ];
-};
-
-/**
- * GET /setting/general
- * Load the vendor settings
- */
-export async function loader({ request }: LoaderFunctionArgs) {
-  try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
-    const settings = await settingService.getSettings({ cookie, vendorId });
-    return { success: true, data: { settings: { ...DEFAULT_SETTINGS, ...settings } } };
-  } catch (error: any) {
-    return Response.json(
-      {
-        success: false,
-        error: error.message || "Không thể tải cài đặt",
-        data: { settings: DEFAULT_SETTINGS },
-      },
-      { status: 400 },
-    );
-  }
-}
-
-/**
- * PUT /setting/general
- * Save the vendor settings
- */
-export async function action({ request }: ActionFunctionArgs) {
-  try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
-    const formData = await request.formData();
-    const payload = JSON.parse((formData.get("payload") as string) || "{}");
-    // Suffix setting removed from UI: drop it server-side too so stale values don't linger.
-    if (payload && typeof payload === "object" && "codeSuffix" in payload) delete payload.codeSuffix;
-
-    const settings = await settingService.updateSettings({
-      cookie,
-      vendorId,
-      ...payload,
-    });
-
-    return {
-      success: true,
-      message: "Đã lưu cài đặt",
-      data: { settings },
-    };
-  } catch (error) {
-    return Response.json({
-      success: false,
-      message: error?.toString || "Lưu cài đặt thất bại",
-    });
-  }
-}
-
 const LANGUAGE_OPTIONS = [
   { label: "Tiếng Việt", value: "vi" },
   { label: "English", value: "en" },
@@ -110,11 +44,64 @@ const CODE_ENTITY_LABELS: Record<keyof ICodeFormatMap, string> = {
 
 const SECTION_CARD = "bg-slate-50 dark:bg-slate-700/20 border border-slate-200 dark:border-slate-700 rounded-md p-4";
 
+export const meta: MetaFunction = () => {
+  return [
+    { title: "General - Cài đặt" },
+    { name: "description", content: "Cài đặt chung cho cửa hàng: ngôn ngữ, giao diện, tiền tệ, mã hàng..." },
+  ];
+};
+
+/**
+ * GET /setting/general
+ * Load the vendor settings
+ */
+export async function loader() {
+  try {
+    const response = await settingService.getSettings();
+    const settings = response.data?.data;
+    return { ...DEFAULT_SETTINGS, ...settings };
+  } catch (error: any) {
+    return Response.json(
+      {
+        success: false,
+        error: error.message || "Không thể tải cài đặt",
+        data: { settings: DEFAULT_SETTINGS },
+      },
+      { status: 400 },
+    );
+  }
+}
+
+/**
+ * PUT /setting/general
+ * Save the vendor settings
+ */
+export async function action({ request }: ActionFunctionArgs) {
+  try {
+    const formData = await request.formData();
+    const payload = JSON.parse((formData.get("payload") as string) || "{}");
+    // Suffix setting removed from UI: drop it server-side too so stale values don't linger.
+    if (payload && typeof payload === "object" && "codeSuffix" in payload) delete payload.codeSuffix;
+    const settings = await settingService.updateSettings(payload);
+
+    return {
+      success: true,
+      message: "Đã lưu cài đặt",
+      data: { settings },
+    };
+  } catch (error) {
+    return Response.json({
+      success: false,
+      message: error?.toString || "Lưu cài đặt thất bại",
+    });
+  }
+}
+
 export default function GeneralSettings() {
-  const { data } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const { t } = useTranslation();
-  const [form, setForm] = useState<IVendorSettings>(data?.settings || DEFAULT_SETTINGS);
+  const [form, setForm] = useState<IVendorSettings>(data || DEFAULT_SETTINGS);
   const [tab, setTab] = useState<"general" | "niche">("general");
   const setThemeStore = useTheme((s) => s.setTheme);
   const setLocaleStore = useLocale((s) => s.setLocale);
@@ -129,42 +116,42 @@ export default function GeneralSettings() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollTopRef = useRef(0);
   const tabRef = useRef(tab);
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (tabRef.current !== tab) {
-      tabRef.current = tab;
-      scrollTopRef.current = 0;
-      el.scrollTop = 0;
-    } else if (el.scrollTop !== scrollTopRef.current) {
-      el.scrollTop = scrollTopRef.current;
-    }
-  });
+  // useLayoutEffect(() => {
+  //   const el = scrollRef.current;
+  //   if (!el) return;
+  //   if (tabRef.current !== tab) {
+  //     tabRef.current = tab;
+  //     scrollTopRef.current = 0;
+  //     el.scrollTop = 0;
+  //   } else if (el.scrollTop !== scrollTopRef.current) {
+  //     el.scrollTop = scrollTopRef.current;
+  //   }
+  // });
 
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.success) {
-      toast.success({ title: "Thành công", message: "Đã lưu cài đặt" });
-      const submitted = submittedRef.current;
-      submittedRef.current = null;
-      if (submitted) {
-        // Apply language & theme immediately
-        if (isTheme(submitted.theme)) {
-          setThemeStore(submitted.theme);
-          applyTheme(submitted.theme);
-        }
-        if (isLocale(submitted.language)) {
-          setLocaleStore(submitted.language);
-        }
-        // Re-apply the niche theme from what was actually saved so the
-        // sidebar/bottom-nav refresh with the correct hidden list.
-        applyNicheTheme(submitted.appearance as any);
-        // Normalize local state to the saved payload (also purges codeSuffix).
-        setForm({ ...submitted });
-      }
-    } else if (fetcher.state === "idle" && fetcher.data && !fetcher.data.success) {
-      toast.danger({ title: "Lỗi", message: (fetcher.data as any)?.message || "Lưu cài đặt thất bại" });
-    }
-  }, [fetcher.state, fetcher.data]);
+  // useEffect(() => {
+  //   if (fetcher.state === "idle" && fetcher.data?.success) {
+  //     toast.success({ title: "Thành công", message: "Đã lưu cài đặt" });
+  //     const submitted = submittedRef.current;
+  //     submittedRef.current = null;
+  //     if (submitted) {
+  //       // Apply language & theme immediately
+  //       if (isTheme(submitted.theme)) {
+  //         setThemeStore(submitted.theme);
+  //         applyTheme(submitted.theme);
+  //       }
+  //       if (isLocale(submitted.language)) {
+  //         setLocaleStore(submitted.language);
+  //       }
+  //       // Re-apply the niche theme from what was actually saved so the
+  //       // sidebar/bottom-nav refresh with the correct hidden list.
+  //       applyNicheTheme(submitted.appearance as any);
+  //       // Normalize local state to the saved payload (also purges codeSuffix).
+  //       setForm({ ...submitted });
+  //     }
+  //   } else if (fetcher.state === "idle" && fetcher.data && !fetcher.data.success) {
+  //     toast.danger({ title: "Lỗi", message: (fetcher.data as any)?.message || "Lưu cài đặt thất bại" });
+  //   }
+  // }, [fetcher.state, fetcher.data]);
 
   const update = <K extends keyof IVendorSettings>(key: K, value: IVendorSettings[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));

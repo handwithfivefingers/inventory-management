@@ -12,6 +12,16 @@ import { IUserModel } from './user'
 export interface IVendorModel extends Model<InferAttributes<IVendorModel>, InferCreationAttributes<IVendorModel>> {
   id: CreationOptional<number>
   name: string
+  niche?: string
+  /** Registered legal name (nullable - falls back to `name`). Maps to `legal_name` column. */
+  legalName?: string | null
+  /** Maps to `tax_number` column. */
+  taxNumber?: string | null
+  address?: string | null
+  email?: string | null
+  phone?: string | null
+  /** Maps to `invoice_series_prefix` column. */
+  invoiceSeriesPrefix?: string | null
   userId: ForeignKey<IUserModel['id']>
 
   getUser: () => void

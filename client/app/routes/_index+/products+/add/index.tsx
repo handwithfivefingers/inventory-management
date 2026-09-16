@@ -3,9 +3,10 @@ import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, redirect, useLoaderData, useOutletContext } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { categoryService } from "~/action.server/category.service";
+import { withContext } from "~/action.server/context.server";
 import { productAttributeService } from "~/action.server/productAttribute.service";
 import { productService } from "~/action.server/products.service";
-import { IVendorSettings } from "~/action.server/setting.service";
+import type { IVendorSettings } from "~/types/setting";
 import { tagsService } from "~/action.server/tags.service";
 import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
@@ -25,15 +26,14 @@ export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { vendorId, cookie } = await parseCookieFromRequest(request);
-  const query = { vendorId: vendorId as string, page: "1", pageSize: "999", cookie };
+export async function loader({ request }: LoaderFunctionArgs) {
+  const query = { page: "1", pageSize: "999" };
   // Categories, units and tags are all selectable on the product form
   const [categories, units, tags, suggestedAttributes] = await Promise.all([
     categoryService.get(query),
     unitsService.get(query),
     tagsService.get(query),
-    productAttributeService.getAttributes({ cookie, vendorId }).catch(() => ({ data: { data: [] } } as any)),
+    productAttributeService.getAttributes().catch(() => ({ data: { data: [] } } as any)),
   ]);
 
   return {
@@ -42,7 +42,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     tags: tags.data,
     suggestedAttributes: (suggestedAttributes as any)?.data?.data || (suggestedAttributes as any)?.data || [],
   };
-};
+}
 
 export default function ProductItem() {
   const { submit, isLoading } = useSubmitPromise();
@@ -191,7 +191,14 @@ export default function ProductItem() {
               }
               action={
                 <div className="flex items-center justify-stretch sm:justify-end gap-2 pt-2 sm:pt-0 sm:border-t-0 border-t border-slate-100 dark:border-slate-700 w-full sm:w-auto">
-                  <TMButton variant="ghost" size="sm" component={Link} to="/products" type="button" className="flex-1 sm:flex-none">
+                  <TMButton
+                    variant="ghost"
+                    size="sm"
+                    component={Link}
+                    to="/products"
+                    type="button"
+                    className="flex-1 sm:flex-none"
+                  >
                     {t("common.cancel")}
                   </TMButton>
                   <TMButton htmlType="submit" loading={isLoading} size="sm" className="flex-1 sm:flex-none">
@@ -243,273 +250,12 @@ export default function ProductItem() {
   );
 }
 
-/**
- * Same layout as the product detail page: image column on the left,
- * form fields on the right.
- */
-// const ProductForm = ({ moneyStep = 1000 }: { moneyStep?: number }) => {
-//   const { categories, units, tags } = useLoaderData<typeof loader>();
-//   const { settings } = useOutletContext<{ settings: IVendorSettings }>();
-//   const { t } = useTranslation();
-//   // Variable products carry prices + negative-stock flag per variant, so the
-//   // parent-level fields are locked as soon as an attribute is defined.
-//   const form = useFormContext();
-//   const watchedAttrs = (form.watch("variantAttributes") || []) as any[];
-//   const hasVariantAttrs = watchedAttrs.some(
-//     (a) => (a?.name || "").trim() && (Array.isArray(a?.values) ? a.values.length > 0 : String(a?.values || "").trim()),
-//   );
-//   return (
-//     <div className="py-4 w-full flex gap-2">
-//       {/* Image column */}
-//       <div className="w-full max-w-xs flex flex-col gap-2">
-//         <ImagePreview />
-//         <FormControl name="image">
-//           {(field) => (
-//             <TextInput
-//               label={t("product.image")}
-//               placeholder="https://..."
-//               value={field.value as any}
-//               onChange={(e: any) => field.onChange(e.target.value)}
-//             />
-//           )}
-//         </FormControl>
-//       </div>
-
-//       {/* Fields column */}
-//       <div className="grid grid-cols-12 gap-4 h-fit flex-1">
-//         <div className="col-span-12">
-//           <FormControl name="name">
-//             <TextInput
-//               label={t("product.name")}
-//               required
-//               prefix={<Icon name="package" fontSize={16} className="text-slate-400" />}
-//             />
-//           </FormControl>
-//         </div>
-
-//         <div className="col-span-6">
-//           <FormControl name="code">
-//             <TextInput
-//               label={t("product.code")}
-//               prefix={<Icon name="hash" fontSize={16} className="text-slate-400" />}
-//             />
-//           </FormControl>
-//         </div>
-
-//         <div className="col-span-6">
-//           <FormControl name="skuCode">
-//             {(field) => (
-//               <>
-//                 <TextInput
-//                   label={t("product.sku")}
-//                   value={(field.value as string) || ""}
-//                   onChange={(e: any) => field.onChange(e.target.value)}
-//                   placeholder={settings?.skuTemplate ? `{CODE} → ${settings.skuTemplate}` : undefined}
-//                   prefix={<Icon name="tag" fontSize={16} className="text-slate-400" />}
-//                 />
-//                 <p className="text-xs text-gray-500 mt-1">{t("product.skuAutoHint")}</p>
-//               </>
-//             )}
-//           </FormControl>
-//         </div>
-
-//         <div className="col-span-4">
-//           <FormControl name="costPrice">
-//             {(field) => {
-//               return (
-//                 <NumberStepper
-//                   required
-//                   label={t("product.costPrice")}
-//                   disabled={hasVariantAttrs}
-//                   value={field.value as any}
-//                   step={moneyStep}
-//                   onValueChange={(v) => field.onChange(v.value)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-4">
-//           <FormControl name="regularPrice">
-//             {(field) => {
-//               return (
-//                 <NumberStepper
-//                   label={t("product.regularPrice")}
-//                   disabled={hasVariantAttrs}
-//                   value={field.value as any}
-//                   step={moneyStep}
-//                   onValueChange={(v) => field.onChange(v.value)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-4">
-//           <FormControl name="salePrice">
-//             {(field) => {
-//               return (
-//                 <NumberStepper
-//                   label={t("product.salePrice")}
-//                   disabled={hasVariantAttrs}
-//                   value={field.value as any}
-//                   step={moneyStep}
-//                   onValueChange={(v) => field.onChange(v.value)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-4">
-//           <FormControl name="wholeSalePrice">
-//             {(field) => {
-//               return (
-//                 <NumberStepper
-//                   label={t("product.wholeSalePrice")}
-//                   disabled={hasVariantAttrs}
-//                   value={field.value as any}
-//                   step={moneyStep}
-//                   onValueChange={(v) => field.onChange(v.value)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-4">
-//           <FormControl name="VAT">
-//             {(field) => {
-//               return (
-//                 <NumberStepper
-//                   label="VAT(%)"
-//                   value={field.value as any}
-//                   onValueChange={(v) => {
-//                     field.onChange(v.value);
-//                   }}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-
-//         <div className="col-span-4">
-//           <FormControl name="expiredAt">
-//             {(field) => {
-//               return <DatePicker label={t("product.expiredAt")} {...field} />;
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-12 flex gap-4">
-//           <FormControl name="quantity">
-//             {(field) => {
-//               return (
-//                 <NumberStepper
-//                   label={t("product.stock")}
-//                   value={field.value as any}
-//                   step={1}
-//                   onValueChange={(v) => field.onChange(v.value)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//           <div className="flex items-end pb-2">
-//             <FormControl name="isNegative">
-//               {(field) => {
-//                 return (
-//                   <CheckboxInput
-//                     label={t("product.allowNegative")}
-//                     disabled={hasVariantAttrs}
-//                     checked={!!field.value}
-//                     {...field}
-//                     // onChange={(e: any) => field.onChange(e.target.checked)}
-//                   />
-//                 );
-//               }}
-//             </FormControl>
-//           </div>
-//         </div>
-
-//         <div className="col-span-4">
-//           <FormControl name="unit">
-//             {(field) => {
-//               return (
-//                 <SelectInput
-//                   options={units?.data?.map((unit: any) => ({ label: unit.name, value: unit.id })) || []}
-//                   label={t("product.unit")}
-//                   {...field}
-//                   onSelect={(v) => field.onChange(v)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-4">
-//           <FormControl name="categories">
-//             {(field) => {
-//               return (
-//                 <MultiSelectInput
-//                   options={categories?.data?.map((cate: any) => ({ label: cate.name, value: cate.id })) || []}
-//                   label={t("product.categories")}
-//                   {...field}
-//                   onSelect={(v) => field.onChange(v)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-4">
-//           <FormControl name="tags">
-//             {(field) => {
-//               return (
-//                 <MultiSelectInput
-//                   options={tags?.data?.map((tag: any) => ({ label: tag.name, value: tag.id })) || []}
-//                   label={t("product.tags")}
-//                   {...field}
-//                   onSelect={(v) => field.onChange(v)}
-//                 />
-//               );
-//             }}
-//           </FormControl>
-//         </div>
-//         <div className="col-span-12">
-//           <FormControl name="description">
-//             <TextInput label={t("product.note")} multiline rows={3} />
-//           </FormControl>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-/** Large thumbnail that follows the `image` form value */
-// const ImagePreview = () => {
-//   const form = useFormContext();
-//   const image = form.watch("image") as string | undefined;
-//   if (!image) {
-//     return (
-//       <div className="w-full aspect-square rounded-lg bg-slate-50 border-3 border-dashed flex items-center justify-center text-sm text-slate-400">
-//         <Icon name="image" fontSize={100} />
-//       </div>
-//     );
-//   }
-//   return (
-//     <img
-//       src={image}
-//       alt="preview"
-//       className="w-full aspect-square rounded-lg object-cover border"
-//       onError={(e: any) => {
-//         e.currentTarget.style.visibility = "hidden";
-//       }}
-//     />
-//   );
-// };
-
-export const action = async ({ request }: any) => {
+export async function action({ request }: any) {
   try {
-    const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = await formData.get("data");
     const dataJson = JSON.parse(data);
-    const bodyData = { ...dataJson, warehouseId, vendorId, cookie };
-    const resp = await productService.createProduct(bodyData);
+    const resp = await productService.createProduct(dataJson);
     if (resp.status === 200) {
       return redirect("/products");
     }
@@ -517,7 +263,7 @@ export const action = async ({ request }: any) => {
   } catch (error) {
     return Response.json({ error, status: 400 }, { status: 400 });
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

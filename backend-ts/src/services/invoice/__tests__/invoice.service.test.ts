@@ -117,6 +117,8 @@ describe('InvoiceService.create (C1 + S1)', () => {
       ]
     }
     db.order.findByPk.mockResolvedValue(order)
+    // Warehouse belongs to the same vendor so the (vendor, warehouse) number scope is consistent
+    db.warehouse.findByPk.mockResolvedValue({ id: 1, vendorId, name: 'Main' })
     // No duplicate-invoice guard hit
     db.invoice.findOne.mockResolvedValue(null)
     // Atomic counter: INSERT ... then SELECT LAST_INSERT_ID
@@ -142,12 +144,12 @@ describe('InvoiceService.create (C1 + S1)', () => {
     expect(db.sequelize.query).toHaveBeenCalledWith(
       expect.stringContaining('ON DUPLICATE KEY UPDATE seq = LAST_INSERT_ID(seq + 1)'),
       expect.objectContaining({
-        replacements: { scopeKey: 'invoice:7', year: new Date().getFullYear(), initial: 1 },
+        replacements: { scopeKey: 'invoice:7:1', year: new Date().getFullYear(), initial: 1 },
         transaction: expect.objectContaining({ commit: expect.any(Function) })
       })
     )
     expect(db.invoice.create).toHaveBeenCalledWith(
-      expect.objectContaining({ invoiceNumber: `ACM-${new Date().getFullYear()}-00001`, vendorId: 7 }),
+      expect.objectContaining({ invoiceNumber: `ACM-W001-${new Date().getFullYear()}-00001`, vendorId: 7 }),
       expect.anything()
     )
   })
@@ -178,5 +180,39 @@ describe('InvoiceService.create (C1 + S1)', () => {
 
     expect(attempt).toBe(2)
     expect(result.id).toBe(101)
+  })
+
+  it('rejects when the warehouse belongs to a different vendor', async () => {
+    setupHappyOrder(7)
+    db.warehouse.findByPk.mockResolvedValue({ id: 1, vendorId: 99, name: 'Foreign' })
+
+    // Scoped caller: blocked by warehouse scope guard first
+    await expect(
+      service.create(makeReq({ body: { orderId: 10 }, locals: { vendorIds: [7] } }))
+    ).rejects.toThrow(/Unauthorized to access this warehouse/)
+
+    // Platform admin (no scope): blocked by the explicit vendor-warehouse consistency check
+    setupHappyOrder(7)
+    db.warehouse.findByPk.mockResolvedValue({ id: 1, vendorId: 99, name: 'Foreign' })
+    await expect(service.create(makeReq({ body: { orderId: 10 }, locals: {} }))).rejects.toThrow(
+      /Warehouse does not belong to this vendor/
+    )
+  })
+
+  it('requires a warehouseId because numbers are scoped per warehouse and vendor', async () => {
+    const order: any = {
+      id: 10,
+      vendorId: 7,
+      warehouseId: null,
+      VAT: 0,
+      surcharge: 0,
+      paymentType: 'cash',
+      orderDetails: [{ id: 11, productId: 1, quantity: 1, price: 100, variantId: null }]
+    }
+    db.order.findByPk.mockResolvedValue(order)
+
+    await expect(
+      service.create(makeReq({ body: { orderId: 10 }, locals: { vendorIds: [7] } }))
+    ).rejects.toThrow(/warehouseId is required/)
   })
 })

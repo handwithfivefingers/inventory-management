@@ -4,7 +4,8 @@ export class UnitsController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const vendorId = req.query.vendorId
+      const warehouseId = req.headers['x-warehouse']
+      const vendorId = req.headers['x-vendor']
       const { count, rows } = await new UnitsService().getUnits(vendorId as string)
       res.status(200).json({ total: count, data: rows })
       return

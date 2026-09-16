@@ -1,5 +1,8 @@
+// import { requestStorage } from "~/libs/request-store";
+// import { requestStorage } from "~/libs/request-store";
+import { getContext } from "~/action.server/context.server";
 import { IResponse } from "~/types/common";
-
+// import { getContext } from "~/action.server/context.server";
 export interface IResponseError {
   error?: string;
   status: number;
@@ -22,7 +25,6 @@ export class ResponseError extends Error {
     const { error: message, status } = error as { error: string; status: number };
     super(message);
     this.status = status;
-    // Object.assign(this, error.toString());
   }
 }
 
@@ -72,13 +74,27 @@ class HTTPService {
       error?: Error;
     } = { data: {} as T, status: 200 };
     try {
+      const context = getContext();
+      const headers: Record<string, string> = {
+        ...this.headers,
+        ...options,
+      };
       const fetchOptions: RequestInit = {
-        headers: { ...this.headers, ...options },
+        headers,
         signal: AbortSignal.timeout(30000),
         body: JSON.stringify(body),
         method: options?.method,
         credentials: "include",
       };
+      if (context?.vendorId) {
+        headers["X-Vendor"] = context.vendorId as string;
+      }
+      if (context?.warehouseId) {
+        headers["X-Warehouse"] = context.warehouseId as string;
+      }
+      if (context?.cookie) {
+        headers["Cookie"] = context.cookie;
+      }
       const resp = await fetch(this.BASE_URL + url, fetchOptions);
       const json = await resp.json();
       response.data = json;

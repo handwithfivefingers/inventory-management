@@ -18,7 +18,21 @@ import { ApiError } from '#/response'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductAttribute from '#/database/models/productAttribute'
 import { InvoiceService } from '../invoice'
+
 type OrderChannel = 'POS' | 'WHOLESALE' | 'ONLINE'
+
+const ORDER_TYPE_IMPORT = '0'
+const ORDER_TYPE_SALE = '1'
+const DEFAULT_ORDER_CHANNEL: OrderChannel = 'WHOLESALE'
+const SUPPORTED_ORDER_CHANNELS: readonly OrderChannel[] = ['POS', 'WHOLESALE', 'ONLINE']
+
+interface IOrderQueryParams {
+  page?: number | string
+  pageSize?: number | string
+  isProvider?: boolean
+  vendorId?: number | string
+  warehouseId?: number | string
+}
 interface IOrderCreateParams {
   price?: number | string
   VAT?: number | string
@@ -36,6 +50,7 @@ interface IOrderCreateParams {
   createdAt?: string | Date
   transactionDate?: string | Date
 }
+
 interface IOrderDetailCreateParams {
   name: string
   quantity: number
@@ -66,6 +81,7 @@ interface IProductUpdateParams {
   transaction: Transaction
   type?: string
 }
+
 interface ICreateTransferParams {
   transaction: Transaction
   warehouseId?: number
@@ -76,192 +92,353 @@ interface ICreateTransferParams {
   variantId?: number | null
   type?: string
 }
+
+interface OrderTotals {
+  totalPrice: number
+  totalPayable: number
+}
+
+interface OrderLineQuantity {
+  productId: number
+  variantId?: number | null
+  quantity: number
+}
+
+interface StockCatalog {
+  productById: Map<number, any>
+  variantById: Map<number, any>
+}
+
 export default class OrderService {
   sequelize = database.sequelize
 
+  // ---------------------------------------------------------------------------
+  // Create
+  // ---------------------------------------------------------------------------
+
   async create(
     {
-      VAT,
-      surcharge,
+      VAT: vatInput,
+      surcharge: surchargeInput,
       paymentType,
-      channel = 'WHOLESALE',
-      warehouseId,
+      channel: requestedChannel = DEFAULT_ORDER_CHANNEL,
+      warehouseId: warehouseIdInput,
       providerId,
-      orderDetails,
-      type = '1',
-      vendorId,
+      orderDetails: orderLines,
+      type: requestedType = ORDER_TYPE_SALE,
+      vendorId: vendorIdInput,
       staffId,
       customerId,
-      createdAt,
+      createdAt: createdAtInput,
       transactionDate
     }: IOrderCreateParams,
     /** Multi-tenant scope from auth middleware (null = platform admin). */
     vendorScope: TVendorScope = null
   ) {
-    console.log(`vendorScope`, vendorScope)
-    console.log(`vendorId`, vendorId)
-    assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized to create orders for this vendor')
+    console.log('vendorScope', vendorScope)
+    console.log('vendorIdInput', vendorIdInput)
+    assertVendorAccess(vendorScope, Number(vendorIdInput), 'Unauthorized to create orders for this vendor')
 
-    // Imports (providerId set) are inbound stock (type '0'), sales are outbound ('1')
-    if (providerId != null) type = '0'
-    // Tenant check: the warehouse must belong to one of the caller's vendors
-    // and any explicitly requested vendorId must be within scope.
-    // const warehouseVendorId = await assertWarehouseAccess(warehouseId, vendorScope)
-    // if (vendorId != null) {
-    //   assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized to create orders for this vendor')
-    // }
-    // const effectiveVendorId =
-    //   vendorId != null
-    //     ? Number(vendorId)
-    //     : (warehouseVendorId ?? (vendorScope && vendorScope.length ? vendorScope[0] : null))
+    const orderType = this.resolveOrderType(providerId, requestedType)
+    const orderTotals = this.calculateOrderTotals(orderLines, surchargeInput, vatInput)
+    const orderChannel = this.resolveOrderChannel(requestedChannel)
+    const warehouseId = Number(warehouseIdInput)
+    const vendorId = Number(vendorIdInput)
 
-    const totalPrice = orderDetails.reduce((total, item) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
-    const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
-
-    const validChannels = ['POS', 'WHOLESALE', 'ONLINE'] as const
-    const effectiveChannel = validChannels.includes(channel as any) ? (channel as any) : 'WHOLESALE'
-
-    const orderParams: Partial<Omit<Order, 'id'>> & { createdAt?: Date; updatedAt?: Date } = {
-      VAT: Number(VAT),
-      surcharge: Number(surcharge),
-      paid: totalPaid,
-      price: totalPrice,
+    const orderAttributes = this.buildNewOrderAttributes({
+      vatInput,
+      surchargeInput,
       paymentType,
-      channel: effectiveChannel,
-      warehouseId: Number(warehouseId),
-      vendorId: Number(vendorId),
+      orderChannel,
+      warehouseId,
+      vendorId,
+      staffId,
+      customerId,
+      providerId,
+      createdAtInput,
+      orderTotals
+    })
+
+    const transaction = await this.sequelize.transaction()
+    try {
+      const createdOrder = await this.persistOrderWithGeneratedCode(orderAttributes, vendorId, transaction)
+
+      await this.validateSaleStockAvailability({
+        orderLines,
+        warehouseId,
+        orderType,
+        transaction
+      })
+
+      await this.persistAllOrderDetails({
+        orderLines,
+        warehouseId,
+        orderId: (createdOrder as any).id,
+        orderType,
+        transaction
+      })
+
+      await this.createImportExpenseVoucherIfNeeded({
+        order: createdOrder,
+        warehouseId,
+        transaction,
+        transactionDate: transactionDate ? new Date(transactionDate as any) : undefined,
+        createdAtInput
+      })
+
+      await this.attemptCreateInvoice({ order: createdOrder, transaction })
+
+      await transaction.commit()
+      return createdOrder
+    } catch (error) {
+      console.log('error', error)
+      await transaction.rollback()
+      throw ApiError.from(error, 400)
+    }
+  }
+
+  private resolveOrderType(providerId: number | string | undefined | null, requestedType: string): string {
+    // Imports (providerId set) are inbound stock, sales are outbound.
+    if (providerId != null) return ORDER_TYPE_IMPORT
+    return requestedType
+  }
+
+  private calculateOrderTotals(
+    orderLines: any[],
+    surchargeInput: number | string | undefined,
+    vatInput: number | string | undefined
+  ): OrderTotals {
+    const linesTotal = orderLines.reduce((runningTotal, line) => runningTotal + Number(line.buyPrice), 0)
+    const totalPrice = linesTotal + Number(surchargeInput)
+    const totalPayable = Number(totalPrice + (totalPrice / 100) * Number(vatInput))
+    return { totalPrice, totalPayable }
+  }
+
+  private resolveOrderChannel(requestedChannel: OrderChannel): OrderChannel {
+    if ((SUPPORTED_ORDER_CHANNELS as readonly string[]).includes(requestedChannel as string)) {
+      return requestedChannel as OrderChannel
+    }
+    return DEFAULT_ORDER_CHANNEL
+  }
+
+  private buildNewOrderAttributes(params: {
+    vatInput: number | string | undefined
+    surchargeInput: number | string | undefined
+    paymentType: 'cash' | 'transfer' | 'credit'
+    orderChannel: OrderChannel
+    warehouseId: number
+    vendorId: number
+    staffId?: number
+    customerId?: number
+    providerId: number | string
+    createdAtInput?: string | Date
+    orderTotals: OrderTotals
+  }): Partial<Omit<Order, 'id'>> & { createdAt?: Date; updatedAt?: Date } {
+    const {
+      vatInput,
+      surchargeInput,
+      paymentType,
+      orderChannel,
+      warehouseId,
+      vendorId,
+      staffId,
+      customerId,
+      providerId,
+      createdAtInput,
+      orderTotals
+    } = params
+
+    const orderAttributes: Partial<Omit<Order, 'id'>> & { createdAt?: Date; updatedAt?: Date } = {
+      VAT: Number(vatInput),
+      surcharge: Number(surchargeInput),
+      paid: orderTotals.totalPayable,
+      price: orderTotals.totalPrice,
+      paymentType,
+      channel: orderChannel,
+      warehouseId,
+      vendorId,
       staffId,
       customerId
     }
 
-    // Allow caller (e.g. e2e-vendor4) to backdate orders across 01/08-31/08
-    if (createdAt) {
-      const d = new Date(createdAt)
-      if (!isNaN(d.getTime())) {
-        ;(orderParams as any).createdAt = d
-        ;(orderParams as any).updatedAt = d
+    // Allow callers to backdate orders.
+    if (createdAtInput) {
+      const backdatedAt = new Date(createdAtInput)
+      if (!isNaN(backdatedAt.getTime())) {
+        orderAttributes.createdAt = backdatedAt
+        orderAttributes.updatedAt = backdatedAt
       }
     }
 
     if (providerId) {
-      orderParams.providerId = Number(providerId)
+      orderAttributes.providerId = Number(providerId)
     }
 
-    const t = await this.sequelize.transaction()
-    try {
-      // Calculate the total price of the order details and add the surcharge
+    return orderAttributes
+  }
 
-      const orderBuilder = Order.build(orderParams as Optional<Order, 'id'>)
+  private async persistOrderWithGeneratedCode(
+    orderAttributes: Partial<Omit<Order, 'id'>> & { createdAt?: Date; updatedAt?: Date },
+    vendorId: number,
+    transaction: Transaction
+  ): Promise<Order> {
+    const orderBuilder = Order.build(orderAttributes as Optional<Order, 'id'>)
+    const createdOrder = await orderBuilder.save({ transaction })
 
-      const p = await orderBuilder.save({ transaction: t })
+    // If a custom createdAt was supplied, force it (sequelize may overwrite on save).
+    if ((orderAttributes as any).createdAt) {
+      const backdatedAt = (orderAttributes as any).createdAt as Date
+      await createdOrder.update({ createdAt: backdatedAt, updatedAt: backdatedAt } as any, { transaction })
+    }
 
-      // If a custom createdAt was supplied, force it (sequelize may overwrite on save)
-      if ((orderParams as any).createdAt) {
-        const d = (orderParams as any).createdAt as Date
-        await p.update({ createdAt: d, updatedAt: d } as any, { transaction: t })
-      }
+    const generatedCode = await this.getOrderCode(String((createdOrder as any).id), String(vendorId ?? ''))
+    if (generatedCode) (createdOrder as any).code = generatedCode
+    await createdOrder.save({ transaction })
 
-      // Generate the order code from the vendor's prefix/suffix settings
-      let code = await this.getOrderCode(String(p.id), String(vendorId ?? ''))
+    return createdOrder
+  }
 
-      if (code) p.code = code
+  private async validateSaleStockAvailability(params: {
+    orderLines: any[]
+    warehouseId: number
+    orderType: string
+    transaction: Transaction
+  }): Promise<void> {
+    const { orderLines, warehouseId, orderType, transaction } = params
+    // Imports add stock, so only sales need an availability pre-check.
+    // The atomic decrement below is still the source of truth — this gives an
+    // early error naming the offending product instead of a generic one.
+    if (orderType === ORDER_TYPE_IMPORT) return
 
-      await p.save({ transaction: t })
+    const productIds = [...new Set(orderLines.map((line: any) => Number(line.productId)))].filter(Boolean)
+    const variantIds = orderLines
+      .map((line: any) => (line.variantId != null ? Number(line.variantId) : null))
+      .filter((variantId: number | null): variantId is number => variantId != null)
 
-      // Stock guard: block sale lines whose product/variant is out of stock
-      // unless the oversell flag (isNegative) allows it. The inventory
-      // decrement below is still atomic — this pre-check just gives a clear,
-      // early error naming the offending product instead of a generic one.
-      if (type !== '0') {
-        const productIds = [...new Set(orderDetails.map((i: any) => Number(i.productId)))].filter(Boolean)
-        const variantIds = orderDetails
-          .map((i: any) => (i.variantId != null ? Number(i.variantId) : null))
-          .filter((v: any): v is number => v != null)
-        const productRows: any[] = productIds.length
-          ? await Product.findAll({
-              where: { id: { [Op.in]: productIds } },
-              attributes: ['id', 'name', 'isNegative'],
-              transaction: t
-            })
-          : []
-        const variantRows: any[] = variantIds.length
-          ? await ProductVariant.findAll({
-              where: { id: { [Op.in]: variantIds } },
-              attributes: ['id', 'skuCode', 'isNegative'],
-              transaction: t
-            })
-          : []
-        const productById = new Map(productRows.map((p) => [Number(p.get('id')), p]))
-        const variantById = new Map(variantRows.map((v) => [Number(v.get('id')), v]))
-        const stockRows: any[] = productIds.length
-          ? await Inventory.findAll({ where: { productId: { [Op.in]: productIds }, warehouseId }, transaction: t })
-          : []
-        // Key: productId or productId:variantId -> available quantity
-        const stockOf = (productId: number, variantId?: number | null): number => {
-          const row = stockRows.find(
-            (r: any) =>
-              Number(r.get('productId')) === productId &&
-              (variantId != null ? Number(r.get('variantId')) === variantId : r.get('variantId') == null)
-          )
-          return Number(row?.get('quantity') ?? 0)
-        }
-        for (const item of orderDetails) {
-          const qty = Number(item.quantity ?? 0)
-          if (qty <= 0) continue
-          const product = productById.get(Number(item.productId))
-          if (!product) {
-            const deleted = await Product.findByPk(Number(item.productId), { paranoid: false, transaction: t } as any)
-            if (deleted) throw new Error(`Product ${item.productId} is deleted/discontinued and cannot be sold`)
-            throw new Error(`Product ${item.productId} not found`)
-          }
-          const allowNegative =
-            item.variantId != null
-              ? Boolean(variantById.get(Number(item.variantId))?.get('isNegative'))
-              : Boolean(product.get('isNegative'))
-          if (allowNegative) continue
-          const available = stockOf(Number(item.productId), item.variantId != null ? Number(item.variantId) : null)
-          if (available < qty) {
-            const variant = item.variantId != null ? variantById.get(Number(item.variantId)) : null
-            const label = variant ? `${product.get('name')} [${variant.get('skuCode')}]` : String(product.get('name'))
-            throw new Error(
-              `Sản phẩm "${label}" không đủ tồn kho (cần ${qty}, còn ${available}). Chỉ định isNegative để cho phép bán âm.`
-            )
-          }
-        }
-      }
+    const stockCatalog = await this.fetchProductCatalogForStockCheck(productIds, variantIds, transaction)
+    const warehouseStockRows = await this.fetchWarehouseStockLevels(productIds, warehouseId, transaction)
 
-      const detailPromises = orderDetails.map((item) =>
-        this.createOrderDetails({ transaction: t, warehouseId, orderId: p.id, type, ...item })
-      )
+    this.assertEachSaleLineHasStock(orderLines, warehouseStockRows, stockCatalog, transaction)
+  }
 
-      await Promise.all(detailPromises)
-
-      // Financial voucher: only for provider imports (expense PC) - sales
-      // revenue is now booked when the invoice is issued/paid, not on Order.
-      if ((p as any).providerId != null) {
-        await this.createFinancialVoucher({
-          order: p,
-          warehouseId: Number(warehouseId),
-          transaction: t,
-          transactionDate: transactionDate
-            ? new Date(transactionDate as any)
-            : createdAt
-              ? new Date(createdAt as any)
-              : undefined
+  private async fetchProductCatalogForStockCheck(
+    productIds: number[],
+    variantIds: number[],
+    transaction: Transaction
+  ): Promise<StockCatalog> {
+    const productRows: any[] = productIds.length
+      ? await Product.findAll({
+          where: { id: { [Op.in]: productIds } },
+          attributes: ['id', 'name', 'isNegative'],
+          transaction
         })
+      : []
+    const variantRows: any[] = variantIds.length
+      ? await ProductVariant.findAll({
+          where: { id: { [Op.in]: variantIds } },
+          attributes: ['id', 'skuCode', 'isNegative'],
+          transaction
+        })
+      : []
+
+    return {
+      productById: new Map(productRows.map((productRow) => [Number(productRow.get('id')), productRow])),
+      variantById: new Map(variantRows.map((variantRow) => [Number(variantRow.get('id')), variantRow]))
+    }
+  }
+
+  private async fetchWarehouseStockLevels(
+    productIds: number[],
+    warehouseId: number,
+    transaction: Transaction
+  ): Promise<any[]> {
+    if (!productIds.length) return []
+    return Inventory.findAll({ where: { productId: { [Op.in]: productIds }, warehouseId }, transaction })
+  }
+
+  private findAvailableQuantity(warehouseStockRows: any[], productId: number, variantId?: number | null): number {
+    const matchingStockRow = warehouseStockRows.find(
+      (stockRow: any) =>
+        Number(stockRow.get('productId')) === productId &&
+        (variantId != null ? Number(stockRow.get('variantId')) === variantId : stockRow.get('variantId') == null)
+    )
+    return Number(matchingStockRow?.get('quantity') ?? 0)
+  }
+
+  private async assertEachSaleLineHasStock(
+    orderLines: any[],
+    warehouseStockRows: any[],
+    stockCatalog: StockCatalog,
+    transaction: Transaction
+  ): Promise<void> {
+    for (const orderLine of orderLines) {
+      const requestedQuantity = Number(orderLine.quantity ?? 0)
+      if (requestedQuantity <= 0) continue
+
+      const productRow = stockCatalog.productById.get(Number(orderLine.productId))
+      if (!productRow) {
+        await this.throwForMissingSaleProduct(Number(orderLine.productId), transaction)
       }
 
-      await this.attemptCreateInvoice({ order: p, transaction: t })
+      const variantRow = orderLine.variantId != null ? stockCatalog.variantById.get(Number(orderLine.variantId)) : null
+      const allowsOversell =
+        orderLine.variantId != null ? Boolean(variantRow?.get('isNegative')) : Boolean(productRow.get('isNegative'))
+      if (allowsOversell) continue
 
-      // Commit the transaction
-      await t.commit()
-      return p
-    } catch (error) {
-      // Log the error and rollback the transaction
-      console.log('error', error)
-      await t.rollback()
-      throw ApiError.from(error, 400)
+      const availableQuantity = this.findAvailableQuantity(
+        warehouseStockRows,
+        Number(orderLine.productId),
+        orderLine.variantId != null ? Number(orderLine.variantId) : null
+      )
+      if (availableQuantity < requestedQuantity) {
+        const productLabel = variantRow
+          ? `${productRow.get('name')} [${variantRow.get('skuCode')}]`
+          : String(productRow.get('name'))
+        throw new Error(
+          `Sản phẩm "${productLabel}" không đủ tồn kho (cần ${requestedQuantity}, còn ${availableQuantity}). Chỉ định isNegative để cho phép bán âm.`
+        )
+      }
     }
+  }
+
+  private async throwForMissingSaleProduct(productId: number, transaction: Transaction): Promise<never> {
+    const softDeletedProduct = await Product.findByPk(productId, { paranoid: false, transaction } as any)
+    if (softDeletedProduct) throw new Error(`Product ${productId} is deleted/discontinued and cannot be sold`)
+    throw new Error(`Product ${productId} not found`)
+  }
+
+  private async persistAllOrderDetails(params: {
+    orderLines: any[]
+    warehouseId: number
+    orderId: number
+    orderType: string
+    transaction: Transaction
+  }): Promise<void> {
+    const { orderLines, warehouseId, orderId, orderType, transaction } = params
+    const detailPersistenceTasks = orderLines.map((orderLine) =>
+      this.createOrderDetails({ transaction, warehouseId, orderId, type: orderType, ...orderLine })
+    )
+    await Promise.all(detailPersistenceTasks)
+  }
+
+  private async createImportExpenseVoucherIfNeeded(params: {
+    order: Order
+    warehouseId: number
+    transaction: Transaction
+    transactionDate?: Date
+    createdAtInput?: string | Date
+  }): Promise<void> {
+    const { order, warehouseId, transaction, transactionDate, createdAtInput } = params
+    // Sales revenue is booked when the invoice is issued/paid, not on Order.
+    if ((order as any).providerId == null) return
+
+    const resolvedTransactionDate = transactionDate ?? (createdAtInput ? new Date(createdAtInput as any) : undefined)
+    await this.createFinancialVoucher({
+      order,
+      warehouseId,
+      transaction,
+      transactionDate: resolvedTransactionDate
+    })
   }
 
   /**
@@ -290,6 +467,32 @@ export default class OrderService {
     transaction,
     ...orderDetail
   }: IOrderDetailCreateParams) {
+    await this.persistOrderDetailRow({
+      name,
+      quantity,
+      productId,
+      variantId,
+      warehouseId,
+      orderId,
+      note,
+      transaction,
+      extraAttributes: orderDetail
+    })
+    await this.propagateOrderDetailStockChanges({ quantity, productId, variantId, warehouseId, transaction, type })
+  }
+
+  private async persistOrderDetailRow(params: {
+    name: string
+    quantity: number
+    productId: number
+    variantId?: number | null
+    warehouseId: number
+    orderId: number
+    note: string
+    transaction: Transaction
+    extraAttributes: Record<string, unknown>
+  }): Promise<void> {
+    const { quantity, productId, variantId, warehouseId, orderId, note, transaction, extraAttributes } = params
     const orderDetailBuilder = OrderDetail.build({
       quantity,
       warehouseId,
@@ -297,12 +500,30 @@ export default class OrderService {
       note,
       productId,
       variantId: variantId ?? null,
-      ...orderDetail
+      ...extraAttributes
     } as any)
 
     await orderDetailBuilder.save({ transaction })
-    await this.updateInventory({ quantity, productId, variantId: variantId ?? null, warehouseId, transaction, type })
-    await this.updateProductQuantity({ quantity, productId, variantId: variantId ?? null, transaction, type })
+  }
+
+  private async propagateOrderDetailStockChanges(params: {
+    quantity: number
+    productId: number
+    variantId?: number | null
+    warehouseId: number
+    transaction: Transaction
+    type: string
+  }): Promise<void> {
+    const { quantity, productId, variantId, warehouseId, transaction, type } = params
+    const normalizedVariantId = variantId ?? null
+    await this.updateInventory({ quantity, productId, variantId: normalizedVariantId, warehouseId, transaction, type })
+    await this.updateProductQuantity({
+      quantity,
+      productId,
+      variantId: normalizedVariantId,
+      transaction,
+      type
+    })
     await this.createTransfer({ quantity, warehouseId, productId, variantId, transaction, type })
   }
 
@@ -316,15 +537,15 @@ export default class OrderService {
     try {
       if ((order as any).providerId != null) return null
       if ((order as any).channel !== 'POS') return null
-      const details = await OrderDetail.findAll({ where: { orderId: (order as any).id }, transaction })
-      if (!details.length) return null
-      const lines = details.map((d: any) => ({
-        order_detail_id: Number(d.get('id')),
-        quantity: Number(d.get('quantity'))
+      const orderDetailRows = await OrderDetail.findAll({ where: { orderId: (order as any).id }, transaction })
+      if (!orderDetailRows.length) return null
+      const invoiceLines = orderDetailRows.map((detailRow: any) => ({
+        order_detail_id: Number(detailRow.get('id')),
+        quantity: Number(detailRow.get('quantity'))
       }))
       return await new InvoiceService().createFromOrderLines(
         Number((order as any).id),
-        lines,
+        invoiceLines,
         {
           vendorId: (order as any).vendorId,
           warehouseId: (order as any).warehouseId,
@@ -340,101 +561,166 @@ export default class OrderService {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Inventory
+  // ---------------------------------------------------------------------------
+
   async updateInventory({ productId, variantId, warehouseId, quantity, transaction, type }: IInventoryUpdateParams) {
+    const stockMovement = this.resolveStockMovement(type)
+    const stockWhereClause = this.buildStockWhereClause(productId, warehouseId, variantId)
+
+    let insufficientStockProductLabel: string | null = null
+    let allowsOversell = false
+
+    if (stockMovement === 'decrement') {
+      const oversellPolicy = await this.resolveOversellPermission(productId, variantId, transaction)
+      allowsOversell = oversellPolicy.allowsOversell
+      if (!allowsOversell) {
+        // The availability check is part of the atomic write below
+        // (`quantity >= requested` in the decrement WHERE clause), so two
+        // concurrent sales cannot both pass a stale read and oversell.
+        await this.assertInventoryRowExistsForSale(stockWhereClause, variantId, transaction)
+        insufficientStockProductLabel = oversellPolicy.productLabel
+      }
+    }
+
+    const affectedRowCount = await this.applyAtomicStockMovement({
+      stockMovement,
+      stockWhereClause,
+      quantity,
+      allowsOversell,
+      transaction
+    })
+
+    this.assertStockMovementApplied(affectedRowCount, insufficientStockProductLabel, variantId)
+  }
+
+  private resolveStockMovement(orderType?: string): 'increment' | 'decrement' {
     // type '0' = IN (import) -> increment inventory, otherwise decrement (export/sale)
-    const operator = type === '0' ? 'increment' : 'decrement'
+    return orderType === ORDER_TYPE_IMPORT ? 'increment' : 'decrement'
+  }
+
+  private buildStockWhereClause(
+    productId: number,
+    warehouseId: number,
+    variantId?: number | null
+  ): Record<string, unknown> {
     // Variant-aware stock row: a variant has its own (product, warehouse, variant)
     // inventory row; simple products use the legacy row where variantId IS NULL.
-    const stockWhere: Record<string, unknown> = {
+    return {
       productId,
       warehouseId,
       ...(variantId != null ? { variantId } : { variantId: null })
     }
+  }
 
-    // Stock guard: on export/sale, block going below zero unless stock is
-    // flagged to allow negative. For variant sales the check is ISOLATED to
-    // the variant row: variant.quantity + variant.isNegative only. The parent
-    // product's isNegative/quantity are ignored when variantId is present.
+  private async resolveOversellPermission(
+    productId: number,
+    variantId: number | null | undefined,
+    transaction: Transaction
+  ): Promise<{ allowsOversell: boolean; productLabel: string }> {
+    // For variant sales the check is ISOLATED to the variant row:
+    // variant.quantity + variant.isNegative only. The parent product's
+    // isNegative/quantity are ignored when variantId is present.
     // Simple products (variantId == null) fall back to products.isNegative.
-    let allowNegative = false
-    let insufficientStockLabel: string | null = null
-    if (operator === 'decrement') {
-      const product = await Product.findByPk(productId, { transaction } as any)
-      if (!product) {
-        const deleted = await Product.findByPk(productId, { paranoid: false, transaction } as any)
-        if (deleted) throw ApiError.from(`Product ${productId} is deleted/discontinued and cannot be sold`)
-        throw ApiError.from(`Product ${productId} not found`)
-      }
-      let label = product.name
-      let variant: any = null
-      if (variantId != null) {
-        variant = await ProductVariant.findByPk(variantId, { transaction } as any)
-        if (!variant) {
-          const deletedVariant = await ProductVariant.findByPk(variantId, {
-            paranoid: false,
-            transaction
-          } as any)
-          if (deletedVariant) throw ApiError.from(`Variant ${variantId} is deleted/discontinued and cannot be sold`)
-          throw ApiError.from(`Variant ${variantId} not found`)
-        }
-        label = `${label} [${variant.get('skuCode')}]`
-        // Isolated: only the variant's own flag governs oversell for variant orders
-        allowNegative = Boolean(variant.get('isNegative'))
-      } else {
-        allowNegative = Boolean(product.isNegative)
-      }
-      if (!allowNegative) {
-        // C2 (TOCTOU): the availability check is part of the atomic write
-        // below (`quantity >= requested` in the decrement WHERE clause), so
-        // two concurrent sales cannot both pass a stale read and oversell.
-        const inventoryRow = await Inventory.findOne({
-          where: stockWhere,
-          transaction
-        } as any)
-        if (!inventoryRow) {
-          throw ApiError.from(
-            variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found'
-          )
-        }
-        insufficientStockLabel = `${label}`
-      }
+    const productRow = await this.fetchProductForStockGuard(productId, transaction)
+    let productLabel = productRow.name
+
+    if (variantId != null) {
+      const variantRow = await this.fetchVariantForStockGuard(variantId, transaction)
+      productLabel = `${productLabel} [${variantRow.get('skuCode')}]`
+      return { allowsOversell: Boolean(variantRow.get('isNegative')), productLabel }
     }
 
-    const rawResult: any = await Inventory[operator]('quantity', {
-      by: quantity,
-      where:
-        operator === 'decrement' && !allowNegative
-          ? { ...stockWhere, quantity: { [Op.gte]: Number(quantity) } }
-          : stockWhere,
-      transaction
-    })
-    // Sequelize MySQL returns different shapes: [affectedCount] (mock) vs [undefined, affectedCount] vs [[undefined, affectedCount]]
-    let affectedRows: number
-    if (Array.isArray(rawResult)) {
-      if (Array.isArray(rawResult[0])) {
-        // e.g. [[undefined, 0]] from real MySQL increment/decrement
-        affectedRows = (rawResult[0] as any)[1] ?? (rawResult[0] as any)[0]
-      } else if (typeof rawResult[1] === 'number') {
-        // [undefined, count]
-        affectedRows = rawResult[1]
-      } else if (typeof rawResult[0] === 'number') {
-        // [count] from mocks
-        affectedRows = rawResult[0]
-      } else {
-        affectedRows = rawResult[0] as number
-      }
-    } else {
-      affectedRows = rawResult as number
-    }
+    return { allowsOversell: Boolean(productRow.isNegative), productLabel }
+  }
 
-    if ((affectedRows as number) === 0) {
-      // Distinguish "row missing" from "insufficient stock" for the client.
-      if (insufficientStockLabel) {
-        throw ApiError.from(`Insufficient stock for product "${insufficientStockLabel}"`)
-      }
+  private async fetchProductForStockGuard(productId: number, transaction: Transaction): Promise<any> {
+    const productRow = await Product.findByPk(productId, { transaction } as any)
+    if (!productRow) {
+      const softDeletedProduct = await Product.findByPk(productId, { paranoid: false, transaction } as any)
+      if (softDeletedProduct) throw ApiError.from(`Product ${productId} is deleted/discontinued and cannot be sold`)
+      throw ApiError.from(`Product ${productId} not found`)
+    }
+    return productRow
+  }
+
+  private async fetchVariantForStockGuard(variantId: number, transaction: Transaction): Promise<any> {
+    const variantRow = await ProductVariant.findByPk(variantId, { transaction } as any)
+    if (!variantRow) {
+      const softDeletedVariant = await ProductVariant.findByPk(variantId, {
+        paranoid: false,
+        transaction
+      } as any)
+      if (softDeletedVariant) throw ApiError.from(`Variant ${variantId} is deleted/discontinued and cannot be sold`)
+      throw ApiError.from(`Variant ${variantId} not found`)
+    }
+    return variantRow
+  }
+
+  private async assertInventoryRowExistsForSale(
+    stockWhereClause: Record<string, unknown>,
+    variantId: number | null | undefined,
+    transaction: Transaction
+  ): Promise<void> {
+    const inventoryRow = await Inventory.findOne({ where: stockWhereClause, transaction } as any)
+    if (!inventoryRow) {
       throw ApiError.from(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
     }
   }
+
+  private async applyAtomicStockMovement(params: {
+    stockMovement: 'increment' | 'decrement'
+    stockWhereClause: Record<string, unknown>
+    quantity: number
+    allowsOversell: boolean
+    transaction: Transaction
+  }): Promise<number> {
+    const { stockMovement, stockWhereClause, quantity, allowsOversell, transaction } = params
+    const rawResult: any = await Inventory[stockMovement]('quantity', {
+      by: quantity,
+      where:
+        stockMovement === 'decrement' && !allowsOversell
+          ? { ...stockWhereClause, quantity: { [Op.gte]: Number(quantity) } }
+          : stockWhereClause,
+      transaction
+    })
+    return this.parseAffectedRowCount(rawResult)
+  }
+
+  private parseAffectedRowCount(rawResult: any): number {
+    // Sequelize MySQL returns different shapes: [affectedCount] (mock) vs [undefined, affectedCount] vs [[undefined, affectedCount]]
+    if (Array.isArray(rawResult)) {
+      if (Array.isArray(rawResult[0])) {
+        // e.g. [[undefined, 0]] from real MySQL increment/decrement
+        return (rawResult[0] as any)[1] ?? (rawResult[0] as any)[0]
+      }
+      if (typeof rawResult[1] === 'number') {
+        // [undefined, count]
+        return rawResult[1]
+      }
+      if (typeof rawResult[0] === 'number') {
+        // [count] from mocks
+        return rawResult[0]
+      }
+      return rawResult[0] as number
+    }
+    return rawResult as number
+  }
+
+  private assertStockMovementApplied(
+    affectedRowCount: number,
+    insufficientStockProductLabel: string | null,
+    variantId: number | null | undefined
+  ): void {
+    if (affectedRowCount !== 0) return
+    // Distinguish "row missing" from "insufficient stock" for the client.
+    if (insufficientStockProductLabel) {
+      throw ApiError.from(`Insufficient stock for product "${insufficientStockProductLabel}"`)
+    }
+    throw ApiError.from(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
+  }
+
   /**
    * @description Update product sold quantity
    * @param {Object} params - contains update product quantity information
@@ -445,38 +731,17 @@ export default class OrderService {
    */
   async updateProductQuantity({ quantity, productId, variantId, transaction, type }: IProductUpdateParams) {
     try {
-      // FIX: sold should only track SALES (type '1' = OUT). Imports (type '0' = IN) must NOT affect sold.
-      // Previously every orderDetail (including imports) incremented sold, causing sold=42 for product 4 (20+20+2) instead of 2.
-      if (type === '0') return
-      const rawProd: any = await Product.increment('sold', {
-        by: quantity,
-        where: { id: productId },
-        transaction
-      } as any)
-      // Handle both mock ([{sold}]) and real MySQL ([undefined, count] or [[undefined, count]])
-      const prodExists = Array.isArray(rawProd)
-        ? Array.isArray(rawProd[0])
-          ? (rawProd[0][1] as number) > 0 || !!rawProd[0][0]
-          : typeof rawProd[1] === 'number'
-            ? rawProd[1] > 0
-            : !!rawProd[0]
-        : !!rawProd
-      if (!prodExists) throw new Error('Product not found')
-      if (variantId != null) {
-        const rawVar: any = await ProductVariant.increment('sold', {
-          by: quantity,
-          where: { id: variantId },
-          transaction
-        } as any)
-        const varExists = Array.isArray(rawVar)
-          ? Array.isArray(rawVar[0])
-            ? (rawVar[0][1] as number) > 0 || !!rawVar[0][0]
-            : typeof rawVar[1] === 'number'
-              ? rawVar[1] > 0
-              : !!rawVar[0]
-          : !!rawVar
-        if (!varExists) throw new Error('Variant not found')
-      }
+      // sold should only track SALES. Imports (type '0' = IN) must NOT affect sold.
+      if (type === ORDER_TYPE_IMPORT) return
+      await this.applySoldCounterChange({
+        productId,
+        variantId,
+        quantity,
+        operator: 'increment',
+        transaction,
+        notFoundMessage: 'Product not found',
+        variantNotFoundMessage: 'Variant not found'
+      })
     } catch (error) {
       throw ApiError.from(error, 400)
     }
@@ -489,23 +754,55 @@ export default class OrderService {
   private async adjustSoldByDelta(params: IProductUpdateParams & { delta: number }) {
     const { delta, type, productId, variantId, transaction } = params
     if (delta === 0) return
-    if (type === '0') return // imports don't affect sold
-    const by = Math.abs(delta)
+    if (type === ORDER_TYPE_IMPORT) return // imports don't affect sold
+    const absoluteQuantity = Math.abs(delta)
     const operator = delta > 0 ? 'increment' : 'decrement'
-    const raw: any = await (Product as any)[operator]('sold', { by, where: { id: productId }, transaction })
-    const affected = Array.isArray(raw) ? (Array.isArray(raw[0]) ? (raw[0][1] ?? raw[0][0]) : (raw[1] ?? raw[0])) : raw
-    if (!affected || (typeof affected === 'number' && affected === 0))
-      throw new Error('Product not found for sold adjustment')
+    await this.applySoldCounterChange({
+      productId,
+      variantId,
+      quantity: absoluteQuantity,
+      operator,
+      transaction,
+      notFoundMessage: 'Product not found for sold adjustment',
+      variantNotFoundMessage: 'Variant not found for sold adjustment'
+    })
+  }
+
+  private async applySoldCounterChange(params: {
+    productId: number
+    variantId?: number | null
+    quantity: number
+    operator: 'increment' | 'decrement'
+    transaction: Transaction
+    notFoundMessage: string
+    variantNotFoundMessage: string
+  }): Promise<void> {
+    const { productId, variantId, quantity, operator, transaction, notFoundMessage, variantNotFoundMessage } = params
+    const productResult: any = await (Product as any)[operator]('sold', {
+      by: quantity,
+      where: { id: productId },
+      transaction
+    })
+    if (!this.hasAffectedSoldRows(productResult)) throw new Error(notFoundMessage)
+
     if (variantId != null) {
-      const rawV: any = await (ProductVariant as any)[operator]('sold', { by, where: { id: variantId }, transaction })
-      const vAffected = Array.isArray(rawV)
-        ? Array.isArray(rawV[0])
-          ? (rawV[0][1] ?? rawV[0][0])
-          : (rawV[1] ?? rawV[0])
-        : rawV
-      if (!vAffected || (typeof vAffected === 'number' && vAffected === 0))
-        throw new Error('Variant not found for sold adjustment')
+      const variantResult: any = await (ProductVariant as any)[operator]('sold', {
+        by: quantity,
+        where: { id: variantId },
+        transaction
+      })
+      if (!this.hasAffectedSoldRows(variantResult)) throw new Error(variantNotFoundMessage)
     }
+  }
+
+  private hasAffectedSoldRows(rawResult: any): boolean {
+    // Handle both mock ([{sold}]) and real MySQL ([undefined, count] or [[undefined, count]])
+    if (!Array.isArray(rawResult)) return Boolean(rawResult)
+    if (Array.isArray(rawResult[0])) {
+      return (rawResult[0][1] as number) > 0 || Boolean(rawResult[0][0])
+    }
+    if (typeof rawResult[1] === 'number') return rawResult[1] > 0
+    return Boolean(rawResult[0])
   }
 
   /**
@@ -520,10 +817,14 @@ export default class OrderService {
    */
   async createTransfer({ transaction, warehouseId, fromWarehouseId, toWarehouseId, ...params }: ICreateTransferParams) {
     try {
-      const resolvedFrom = fromWarehouseId ?? warehouseId ?? null
-      const resolvedTo = toWarehouseId ?? null
+      const resolvedFromWarehouseId = fromWarehouseId ?? warehouseId ?? null
+      const resolvedToWarehouseId = toWarehouseId ?? null
       const transferResponse = await new TransferService().create(
-        { ...params, fromWarehouseId: resolvedFrom as any, toWarehouseId: resolvedTo as any } as any,
+        {
+          ...params,
+          fromWarehouseId: resolvedFromWarehouseId as any,
+          toWarehouseId: resolvedToWarehouseId as any
+        } as any,
         { transaction }
       )
       return transferResponse
@@ -548,19 +849,19 @@ export default class OrderService {
     transactionDate?: Date
   }) {
     try {
-      const isImport = order.providerId != null
-      const prefix = isImport ? 'PC' : 'PT'
-      const base = transactionDate ?? (order as any).createdAt ?? new Date()
-      const datePart = new Date(base).toISOString().slice(0, 10).replace(/-/g, '')
-      const code = `${prefix}-${datePart}-${order.id}`
+      const isImportOrder = (order as any).providerId != null
+      const voucherPrefix = isImportOrder ? 'PC' : 'PT'
+      const voucherBaseDate = transactionDate ?? (order as any).createdAt ?? new Date()
+      const voucherDatePart = new Date(voucherBaseDate).toISOString().slice(0, 10).replace(/-/g, '')
+      const voucherCode = `${voucherPrefix}-${voucherDatePart}-${(order as any).id}`
       await FinancialRecord.create(
         {
-          code,
-          type: isImport ? 'expense' : 'revenue',
-          category: isImport ? 'import' : 'sale',
-          amount: Number(order.paid),
-          relatedType: isImport ? 'importOrder' : 'order',
-          relatedId: order.id,
+          code: voucherCode,
+          type: isImportOrder ? 'expense' : 'revenue',
+          category: isImportOrder ? 'import' : 'sale',
+          amount: Number((order as any).paid),
+          relatedType: isImportOrder ? 'importOrder' : 'order',
+          relatedId: (order as any).id,
           warehouseId,
           transactionDate: transactionDate ?? (order as any).createdAt ?? new Date()
         } as any,
@@ -571,12 +872,11 @@ export default class OrderService {
       throw ApiError.from(error, 400)
     }
   }
-  /**
-   * @function getOrders
-   * @description Get orders with pagination
-   * @param {Object} params - pagination params, warehouseId, isProvider
-   * @return {Promise<Object>} - result of query
-   */
+
+  // ---------------------------------------------------------------------------
+  // Update
+  // ---------------------------------------------------------------------------
+
   /**
    * Update an existing order and adjust inventory by the difference between
    * old and new quantities, so stock always reflects reality.
@@ -584,152 +884,225 @@ export default class OrderService {
    * (they document the state at creation time).
    */
   async update(req: IRequestLocal) {
-    const t = await this.sequelize.transaction()
+    const transaction = await this.sequelize.transaction()
     try {
-      const scope = getVendorScope(req)
-      const { id } = req.params
-      const { VAT, surcharge, paymentType, orderDetails, type = '1' } = req.body
+      const vendorScope = getVendorScope(req)
+      const { id: orderIdParam } = req.params
+      const {
+        VAT: vatInput,
+        surcharge: surchargeInput,
+        paymentType,
+        orderDetails: updatedOrderLines,
+        type: requestedType = ORDER_TYPE_SALE
+      } = req.body
 
-      if (!orderDetails || orderDetails.length === 0) {
+      if (!updatedOrderLines || updatedOrderLines.length === 0) {
         throw new Error('Order details are required')
       }
 
-      const order = await Order.findByPk(id, { transaction: t })
-      if (!order) {
-        throw new Error('Order not found')
-      }
+      const existingOrder = await this.loadOrderForUpdate(orderIdParam, vendorScope, transaction)
+      const warehouseId = Number((existingOrder as any).warehouseId)
+      const effectiveOrderType = (existingOrder as any).providerId != null ? ORDER_TYPE_IMPORT : requestedType
 
-      // S1: scoped callers may only update orders in warehouses they own.
-      await assertWarehouseAccess(order.warehouseId, scope)
-      assertVendorAccess(scope, (order as any).vendorId, 'Unauthorized to update this order')
-
-      const warehouseId = Number(order.warehouseId)
-
-      // Build quantity maps keyed by product+variant to compute deltas
-      const keyOf = (item: { productId: number; variantId?: number | null }) =>
-        `${item.productId}-${item.variantId ?? 'x'}`
-
-      const oldDetails = await OrderDetail.findAll({
-        where: { orderId: order.id },
-        transaction: t
-      })
-      const oldQtyMap = new Map<string, { productId: number; variantId?: number | null; quantity: number }>()
-      for (const detail of oldDetails) {
-        oldQtyMap.set(keyOf(detail.get() as any), {
-          productId: Number(detail.get('productId')),
-          variantId: (detail.get('variantId') as number | null) ?? undefined,
-          quantity: Number(detail.get('quantity'))
-        })
-      }
-      const newQtyMap = new Map<string, { productId: number; variantId?: number | null; quantity: number }>()
-      for (const item of orderDetails) {
-        newQtyMap.set(keyOf(item), {
-          productId: Number(item.productId),
-          variantId: item.variantId ?? undefined,
-          quantity: Number(item.quantity)
-        })
-      }
-
-      // Infer effective type: provider orders are imports (type '0')
-      const effectiveType = (order as any).providerId != null ? '0' : type
-
-      // Apply stock adjustments for the difference (delta > 0 means more goods
-      // leave for a sale; delta < 0 means goods come back)
-      const allKeys = new Set([...oldQtyMap.keys(), ...newQtyMap.keys()])
-      for (const key of allKeys) {
-        const oldQty = oldQtyMap.get(key)?.quantity ?? 0
-        const newQty = newQtyMap.get(key)?.quantity ?? 0
-        const delta = newQty - oldQty
-        if (delta === 0) continue
-
-        const ref = newQtyMap.get(key) ?? oldQtyMap.get(key)!
-        // For sales ('1'): increase => export more, decrease => return stock.
-        // For imports ('0'): the opposite.
-        const adjustmentType = effectiveType === '0' ? (delta > 0 ? '0' : '1') : delta > 0 ? '1' : '0'
-        await this.updateInventory({
-          productId: ref.productId,
-          variantId: ref.variantId,
-          warehouseId,
-          quantity: Math.abs(delta),
-          transaction: t,
-          type: adjustmentType
-        })
-        // Keep history (transfers) in sync with inventory movements
-        await this.createTransfer({
-          productId: ref.productId,
-          variantId: ref.variantId ?? null,
-          warehouseId,
-          quantity: Math.abs(delta),
-          transaction: t,
-          type: adjustmentType
-        })
-        // Keep sold in sync for SALES only (imports don't affect sold)
-        // delta >0 means more sold, delta <0 means returned
-        if (effectiveType !== '0') {
-          await this.adjustSoldByDelta({
-            productId: ref.productId,
-            variantId: ref.variantId ?? null,
-            quantity: Math.abs(delta),
-            delta,
-            type: effectiveType,
-            transaction: t
-          })
-        }
-      }
-
-      // Replace the order detail rows
-      await OrderDetail.destroy({ where: { orderId: order.id }, transaction: t })
-      for (const item of orderDetails) {
-        await OrderDetail.create(
-          {
-            orderId: order.id,
-            warehouseId,
-            productId: item.productId,
-            variantId: item.variantId ?? null,
-            quantity: item.quantity,
-            price: item.price,
-            buyPrice: item.buyPrice,
-            note: item.note
-          },
-          { transaction: t }
-        )
-      }
-
-      // Recalculate totals the same way create() does
-      const totalPrice =
-        orderDetails.reduce((total: number, item: any) => (total += Number(item.buyPrice)), 0) + Number(surcharge)
-      const totalPaid = Number(totalPrice + (totalPrice / 100) * Number(VAT))
-
-      ;(order as any).price = totalPrice
-      ;(order as any).VAT = Number(VAT)
-      ;(order as any).surcharge = Number(surcharge)
-      ;(order as any).paid = totalPaid
-      if (paymentType) {
-        ;(order as any).paymentType = paymentType
-      }
-      await order.save({ transaction: t })
-
-      // Bug 2 fix: keep financial_records in sync so report (revenue + VAT) does not drift after edit
-      await FinancialRecord.update({ amount: totalPaid } as any, {
-        where: { relatedId: order.id, relatedType: (order as any).providerId != null ? 'importOrder' : 'order' },
-        transaction: t
+      const quantityDeltas = await this.computeOrderQuantityDeltas(existingOrder, updatedOrderLines, transaction)
+      await this.applyQuantityDeltas({ quantityDeltas, warehouseId, effectiveOrderType, transaction })
+      await this.replaceOrderDetailRows({
+        orderId: Number((existingOrder as any).id),
+        warehouseId,
+        updatedOrderLines,
+        transaction
       })
 
-      await t.commit()
+      const recalculatedTotals = this.calculateOrderTotals(updatedOrderLines, surchargeInput, vatInput)
+      await this.applyRecalculatedTotalsToOrder({
+        order: existingOrder,
+        recalculatedTotals,
+        vatInput,
+        surchargeInput,
+        paymentType,
+        transaction
+      })
+      await this.syncFinancialRecordAmount(existingOrder, recalculatedTotals.totalPayable, transaction)
+
+      await transaction.commit()
 
       return this.getOrderById(
         {
-          id: String(order.id),
+          id: String((existingOrder as any).id),
           warehouseId: String(warehouseId)
         },
-        scope
+        vendorScope
       )
     } catch (error) {
       console.log('order update error', error)
-      await t.rollback()
+      await transaction.rollback()
       throw ApiError.from(error, 400)
     }
   }
+
+  private async loadOrderForUpdate(orderIdParam: string | number, vendorScope: TVendorScope, transaction: Transaction) {
+    const existingOrder = await Order.findByPk(orderIdParam as any, { transaction } as any)
+    if (!existingOrder) {
+      throw new Error('Order not found')
+    }
+    // Scoped callers may only update orders in warehouses they own.
+    await assertWarehouseAccess((existingOrder as any).warehouseId, vendorScope)
+    assertVendorAccess(vendorScope, (existingOrder as any).vendorId, 'Unauthorized to update this order')
+    return existingOrder
+  }
+
+  private buildLineQuantityKey(line: { productId: number; variantId?: number | null }): string {
+    return `${line.productId}-${line.variantId ?? 'x'}`
+  }
+
+  private async computeOrderQuantityDeltas(
+    existingOrder: any,
+    updatedOrderLines: any[],
+    transaction: Transaction
+  ): Promise<Array<OrderLineQuantity & { delta: number }>> {
+    const previousDetailRows = await OrderDetail.findAll({
+      where: { orderId: existingOrder.id },
+      transaction
+    })
+
+    const previousQuantityByKey = new Map<string, OrderLineQuantity>()
+    for (const detailRow of previousDetailRows) {
+      const detailValues = detailRow.get() as any
+      previousQuantityByKey.set(this.buildLineQuantityKey(detailValues), {
+        productId: Number(detailRow.get('productId')),
+        variantId: (detailRow.get('variantId') as number | null) ?? undefined,
+        quantity: Number(detailRow.get('quantity'))
+      })
+    }
+
+    const updatedQuantityByKey = new Map<string, OrderLineQuantity>()
+    for (const orderLine of updatedOrderLines) {
+      updatedQuantityByKey.set(this.buildLineQuantityKey(orderLine), {
+        productId: Number(orderLine.productId),
+        variantId: orderLine.variantId ?? undefined,
+        quantity: Number(orderLine.quantity)
+      })
+    }
+
+    const quantityDeltas: Array<OrderLineQuantity & { delta: number }> = []
+    const allLineKeys = new Set([...previousQuantityByKey.keys(), ...updatedQuantityByKey.keys()])
+    for (const lineKey of allLineKeys) {
+      const previousQuantity = previousQuantityByKey.get(lineKey)?.quantity ?? 0
+      const updatedQuantity = updatedQuantityByKey.get(lineKey)?.quantity ?? 0
+      const quantityDelta = updatedQuantity - previousQuantity
+      if (quantityDelta === 0) continue
+      const referenceLine = updatedQuantityByKey.get(lineKey) ?? previousQuantityByKey.get(lineKey)!
+      quantityDeltas.push({ ...referenceLine, delta: quantityDelta })
+    }
+    return quantityDeltas
+  }
+
+  private resolveInventoryAdjustmentType(effectiveOrderType: string, quantityDelta: number): string {
+    // For sales: increase => export more, decrease => return stock.
+    // For imports: the opposite.
+    if (effectiveOrderType === ORDER_TYPE_IMPORT) {
+      return quantityDelta > 0 ? ORDER_TYPE_IMPORT : ORDER_TYPE_SALE
+    }
+    return quantityDelta > 0 ? ORDER_TYPE_SALE : ORDER_TYPE_IMPORT
+  }
+
+  private async applyQuantityDeltas(params: {
+    quantityDeltas: Array<OrderLineQuantity & { delta: number }>
+    warehouseId: number
+    effectiveOrderType: string
+    transaction: Transaction
+  }): Promise<void> {
+    const { quantityDeltas, warehouseId, effectiveOrderType, transaction } = params
+    for (const quantityDelta of quantityDeltas) {
+      const absoluteDelta = Math.abs(quantityDelta.delta)
+      const inventoryAdjustmentType = this.resolveInventoryAdjustmentType(effectiveOrderType, quantityDelta.delta)
+
+      await this.updateInventory({
+        productId: quantityDelta.productId,
+        variantId: quantityDelta.variantId,
+        warehouseId,
+        quantity: absoluteDelta,
+        transaction,
+        type: inventoryAdjustmentType
+      })
+      // Keep history (transfers) in sync with inventory movements.
+      await this.createTransfer({
+        productId: quantityDelta.productId,
+        variantId: quantityDelta.variantId ?? null,
+        warehouseId,
+        quantity: absoluteDelta,
+        transaction,
+        type: inventoryAdjustmentType
+      })
+      // Keep sold in sync for SALES only (imports don't affect sold).
+      if (effectiveOrderType !== ORDER_TYPE_IMPORT) {
+        await this.adjustSoldByDelta({
+          productId: quantityDelta.productId,
+          variantId: quantityDelta.variantId ?? null,
+          quantity: absoluteDelta,
+          delta: quantityDelta.delta,
+          type: effectiveOrderType,
+          transaction
+        })
+      }
+    }
+  }
+
+  private async replaceOrderDetailRows(params: {
+    orderId: number
+    warehouseId: number
+    updatedOrderLines: any[]
+    transaction: Transaction
+  }): Promise<void> {
+    const { orderId, warehouseId, updatedOrderLines, transaction } = params
+    await OrderDetail.destroy({ where: { orderId }, transaction })
+    for (const orderLine of updatedOrderLines) {
+      await OrderDetail.create(
+        {
+          orderId,
+          warehouseId,
+          productId: orderLine.productId,
+          variantId: orderLine.variantId ?? null,
+          quantity: orderLine.quantity,
+          price: orderLine.price,
+          buyPrice: orderLine.buyPrice,
+          note: orderLine.note
+        },
+        { transaction }
+      )
+    }
+  }
+
+  private async applyRecalculatedTotalsToOrder(params: {
+    order: any
+    recalculatedTotals: OrderTotals
+    vatInput: number | string
+    surchargeInput: number | string
+    paymentType?: string
+    transaction: Transaction
+  }): Promise<void> {
+    const { order, recalculatedTotals, vatInput, surchargeInput, paymentType, transaction } = params
+    order.price = recalculatedTotals.totalPrice
+    order.VAT = Number(vatInput)
+    order.surcharge = Number(surchargeInput)
+    order.paid = recalculatedTotals.totalPayable
+    if (paymentType) {
+      order.paymentType = paymentType
+    }
+    await order.save({ transaction })
+  }
+
+  private async syncFinancialRecordAmount(order: any, totalPayable: number, transaction: Transaction): Promise<void> {
+    // Keep financial_records in sync so reports do not drift after edit.
+    await FinancialRecord.update({ amount: totalPayable } as any, {
+      where: { relatedId: order.id, relatedType: order.providerId != null ? 'importOrder' : 'order' },
+      transaction
+    })
+  }
+
+  // ---------------------------------------------------------------------------
+  // Return
+  // ---------------------------------------------------------------------------
 
   /**
    * Return part or all of a sale order: creates a return document, flows the
@@ -739,179 +1112,314 @@ export default class OrderService {
    * body: { items: [{ orderDetailId | productId, variantId?, quantity }], reason?, refundAmount? }
    */
   async returnOrder(req: IRequestLocal) {
-    const t = await this.sequelize.transaction()
+    const transaction = await this.sequelize.transaction()
     try {
-      const scope = getVendorScope(req)
-      const orderId = Number((req.params as any).id)
-      if (!orderId) throw new Error('order id is required')
-      const body: any = (req as any).body || {}
-      const returnItems: any[] = Array.isArray(body.items) ? body.items : []
-      if (!returnItems.length) throw new Error('items are required')
+      const vendorScope = getVendorScope(req)
+      const { orderId, returnLineRequests, refundOverride, returnReason } = this.parseReturnOrderRequest(req)
 
-      const order: any = await Order.findByPk(orderId, { transaction: t })
-      if (!order) throw new Error('Order not found')
-      // Import (provider) orders flow the opposite direction - returns are for sales only
-      if (order.providerId != null) throw new Error('Import orders cannot be returned. Use a new export instead.')
-      await assertWarehouseAccess(order.warehouseId, scope)
-      assertVendorAccess(scope, order.vendorId, 'Unauthorized to return this order')
-      if (order.status === 'returned') throw new Error('Order has already been fully returned')
+      const saleOrder: any = await this.loadReturnableSaleOrder(orderId, vendorScope, transaction)
+      const warehouseId = Number(saleOrder.warehouseId)
 
-      const warehouseId = Number(order.warehouseId)
-      const details: any[] = await OrderDetail.findAll({ where: { orderId }, transaction: t })
-      const detailById = new Map<number, any>()
-      for (const d of details as any[]) detailById.set(Number(d.get('id')), d)
+      const orderDetailsById = await this.indexOrderDetailsById(orderId, transaction)
+      const alreadyReturnedByLineId = await this.accumulateReturnedQuantities(orderId, transaction)
 
-      // Accumulate returned quantity per (product, variant) across prior returns
-      const priorReturns: any[] = await OrderReturn.findAll({ where: { orderId }, transaction: t })
-      const returnedByLine = new Map<number, number>()
-      for (const ret of priorReturns as any[]) {
-        let items: any[] = []
-        try {
-          items = JSON.parse(ret.get('items') || '[]')
-        } catch {}
-        for (const item of items) {
-          const lineId = Number(item.orderDetailId)
-          if (lineId) returnedByLine.set(lineId, (returnedByLine.get(lineId) ?? 0) + Number(item.quantity || 0))
-        }
-      }
-
-      const snapshot: any[] = []
-      let refundTotal = 0
-      for (const item of returnItems) {
-        const detail = detailById.get(Number(item.orderDetailId))
-        if (!detail) throw new Error(`Order detail ${item.orderDetailId} not found on this order`)
-        const qty = Number(item.quantity)
-        if (!qty || qty <= 0) throw new Error('Return quantity must be positive')
-        const alreadyReturned = returnedByLine.get(Number(detail.get('id'))) ?? 0
-        const bought = Number(detail.get('quantity'))
-        const returnable = bought - alreadyReturned
-        if (qty > returnable) {
-          throw new Error(
-            `Cannot return ${qty} of detail ${detail.get('id')}: only ${returnable} remaining (bought ${bought}, returned ${alreadyReturned})`
-          )
-        }
-        const unitPrice = Number(detail.get('price') ?? 0)
-        refundTotal += unitPrice * qty
-
-        // 1) Goods flow back into stock (IN transfer, type '0')
-        await this.updateInventory({
-          productId: Number(detail.get('productId')),
-          variantId: (detail.get('variantId') as number | null) ?? null,
-          warehouseId,
-          quantity: qty,
-          transaction: t,
-          type: '0'
-        })
-        await this.createTransfer({
-          productId: Number(detail.get('productId')),
-          variantId: (detail.get('variantId') as number | null) ?? null,
-          warehouseId,
-          quantity: qty,
-          transaction: t,
-          type: '0'
-        })
-        // 2) sold counter goes down (sales only)
-        await this.adjustSoldByDelta({
-          productId: Number(detail.get('productId')),
-          variantId: (detail.get('variantId') as number | null) ?? null,
-          quantity: qty,
-          delta: -qty,
-          type: '1',
-          transaction: t
-        })
-
-        snapshot.push({
-          orderDetailId: Number(detail.get('id')),
-          productId: Number(detail.get('productId')),
-          variantId: (detail.get('variantId') as number | null) ?? null,
-          name: (detail as any).name ?? '',
-          quantity: qty,
-          price: unitPrice
-        })
-      }
-
-      // Optional explicit refund override (e.g. restocking fee)
-      const refundAmount = body.refundAmount != null ? Number(body.refundAmount) : refundTotal
-
-      // 3) Return document
-      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      const code = `RET-${datePart}-${orderId}`
-      const returnDoc: any = await OrderReturn.create(
-        {
-          code,
-          orderId,
-          warehouseId,
-          vendorId: (order as any).vendorId ?? null,
-          staffId: (order as any).staffId ?? null,
-          items: JSON.stringify(snapshot),
-          refundAmount,
-          reason: body.reason ? String(body.reason) : null
-        } as any,
-        { transaction: t }
-      )
-
-      // 4) Refund voucher (expense) linked to this return
-      if (refundAmount > 0) {
-        await FinancialRecord.create(
-          {
-            code: `PC-RET-${returnDoc.get('id')}`,
-            type: 'expense',
-            category: 'return',
-            amount: refundAmount,
-            relatedType: 'orderReturn',
-            relatedId: returnDoc.get('id'),
-            warehouseId,
-            note: `Hoàn tiền cho đơn ${order.code ?? order.id}`
-          } as any,
-          { transaction: t }
-        )
-      }
-
-      // 5) Order status: returned when every line is fully returned
-      const totalReturnedByLine = new Map<number, number>()
-      for (const [lineId, qty] of returnedByLine) totalReturnedByLine.set(lineId, qty)
-      for (const item of snapshot) {
-        totalReturnedByLine.set(item.orderDetailId, (totalReturnedByLine.get(item.orderDetailId) ?? 0) + item.quantity)
-      }
-      const fullyReturned = (details as any[]).every((d) => {
-        const returned = totalReturnedByLine.get(Number(d.get('id'))) ?? 0
-        return returned >= Number(d.get('quantity'))
+      const { returnLineSnapshot, refundTotal } = await this.processReturnLines({
+        returnLineRequests,
+        orderDetailsById,
+        alreadyReturnedByLineId,
+        warehouseId,
+        transaction
       })
-      await order.update({ status: fullyReturned ? 'returned' : 'partially_returned' }, { transaction: t })
 
-      await t.commit()
-      return { return: returnDoc, refundAmount, status: fullyReturned ? 'returned' : 'partially_returned' }
+      const finalRefundAmount = this.resolveRefundAmount(refundOverride, refundTotal)
+      const returnDocument: any = await this.createReturnDocument({
+        orderId,
+        warehouseId,
+        saleOrder,
+        returnLineSnapshot,
+        finalRefundAmount,
+        returnReason,
+        transaction
+      })
+      await this.createRefundExpenseVoucherIfNeeded({
+        saleOrder,
+        returnDocument,
+        warehouseId,
+        finalRefundAmount,
+        transaction
+      })
+
+      const finalStatus = this.resolveReturnStatus({
+        orderDetailRows: [...orderDetailsById.values()],
+        alreadyReturnedByLineId,
+        returnLineSnapshot
+      })
+      await saleOrder.update({ status: finalStatus }, { transaction })
+
+      await transaction.commit()
+      return { return: returnDocument, refundAmount: finalRefundAmount, status: finalStatus }
     } catch (error) {
-      await t.rollback()
+      await transaction.rollback()
       throw ApiError.from(error, 400)
     }
   }
 
-  async getOrders(req: Request) {
+  private parseReturnOrderRequest(req: IRequestLocal): {
+    orderId: number
+    returnLineRequests: any[]
+    refundOverride?: number
+    returnReason?: string | null
+  } {
+    const orderId = Number((req.params as any).id)
+    if (!orderId) throw new Error('order id is required')
+    const requestBody: any = (req as any).body || {}
+    const returnLineRequests: any[] = Array.isArray(requestBody.items) ? requestBody.items : []
+    if (!returnLineRequests.length) throw new Error('items are required')
+
+    return {
+      orderId,
+      returnLineRequests,
+      refundOverride: requestBody.refundAmount != null ? Number(requestBody.refundAmount) : undefined,
+      returnReason: requestBody.reason ? String(requestBody.reason) : null
+    }
+  }
+
+  private async loadReturnableSaleOrder(orderId: number, vendorScope: TVendorScope, transaction: Transaction) {
+    const saleOrder: any = await Order.findByPk(orderId, { transaction } as any)
+    if (!saleOrder) throw new Error('Order not found')
+    // Import (provider) orders flow the opposite direction - returns are for sales only.
+    if (saleOrder.providerId != null) throw new Error('Import orders cannot be returned. Use a new export instead.')
+    await assertWarehouseAccess(saleOrder.warehouseId, vendorScope)
+    assertVendorAccess(vendorScope, saleOrder.vendorId, 'Unauthorized to return this order')
+    if (saleOrder.status === 'returned') throw new Error('Order has already been fully returned')
+    return saleOrder
+  }
+
+  private async indexOrderDetailsById(orderId: number, transaction: Transaction): Promise<Map<number, any>> {
+    const orderDetailRows: any[] = await OrderDetail.findAll({ where: { orderId }, transaction } as any)
+    const orderDetailsById = new Map<number, any>()
+    for (const detailRow of orderDetailRows as any[]) {
+      orderDetailsById.set(Number(detailRow.get('id')), detailRow)
+    }
+    return orderDetailsById
+  }
+
+  private async accumulateReturnedQuantities(orderId: number, transaction: Transaction): Promise<Map<number, number>> {
+    const priorReturnDocs: any[] = await OrderReturn.findAll({ where: { orderId }, transaction } as any)
+    const alreadyReturnedByLineId = new Map<number, number>()
+    for (const priorReturn of priorReturnDocs as any[]) {
+      let priorItems: any[] = []
+      try {
+        priorItems = JSON.parse(priorReturn.get('items') || '[]')
+      } catch {
+        priorItems = []
+      }
+      for (const priorItem of priorItems) {
+        const lineId = Number(priorItem.orderDetailId)
+        if (lineId) {
+          alreadyReturnedByLineId.set(
+            lineId,
+            (alreadyReturnedByLineId.get(lineId) ?? 0) + Number(priorItem.quantity || 0)
+          )
+        }
+      }
+    }
+    return alreadyReturnedByLineId
+  }
+
+  private async processReturnLines(params: {
+    returnLineRequests: any[]
+    orderDetailsById: Map<number, any>
+    alreadyReturnedByLineId: Map<number, number>
+    warehouseId: number
+    transaction: Transaction
+  }): Promise<{ returnLineSnapshot: any[]; refundTotal: number }> {
+    const { returnLineRequests, orderDetailsById, alreadyReturnedByLineId, warehouseId, transaction } = params
+    const returnLineSnapshot: any[] = []
+    let refundTotal = 0
+
+    for (const returnLineRequest of returnLineRequests) {
+      const matchingDetail = this.validateReturnLine(returnLineRequest, orderDetailsById, alreadyReturnedByLineId)
+      const returnQuantity = Number(returnLineRequest.quantity)
+      const unitPrice = Number(matchingDetail.get('price') ?? 0)
+      refundTotal += unitPrice * returnQuantity
+
+      await this.restockReturnedLine({ matchingDetail, warehouseId, returnQuantity, transaction })
+
+      returnLineSnapshot.push({
+        orderDetailId: Number(matchingDetail.get('id')),
+        productId: Number(matchingDetail.get('productId')),
+        variantId: (matchingDetail.get('variantId') as number | null) ?? null,
+        name: (matchingDetail as any).name ?? '',
+        quantity: returnQuantity,
+        price: unitPrice
+      })
+    }
+
+    return { returnLineSnapshot, refundTotal }
+  }
+
+  private validateReturnLine(
+    returnLineRequest: any,
+    orderDetailsById: Map<number, any>,
+    alreadyReturnedByLineId: Map<number, number>
+  ): any {
+    const matchingDetail = orderDetailsById.get(Number(returnLineRequest.orderDetailId))
+    if (!matchingDetail) throw new Error(`Order detail ${returnLineRequest.orderDetailId} not found on this order`)
+
+    const returnQuantity = Number(returnLineRequest.quantity)
+    if (!returnQuantity || returnQuantity <= 0) throw new Error('Return quantity must be positive')
+
+    const alreadyReturnedQuantity = alreadyReturnedByLineId.get(Number(matchingDetail.get('id'))) ?? 0
+    const purchasedQuantity = Number(matchingDetail.get('quantity'))
+    const returnableQuantity = purchasedQuantity - alreadyReturnedQuantity
+    if (returnQuantity > returnableQuantity) {
+      throw new Error(
+        `Cannot return ${returnQuantity} of detail ${matchingDetail.get('id')}: only ${returnableQuantity} remaining (bought ${purchasedQuantity}, returned ${alreadyReturnedQuantity})`
+      )
+    }
+    return matchingDetail
+  }
+
+  private async restockReturnedLine(params: {
+    matchingDetail: any
+    warehouseId: number
+    returnQuantity: number
+    transaction: Transaction
+  }): Promise<void> {
+    const { matchingDetail, warehouseId, returnQuantity, transaction } = params
+    const productId = Number(matchingDetail.get('productId'))
+    const variantId = (matchingDetail.get('variantId') as number | null) ?? null
+
+    // Goods flow back into stock (IN transfer, type '0').
+    await this.updateInventory({
+      productId,
+      variantId,
+      warehouseId,
+      quantity: returnQuantity,
+      transaction,
+      type: ORDER_TYPE_IMPORT
+    })
+    await this.createTransfer({
+      productId,
+      variantId,
+      warehouseId,
+      quantity: returnQuantity,
+      transaction,
+      type: ORDER_TYPE_IMPORT
+    })
+    // Sold counter goes down (sales only).
+    await this.adjustSoldByDelta({
+      productId,
+      variantId,
+      quantity: returnQuantity,
+      delta: -returnQuantity,
+      type: ORDER_TYPE_SALE,
+      transaction
+    })
+  }
+
+  private resolveRefundAmount(refundOverride: number | undefined, refundTotal: number): number {
+    // Optional explicit refund override (e.g. restocking fee).
+    return refundOverride != null ? refundOverride : refundTotal
+  }
+
+  private async createReturnDocument(params: {
+    orderId: number
+    warehouseId: number
+    saleOrder: any
+    returnLineSnapshot: any[]
+    finalRefundAmount: number
+    returnReason: string | null | undefined
+    transaction: Transaction
+  }) {
+    const { orderId, warehouseId, saleOrder, returnLineSnapshot, finalRefundAmount, returnReason, transaction } = params
+    const returnDatePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    const returnCode = `RET-${returnDatePart}-${orderId}`
+    return OrderReturn.create(
+      {
+        code: returnCode,
+        orderId,
+        warehouseId,
+        vendorId: saleOrder.vendorId ?? null,
+        staffId: saleOrder.staffId ?? null,
+        items: JSON.stringify(returnLineSnapshot),
+        refundAmount: finalRefundAmount,
+        reason: returnReason ? String(returnReason) : null
+      } as any,
+      { transaction }
+    )
+  }
+
+  private async createRefundExpenseVoucherIfNeeded(params: {
+    saleOrder: any
+    returnDocument: any
+    warehouseId: number
+    finalRefundAmount: number
+    transaction: Transaction
+  }): Promise<void> {
+    const { saleOrder, returnDocument, warehouseId, finalRefundAmount, transaction } = params
+    if (finalRefundAmount <= 0) return
+    await FinancialRecord.create(
+      {
+        code: `PC-RET-${returnDocument.get('id')}`,
+        type: 'expense',
+        category: 'return',
+        amount: finalRefundAmount,
+        relatedType: 'orderReturn',
+        relatedId: returnDocument.get('id'),
+        warehouseId,
+        note: `Hoàn tiền cho đơn ${saleOrder.code ?? saleOrder.id}`
+      } as any,
+      { transaction }
+    )
+  }
+
+  private resolveReturnStatus(params: {
+    orderDetailRows: any[]
+    alreadyReturnedByLineId: Map<number, number>
+    returnLineSnapshot: any[]
+  }): 'returned' | 'partially_returned' {
+    const { orderDetailRows, alreadyReturnedByLineId, returnLineSnapshot } = params
+    const totalReturnedByLineId = new Map<number, number>()
+    for (const [lineId, returnedQuantity] of alreadyReturnedByLineId) {
+      totalReturnedByLineId.set(lineId, returnedQuantity)
+    }
+    for (const snapshotItem of returnLineSnapshot) {
+      totalReturnedByLineId.set(
+        snapshotItem.orderDetailId,
+        (totalReturnedByLineId.get(snapshotItem.orderDetailId) ?? 0) + snapshotItem.quantity
+      )
+    }
+    const isFullyReturned = orderDetailRows.every((detailRow) => {
+      const totalReturned = totalReturnedByLineId.get(Number(detailRow.get('id'))) ?? 0
+      return totalReturned >= Number(detailRow.get('quantity'))
+    })
+    return isFullyReturned ? 'returned' : 'partially_returned'
+  }
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @function getOrders
+   * @description Get orders with pagination
+   * @param {Object} params - pagination params, warehouseId, isProvider
+   * @return {Promise<Object>} - result of query
+   */
+  async getOrders({ isProvider, warehouseId, vendorId, page, pageSize }: IOrderQueryParams, vendorScope: TVendorScope) {
     try {
-      const { warehouseId, isProvider, vendorId } = req.query
-      const { offset, limit } = getPagination(req.query)
-      // S1: warehouseId comes from the query string - verify it belongs to one
+      const { offset, limit } = getPagination({ page, pageSize })
+      // warehouseId comes from the query string - verify it belongs to one
       // of the caller's vendors before using it as a filter.
-      const scope = getVendorScope(req as any)
       if (!warehouseId) throw new Error('warehouseId is required')
-      await assertWarehouseAccess(warehouseId as string, scope)
+      await assertWarehouseAccess(warehouseId as string, vendorScope)
 
-      const where: any = {
-        warehouseId: warehouseId as string,
-        providerId: isProvider ? { [Op.ne]: null } : { [Op.eq]: null }
-      }
+      const whereClause = this.buildOrderListWhere({ isProvider, vendorId, vendorScope, warehouseId })
 
-      // S1: vendor filter must be within the caller's vendor scope; scoped
-      // users without an explicit filter only ever see their own vendors.
-      if (vendorId) {
-        assertVendorAccess(scope, Number(vendorId), "Unauthorized to read this vendor's orders")
-        where.vendorId = Number(vendorId)
-      } else if (scope !== null) {
-        where.vendorId = { [Op.in]: scope }
-      }
       const queryParams = {
-        where,
+        where: whereClause,
         include: [
           {
             model: database.orderDetail
@@ -929,6 +1437,29 @@ export default class OrderService {
       console.warn('error', error)
       throw ApiError.from(error, 400)
     }
+  }
+
+  private buildOrderListWhere(params: {
+    warehouseId: unknown
+    isProvider: unknown
+    vendorId: unknown
+    vendorScope: TVendorScope
+  }): Record<string, unknown> {
+    const { warehouseId, isProvider, vendorId, vendorScope } = params
+    const whereClause: any = {
+      warehouseId: warehouseId as string,
+      providerId: isProvider ? { [Op.ne]: null } : { [Op.eq]: null }
+    }
+
+    // Vendor filter must be within the caller's vendor scope; scoped users
+    // without an explicit filter only ever see their own vendors.
+    if (vendorId) {
+      assertVendorAccess(vendorScope, Number(vendorId), "Unauthorized to read this vendor's orders")
+      whereClause.vendorId = Number(vendorId)
+    } else if (vendorScope !== null) {
+      whereClause.vendorId = { [Op.in]: vendorScope }
+    }
+    return whereClause
   }
 
   /**
@@ -950,67 +1481,72 @@ export default class OrderService {
     vendorScope: TVendorScope = null
   ) {
     try {
-      // S1: the caller may only read orders inside warehouses they own.
+      // The caller may only read orders inside warehouses they own.
       await assertWarehouseAccess(warehouseId, vendorScope)
 
-      const resp: any = await Order.findOne({
-        where: {
-          id: id,
-          warehouseId: warehouseId
-        },
-        include: [
-          {
-            model: OrderDetail,
-            include: [
-              {
-                model: Product,
-                attributes: [],
-                paranoid: false
-              },
-              {
-                model: ProductVariant,
-                attributes: ['id', 'skuCode'],
-                paranoid: false,
-                include: [
-                  {
-                    model: ProductAttributeValue,
-                    attributes: ['id', 'value', 'attributeId'],
-                    through: { attributes: [] },
-                    include: [{ model: ProductAttribute, attributes: ['id', 'name'] }]
-                  }
-                ]
-              }
-            ]
-          }
-        ] as IncludeOptions,
-        attributes: {
-          include: [
-            [this.sequelize.col('orderDetails.product.name'), 'orderDetails.name']
-            // [this.sequelize.col('orderDetails.variant.attributeValues'), 'orderDetails.attributeValues']
-          ]
-        }
-      })
-      if (resp) {
-        // Compute realtime invoice progress per order line (compute, never stored).
-        const invoicedMap = await new InvoiceService().getInvoicedMap(Number(id))
-        const details: any[] = resp.orderDetails ?? []
-        for (const d of details) {
-          const ordered = Number(d.get('quantity') ?? 0)
-          const invoiced = invoicedMap.get(Number(d.get('id'))) ?? 0
-          d.setDataValue('invoicedQty' as any, invoiced)
-          d.setDataValue('remainingQty' as any, Math.max(ordered - invoiced, 0))
-        }
+      const orderWithDetails: any = await this.fetchOrderWithDetails(id, warehouseId)
+      if (orderWithDetails) {
+        await this.enrichWithInvoiceProgress(orderWithDetails, Number(id))
       }
-      return resp
+      return orderWithDetails
     } catch (error) {
       throw ApiError.from(error, 400)
     }
   }
 
+  private async fetchOrderWithDetails(orderId: string, warehouseId: string) {
+    return Order.findOne({
+      where: {
+        id: orderId,
+        warehouseId: warehouseId
+      },
+      include: [
+        {
+          model: OrderDetail,
+          include: [
+            {
+              model: Product,
+              attributes: [],
+              paranoid: false
+            },
+            {
+              model: ProductVariant,
+              attributes: ['id', 'skuCode'],
+              paranoid: false,
+              include: [
+                {
+                  model: ProductAttributeValue,
+                  attributes: ['id', 'value', 'attributeId'],
+                  through: { attributes: [] },
+                  include: [{ model: ProductAttribute, attributes: ['id', 'name'] }]
+                }
+              ]
+            }
+          ]
+        }
+      ] as IncludeOptions,
+      attributes: {
+        include: [[this.sequelize.col('orderDetails.product.name'), 'orderDetails.name']]
+      }
+    })
+  }
+
+  private async enrichWithInvoiceProgress(orderWithDetails: any, orderId: number): Promise<void> {
+    // Compute realtime invoice progress per order line (compute, never stored).
+    const invoicedQuantityByLineId = await new InvoiceService().getInvoicedMap(orderId)
+    const orderDetailRows: any[] = orderWithDetails.orderDetails ?? []
+    for (const detailRow of orderDetailRows) {
+      const orderedQuantity = Number(detailRow.get('quantity') ?? 0)
+      const invoicedQuantity = invoicedQuantityByLineId.get(Number(detailRow.get('id'))) ?? 0
+      detailRow.setDataValue('invoicedQty' as any, invoicedQuantity)
+      detailRow.setDataValue('remainingQty' as any, Math.max(orderedQuantity - invoicedQuantity, 0))
+    }
+  }
+
   async getOrderCode(id: string, vendorId: string) {
     try {
-      const settings = vendorId ? await new SettingService().getForVendor(Number(vendorId)) : null
-      const { prefix, suffix } = getCodeFormat(settings?.codePrefix, settings?.codeSuffix, 'order')
+      const vendorSettings = vendorId ? await new SettingService().getForVendor(Number(vendorId)) : null
+      const { prefix, suffix } = getCodeFormat(vendorSettings?.codePrefix, vendorSettings?.codeSuffix, 'order')
       return applyCodeFormat(`ORD${new Date().getFullYear()}${String(id).padStart(5, '0')}`, prefix, suffix)
     } catch (codeError) {
       console.warn('order code generation failed', codeError)

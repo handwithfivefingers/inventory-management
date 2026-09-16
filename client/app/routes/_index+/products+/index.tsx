@@ -21,31 +21,31 @@ import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { debounce } from "~/libs/debounce";
 import { formatCurrency } from "~/libs/format-currency";
-import { parseCookieFromRequest } from "~/sessions";
+// import { parseCookieFromRequest } from "~/sessions";
 import { IProduct } from "~/types/product";
+import { withContext } from "~/action.server/context.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
-  const url = new URL(request.url);
-  const params = url.searchParams;
-  const page = params.get("page") || "1";
-  const pageSize = params.get("pageSize") || "10";
-  const s = params.get("s") || "";
-  const resp = await productService.getProducts({
-    vendorId,
-    page,
-    pageSize,
-    cookie,
-    s,
+export async function loader({ request }: LoaderFunctionArgs) {
+  return withContext(request, async () => {
+    const url = new URL(request.url);
+    const params = url.searchParams;
+    const page = params.get("page") || "1";
+    const pageSize = params.get("pageSize") || "10";
+    const s = params.get("s") || "";
+    const resp = await productService.getProducts({
+      page,
+      pageSize,
+      s,
+    });
+    return {
+      data: resp.data?.data,
+      total: resp.data?.total,
+      s,
+      page,
+      pageSize,
+    };
   });
-  return {
-    data: resp.data?.data,
-    total: resp.data?.total,
-    s,
-    page,
-    pageSize,
-  };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Sản phẩm" }, { name: "description", content: "Quản lý sản phẩm" }];
@@ -304,17 +304,18 @@ export default function Products() {
     </div>
   );
 }
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
+export async function action({ request }: ActionFunctionArgs) {
+  // return withContext(request, async () => {
   const form = await request.formData();
   // Variant listing for the order flow: POST /products with variantOf=<productId>
   const variantOf = form.get("variantOf");
   if (variantOf) {
-    return productService.getProductVariants({ id: variantOf as string, cookie, warehouseId, vendorId });
+    return productService.getProductVariants({ id: variantOf as string });
   }
   const s = form.get("s") || "";
-  return productService.getProducts({ s: s as string, warehouseId, vendorId, page: "1", pageSize: "10", cookie });
-};
+  return productService.getProducts({ s: s as string, page: "1", pageSize: "10" });
+  // });
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

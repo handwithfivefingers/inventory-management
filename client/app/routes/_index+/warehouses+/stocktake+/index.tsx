@@ -14,19 +14,18 @@ import { dayjs } from "~/libs/date";
 import { parseCookieFromRequest } from "~/sessions";
 import { useSubmitPromise } from "~/hooks";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const page = url.searchParams.get("page") || "1";
   const pageSize = url.searchParams.get("pageSize") || "10";
-  const resp = await stocktakeService.list({ cookie, vendorId, page, pageSize });
+  const resp = await stocktakeService.list({ page, pageSize });
   return {
     data: (resp.data as any)?.data || [],
     total: (resp.data as any)?.total || 0,
     page: Number(page),
     pageSize: Number(pageSize),
   };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Đồng kiểm kho" }, { name: "description", content: "Kiểm kê tồn kho thực tế" }];
@@ -156,26 +155,24 @@ export default function StocktakeList() {
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie, vendorId, warehouseId } = await parseCookieFromRequest(request);
+export async function action({ request, context: { warehouseId } }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent");
   try {
     if (intent === "start") {
-      if (!warehouseId) throw new Error("Chưa chọn kho hàng");
-      await stocktakeService.start({ cookie, vendorId, warehouseId: Number(warehouseId) });
+      await stocktakeService.start({ warehouseId: Number(warehouseId) });
       return Response.json({ success: true, message: "Đã mở phiên kiểm kho" });
     }
     if (intent === "cancel") {
       const id = formData.get("id");
-      await stocktakeService.cancel({ id: id as string, cookie, vendorId });
+      await stocktakeService.cancel(id as string);
       return Response.json({ success: true, message: "Đã hủy phiên kiểm kho" });
     }
     return Response.json({ success: false, message: "Hành động không hợp lệ" }, { status: 400 });
   } catch (error: any) {
     return Response.json({ success: false, error: error?.message || "Thất bại" }, { status: 400 });
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

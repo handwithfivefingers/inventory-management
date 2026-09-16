@@ -24,15 +24,14 @@ export const meta: MetaFunction = () => {
   return [{ title: "Thêm nhân viên" }, { name: "description", content: "Thêm nhân viên" }];
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { vendorId, cookie } = await parseCookieFromRequest(request);
+export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const roleResponse = await roleService.getRoles({ cookie, vendorId } as any);
+    const roleResponse = await roleService.getRoles({});
     return { roles: roleResponse.data?.data };
   } catch {
     return { roles: [] };
   }
-};
+}
 
 export default function StaffAdd() {
   const { t } = useTranslation();
@@ -246,9 +245,9 @@ export default function StaffAdd() {
                   {t("common.save")}
                 </TMButton>
               </div>
-          </form>
-        </FormProvider>
-      </CardItem>
+            </form>
+          </FormProvider>
+        </CardItem>
       </div>
     </div>
   );

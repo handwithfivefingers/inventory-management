@@ -1,4 +1,4 @@
-import { HTTPService } from "~/http";
+import { HTTPService } from "~/http/index.server";
 import { BaseQueryParams } from "~/types/common";
 import { ICustomer, ICustomerCreate, ICustomerUpdate } from "~/types/customer";
 
@@ -8,45 +8,30 @@ const API_PATH = {
 
 interface ICustomerQueryParams extends BaseQueryParams {
   search?: string;
-  vendorId?: number | string;
 }
 
 const http = HTTPService.getInstance();
 
 const customerService = {
-  getCustomers: ({ cookie: Cookie, ...searchParams }: ICustomerQueryParams) => {
+  getCustomers: (searchParams: ICustomerQueryParams) => {
     const qs = new URLSearchParams(searchParams as any);
-    return http.get<{ data: ICustomer[]; total: number }>(API_PATH.customers + "?" + qs.toString(), { Cookie });
+    return http.get<{ data: ICustomer[]; total: number }>(API_PATH.customers + "?" + qs.toString());
   },
 
-  getCustomerById: ({
-    id,
-    cookie: Cookie,
-    vendorId,
-  }: {
-    id: number | string;
-    cookie: string;
-    vendorId?: string | number;
-  }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.get<{ data: ICustomer }>(`${API_PATH.customers}/${id}${qs}`, { Cookie });
+  getCustomerById: (id: number | string) => {
+    return http.get<{ data: ICustomer }>(`${API_PATH.customers}/${id}`);
   },
 
-  createCustomer: ({ cookie: Cookie, ...data }: { cookie: string } & ICustomerCreate) => {
-    return http.post<ICustomer, Omit<ICustomerCreate, "vendorId"> & { vendorId?: number | string }>(
-      API_PATH.customers + `?vendorId=${data.vendorId}`,
-      data,
-      { Cookie },
-    );
+  createCustomer: (data: ICustomerCreate) => {
+    return http.post<ICustomer, Omit<ICustomerCreate, "vendorId">>(API_PATH.customers, data);
   },
 
-  updateCustomer: ({ id, cookie: Cookie, ...data }: ICustomerUpdate & { cookie: string }) => {
-    return http.put<ICustomer, Record<string, any>>(`${API_PATH.customers}/${id}`, data, { Cookie });
+  updateCustomer: ({ id, ...data }: ICustomerUpdate) => {
+    return http.put<ICustomer, Record<string, any>>(`${API_PATH.customers}/${id}`, data);
   },
 
-  deleteCustomer: ({ id, cookie: Cookie, vendorId }: { id: number; cookie: string; vendorId?: string | number }) => {
-    const qs = vendorId !== undefined && vendorId !== null && `${vendorId}` !== "" ? `?vendorId=${vendorId}` : "";
-    return http.delete<{ message: string }>(`${API_PATH.customers}/${id}${qs}`, { Cookie });
+  deleteCustomer: (id: number) => {
+    return http.delete<{ message: string }>(`${API_PATH.customers}/${id}`);
   },
 };
 

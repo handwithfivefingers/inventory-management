@@ -23,19 +23,19 @@ const attributeNameSchema = z.object({
   name: z.string().min(1, "Tên không được trống"),
 });
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  // const { cookie, vendorId } = await parseCookieFromRequest(request);
   const { id } = params;
   if (!id) throw new Error("Missing id");
-  const attrResp = await productAttributeService.getAttributeById({ attributeId: id, cookie, vendorId });
+  const attrResp = await productAttributeService.getAttributeById(id);
   const attr = (attrResp.data as any)?.data || attrResp.data;
   let products: any[] = [];
   try {
-    const prodResp = await productAttributeService.getAttributeProducts({ attributeId: id, cookie, vendorId });
+    const prodResp = await productAttributeService.getAttributeProducts({ attributeId: id });
     products = (prodResp.data as any)?.data || [];
   } catch {}
   return { data: attr, products };
-};
+}
 
 export const meta: MetaFunction = () => [{ title: "Chi tiết thuộc tính" }];
 
@@ -237,29 +237,29 @@ const AttributeValueRow = ({ value }: { value: { id: number; value: string } }) 
         />
       </div>
       <div className="flex gap-2 shrink-0">
-      <TMButton
-        size="sm"
-        variant="primary"
-        onClick={handleUpdate}
-        disabled={!isDirty || isEmpty || isLoading}
-        loading={isLoading}
-        title={isDirty ? "Cập nhật" : "Chưa thay đổi"}
-        className="flex-1 sm:flex-none"
-      >
-        <Icon name="save" fontSize={14} />
-        <span className="hidden sm:inline">Cập nhật</span>
-      </TMButton>
-      <TMButton
-        size="sm"
-        variant="ghost"
-        onClick={handleDelete}
-        disabled={isLoading}
-        className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-1 sm:flex-none"
-        title="Xóa"
-      >
-        <Icon name="trash-2" fontSize={14} />
-        <span className="hidden sm:inline">Xóa</span>
-      </TMButton>
+        <TMButton
+          size="sm"
+          variant="primary"
+          onClick={handleUpdate}
+          disabled={!isDirty || isEmpty || isLoading}
+          loading={isLoading}
+          title={isDirty ? "Cập nhật" : "Chưa thay đổi"}
+          className="flex-1 sm:flex-none"
+        >
+          <Icon name="save" fontSize={14} />
+          <span className="hidden sm:inline">Cập nhật</span>
+        </TMButton>
+        <TMButton
+          size="sm"
+          variant="ghost"
+          onClick={handleDelete}
+          disabled={isLoading}
+          className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-1 sm:flex-none"
+          title="Xóa"
+        >
+          <Icon name="trash-2" fontSize={14} />
+          <span className="hidden sm:inline">Xóa</span>
+        </TMButton>
       </div>
     </div>
   );
@@ -298,18 +298,18 @@ const CreateValueForm = () => {
   );
 };
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request, params }: ActionFunctionArgs) {
+  // const { cookie, vendorId } = await parseCookieFromRequest(request);
   const formData = await request.formData();
   const { id } = params;
   const actionType = formData.get("intent") as string | null;
-  console.log("Action called with intent:", actionType, "params:", params);
+  // console.log("Action called with intent:", actionType, "params:", params);
   if (!id) throw new Error("Missing id");
   return namedAction(formData, {
     updateAttribute: async () => {
       const name = (formData.get("name") as string)?.trim();
       if (!name) return json({ success: false, error: "Tên không được trống", status: 400 }, { status: 400 });
-      const resp = await productAttributeService.updateAttribute({ attributeId: id, cookie, vendorId, name });
+      const resp = await productAttributeService.updateAttribute({ attributeId: id, name });
       return json({ success: true, data: resp.data, status: resp.status }, { status: resp.status });
     },
     createValue: async () => {
@@ -333,7 +333,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       if (!values.length) {
         return Response.json({ success: false, error: "Giá trị không được trống", status: 400 }, { status: 400 });
       }
-      const resp = await productAttributeService.createAttributeValues({ attributeId: id, vendorId, cookie, values });
+      const resp = await productAttributeService.createAttributeValues({ attributeId: id, values });
       return Response.json(
         { success: true, _action: "createValue", data: resp.data, status: resp.status },
         { status: resp.status },
@@ -345,17 +345,17 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       const value = (formData.get("value") as string)?.trim();
       if (!valueId) return json({ success: false, error: "Thiếu valueId", status: 400 }, { status: 400 });
       if (!value) return json({ success: false, error: "Giá trị không được trống", status: 400 }, { status: 400 });
-      const resp = await productAttributeService.updateAttributeValue({ valueId, vendorId, cookie, value });
+      const resp = await productAttributeService.updateAttributeValue({ valueId, value });
       return json({ success: true, data: resp.data, status: resp.status }, { status: resp.status });
     },
     deleteValue: async () => {
       const valueId = formData.get("valueId") as string;
       if (!valueId) return json({ success: false, error: "Thiếu valueId", status: 400 }, { status: 400 });
-      const resp = await productAttributeService.deleteAttributeValue({ valueId, vendorId, cookie });
+      const resp = await productAttributeService.deleteAttributeValue({ valueId });
       return json({ success: true, data: resp.data, status: resp.status }, { status: resp.status });
     },
   });
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

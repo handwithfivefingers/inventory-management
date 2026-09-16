@@ -1,6 +1,7 @@
 import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate, useRouteError } from "@remix-run/react";
 import { useEffect, useState } from "react";
+import { namedAction } from "remix-utils/named-action";
 import { invoiceService } from "~/action.server/invoice.service";
 import { CardItem } from "~/components/card-item";
 import { SelectInput } from "~/components/form/select-input";
@@ -11,9 +12,9 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { MODULE_ENUM } from "~/constants/modules";
+import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
-import { parseCookieFromRequest } from "~/sessions";
 import { IInvoice } from "~/types/invoice";
 
 interface IFilter {
@@ -28,8 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-100 text-red-800",
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
@@ -38,12 +38,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const status = params.get("status") || "";
 
   const resp = await invoiceService.getInvoices({
-    vendorId,
     page,
     pageSize,
     search,
     status,
-    cookie,
   } as any);
 
   return {
@@ -54,30 +52,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     page: Number(page),
     pageSize: Number(pageSize),
   };
-};
+}
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const id = Number(formData.get("id"));
   const intent = formData.get("intent");
-
-  try {
-    if (intent === "update-status") {
+  return namedAction(formData, {
+    delete: async () => {
+      await invoiceService.deleteInvoice(id);
+      return new Response(null, { status: 200 });
+    },
+    updateStatus: async () => {
       await invoiceService.updateInvoiceStatus({
         id,
         status: formData.get("status") as any,
-        cookie,
-        vendorId,
       });
-    } else {
-      await invoiceService.deleteInvoice({ id, cookie, vendorId });
-    }
-    return new Response(null, { status: 200 });
-  } catch (error: any) {
-    return { error: error.message || "Request failed" };
-  }
-};
+      return new Response(null, { status: 200 });
+    },
+  });
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Hóa đơn" }, { name: "description", content: "Quản lý hóa đơn" }];
@@ -86,7 +80,9 @@ export const meta: MetaFunction = () => {
 export default function Invoices() {
   const navigate = useNavigate();
   const { data, total, page, pageSize, s, status } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+  // const fetcher = useFetcher();
+
+  const { submit, isLoading } = useSubmitPromise();
   const { t } = useTranslation();
   const [filter, setFilter] = useState<IFilter>({ s, status });
 
@@ -105,11 +101,11 @@ export default function Invoices() {
     if (!confirm(t("common.confirmDelete"))) {
       return;
     }
-    fetcher.submit({ id: String(id), intent: "delete" }, { method: "post" });
+    submit({ id: String(id), intent: "delete" }, { method: "post" });
   };
 
   const handleUpdateStatus = (id: number, newStatus: string) => {
-    fetcher.submit({ id: String(id), intent: "update-status", status: newStatus }, { method: "post" });
+    submit({ id: String(id), intent: "updateStatus", status: newStatus }, { method: "post" });
   };
 
   return (
@@ -176,6 +172,7 @@ export default function Invoices() {
           <div className="flex-1 overflow-auto">
             <TMTable
               scrollable
+              loading={isLoading}
               columns={[
                 {
                   title: t("invoices.invoiceNumber"),

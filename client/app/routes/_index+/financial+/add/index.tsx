@@ -145,17 +145,17 @@ export default function FinancialAdd() {
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
+    // const { cookie, vendorId } = await parseCookieFromRequest(request);
     const form = await request.formData();
     const data = form.get("data") as string;
-    const resp = await financialService.createVoucher(JSON.parse(data), { cookie, vendorId });
+    const resp = await financialService.createVoucher(JSON.parse(data));
     return resp;
   } catch (error) {
     return { status: 400, error: (error as any).message };
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

@@ -10,10 +10,43 @@ declare module "@remix-run/node" {
     v3_singleFetch: true;
   }
 }
+function autoContextPlugin() {
+  return {
+    name: "auto-context-injector",
+    transform(code: string, id: string) {
+      // Chỉ can thiệp vào các file route trong Remix và khi build cho Server
+      if (id.includes("app/routes/") && (id.endsWith(".tsx") || id.endsWith(".ts"))) {
+        console.log(`id`, id);
+        let newCode = code;
+        const hasLoader = code.includes("export async function loader");
+        const hasAction = code.includes("export async function action");
+
+        if (hasLoader || hasAction) {
+          // Inject hàm bọc vào đầu file
+          newCode = `import { autoWrapContext } from "~/action.server/context.server";\n` + newCode;
+
+          if (hasLoader) {
+            // Thay thế export loader mặc định bằng loader đã bọc
+            newCode = newCode.replace(/export\s+async\s+function\s+loader\b/g, "async function _originalLoader");
+            newCode += `\nexport const loader = autoWrapContext(_originalLoader);`;
+          }
+
+          if (hasAction) {
+            // Thay thế export action mặc định bằng action đã bọc
+            newCode = newCode.replace(/export\s+async\s+function\s+action\b/g, "async function _originalAction");
+            newCode += `\nexport const action = autoWrapContext(_originalAction);`;
+          }
+        }
+        return { code: newCode, map: null };
+      }
+    },
+  };
+}
 
 export default defineConfig(({}) => {
   return {
     plugins: [
+      autoContextPlugin(),
       tailwindcss(),
       remix({
         future: {

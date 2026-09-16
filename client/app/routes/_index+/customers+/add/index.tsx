@@ -12,13 +12,12 @@ import { CustomerSchema, customerSchema } from "~/constants/schema/customer";
 import { useSubmitPromise } from "~/hooks";
 import { parseCookieFromRequest } from "~/sessions";
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request, context }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = JSON.parse((await formData.get("data")) as string);
-    data.vendorId = vendorId;
-    const response = await customerService.createCustomer({ cookie, ...data });
+    data.vendorId = context.vendorId;
+    const response = await customerService.createCustomer(data);
     if (response.status === 201) {
       return redirect("/customers");
       return Response.json({ message: "Tạo khách hàng thành công", status: 200 }, { status: 200 });
@@ -27,7 +26,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (error: any) {
     return Response.json({ error: error.message || "Tạo khách hàng thất bại", status: 400 }, { status: 400 });
   }
-};
+}
 export const meta = [
   {
     title: "Tạo khách hàng",

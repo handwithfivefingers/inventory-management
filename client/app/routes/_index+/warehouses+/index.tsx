@@ -13,22 +13,20 @@ import { PermissionGuard } from "~/components/permission-guard";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { getLoaderRequestQuery } from "~/libs/utils";
-import { parseCookieFromRequest } from "~/sessions";
 import { IWareHouse } from "~/types/warehouse";
 import { Icon } from "~/components/icon";
 import { MODULE_ENUM } from "~/constants/modules";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request }: LoaderFunctionArgs) {
   const { page, pageSize } = getLoaderRequestQuery(request);
-  const resp = await warehouseService.getWareHouses({ cookie, vendorId, page, pageSize } as any);
+  const resp = await warehouseService.getWareHouses({ page, pageSize } as any);
   return {
     data: resp.data?.data,
     total: resp.data?.total,
     page: Number(page),
     pageSize: Number(pageSize),
   };
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Kho bãi" }, { name: "description", content: "Quản lý kho bãi" }];

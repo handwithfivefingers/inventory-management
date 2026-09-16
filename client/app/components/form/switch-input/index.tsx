@@ -53,17 +53,12 @@ export const SwitchInput = forwardRef<HTMLInputElement, ISwitchInput>(
           )}
           style={style}
           onMouseDown={(e) => {
-            // Mouse/touch activation must not steal focus: focusing the
-            // 1px sr-only input makes the browser scroll the nearest
-            // scroll container (page jump). The label still toggles the
-            // input via the click event; keyboard users Tab to it as usual.
             e.preventDefault();
           }}
         >
           <input
             type="checkbox"
-            role="switch"
-            className="peer sr-only"
+            className="hidden"
             checked={isChecked}
             name={name}
             onChange={onChange}
@@ -76,8 +71,10 @@ export const SwitchInput = forwardRef<HTMLInputElement, ISwitchInput>(
             className={cn(
               "w-9 h-5 shrink-0 rounded-full relative transition-colors",
               "bg-slate-200 dark:bg-slate-600",
-              "peer-checked:bg-primary",
               "peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-400/40",
+              {
+                ["bg-primary"]: isChecked,
+              },
             )}
           >
             <span

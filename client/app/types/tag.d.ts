@@ -1,13 +1,9 @@
 import { BaseQueryParams } from "./common";
 import { IProduct } from "./product";
-export interface ITagQueryParams extends BaseQueryParams {
-  vendorId: string;
-}
+export interface ITagQueryParams extends BaseQueryParams {}
 export interface ITagParams {
   id?: number | string;
   name: string;
-  vendorId: string | number;
-  cookie: string;
 }
 
 export interface ITag {

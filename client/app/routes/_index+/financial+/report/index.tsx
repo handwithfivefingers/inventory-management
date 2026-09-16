@@ -7,18 +7,15 @@ import { ErrorComponent } from "~/components/error-component";
 import { DatePicker } from "~/components/form/date-picker";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
-import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const now = dayjs();
     const fromParam = url.searchParams.get("from");
     const toParam = url.searchParams.get("to");
-
     // Bug 5 fix: default to current month (consistent with financial index page)
     // Bug 7 fix: validate from <= to
     let from = fromParam || "";
@@ -34,11 +31,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     const resp = await financialService.getReport({
-      warehouseId: warehouseId as string,
-      vendorId,
       from,
       to,
-      cookie,
     });
     return {
       report: resp.data?.data ?? {
@@ -60,7 +54,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const message = error?.message ?? "Failed to load financial report";
     throw new Response(message, { status });
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Báo cáo thuế" }, { name: "description", content: "Báo cáo tài chính thuế" }];
@@ -72,13 +66,48 @@ export default function FinancialReport() {
   const { t } = useTranslation();
 
   const rows = [
-    { key: "revenue", label: t("financial.revenue"), value: report.revenue, color: "text-green-600 dark:text-green-400" },
-    { key: "vatCollected", label: t("financial.vatCollected"), value: report.vatCollected, color: "text-blue-600 dark:text-blue-400" },
-    { key: "netRevenue", label: t("financial.netRevenue") ?? "Net Revenue (excl. VAT)", value: (report as any).netRevenue ?? report.revenue - report.vatCollected, color: "text-emerald-600 dark:text-emerald-400" },
-    { key: "importCost", label: t("financial.importCost"), value: report.importCost, color: "text-red-500 dark:text-red-400" },
-    { key: "otherExpense", label: t("financial.otherExpense"), value: report.otherExpense, color: "text-red-500 dark:text-red-400" },
-    { key: "totalExpense", label: t("financial.totalExpense"), value: report.totalExpense, color: "text-red-500 dark:text-red-400" },
-    { key: "netProfit", label: t("financial.netProfit"), value: report.netProfit, color: "text-primary dark:text-indigo-300 font-bold" },
+    {
+      key: "revenue",
+      label: t("financial.revenue"),
+      value: report.revenue,
+      color: "text-green-600 dark:text-green-400",
+    },
+    {
+      key: "vatCollected",
+      label: t("financial.vatCollected"),
+      value: report.vatCollected,
+      color: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      key: "netRevenue",
+      label: t("financial.netRevenue") ?? "Net Revenue (excl. VAT)",
+      value: (report as any).netRevenue ?? report.revenue - report.vatCollected,
+      color: "text-emerald-600 dark:text-emerald-400",
+    },
+    {
+      key: "importCost",
+      label: t("financial.importCost"),
+      value: report.importCost,
+      color: "text-red-500 dark:text-red-400",
+    },
+    {
+      key: "otherExpense",
+      label: t("financial.otherExpense"),
+      value: report.otherExpense,
+      color: "text-red-500 dark:text-red-400",
+    },
+    {
+      key: "totalExpense",
+      label: t("financial.totalExpense"),
+      value: report.totalExpense,
+      color: "text-red-500 dark:text-red-400",
+    },
+    {
+      key: "netProfit",
+      label: t("financial.netProfit"),
+      value: report.netProfit,
+      color: "text-primary dark:text-indigo-300 font-bold",
+    },
   ];
 
   return (

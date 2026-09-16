@@ -1,132 +1,76 @@
-import { HTTPService } from "~/http";
-import { IRole } from "~/types/user";
+import { HTTPService } from "~/http/index.server";
+import type { IResponse } from "~/types/common";
+import type { IRole, IRoleCreateDTO, IRoleUpdateDTO } from "~/types/user";
 
 const API_PATH = {
   roles: "/roles",
 };
 
-interface IRoleServiceParams {
-  cookie: string;
+export interface IRoleRequestContext {}
+
+interface IGetRolesParams extends IRoleRequestContext {
+  s?: string;
 }
 
-interface ICreateRoleParams extends IRoleServiceParams {
-  name: string;
-  description?: string;
-  permissions?: any[];
-  vendorId?: number | string;
+interface IGetRoleByIdParams extends IRoleRequestContext {
+  id: string | number;
 }
 
-interface IUpdateRoleParams extends ICreateRoleParams {
-  id: number;
+type ICreateRoleParams = IRoleRequestContext & IRoleCreateDTO;
+type IUpdateRoleParams = IRoleRequestContext & IRoleUpdateDTO;
+type IDeleteRoleParams = IRoleRequestContext & { id: string | number };
+
+function authHeaders(cookie: string): Record<string, string> {
+  return { Cookie: cookie };
 }
 
-interface IDeleteRoleParams extends IRoleServiceParams {
-  id: number;
+function withVendorQuery(vendorId?: string | number): string {
+  if (vendorId === undefined || vendorId === null || vendorId === "") return "";
+  return `?vendorId=${encodeURIComponent(String(vendorId))}`;
 }
+
+const http = HTTPService.getInstance();
 
 export const roleService = {
   /**
-   * Get all roles (global + vendor-specific). Pass vendorId to filter.
+   * GET /roles?vendorId=... - vendorId is required by RoleService.getRoles.
    */
-  getRoles: async ({ cookie, vendorId }: IRoleServiceParams & { vendorId?: string | number | null }) => {
-    const qs = new URLSearchParams({
-      vendorId: `${vendorId}`,
-    });
-    return HTTPService.getInstance().get<{ data: IRole[] }>(API_PATH.roles + "?" + qs.toString(), { cookie });
+  getRoles: ({ s }: IGetRolesParams) => {
+    const qs = new URLSearchParams();
+    if (s) qs.set("s", s);
+    return http.get<{ data: IRole[] }>(`${API_PATH.roles}?${qs.toString()}`);
   },
 
   /**
-   * Get role by ID
+   * GET /roles/:id?vendorId=... - vendorId scopes the tenant check.
    */
-  getRoleById: async ({ cookie, id, vendorId }: IRoleServiceParams & { id: number; vendorId?: string | number }) => {
-    const qs = vendorId ? `?vendorId=${vendorId}` : "";
-    return HTTPService.getInstance().get<{ data: IRole }>(`${API_PATH.roles}/${id}${qs}`, { cookie });
+  getRoleById: (id: number | string) => {
+    return http.get<{ data: IRole }>(`${API_PATH.roles}/${id}`);
   },
 
   /**
-   * Create new role - POST /roles/create per backend router
+   * POST /roles/create per backend router.
+   * Body: { name, description?, vendorId?, permissions?: string[] }.
    */
-  createRole: async ({ cookie, name, description, permissions, vendorId }: ICreateRoleParams) => {
-    return HTTPService.getInstance().post(
-      `${API_PATH.roles}/create`,
-      { name, description, permissions, vendorId },
-      { Cookie: cookie },
-    );
-
-    // const response = await fetch(`${import.meta.env.VITE_API_PATH}${API_PATH.roles}/create`, {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     Cookie: cookie,
-    //   },
-    //   body: JSON.stringify({
-    //     name,
-    //     description,
-    //     permissions,
-    //     vendorId,
-    //   }),
-    // });
-
-    // const result = await response.json();
-
-    // if (!response.ok) {
-    //   throw new Error(result.error || "Failed to create role");
-    // }
-
-    // return result.data;
+  createRole: (body: ICreateRoleParams) => {
+    const payload: IRoleCreateDTO = body;
+    return http.post(`${API_PATH.roles}/create`, payload);
   },
 
   /**
-   * Update role
+   * PUT /roles/:id - vendorId is required so the service can scope
+   * the lookup (findOne where { id, vendorId }).
+   * NOTE: HTTPService.put resolves to { status } only (no data payload)
+   * and throws the backend error body on non-200.
    */
-  updateRole: async ({ cookie, id, name, description, permissions, vendorId }: IUpdateRoleParams) => {
-    const qs = vendorId ? `?vendorId=${vendorId}` : "";
-    return HTTPService.getInstance().put(
-      `${API_PATH.roles}/${id}${qs}`,
-      { name, description, permissions },
-      { Cookie: cookie },
-    );
-    // const response = await fetch(`${import.meta.env.VITE_API_PATH}${API_PATH.roles}/${id}`, {
-    //   method: "PUT",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     Cookie: cookie,
-    //   },
-    //   body: JSON.stringify({
-    //     name,
-    //     description,
-    //     permissions,
-    //   }),
-    // });
-
-    // const result = await response.json();
-
-    // if (!response.ok) {
-    //   throw new Error(result.error || "Failed to update role");
-    // }
-
-    // return result.data;
+  updateRole: ({ id, ...body }: IUpdateRoleParams): Promise<IResponse<unknown>> => {
+    return http.put<unknown, Record<string, unknown>>(`${API_PATH.roles}/${id}`, body);
   },
 
   /**
-   * Delete role
+   * DELETE /roles/:id. Resolves to { status } only, throws on non-200.
    */
-  deleteRole: async ({ cookie, id }: IDeleteRoleParams) => {
-    return HTTPService.getInstance().delete(`${API_PATH.roles}/${id}`, { Cookie: cookie });
-    // const response = await fetch(`${import.meta.env.VITE_API_PATH}${API_PATH.roles}/${id}`, {
-    //   method: "DELETE",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     Cookie: cookie,
-    //   },
-    // });
-
-    // const result = await response.json();
-
-    // if (!response.ok) {
-    //   throw new Error(result.error || "Failed to delete role");
-    // }
-
-    // return result.data;
+  deleteRole: (id: string | number): Promise<IResponse<unknown>> => {
+    return http.delete<unknown>(`${API_PATH.roles}/${id}`);
   },
 };

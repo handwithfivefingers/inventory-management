@@ -5,7 +5,10 @@ import { NextFunction, Request, Response } from 'express'
 export class StatsController {
   async getDashboard(req: Request, res: Response, next: NextFunction) {
     try {
-      const { days, from, to, groupBy, warehouseId, lowStockThreshold } = req.query
+      const { days, from, to, groupBy, lowStockThreshold } = req.query
+      const warehouseId = req.headers['x-warehouse']
+      const vendorId = req.headers['x-vendor']
+
       const resp = await new StatsService().getDashboard({
         days: days as string,
         from: from as string,

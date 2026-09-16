@@ -6,13 +6,12 @@ import { Divider } from "~/components/divider";
 import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
-import PermissionGuard from "~/components/permission-guard";
 import { CreateFab } from "~/components/layouts/create-fab";
+import PermissionGuard from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";
-import { MODULE_ENUM, MODULES } from "~/constants/modules";
+import { MODULE_ENUM } from "~/constants/modules";
 import { usePermission, useSubmitPromise } from "~/hooks";
-import { parseCookieFromRequest } from "~/sessions";
 import { IRole } from "~/types/user";
 
 export const meta: MetaFunction = () => {
@@ -28,9 +27,7 @@ export const meta: MetaFunction = () => {
  */
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
-    const response = await roleService.getRoles({ cookie, vendorId });
-
+    const response = await roleService.getRoles({});
     return response.data as { data: IRole[] };
   } catch (error: any) {
     return Response.json(
@@ -49,7 +46,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
  */
 export async function action({ request }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const actionType = formData.get("_action");
 
@@ -60,9 +56,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const permissions = JSON.parse((formData.get("permissions") as string) || "[]");
 
         const result = await roleService.createRole({
-          cookie,
           name,
-          vendorId,
           description,
           permissions,
         });
@@ -76,7 +70,6 @@ export async function action({ request }: ActionFunctionArgs) {
         const permissions = JSON.parse((formData.get("permissions") as string) || "[]");
 
         const result = await roleService.updateRole({
-          cookie,
           id: Number(id),
           name,
           description,
@@ -87,11 +80,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       case "delete": {
         const id = formData.get("id") as string;
-
-        await roleService.deleteRole({
-          cookie,
-          id: Number(id),
-        });
+        await roleService.deleteRole(Number(id));
         return { message: "Xóa thành cong", success: true };
       }
 
@@ -135,7 +124,7 @@ export default function RoleManagementRoute() {
   }
 
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-4 px-2">
       <PermissionGuard permission="CREATE" module="role" requireAdmin>
         <CreateFab to="./add" label="Tạo vai trò mới" />
       </PermissionGuard>

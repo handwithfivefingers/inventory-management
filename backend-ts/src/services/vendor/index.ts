@@ -1,8 +1,16 @@
 import { ERROR } from '#/constant/message'
 import database from '#/database'
+import Vendor from '#/database/models/vendor'
 import { getCtxUser } from '#/libs'
-import { invalidateManyUserAuthCache, invalidateUserAuthCache, invalidateUsersByVendorId, resolveUserIdsByVendorId } from '#/services/authenticate/userAuth'
+import { ApiError } from '#/response'
+import {
+  invalidateManyUserAuthCache,
+  invalidateUserAuthCache,
+  invalidateUsersByVendorId,
+  resolveUserIdsByVendorId
+} from '#/services/authenticate/userAuth'
 import { IVendorStatic } from '#/types/vendor'
+import { cacheItem, cacheSet } from '#/utils/caching'
 import { Request } from 'express'
 import { Sequelize } from 'sequelize'
 
@@ -15,7 +23,7 @@ export default class VendorService {
     try {
       const user = await getCtxUser(req as any)
       if (!user) throw new Error(ERROR.UNAUTHORIZED)
-      const _vendor = await this.vendor.create(
+      const _vendor = await Vendor.create(
         {
           name,
           userId: user.id
@@ -24,6 +32,8 @@ export default class VendorService {
           transaction: t
         }
       )
+
+      await cacheSet(`vendor:${_vendor.id}`, _vendor)
 
       await t.commit()
       try {
@@ -34,6 +44,19 @@ export default class VendorService {
       }
     } catch (error) {
       await t.rollback()
+      throw error
+    }
+  }
+
+  async getVendorById(vendorId: Vendor['id']) {
+    try {
+      const _vendor = await cacheItem({
+        key: `vendor:${vendorId}`,
+        callback: () => Vendor.findByPk(vendorId)
+      })
+      if (!_vendor) throw ApiError.notFound('Vendor not found')
+      return _vendor as Vendor
+    } catch (error) {
       throw error
     }
   }
@@ -83,7 +106,7 @@ export default class VendorService {
     } catch {
       affected = []
     }
-    const deleted = await this.vendor.destroy({ where: { id: vendorId } })
+    const deleted = await Vendor.destroy({ where: { id: vendorId } })
     try {
       if (affected.length) await invalidateManyUserAuthCache(affected)
       else await invalidateUsersByVendorId(vendorId)
@@ -92,7 +115,7 @@ export default class VendorService {
   }
   async getVendorByUserId(userId: string) {
     try {
-      const resp = await this.vendor.findAndCountAll({
+      const resp = await Vendor.findAndCountAll({
         where: {
           userId
         },

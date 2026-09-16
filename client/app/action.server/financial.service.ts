@@ -1,4 +1,4 @@
-import { http } from "~/http";
+import { http } from "~/http/index.server";
 import { IFinancialQueryParams, IFinancialRecord, IFinancialReport } from "~/types/financial";
 
 const API_PATH = {
@@ -17,23 +17,19 @@ const sanitizeParams = (params: Record<string, any>): Record<string, string> => 
 };
 
 const financialService = {
-  getVouchers: ({ cookie, ...searchParams }: IFinancialQueryParams) => {
+  getVouchers: (searchParams: IFinancialQueryParams) => {
     const qs = new URLSearchParams(sanitizeParams(searchParams as any));
-    return http.get<{ data: IFinancialRecord[]; total: number }>(API_PATH.financial + "?" + qs.toString(), { cookie });
+    return http.get<{ data: IFinancialRecord[]; total: number }>(API_PATH.financial + "?" + qs.toString());
   },
-  getVoucherById: (id: string | number, opts?: { cookie?: string; vendorId?: string | number }) => {
-    const qs = opts?.vendorId !== undefined && opts?.vendorId !== null && `${opts.vendorId}` !== "" ? `?vendorId=${opts.vendorId}` : "";
-    const headers = opts?.cookie ? { cookie: opts.cookie } : undefined;
-    return http.get<{ data: IFinancialRecord }>(`${API_PATH.financial}/${id}${qs}`, headers);
+  getVoucherById: (id: string | number) => {
+    return http.get<{ data: IFinancialRecord }>(`${API_PATH.financial}/${id}`);
   },
-  createVoucher: (params: any, opts?: { cookie?: string; vendorId?: string | number }) => {
-    const qs = opts?.vendorId !== undefined && opts?.vendorId !== null && `${opts.vendorId}` !== "" ? `?vendorId=${opts.vendorId}` : "";
-    const headers = opts?.cookie ? { cookie: opts.cookie } : undefined;
-    return http.post(API_PATH.financial + qs, params, headers);
+  createVoucher: (params: any) => {
+    return http.post(API_PATH.financial, params);
   },
-  getReport: ({ cookie, ...searchParams }: IFinancialQueryParams) => {
+  getReport: (searchParams: IFinancialQueryParams) => {
     const qs = new URLSearchParams(sanitizeParams(searchParams as any));
-    return http.get<{ data: IFinancialReport }>(`${API_PATH.financial}/report?` + qs.toString(), { cookie });
+    return http.get<{ data: IFinancialReport }>(`${API_PATH.financial}/report?` + qs.toString());
   },
 };
 

@@ -1,7 +1,7 @@
 import { useFetcher, useLoaderData, useOutletContext, useRevalidator } from "@remix-run/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
-import { IVendorSettings } from "~/action.server/setting.service";
+import type { IVendorSettings } from "~/types/setting";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { TMTable } from "~/components/tm-table";

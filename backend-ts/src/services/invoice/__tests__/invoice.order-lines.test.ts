@@ -38,8 +38,10 @@ const setup = (orderDetails: any[], invoicedRows: any[] = [], priorCount = 0) =>
     orderDetails,
   }
   db.order.findByPk.mockResolvedValue(order)
+  db.warehouse.findByPk.mockResolvedValue({ id: 1, vendorId: 7, name: 'Main' })
   db.invoiceDetail.findAll.mockResolvedValue(invoicedRows)
   db.invoice.count.mockResolvedValue(priorCount)
+  db.invoice.findOne.mockResolvedValue(null)
   db.vendor.findByPk.mockResolvedValue({ name: 'Acme Corp' })
   let seq = 0
   db.sequelize.query.mockImplementation(async (sql: string) => {

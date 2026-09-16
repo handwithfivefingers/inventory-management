@@ -15,23 +15,22 @@ import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { getLoaderRequestQuery } from "~/libs/utils";
-import { parseCookieFromRequest } from "~/sessions";
 import { IOrder } from "~/types/order";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export async function loader({ request, context }: LoaderFunctionArgs) {
   try {
-    const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
+    console.log("Order context", context);
     const { page, pageSize } = getLoaderRequestQuery(request);
-    const resp = await orderService.getOrders({ page, pageSize, cookie, warehouseId, vendorId });
-    console.log("resp", resp);
-    return { ...resp.data, page, pageSize };
+    const resp = await orderService.getOrders({ page, pageSize });
+    const body: any = (resp as any)?.data ?? {};
+    return { data: body?.data ?? [], total: body?.total ?? 0, page, pageSize };
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error(error.message);
     }
     throw new Error("Can't fetch orders");
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Bán hàng" }, { name: "description", content: "Bán hàng" }];

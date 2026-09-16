@@ -1,106 +1,41 @@
-import { HTTPService } from "~/http";
+import { HTTPService } from "~/http/index.server";
+import type { IVendorProfile, IVendorSettings } from "~/types/setting";
 
 const API_PATH = {
   settings: "/settings",
+  vendorSettings: "/settings/vendor",
 };
 
-interface ISettingServiceParams {
-  cookie: string;
-  vendorId?: number | string;
-}
-
-export interface ICodeFormatMap {
-  order?: string;
-  customer?: string;
-  product?: string;
-  category?: string;
-}
-
-export interface IShipDeliveryConfig {
-  enabled?: boolean;
-  fee?: number;
-  freeThreshold?: number | null;
-  note?: string | null;
-}
-
-export interface IAppearanceConfig {
-  /** Niche preset key (fashion | food | retail | electronics | pharmacy | beauty) */
-  preset?: string;
-  primaryColor?: string;
-  accentColor?: string;
-  logoUrl?: string;
-  /** Label overrides keyed by i18n key, e.g. { "sidebar.products": "Món ăn" } */
-  terminology?: Record<string, string>;
-  /** Module keys hidden from sidebar/bottom-nav (admin-only, FE-only). */
-  sidebarHidden?: string[];
-}
-
-export interface IVendorSettings {
-  id?: number;
-  vendorId?: number | null;
-  language?: string;
-  theme?: string;
-  moneyUnit?: string;
-  moneyUnitPosition?: "prefix" | "suffix";
-  /** +/- step for money steppers (e.g. 1000 for VND pricing) */
-  moneyStep?: number;
-  skuTemplate?: string;
-  codePrefix?: ICodeFormatMap;
-  codeSuffix?: ICodeFormatMap;
-  shipDelivery?: IShipDeliveryConfig;
-  defaultTaxRate?: number;
-  defaultDiscount?: number;
-  defaultSurcharge?: number;
-  /** Niche-based UI customization (preset palette, colors, logo, terminology) */
-  appearance?: IAppearanceConfig;
-}
-
-export const DEFAULT_SETTINGS: IVendorSettings = {
-  language: "vi",
-  theme: "system",
-  moneyUnit: "VND",
-  moneyUnitPosition: "suffix",
-  moneyStep: 1000,
-  skuTemplate: "{CODE}",
-  codePrefix: { order: "", customer: "", product: "", category: "" },
-  codeSuffix: { order: "", customer: "", product: "", category: "" },
-  shipDelivery: { enabled: false, fee: 0 },
-  defaultTaxRate: 0,
-  defaultDiscount: 0,
-  defaultSurcharge: 0,
-  appearance: {},
-};
-
+/**
+ * Vendor master-data profile types live in ~/types/setting (client-safe).
+ * This module is server-only: it pulls ~/http/index.server (getContext).
+ */
 export const settingService = {
   /**
    * Get the settings for a vendor (creates defaults on first access)
    */
-  getSettings: async ({ cookie, vendorId }: ISettingServiceParams) => {
-    const query = vendorId ? `?vendorId=${vendorId}` : "";
-    const response = await fetch(`${import.meta.env.VITE_API_PATH}${API_PATH.settings}${query}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookie,
-      },
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || "Failed to fetch settings");
-    }
-
-    return result.data as IVendorSettings;
+  getSettings: async () => {
+    return HTTPService.getInstance().get<{ data: IVendorSettings }>(API_PATH.settings);
   },
 
   /**
    * Update the settings for a vendor
    */
-  updateSettings: async ({ cookie, ...payload }: ISettingServiceParams & Partial<IVendorSettings>) => {
-    const qs = new URLSearchParams({
-      vendorId: `${payload.vendorId}`,
-    });
-    return HTTPService.getInstance().put(`${API_PATH.settings}?${qs.toString()}`, payload, { cookie });
+  updateSettings: async (payload: Partial<IVendorSettings>) => {
+    return HTTPService.getInstance().put(`${API_PATH.settings}`, payload);
+  },
+};
+
+export const vendorSettingService = {
+  /**
+   * Get the vendor master-data profile for the active workspace vendor.
+   * The backend scopes this strictly to the active vendor context.
+   */
+  getVendorSettings: async () => {
+    return HTTPService.getInstance().get<{ data: IVendorProfile }>(API_PATH.vendorSettings);
+  },
+
+  updateVendorSettings: async (payload: Partial<IVendorProfile>) => {
+    return HTTPService.getInstance().put(`${API_PATH.vendorSettings}`, payload);
   },
 };

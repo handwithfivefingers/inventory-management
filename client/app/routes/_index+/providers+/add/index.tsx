@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-// import { json } from "@remix-run/node";
 import { Link, useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { providerService } from "~/action.server/provider.service";
@@ -13,7 +12,7 @@ import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { providerSchema, ProviderSchema } from "~/constants/schema/provider";
 import { useSubmitPromise } from "~/hooks";
-import { ResponseError } from "~/http";
+import { ResponseError } from "~/http/index.server";
 import { useTranslation } from "~/i18n";
 
 export const meta: MetaFunction = () => {
@@ -133,12 +132,11 @@ export function ErrorBoundary() {
   return <ErrorComponent />;
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
     const formData = await request.formData();
     const data = JSON.parse(Object.fromEntries(formData)?.data as string);
-    const resp = await providerService.create({ ...data, vendorId, cookie });
+    const resp = await providerService.create(data);
     return Response.json(resp);
   } catch (error) {
     return Response.json(
@@ -146,4 +144,4 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       { status: 400 },
     );
   }
-};
+}

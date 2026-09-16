@@ -1,4 +1,4 @@
-import { http } from "~/http";
+import { http } from "~/http/index.server";
 import { IDashboardQueryParams, IDashboardStats } from "~/types/stats";
 
 const API_PATH = {
@@ -6,13 +6,12 @@ const API_PATH = {
 };
 
 const statsService = {
-  getDashboard: ({ cookie, ...searchParams }: IDashboardQueryParams) => {
+  getDashboard: (searchParams: IDashboardQueryParams) => {
     const qs = new URLSearchParams();
     Object.entries(searchParams).forEach(([key, value]) => {
       if (value !== undefined && value !== "") qs.set(key, String(value));
     });
-    const options = cookie ? { cookie } : undefined;
-    return http.get<{ data: IDashboardStats }>(`${API_PATH.stats}/dashboard?${qs.toString()}`, options);
+    return http.get<{ data: IDashboardStats }>(`${API_PATH.stats}/dashboard?${qs.toString()}`);
   },
 };
 

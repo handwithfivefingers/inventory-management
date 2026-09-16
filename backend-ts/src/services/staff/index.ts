@@ -1,6 +1,7 @@
 import database from '#/database'
 import { ApiError } from '#/response'
 import { getPagination } from '#/utils'
+import { evictCachedEntity } from '#/utils/entity-cache'
 import { nextSequence } from '#/utils/sequence'
 import { Op, Sequelize } from 'sequelize'
 import { invalidateUserAuthCache, invalidateUsersByVendorId } from '#/services/authenticate/userAuth'
@@ -313,6 +314,10 @@ export class StaffService {
           try {
             if (userIdToInvalidate) await invalidateUserAuthCache(Number(userIdToInvalidate))
           } catch {}
+          // DB succeeded first -> evict `user:<id>` to avoid stale reads.
+          try {
+            if (userIdToInvalidate) await evictCachedEntity('user', Number(userIdToInvalidate))
+          } catch {}
           return { message: 'Delete successfully' } as any
         } catch (e) {
           await (t as any).rollback?.()
@@ -322,6 +327,10 @@ export class StaffService {
       const result = await (database.staff as any).destroy({ where: { id } })
       try {
         if (userIdToInvalidate) await invalidateUserAuthCache(Number(userIdToInvalidate))
+      } catch {}
+      // DB succeeded first -> evict `user:<id>` to avoid stale reads.
+      try {
+        if (userIdToInvalidate) await evictCachedEntity('user', Number(userIdToInvalidate))
       } catch {}
       return result
     } catch (error) {

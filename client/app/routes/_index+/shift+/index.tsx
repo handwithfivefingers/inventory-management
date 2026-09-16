@@ -16,17 +16,16 @@ import { dayjs } from "~/libs/date";
 import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export async function loader({ request, context: { warehouseId } }: LoaderFunctionArgs) {
   try {
-    const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
     const url = new URL(request.url);
     const page = url.searchParams.get("page") || "1";
     const pageSize = url.searchParams.get("pageSize") || "10";
 
     const [current, list, staffs] = await Promise.all([
-      shiftService.getCurrent(warehouseId as string, { cookie, vendorId }),
-      shiftService.get({ warehouseId: warehouseId as string, vendorId, page, pageSize, cookie }),
-      staffService.get({ warehouseId: warehouseId as string, vendorId, page: "1", pageSize: "100", cookie }),
+      shiftService.getCurrent(),
+      shiftService.get({ page, pageSize }),
+      staffService.get({ page: "1", pageSize: "100" }),
     ]);
 
     return {
@@ -34,14 +33,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       data: list.data?.data ?? [],
       total: list.data?.total ?? 0,
       staffs: staffs.data?.data ?? [],
-      warehouseId: warehouseId as string,
       page: Number(page),
       pageSize: Number(pageSize),
+      warehouseId,
     };
   } catch (error) {
     throw new Response("error", { status: 404 });
   }
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chốt ca" }, { name: "description", content: "Quản lý ca làm việc" }];
@@ -90,7 +89,11 @@ export default function Shift() {
             </div>
             <div className="flex gap-2 items-end">
               <div className="w-48">
-                <NumberInput label={t("shift.closingCash")} value={closingCash as any} onValueChange={(v) => setClosingCash(v.value)} />
+                <NumberInput
+                  label={t("shift.closingCash")}
+                  value={closingCash as any}
+                  onValueChange={(v) => setClosingCash(v.value)}
+                />
               </div>
               <TMButton variant="light" onClick={handleClose}>
                 {t("shift.close")}
@@ -102,7 +105,11 @@ export default function Shift() {
             <div className="text-gray-500">{t("shift.noOpenShift")}</div>
             <div className="flex gap-2 items-end flex-wrap">
               <div className="w-48">
-                <NumberInput label={t("shift.openingCash")} value={openingCash as any} onValueChange={(v) => setOpeningCash(v.value)} />
+                <NumberInput
+                  label={t("shift.openingCash")}
+                  value={openingCash as any}
+                  onValueChange={(v) => setOpeningCash(v.value)}
+                />
               </div>
               <div className="w-48">
                 <SelectInput

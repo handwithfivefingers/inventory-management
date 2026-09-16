@@ -1,21 +1,19 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { MetaFunction } from "@remix-run/node";
+import { Link } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
-import { Link } from "@remix-run/react";
-import { productService } from "~/action.server/products.service";
+import { productAttributeService } from "~/action.server/productAttribute.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { FormControl } from "~/components/form/form-control";
 import { CreatableTagInput } from "~/components/form/creatable-tag-input";
+import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
-import { parseCookieFromRequest } from "~/sessions";
-import { productAttributeService } from "~/action.server/productAttribute.service";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Thêm thuộc tính" }, { name: "description", content: "Tạo thuộc tính biến thể" }];
@@ -111,19 +109,18 @@ const AttributeForm = () => {
   );
 };
 
-export const action = async ({ request }: any) => {
+export async function action({ request }: any) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = await formData.get("data");
     const payload = JSON.parse(data);
-    const resp = await productAttributeService.createAttribute({ ...payload, vendorId, cookie });
+    const resp = await productAttributeService.createAttribute(payload);
     if (resp.status === 200) return Response.json(resp, { status: 200 });
     throw resp;
   } catch (error) {
     return Response.json({ error, status: 400 }, { status: 400 });
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

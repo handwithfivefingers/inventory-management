@@ -15,7 +15,7 @@ import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { warehouseSchema, WarehouseSchema } from "~/constants/schema/warehouse";
 import { useSubmitPromise } from "~/hooks";
-import { ResponseError } from "~/http";
+import { ResponseError } from "~/http/index.server";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { parseCookieFromRequest } from "~/sessions";
@@ -107,11 +107,7 @@ export default function WarehouseItem() {
                     {t("warehouses.unsetMain")}
                   </TMButton>
                 )}
-                <TMButton
-                  variant={isEditing ? "ghost" : "primary"}
-                  size="sm"
-                  onClick={() => setIsEditing((v) => !v)}
-                >
+                <TMButton variant={isEditing ? "ghost" : "primary"} size="sm" onClick={() => setIsEditing((v) => !v)}>
                   <Icon name={isEditing ? "x" : "edit-2"} fontSize={14} />
                   {isEditing ? t("warehouses.cancelEdit") : t("warehouses.edit")}
                 </TMButton>
@@ -153,15 +149,7 @@ export default function WarehouseItem() {
   );
 }
 
-function Detail({
-  data,
-  onSetMain,
-  isMainLoading,
-}: {
-  data: any;
-  onSetMain: () => void;
-  isMainLoading: boolean;
-}) {
+function Detail({ data, onSetMain, isMainLoading }: { data: any; onSetMain: () => void; isMainLoading: boolean }) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-5 mt-1">
@@ -196,8 +184,7 @@ function Detail({
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                  <Icon name="circle" fontSize={14} />
-                  —
+                  <Icon name="circle" fontSize={14} />—
                 </span>
               )}
             </div>
@@ -229,7 +216,9 @@ function InfoRow({
         {label}
       </span>
       <div
-        className={`text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 break-words ${multiline ? "min-h-[56px] whitespace-pre-wrap" : ""} ${valueClassName ?? ""}`}
+        className={`text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 break-words ${
+          multiline ? "min-h-[56px] whitespace-pre-wrap" : ""
+        } ${valueClassName ?? ""}`}
       >
         {value}
       </div>

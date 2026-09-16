@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
 import { IInvoice } from "~/types/invoice";
@@ -15,7 +15,10 @@ export interface IPrinterModel {
   widthAdjust: number; // mm added/removed from the printable width
 }
 
-export const PRINT_SIZES: Record<string, { label: string; page: string; width: string; padding: string; margin: string }> = {
+export const PRINT_SIZES: Record<
+  string,
+  { label: string; page: string; width: string; padding: string; margin: string }
+> = {
   k58: { label: "K58 (58mm)", page: "58mm auto", width: "48mm", padding: "3mm 2mm", margin: "0" },
   k80: { label: "K80 (80mm)", page: "80mm auto", width: "72mm", padding: "4mm 3mm", margin: "0" },
   a5: { label: "A5", page: "A5 portrait", width: "148mm", padding: "10mm", margin: "8mm" },
@@ -74,6 +77,19 @@ const getPrintStyles = (sizeKey: string) => {
     box-shadow: none !important;
     border: none !important;
   }
+  /* Spec-required visibility fallback: ensure only .printable-invoice is visible
+     and positioned at page origin (handles edge-cases where display:none is
+     overridden by other global styles). */
+  body.invoice-printing .printable-invoice,
+  body.invoice-printing .printable-invoice * { visibility: visible; }
+  body.invoice-printing .printable-invoice {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
   .no-print { display: none !important; }
   /* Long receipts: page breaks may fall BETWEEN items, never inside one
      (name on one page, price on the next). The portal itself stays
@@ -89,21 +105,55 @@ ${pageRule}
 };
 
 /**
+ * Wait until the body-level print portal is actually in the DOM with content
+ * AND the print <style> has been injected.
+ *
+ * Root cause of the blank-page bug: `Portal` needs two commits
+ * (`load=false` → effect → `load=true` → real `createPortal`), and
+ * `usePrintStyles` also injects its <style> in an effect. The old code called
+ * `window.print()` synchronously in the parent's effect — which runs BEFORE
+ * the portal's second commit — so the print snapshot contained an empty
+ * `.invoice-print-portal`.
+ */
+const waitForPrintReady = async (timeoutMs = 2500): Promise<void> => {
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+  const startedAt = Date.now();
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const portal = document.querySelector(".invoice-print-portal");
+    const hasContent = !!portal && (portal.textContent?.trim().length ?? 0) > 0;
+    const hasStyle = !!document.querySelector("style[data-receipt-print-style]");
+    if (hasContent && hasStyle) break;
+    if (Date.now() - startedAt > timeoutMs) break;
+    await new Promise((r) => window.setTimeout(r, 50));
+    // Let React flush the portal's second commit + paint one frame.
+    await new Promise((r) => window.requestAnimationFrame(() => r(null as unknown as void)));
+  }
+  // One extra paint tick so fonts/layout settle before the print snapshot.
+  await new Promise((r) => window.setTimeout(r, 120));
+};
+
+/**
  * Browser-print the invoice portal — mirrors
  * `BarcodePrintModal.handleBrowserPrint`: toggles `body.invoice-printing`
  * around `window.print()` so the portal is the only visible node.
+ *
+ * Async: awaits `waitForPrintReady()` so callers that JUST mounted an
+ * `InvisiblePrintContainer` (order page) never snapshot a blank page.
+ * Safe to call without await from long-mounted pages (invoice detail).
  */
-export const printInvoiceViaBrowser = (): void => {
-  if (typeof document === "undefined") return;
+export const printInvoiceViaBrowser = async (): Promise<void> => {
+  if (typeof document === "undefined" || typeof window === "undefined") return;
   document.body.classList.add("invoice-printing");
   const cleanup = () => {
     document.body.classList.remove("invoice-printing");
     window.removeEventListener("afterprint", cleanup);
   };
   window.addEventListener("afterprint", cleanup);
+  await waitForPrintReady();
   window.print();
   // Fallback for browsers that don't fire `afterprint` reliably.
-  window.setTimeout(cleanup, 1000);
+  window.setTimeout(cleanup, 1500);
 };
 
 const PRINTER_MODELS: IPrinterModel[] = [
@@ -127,6 +177,30 @@ const STATUS_COLORS: Record<string, string> = {
   issued: "bg-blue-100 text-blue-800",
   paid: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
+};
+
+/**
+ * Per-line base amount (chưa VAT) — matches backend `calculateLineTotals`:
+ * base = qty * unitPrice - discount.
+ * VAT per dòng KHÔNG hiển thị riêng — chỉ cộng dồn ở Tổng VAT header
+ * (data.taxAmount), nên không cần helper tính tax từng dòng ở đây.
+ */
+const lineBaseAmount = (detail: {
+  quantity?: number | string;
+  unitPrice?: number | string;
+  discount?: number | string;
+}): number => Number(detail.quantity || 0) * Number(detail.unitPrice || 0) - Number(detail.discount || 0);
+
+const lineTaxAmount = (detail: {
+  quantity?: number | string;
+  unitPrice?: number | string;
+  discount?: number | string;
+  taxAmount?: number | string | null;
+  taxRate?: number | string | null;
+}): number => {
+  const stored = Number(detail.taxAmount ?? 0);
+  if (stored) return stored;
+  return (lineBaseAmount(detail) * Number(detail.taxRate || 0)) / 100;
 };
 
 /**
@@ -210,9 +284,21 @@ export const ReceiptPrinter = ({ invoice, temporal, orderCode, invoiceIndex, inv
   // Shared receipt content: screen preview === print portal (same pattern as
   // `BarcodePrintModal`'s `sheetProps`, so preview and print never diverge).
   const receiptBody = isThermal ? (
-    <ThermalReceipt data={invoice} temporal={temporal} orderRef={orderRef} invoiceIndex={invoiceIndex} invoiceTotal={invoiceTotal} />
+    <ThermalReceipt
+      data={invoice}
+      temporal={temporal}
+      orderRef={orderRef}
+      invoiceIndex={invoiceIndex}
+      invoiceTotal={invoiceTotal}
+    />
   ) : (
-    <CustomReceipt data={invoice} temporal={temporal} orderRef={orderRef} invoiceIndex={invoiceIndex} invoiceTotal={invoiceTotal} />
+    <CustomReceipt
+      data={invoice}
+      temporal={temporal}
+      orderRef={orderRef}
+      invoiceIndex={invoiceIndex}
+      invoiceTotal={invoiceTotal}
+    />
   );
   // Inline styles win over the @media print rules, so the adjusted
   // font/spacing/width apply to both screen preview AND printing.
@@ -275,13 +361,82 @@ export const ReceiptPrinter = ({ invoice, temporal, orderCode, invoiceIndex, inv
       </div>
       {/* Body-level print copy: hidden on screen, sole visible node in print. */}
       <Portal>
-        <div className="invoice-print-root invoice-print-portal">
+        <div className="invoice-print-root invoice-print-portal printable-invoice">
           <div className={isThermal ? "font-mono" : ""} style={contentStyle}>
             {receiptBody}
           </div>
         </div>
       </Portal>
     </div>
+  );
+};
+
+/**
+ * Invisible print container for the Order page ("Hóa đơn đã xuất" table).
+ * Renders ONLY body-level print portals (no config sliders, no screen
+ * preview) so `window.print()` snapshots exactly the targeted invoice(s).
+ *
+ * Must stay mounted until `afterprint` — the caller clears `invoices` only
+ * after printing. Each invoice gets `break-after: page` (except the last)
+ * so "In gộp" paginates one invoice per page block.
+ */
+export const InvoicePrintPortal = ({
+  invoices,
+  orderCode,
+  invoiceIndexOf,
+  invoiceTotal,
+}: {
+  invoices: IInvoice[];
+  orderCode?: string | null;
+  invoiceIndexOf?: (id: number) => number;
+  invoiceTotal?: number | null;
+}) => {
+  const [printer, setPrinter] = useState<IPrinterModel>(PRINTER_MODELS[0]);
+  const size = PRINT_SIZES[printer.paperSize] ?? PRINT_SIZES.k80;
+  const isThermal = printer.paperSize === "k58" || printer.paperSize === "k80";
+
+  usePrintStyles(printer.paperSize);
+
+  useEffect(() => {
+    setPrinter(loadPrinterSettings());
+  }, []);
+
+  if (!invoices || invoices.length === 0) return null;
+
+  const total = invoiceTotal ?? invoices.length;
+  const contentStyleFor = {
+    fontSize: printer.fontSize,
+    letterSpacing: `${printer.letterSpacing}px`,
+    width: `calc(${size.width} + ${printer.widthAdjust}mm)`,
+    padding: size.padding,
+  };
+
+  return (
+    <Portal>
+      <div className="invoice-print-root invoice-print-portal printable-invoice">
+        {invoices.map((invoice, idx) => {
+          const orderRef =
+            orderCode ?? (invoice.order as any)?.code ?? (invoice.orderId ? `#${invoice.orderId}` : null);
+          const invIndex = invoiceIndexOf?.(Number((invoice as any).id)) || idx + 1;
+          const body = isThermal ? (
+            <ThermalReceipt data={invoice} orderRef={orderRef} invoiceIndex={invIndex} invoiceTotal={total} />
+          ) : (
+            <CustomReceipt data={invoice} orderRef={orderRef} invoiceIndex={invIndex} invoiceTotal={total} />
+          );
+          const isLast = idx === invoices.length - 1;
+          return (
+            <div
+              key={(invoice as any).id ?? idx}
+              className={isThermal ? "font-mono" : ""}
+              style={{ ...contentStyleFor, breakAfter: isLast ? "auto" : "page" } as React.CSSProperties}
+            >
+              {body}
+              {!isLast && <div style={{ breakAfter: "page" }} />}
+            </div>
+          );
+        })}
+      </div>
+    </Portal>
   );
 };
 
@@ -330,30 +485,51 @@ const ThermalReceipt = ({
 
       <Divider />
 
-      {/* Line items — name on its own line, qty × price … amount below */}
+      {/* Line items — layout mới:
+          hàng 1: tên sản phẩm (1 hàng riêng)
+          hàng 2: VAT | SL | Đơn giá | Thành tiền (chưa VAT).
+          VAT từng dòng chỉ hiện % — tiền thuế chỉ cộng ở Tổng VAT. */}
       <div className="space-y-1.5">
-        {(data.invoiceDetails || []).map((detail) => (
-          <div key={detail.id} className="thermal-item space-y-0.5">
-            <div className="font-bold leading-tight break-words text-[0.95em]">
-              {(detail.product as any)?.name || `#${detail.productId}`}
-            </div>
-            <div className="flex justify-between text-[0.85em] text-gray-700">
-              <span>
-                {detail.quantity} x {formatCurrency(detail.unitPrice)}
-              </span>
-              <span className="font-bold text-black">{formatCurrency(detail.subtotal)}</span>
-            </div>
-          </div>
-        ))}
+        <div className="thermal-item space-y-0.5 flex">
+          <div className="font-bold leading-tight break-words text-[0.85em] flex-1">Tên</div>
+          <div className="font-bold leading-tight break-words text-[0.85em] w-8 shrink-0 text-center">SL</div>
+          <div className="font-bold leading-tight break-words text-[0.85em] w-1/4 shrink-0 text-center">Đơn giá</div>
+          <div className="font-bold leading-tight break-words text-[0.85em] w-1/4 shrink-0 text-center">Thành tiền</div>
+        </div>
+        {(data.invoiceDetails || []).map((detail) => {
+          const base = lineBaseAmount(detail);
+          const rate = Number(detail.taxRate || 0);
+          return (
+            <Fragment key={detail.id}>
+              <div className="thermal-item leading-tight break-words text-[0.85em] font-medium">
+                {(detail.product as any)?.name || `#${detail.productId}`}
+              </div>
+              <div className="thermal-item flex gap-0.5">
+                <div className="leading-tight break-words text-[0.85em] flex-1 italic text-gray-600">
+                  <span>VAT ({rate}%)</span>
+                </div>
+                <div className="leading-tight break-words text-[0.85em] w-8 shrink-0 text-center">
+                  {detail.quantity}
+                </div>
+                <div className="leading-tight break-words text-[0.85em] w-1/4 shrink-0 text-center">
+                  {formatCurrency(detail.unitPrice)}
+                </div>
+                <div className="leading-tight break-words text-[0.85em] w-1/4 shrink-0 text-center">
+                  {formatCurrency(base)}
+                </div>
+              </div>
+            </Fragment>
+          );
+        })}
       </div>
 
       <Divider />
 
-      {/* Totals */}
+      {/* Totals — Tạm tính (chưa VAT) / Tổng VAT / Giảm giá / Tổng thanh toán */}
       <div className="space-y-1">
-        <TotalRow label={t("invoices.detail.subtotalLabel")} value={formatCurrency(data.subtotal)} />
+        <TotalRow label="Tạm tính (chưa VAT)" value={formatCurrency(data.subtotal)} />
+        <TotalRow label="Tổng VAT" value={formatCurrency(data.taxAmount)} />
         <TotalRow label={t("invoices.detail.discount")} value={`-${formatCurrency(data.discount)}`} />
-        <TotalRow label={t("invoices.detail.tax")} value={formatCurrency(data.taxAmount)} />
         <TotalRow label={t("invoices.detail.surcharge")} value={formatCurrency(data.surcharge)} />
         <TotalRow label={t("invoices.total")} value={formatCurrency(data.total)} emphasized />
         <TotalRow label={t("invoices.paidAmount")} value={formatCurrency(data.paid)} />
@@ -415,7 +591,9 @@ const CustomReceipt = ({
           {
             label: t("invoices.detail.sourceOrder", { defaultValue: "Đơn hàng gốc" }),
             value: `${orderRef}${
-              invoiceIndex != null && invoiceTotal != null ? ` — ${t("invoices.detail.batch", { defaultValue: `Đợt giao ${invoiceIndex}/${invoiceTotal}` })}` : ""
+              invoiceIndex != null && invoiceTotal != null
+                ? ` — ${t("invoices.detail.batch", { defaultValue: `Đợt giao ${invoiceIndex}/${invoiceTotal}` })}`
+                : ""
             }`,
           },
         ]
@@ -458,7 +636,9 @@ const CustomReceipt = ({
         ))}
       </div>
 
-      {/* Items */}
+      {/* Items — each product has 2 rows:
+          row 1: Tên / SL / Đơn giá / Thành tiền gốc (chưa VAT)
+          row 2: └ VAT (X%) … + tax in the Thành tiền column */}
       <div className="border rounded overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
@@ -466,38 +646,52 @@ const CustomReceipt = ({
               <th className="p-2 text-left">{t("invoices.detail.product")}</th>
               <th className="p-2 w-24 text-right">{t("invoices.detail.quantity")}</th>
               <th className="p-2 w-32 text-right">{t("invoices.detail.unitPrice")}</th>
-              <th className="p-2 w-20 text-right">{t("invoices.detail.taxRate")}</th>
               <th className="p-2 w-32 text-right">{t("invoices.detail.amount")}</th>
             </tr>
           </thead>
           <tbody>
-            {(data.invoiceDetails || []).map((detail) => (
-              <tr key={detail.id} className="border-t">
-                <td className="p-2">{(detail.product as any)?.name || `#${detail.productId}`}</td>
-                <td className="p-2 text-right">{detail.quantity}</td>
-                <td className="p-2 text-right">{formatCurrency(detail.unitPrice)}</td>
-                <td className="p-2 text-right">{detail.taxRate || 0}%</td>
-                <td className="p-2 text-right">{formatCurrency(detail.subtotal)}</td>
-              </tr>
-            ))}
+            {(data.invoiceDetails || []).map((detail) => {
+              const base = lineBaseAmount(detail);
+              const tax = lineTaxAmount(detail);
+              const rate = Number(detail.taxRate || 0);
+              const showVat = rate > 0 || tax > 0;
+              return (
+                <Fragment key={detail.id}>
+                  <tr className="border-t">
+                    <td className="p-2 font-medium">{(detail.product as any)?.name || `#${detail.productId}`}</td>
+                    <td className="p-2 text-right">{detail.quantity}</td>
+                    <td className="p-2 text-right">{formatCurrency(detail.unitPrice)}</td>
+                    <td className="p-2 text-right">{formatCurrency(base)}</td>
+                  </tr>
+                  {showVat ? (
+                    <tr key={`${detail.id}-vat`} className="border-t-0 text-gray-500 italic">
+                      <td className="px-2 pb-2 pt-0 text-[0.9em]">└ VAT ({rate}%)</td>
+                      <td className="px-2 pb-2 pt-0"></td>
+                      <td className="px-2 pb-2 pt-0"></td>
+                      <td className="px-2 pb-2 pt-0 text-right text-[0.9em]">+ {formatCurrency(tax)}</td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Totals */}
+      {/* Totals — Tạm tính (chưa VAT) / Tổng VAT / Giảm giá / Tổng thanh toán */}
       <div className="flex justify-end">
         <div className="w-72 space-y-2">
           <div className="flex justify-between">
-            <span>{t("invoices.detail.subtotalLabel")}</span>
+            <span>Tạm tính (chưa VAT)</span>
             <span className="font-medium">{formatCurrency(data.subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Tổng VAT</span>
+            <span className="font-medium">{formatCurrency(data.taxAmount)}</span>
           </div>
           <div className="flex justify-between">
             <span>{t("invoices.detail.discount")}</span>
             <span className="font-medium">-{formatCurrency(data.discount)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>{t("invoices.detail.tax")}</span>
-            <span className="font-medium">{formatCurrency(data.taxAmount)}</span>
           </div>
           <div className="flex justify-between">
             <span>{t("invoices.detail.surcharge")}</span>
@@ -525,9 +719,7 @@ const CustomReceipt = ({
         <p className="text-xs text-gray-500 uppercase mb-1">{t("invoices.detail.notes")}</p>
         <p className="text-sm">{data.notes || t("invoices.detail.noNotes")}</p>
       </div>
-      {temporal && (
-        <p className="text-xs text-gray-500 text-center border-t pt-2">{t("orders.tempInvoiceNotice")}</p>
-      )}
+      {temporal && <p className="text-xs text-gray-500 text-center border-t pt-2">{t("orders.tempInvoiceNotice")}</p>}
     </div>
   );
 };
