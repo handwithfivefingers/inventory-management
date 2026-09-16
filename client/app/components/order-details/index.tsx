@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle } from "react";
+import React, { forwardRef, useImperativeHandle } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { OrderDetailSchema } from "~/constants/schema/order";
 import { useTranslation } from "~/i18n";
@@ -54,68 +54,99 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
     <div className="min-h-40 h-full overflow-auto flex flex-col gap-4 relative border border-indigo-50 rounded-md">
       <div className="flex-1 overflow-x-auto">
         <div className="min-w-[640px]">
-        <div className="flex gap-2 items-center py-3 bg-indigo-50 px-2 text-primary">
-          <div className="w-full text-sm font-medium">{t("importOrder.product")}</div>
-          <div className="w-32 shrink-0 text-sm font-medium ">{t("importOrder.quantity")}</div>
-          <div className="w-28 shrink-0 text-sm font-medium text-right">{t("importOrder.unitPrice")}</div>
-          <div className="w-28 shrink-0 text-sm font-medium text-right">{t("importOrder.total")}</div>
-          <div className="w-10 shrink-0" />
-        </div>
-
-        {fields?.map((field, i: number) => {
-          return (
-            <div
-              className="flex gap-2 items-center order-row bg-white odd:bg-slate-50 p-2 border-b border-slate-100 hover:bg-slate-200/70 transition-all"
-              key={field.id}
-            >
-              <div className="hidden">
-                <FormControl name={`orderDetails.${i}.productId`}>
-                  <TextInput readOnly />
-                </FormControl>
-              </div>
-              <div className="w-full">
-                <FormControl name={`orderDetails.${i}.name`}>
-                  {/* <TextInput readOnly /> */}
-                  {(field) => <span className="text-sm">{field.value}</span>}
-                </FormControl>
-              </div>
-              <div className="w-32 shrink-0">
-                <FormControl name={`orderDetails.${i}.quantity`}>
-                  {(field) => (
-                    <NumberStepper value={field.value} onValueChange={(v) => onQuantityChange(v, field, i)} />
-                  )}
-                </FormControl>
-              </div>
-              <div className="w-28 shrink-0">
-                <FormControl name={`orderDetails.${i}.price` as any}>
-                  {(field) => {
-                    return <NumberInput value={field.value as any} onValueChange={(v) => onChangePrice(v, field, i)} />;
-                  }}
-                </FormControl>
-              </div>
-              <div className="w-28 shrink-0 text-right">
-                <FormControl name={`orderDetails.${i}.buyPrice` as any}>
-                  <NumberInput displayType="text" className="text-sm" />
-                </FormControl>
-              </div>
-              <div className="w-10 shrink-0 flex justify-end">
-                <TMButton variant="ghost" size="xs" htmlType="button" onClick={() => remove(i)} title="Xóa sản phẩm">
-                  <Icon name="trash-2" fontSize={14} />
-                </TMButton>
-              </div>
-            </div>
-          );
-        })}
-        {fields.length !== 0 ? null : (
-          <div className="flex flex-col h-full items-center justify-center border-primary/20 border-dashed hover:bg-slate-200 transition-all cursor-pointer p-2">
-            {/* <span>Chưa có sản phẩm nào</span> */}
-            {/* <div className="flex flex-col items-center justify-center py-8 "> */}
-            <Icon name="server" className="text-indigo-900 dark:text-slate-200" />
-            <p className="text-indigo-900 dark:text-slate-200">Chưa có sản phẩm nào</p>
-            {/* </div> */}
+          <div className="flex gap-2 items-center py-3 bg-indigo-50 px-2 text-primary">
+            <div className="w-full text-sm font-medium">{t("importOrder.product")}</div>
+            <div className="w-32 shrink-0 text-sm font-medium ">{t("importOrder.quantity")}</div>
+            <div className="w-28 shrink-0 text-sm font-medium text-right">{t("importOrder.unitPrice")}</div>
+            <div className="w-28 shrink-0 text-sm font-medium text-right">{t("importOrder.total")}</div>
+            <div className="w-10 shrink-0" />
           </div>
-        )}
-        {/* <div
+
+          {fields?.map((field, i: number) => {
+            return (
+              <React.Fragment key={field.id}>
+                <div className="flex gap-2 items-center order-row bg-white odd:bg-slate-50 p-2 border-b border-slate-100 hover:bg-slate-200/70 transition-all">
+                  <div className="hidden">
+                    <FormControl name={`orderDetails.${i}.productId`}>
+                      <TextInput readOnly />
+                    </FormControl>
+                  </div>
+                  <div className="w-full">
+                    <FormControl name={`orderDetails.${i}.name`}>
+                      {/* <TextInput readOnly /> */}
+                      {(field) => <span className="text-sm">{field.value}</span>}
+                    </FormControl>
+                  </div>
+                  <div className="w-32 shrink-0">
+                    <FormControl name={`orderDetails.${i}.quantity`}>
+                      {(field) => (
+                        <NumberStepper value={field.value} onValueChange={(v) => onQuantityChange(v, field, i)} />
+                      )}
+                    </FormControl>
+                  </div>
+                  <div className="w-28 shrink-0">
+                    <FormControl name={`orderDetails.${i}.price` as any}>
+                      {(field) => {
+                        return (
+                          <NumberInput value={field.value as any} onValueChange={(v) => onChangePrice(v, field, i)} />
+                        );
+                      }}
+                    </FormControl>
+                  </div>
+                  <div className="w-32 shrink-0">
+                    <FormControl name={`orderDetails.${i}.vat`}>
+                      {(field) => (
+                        <NumberInput value={field.value} onValueChange={(v) => onQuantityChange(v, field, i)} />
+                      )}
+                    </FormControl>
+                  </div>
+                  <div className="w-28 shrink-0 text-right">
+                    <FormControl name={`orderDetails.${i}.buyPrice` as any}>
+                      <NumberInput displayType="text" className="text-sm" />
+                    </FormControl>
+                  </div>
+                  <div className="w-10 shrink-0 flex justify-end">
+                    <TMButton
+                      variant="ghost"
+                      size="xs"
+                      htmlType="button"
+                      onClick={() => remove(i)}
+                      title="Xóa sản phẩm"
+                    >
+                      <Icon name="trash-2" fontSize={14} />
+                    </TMButton>
+                  </div>
+                </div>
+                {/* <div className="flex gap-2 items-center order-row bg-white odd:bg-slate-50 p-2 border-b border-slate-100 hover:bg-slate-200/70 transition-all">
+                  <div className="w-full">VAT</div>
+                  <div className="w-32 shrink-0">
+                    <FormControl name={`orderDetails.${i}.vat`}>
+                      {(field) => (
+                        <NumberStepper value={field.value} onValueChange={(v) => onQuantityChange(v, field, i)} />
+                      )}
+                    </FormControl>
+                  </div>
+                  <div className="w-28 shrink-0"></div>
+                  <div className="w-28 shrink-0 text-right">
+                    <FormControl name={`orderDetails.${i}.buyPrice` as any}>
+                      <NumberInput displayType="text" className="text-sm" />
+                    </FormControl>
+                  </div>
+                  <div className="w-10 shrink-0 flex justify-end"></div>
+                </div> */}
+              </React.Fragment>
+            );
+          })}
+          {fields.length !== 0 ? null : (
+            <div className="flex flex-col h-full items-center justify-center border-primary/20 border-dashed hover:bg-slate-200 transition-all cursor-pointer p-2">
+              {/* <span>Chưa có sản phẩm nào</span> */}
+              {/* <div className="flex flex-col items-center justify-center py-8 "> */}
+              <Icon name="server" className="text-indigo-900 dark:text-slate-200" />
+              <p className="text-indigo-900 dark:text-slate-200">Chưa có sản phẩm nào</p>
+              {/* </div> */}
+            </div>
+          )}
+          {/* <div
           className="items-center border-primary/20 border-dashed hover:bg-slate-200 transition-all cursor-pointer p-2"
           onClick={props.addProduct}
         >

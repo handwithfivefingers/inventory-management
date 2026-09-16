@@ -97,7 +97,7 @@ export const CreatableTagInput: React.FC<Props> = ({
     // deduplicate against existing
     const existingLower = new Set(value.map((v) => v.value.toLowerCase()));
     const filteredAdd = toAdd.filter((o) => !existingLower.has(o.value.toLowerCase()));
-    if (filteredAdd.length) onChange([...value, ...filteredAdd]);
+    if (filteredAdd.length) onChange([...value, ...filteredAdd], filteredAdd[0]);
     setInputValue("");
   };
 
@@ -107,6 +107,7 @@ export const CreatableTagInput: React.FC<Props> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
+      debugger;
       e.preventDefault();
       if (canCreate) createFromInput();
       else if (filtered.length === 1) addOption(filtered[0]);
@@ -202,7 +203,9 @@ export const CreatableTagInput: React.FC<Props> = ({
               {canCreate && (
                 <li
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={createFromInput}                  className="px-2 py-1.5 hover:bg-indigo-50 dark:hover:bg-slate-700 cursor-pointer rounded text-sm text-primary flex gap-2 items-center border-t border-slate-100 dark:border-slate-700 mt-1">
+                  onClick={createFromInput}
+                  className="px-2 py-1.5 hover:bg-indigo-50 dark:hover:bg-slate-700 cursor-pointer rounded text-sm text-primary flex gap-2 items-center border-t border-slate-100 dark:border-slate-700 mt-1"
+                >
                   <Icon name="plus" fontSize={14} />
                   <span>Tạo "{inputValue.trim()}"</span>
                 </li>

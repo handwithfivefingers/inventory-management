@@ -3,9 +3,8 @@ import Setting from '#/database/models/setting'
 import { ApiError } from '#/response'
 import { IRequestLocal } from '#/types/common'
 import { evictCachedEntity, getCachedEntity, setCachedEntity } from '#/utils/entity-cache'
-import { assertVendorAccess, getVendorScope } from '#/utils/tenant'
+import { assertVendorAccess, getActiveWorkspaceVendorId, getRequestedVendorId, getVendorScope } from '#/utils/tenant'
 import { Sequelize } from 'sequelize'
-import VendorService from '../vendor'
 import Vendor from '#/database/models/vendor'
 
 const DEFAULT_CODE_FORMAT = { order: '', customer: '', product: '', category: '' }
@@ -150,11 +149,16 @@ export class SettingService {
   }
 
   /**
-   * Active workspace vendor for this request: the primary vendor attached
-   * by `auth` (`req.user.vendorId`, i.e. vendorIds[0]), falling back to the
-   * first id in scope. Platform admins (null scope) have no active vendor.
+   * Active workspace vendor for this request: the vendor validated by
+   * `vendorGuard` (`req.activeVendorId`, i.e. the `x-vendor` header),
+   * falling back to the primary vendor from auth. Platform admins
+   * (null scope) have no active vendor. Body/query vendor ids are
+   * deliberately ignored here — they name the *requested* resource.
    */
   resolveActiveVendorId(req: IRequestLocal): number | null {
+    const workspaceVendor = getActiveWorkspaceVendorId(req)
+    const headerVendor = Number(workspaceVendor)
+    if (Number.isFinite(headerVendor) && headerVendor > 0) return headerVendor
     const scope = getVendorScope(req)
     if (scope === null) return null
     const primary = Number((req as any)?.user?.vendorId)
@@ -228,13 +232,15 @@ export class SettingService {
   }
 
   /**
-   * Read the vendor master-data row for the active (or explicitly
-   * requested, scope-checked) vendor, with the computed displayName.
+   * Read the vendor master-data row for the explicitly requested vendor
+   * (2nd arg wins, then the legacy `?vendorId=` query fallback),
+   * scope-checked, with the computed displayName.
    */
-  async getVendorSettings(req: IRequestLocal, vendorId: number | string) {
+  async getVendorSettings(req: IRequestLocal, vendorId?: number | string) {
+    const requested = vendorId ?? getRequestedVendorId(req)
     const scope = getVendorScope(req)
-    assertVendorAccess(scope, Number(vendorId), 'Unauthorized to view this vendor')
-    const vendor = await new VendorService().getVendorById(Number(vendorId))
+    assertVendorAccess(scope, Number(requested), 'Unauthorized to view this vendor')
+    const vendor: any = await database.vendor.findByPk(Number(requested))
     if (!vendor) throw ApiError.notFound('Vendor not found')
     const ownerEmail = await this.resolveOwnerEmail(vendor)
     const plain = vendor.get ? vendor.get({ plain: true }) : { ...vendor }
@@ -263,7 +269,7 @@ export class SettingService {
     try {
       const scope = getVendorScope(req)
       const body = payload ?? {}
-      const queryVendorId = (req.query as any)?.vendorId ?? (req.query as any)?.vendor
+      const queryVendorId = getRequestedVendorId(req)
       const bodyVendorRaw = body.vendorId ?? body.vendor
       const hasPathId = pathVendorId != null && String(pathVendorId).trim() !== ''
       const pathId = hasPathId ? Number(pathVendorId) : NaN

@@ -3,20 +3,17 @@ import { useFetcher, useNavigate, useOutletContext } from "@remix-run/react";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { orderService } from "~/action.server/order.service";
-import type { IVendorSettings } from "~/types/setting";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { OrderForm } from "~/components/form/order-form";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
-import { TMButton } from "~/components/tm-button";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
-import { formatCurrency } from "~/libs/format-currency";
-import { parseCookieFromRequest } from "~/sessions";
 import { IProduct, IProductVariant } from "~/types/product";
+import type { IVendorSettings } from "~/types/setting";
 
 const PRINT_STYLES = `
 @media print {
@@ -205,7 +202,7 @@ export default function OrderItem() {
       <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
         <div className="w-full mx-auto flex flex-col gap-3">
           {/* Temp invoice preview */}
-          {showTempInvoice && (
+          {/* {showTempInvoice && (
             <CardItem
               title={
                 <div className="flex justify-between items-center">
@@ -278,7 +275,7 @@ export default function OrderItem() {
                 <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p>
               </div>
             </CardItem>
-          )}
+          )} */}
           <CardItem
             title={
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
@@ -291,7 +288,7 @@ export default function OrderItem() {
                     <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">Tạo đơn hàng mới</p>
                   </div>
                 </div>
-                <TMButton
+                {/* <TMButton
                   variant="outline"
                   size="xs"
                   type="button"
@@ -299,7 +296,7 @@ export default function OrderItem() {
                   className="self-start sm:self-auto shrink-0"
                 >
                   🧾 {t("orders.printTempInvoice")}
-                </TMButton>
+                </TMButton> */}
               </div>
             }
             className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"

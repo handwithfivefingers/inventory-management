@@ -1,6 +1,6 @@
 import OrderService from '#/services/order'
 import { InvoiceService } from '#/services/invoice'
-import { getVendorScope } from '#/utils/tenant'
+import { getRequestedWarehouseId, getVendorScope } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 export default class OrderController {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -32,7 +32,7 @@ export default class OrderController {
   async getOrderById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params
-      const { warehouseId } = req.query
+      const warehouseId = getRequestedWarehouseId(req as any)
       const resp = await new OrderService().getOrderById(
         { warehouseId: warehouseId as string, id },
         getVendorScope(req as any)

@@ -36,6 +36,80 @@ export const getVendorScope = (req: ILocalsLike): TVendorScope => {
   return null
 }
 
+/**
+ * Tenant identity is carried by headers (set by client `http/index.server.ts`
+ * from the Remix session context):
+ * - `x-vendor`: active vendor id (required by `vendorGuard`)
+ * - `x-warehouse`: active warehouse id (optional, required by stock-scoped reads)
+ *
+ * Query/body `vendorId` / `warehouseId` are legacy fallbacks kept for
+ * backwards compatibility. Header always wins when present.
+ */
+
+const firstPresent = (...values: unknown[]): string | number | undefined => {
+  for (const value of values) {
+    if (value == null) continue
+    if (typeof value === 'string' && value.trim() === '') continue
+    return value as string | number
+  }
+  return undefined
+}
+
+const readHeader = (req: ILocalsLike, name: string): string | number | undefined => {
+  const headers: any = (req as any)?.headers ?? {}
+  // Express lowercases incoming header names; accept common variants just in case.
+  const candidates = [headers[name], headers[name.toLowerCase()], headers[name.toUpperCase()]]
+  if (name === 'x-vendor') candidates.push(headers['X-Vendor'])
+  if (name === 'x-warehouse') candidates.push(headers['X-Warehouse'])
+  for (const candidate of candidates) {
+    if (candidate == null) continue
+    const value = Array.isArray(candidate) ? candidate[0] : candidate
+    if (value == null || String(value).trim() === '') continue
+    return value as string | number
+  }
+  return undefined
+}
+
+/** Active vendor id: `x-vendor` header first, then legacy query/body. */
+export const getRequestedVendorId = (req: ILocalsLike): string | number | undefined => {
+  const query: any = (req as any)?.query ?? {}
+  const body: any = (req as any)?.body ?? {}
+  return firstPresent(
+    readHeader(req, 'x-vendor'),
+    query.vendorId,
+    query.vendor,
+    body.vendorId,
+    body.vendor
+  )
+}
+
+/**
+ * Workspace vendor id from trusted sources only: the `activeVendorId`
+ * attached by `vendorGuard` after scope validation, then the raw
+ * `x-vendor` header. Unlike `getRequestedVendorId` this NEVER reads
+ * query/body — those carry the *requested* resource, not the workspace,
+ * so using them here would let a caller escalate into another vendor
+ * simply by naming it in the payload.
+ */
+export const getActiveWorkspaceVendorId = (req: ILocalsLike): string | number | undefined => {
+  const guarded = (req as any)?.activeVendorId
+  if (guarded != null && String(guarded).trim() !== '') return guarded as string | number
+  return readHeader(req, 'x-vendor')
+}
+
+/** Active warehouse id: `x-warehouse` header first, then legacy query/body. */
+export const getRequestedWarehouseId = (req: ILocalsLike): string | number | undefined => {
+  const query: any = (req as any)?.query ?? {}
+  const body: any = (req as any)?.body ?? {}
+  return firstPresent(
+    readHeader(req, 'x-warehouse'),
+    query.warehouseId,
+    query.warehouse,
+    body.warehouseId,
+    body.warehouse
+  )
+}
+
 /** True when the given id is inside the caller's vendor scope. */
 export const canAccessVendor = (scope: TVendorScope, vendorId: number | null | undefined): boolean => {
   if (scope === null) return true

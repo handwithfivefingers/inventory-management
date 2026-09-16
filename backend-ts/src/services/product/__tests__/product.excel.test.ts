@@ -9,36 +9,56 @@ import * as XLSX from 'xlsx'
  */
 
 const db = vi.hoisted(() => {
-  const MODEL_METHODS = ['findOne', 'findAll', 'findByPk', 'create', 'build', 'count']
+  const MODEL_METHODS = ['findOne', 'findAll', 'findByPk', 'create', 'build', 'count', 'update', 'destroy']
   const mk = () => {
     const m: any = {}
     for (const k of MODEL_METHODS) m[k] = vi.fn()
     return m
   }
   return {
-    sequelize: { transaction: vi.fn(), literal: vi.fn((v: any) => v) },
-    transfer: { build: vi.fn() },
-    warehouse: mk()
+    sequelize: {
+      transaction: vi.fn(),
+      literal: vi.fn((v: any) => v),
+      col: vi.fn((v: any) => v),
+      fn: vi.fn((f: string, v: any) => ({ f, v })),
+      query: vi.fn()
+    },
+    product: mk(),
+    inventory: mk(),
+    category: mk(),
+    unit: mk(),
+    units: mk(),
+    transfer: mk(),
+    warehouse: mk(),
+    setting: mk(),
+    productVariant: mk(),
+    productAttribute: mk(),
+    productAttributeValue: mk()
   }
 })
 
-const productModel = vi.hoisted(() => ({
-  findAll: vi.fn(),
-  findOne: vi.fn(),
-  build: vi.fn(),
-  count: vi.fn()
-}))
-const inventoryModel = vi.hoisted(() => ({ findOne: vi.fn(), build: vi.fn() }))
-const categoryModel = vi.hoisted(() => ({ findAll: vi.fn() }))
-const unitModel = vi.hoisted(() => ({ findOne: vi.fn() }))
-
 vi.mock('#/database', () => ({ default: db }))
-vi.mock('#/database/models/product', () => ({ default: productModel, Product: productModel }))
-vi.mock('#/database/models/inventory', () => ({ default: inventoryModel, Inventory: inventoryModel }))
-vi.mock('#/database/models/category', () => ({ default: categoryModel, Category: categoryModel }))
-vi.mock('#/database/models/units', () => ({ default: unitModel, Unit: unitModel }))
+// The service touches models through the `database.*` seam; direct imports
+// below are only `model:` metadata, kept on the same mocks for consistency.
+vi.mock('#/database/models/product', () => ({ default: db.product, Product: db.product }))
+vi.mock('#/database/models/inventory', () => ({ default: db.inventory, Inventory: db.inventory }))
+vi.mock('#/database/models/category', () => ({ default: db.category, Category: db.category }))
+vi.mock('#/database/models/units', () => ({ default: db.units, Unit: db.units }))
+vi.mock('#/database/models/setting', () => ({ default: db.setting, Setting: db.setting }))
+// Bypass Redis: run cache loaders inline so results stay deterministic.
+vi.mock('#/utils/entity-cache', () => ({
+  getCachedEntity: vi.fn((_model: string, _id: unknown, loader: () => Promise<unknown>) => loader()),
+  setCachedEntity: vi.fn(),
+  evictCachedEntity: vi.fn()
+}))
 
+import database from '#/database'
 import { ProductService } from '#/services/product'
+
+const productModel = database.product
+const inventoryModel = database.inventory
+const categoryModel = database.category
+const unitModel = database.unit
 
 const tx = { commit: vi.fn(), rollback: vi.fn() }
 const makeRow = (fields: Record<string, any>) => {

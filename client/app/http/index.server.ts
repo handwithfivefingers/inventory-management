@@ -107,6 +107,21 @@ class HTTPService {
     }
   };
 
+  private tenantHeaders(): Record<string, string> {
+    const context = getContext();
+    const headers: Record<string, string> = {};
+    if (context?.vendorId) {
+      headers["X-Vendor"] = String(context.vendorId);
+    }
+    if (context?.warehouseId) {
+      headers["X-Warehouse"] = String(context.warehouseId);
+    }
+    if (context?.cookie) {
+      headers["Cookie"] = context.cookie;
+    }
+    return headers;
+  }
+
   @logger
   async get<T>(params: IGetParams, options?: Record<string, string>): Promise<IResponse<T | undefined>> {
     return this.send<T>(params, { method: "GET", ...options });
@@ -119,6 +134,7 @@ class HTTPService {
   postUpload = async <R>(apiPath: string, params: IPostParams<FormData>): Promise<IResponse<R>> => {
     try {
       const response = await fetch(this.BASE_URL + apiPath, {
+        headers: { ...this.tenantHeaders() },
         signal: AbortSignal.timeout(30000),
         credentials: "include",
         method: "POST",
@@ -135,7 +151,7 @@ class HTTPService {
   put = async <R, T>(apiPath: string, params: T, options?: Record<string, string>): Promise<IResponse<R>> => {
     try {
       const response = await fetch(this.BASE_URL + apiPath, {
-        headers: { ...this.headers, ...options },
+        headers: { ...this.headers, ...this.tenantHeaders(), ...options },
         signal: AbortSignal.timeout(30000),
         credentials: "include",
         method: "PUT",
@@ -157,7 +173,7 @@ class HTTPService {
   delete = async <R>(apiPath: string, options?: Record<string, string>): Promise<IResponse<R>> => {
     try {
       const response = await fetch(this.BASE_URL + apiPath, {
-        headers: { ...this.headers, ...options },
+        headers: { ...this.headers, ...this.tenantHeaders(), ...options },
         signal: AbortSignal.timeout(30000),
         credentials: "include",
         method: "DELETE",

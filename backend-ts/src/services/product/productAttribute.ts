@@ -5,7 +5,7 @@ import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductVariant from '#/database/models/productVariant'
 import { ApiError } from '#/response'
 import { IRequestLocal } from '#/types/common'
-import { assertVendorAccess, getVendorScope } from '#/utils/tenant'
+import { assertVendorAccess, getRequestedVendorId, getVendorScope } from '#/utils/tenant'
 import { getPagination } from '#/utils'
 import { Op, Sequelize } from 'sequelize'
 
@@ -13,7 +13,7 @@ export class ProductAttributeServices {
   sequelize: Sequelize = database.sequelize
 
   private resolveVendorId(req: IRequestLocal): number {
-    const raw = (req.query as any)?.vendorId ?? (req.body as any)?.vendorId
+    const raw = getRequestedVendorId(req) ?? (req.body as any)?.vendorId
     if (raw != null && String(raw).trim() !== '') return Number(raw)
     const scope = getVendorScope(req)
     if (scope && scope.length > 0) return scope[0]
@@ -25,7 +25,7 @@ export class ProductAttributeServices {
   async listAttributes(req: IRequestLocal) {
     try {
       const scope = getVendorScope(req)
-      const rawVendorId = (req.query as any)?.vendorId
+      const rawVendorId = getRequestedVendorId(req)
       let where: any = {}
       if (rawVendorId != null && String(rawVendorId).trim() !== '') {
         assertVendorAccess(scope, Number(rawVendorId), 'Unauthorized to list attributes for this vendor')

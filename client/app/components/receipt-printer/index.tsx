@@ -454,6 +454,7 @@ const ThermalReceipt = ({
   invoiceTotal?: number | null;
 }) => {
   const { t } = useTranslation();
+  console.log("data", data);
   return (
     <div className="text-black">
       {/* Shop header */}

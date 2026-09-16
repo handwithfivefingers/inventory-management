@@ -21,7 +21,6 @@ import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { debounce } from "~/libs/debounce";
 import { formatCurrency } from "~/libs/format-currency";
-// import { parseCookieFromRequest } from "~/sessions";
 import { IProduct } from "~/types/product";
 import { withContext } from "~/action.server/context.server";
 
@@ -118,6 +117,7 @@ export default function Products() {
     }
   };
 
+  console.log(`data`, data);
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <PermissionGuard permission="CREATE" module={MODULE_ENUM.product}>
@@ -246,7 +246,8 @@ export default function Products() {
                 {
                   title: "Giá bán",
                   dataIndex: "salePrice",
-                  render: (record) => formatCurrency(record.salePrice ?? record.regularPrice ?? 0),
+                  render: (record) =>
+                    formatCurrency(Number(record?.salePrice) > 0 ? record.salePrice : record.regularPrice ?? 0),
                 },
                 {
                   title: "Tồn kho",
@@ -320,3 +321,37 @@ export async function action({ request }: ActionFunctionArgs) {
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }
+
+// Role & Goal:
+
+// Act as a Principal Software Engineer focused on code quality and clean architecture. Your task is to refactor the provided code by splitting large functions into smaller, single-purpose functions while following proper Controller-Service separation.
+
+// Instructions & Guidelines:
+
+// Controller Layer Responsibility:
+
+// Controllers must strictly handle HTTP concerns: parse parameters, query strings, headers, and request bodies.
+
+// Convert/map request inputs into clean Data Transfer Objects (DTOs) or plain data types, then pass them to the Service layer.
+
+// Do not write business logic inside the controller.
+
+// Service Layer Responsibility:
+
+// Services must never accept HTTP Request objects (e.g., req, HttpServletRequest, Request).
+
+// Service methods must accept pure data types or DTOs/Value Objects.
+
+// Split large service methods into smaller, dedicated sub-functions where each function handles only one specific piece of business logic (Single Responsibility Principle).
+
+// Clear & Readable Naming:
+
+// Use self-explanatory, descriptive variable and function names (e.g., extractUserData, validateInventoryLevel, isUserEligible).
+
+// Behavior Integrity:
+
+// Preserve original functionality and output behavior completely.
+
+// Summary of Changes:
+
+// Provide a brief summary of how the logic was split and list the new functions created for Controller and Service layers.

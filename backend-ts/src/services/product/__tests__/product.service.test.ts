@@ -64,6 +64,15 @@ vi.mock("#/database", () => ({ default: db }));
 // The service imports the Product model directly: point it at the same mock
 // (this overrides the global test setup's instance for this file).
 vi.mock("#/database/models/product", () => ({ default: db.product, Product: db.product }));
+// Vendor settings for code generation go through SettingService -> Setting;
+// keep them on the same mock so codegen is deterministic.
+vi.mock("#/database/models/setting", () => ({ default: db.setting, Setting: db.setting }));
+// Bypass Redis: run cache loaders inline so results stay deterministic.
+vi.mock("#/utils/entity-cache", () => ({
+  getCachedEntity: vi.fn((_model: string, _id: unknown, loader: () => Promise<unknown>) => loader()),
+  setCachedEntity: vi.fn(),
+  evictCachedEntity: vi.fn(),
+}));
 import database from "#/database";
 import { ProductService } from "../index";
 
@@ -86,8 +95,7 @@ describe("ProductService", () => {
   describe("create", () => {
     const buildInstance = (overrides: any = {}) => {
       const dataValues = { id: 1, name: "Cola", code: "C1", vendorId: 1, ...overrides };
-      return {
-        save: vi.fn().mockResolvedValue(undefined),
+      const instance: any = {
         $set: vi.fn().mockResolvedValue(undefined),
         setCategories: vi.fn().mockResolvedValue(undefined),
         setTags: vi.fn().mockResolvedValue(undefined),
@@ -95,12 +103,17 @@ describe("ProductService", () => {
         id: 1,
         get: vi.fn((k: string) => (dataValues as any)[k]),
       };
+      // Real Sequelize save() resolves to the instance itself.
+      instance.save = vi.fn().mockResolvedValue(instance);
+      return instance;
     };
 
     it("creates a product, inventory and transfer and commits", async () => {
       const product = buildInstance();
-      const inventory = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 10 } };
-      const transfer = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 20 } };
+      const inventory: any = { dataValues: { id: 10 } };
+      inventory.save = vi.fn().mockResolvedValue(inventory);
+      const transfer: any = { dataValues: { id: 20 } };
+      transfer.save = vi.fn().mockResolvedValue(transfer);
       database.product.findOne.mockResolvedValue(null);
       database.product.build.mockReturnValue(product as any);
       database.inventory.build.mockReturnValue(inventory as any);
@@ -115,7 +128,9 @@ describe("ProductService", () => {
 
       const result = await service.create(req);
 
-      expect(database.product.findOne).toHaveBeenCalledWith({ where: { code: "C1" } });
+      expect(database.product.findOne).toHaveBeenCalledWith({
+        where: { vendorId: 1, [Op.or]: [{ code: "C1" }] },
+      });
       expect(product.$set).toHaveBeenCalledWith("categories", [1], expect.anything());
       expect(product.$set).toHaveBeenCalledWith("tags", [2], expect.anything());
       expect(database.sequelize.transaction).toHaveBeenCalled();
@@ -128,23 +143,25 @@ describe("ProductService", () => {
 
     it("throws when warehouseId is missing", async () => {
       await expect(
-        service.create({ body: { quantity: 5, code: "C1", name: "Cola" } } as any),
+        service.create({ body: { quantity: 5, code: "C1", name: "Cola" }, user: { vendorIds: [1] } } as any),
       ).rejects.toThrow("warehouseId is required");
     });
 
     it("throws when quantity is invalid", async () => {
       await expect(
-        service.create({ body: { warehouseId: 1, quantity: "abc", code: "C1", name: "Cola" } } as any),
+        service.create({ body: { warehouseId: 1, quantity: "abc", code: "C1", name: "Cola" }, user: { vendorIds: [1] } } as any),
       ).rejects.toThrow("Invalid quantity");
       await expect(
-        service.create({ body: { warehouseId: 1, quantity: 0, code: "C1", name: "Cola" } } as any),
+        service.create({ body: { warehouseId: 1, quantity: 0, code: "C1", name: "Cola" }, user: { vendorIds: [1] } } as any),
       ).rejects.toThrow("Invalid quantity");
     });
 
     it("auto-generates the product code and SKU from vendor settings when missing", async () => {
       const product = buildInstance({ vendorId: 2 });
-      const inventory = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 10 } };
-      const transfer = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 20 } };
+      const inventory: any = { dataValues: { id: 10 } };
+      inventory.save = vi.fn().mockResolvedValue(inventory);
+      const transfer: any = { dataValues: { id: 20 } };
+      transfer.save = vi.fn().mockResolvedValue(transfer);
       database.warehouse.findByPk.mockResolvedValue({ vendorId: 2 } as any);
       database.product.findOne.mockResolvedValue(null);
       database.product.count.mockResolvedValue(4);
@@ -175,8 +192,8 @@ describe("ProductService", () => {
     it("throws when a product with the same code already exists", async () => {
       database.product.findOne.mockResolvedValue({ id: 99 });
       await expect(
-        service.create({ body: { warehouseId: 1, quantity: 5, code: "C1", name: "Cola" } } as any),
-      ).rejects.toThrow("Product with code C1 already exists");
+        service.create({ body: { warehouseId: 1, quantity: 5, code: "C1", name: "Cola" }, user: { vendorIds: [1] } } as any),
+      ).rejects.toThrow("Product already exists or code/skuCode is duplicated");
     });
 
     it("rolls back the transaction when saving fails", async () => {
@@ -213,7 +230,6 @@ describe("ProductService", () => {
 
       expect(result.count).toBe(1);
       expect(result.rows[0]).toBe(row);
-      expect(row.setDataValue).toHaveBeenCalledWith("quantity", 7);
       expect(database.product.findAndCountAll).toHaveBeenCalled();
       const where = database.product.findAndCountAll.mock.calls[0][0].where;
       expect(where.vendorId).toEqual({ [Op.in]: [1] });
@@ -373,7 +389,8 @@ describe("ProductService", () => {
       const tr = { save: vi.fn().mockResolvedValue(undefined), dataValues: { id: 6 } };
       database.inventory.build.mockReturnValue(inv as any);
       database.transfer.build.mockReturnValue(tr as any);
-      database.product.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 1 });
+      // No code/sku clash on the duplicate guard; the refresh read returns the row.
+      database.product.findOne.mockResolvedValue({ id: 1 });
 
       await service.updateProduct({
         params: { id: 1 },

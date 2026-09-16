@@ -19,6 +19,7 @@ import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
 import { clampLineQty, defaultSelection, deriveInvoiceType, lineRemaining } from "~/libs/invoice-lines";
 import { parseCookieFromRequest } from "~/sessions";
+import { IInvoice } from "~/types/invoice";
 import { IProduct } from "~/types/product";
 
 export const meta: MetaFunction = () => {
@@ -70,6 +71,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
         const created = (resp?.data as any)?.data ?? resp?.data;
         return Response.json({ invoiceId: created?.id ?? null, invoice: created ?? null });
       },
+      update: async () => {
+        const data: any = await formData.get("data");
+        const dataJson = data ? JSON.parse(data) : {};
+        await orderService.updateOrder({
+          id: params.id as string,
+          ...dataJson,
+        });
+        return Response.json({ success: true });
+      },
     });
   } catch (error: any) {
     return { error: error.message || "Request failed" };
@@ -113,6 +123,7 @@ export default function OrderItem() {
   });
 
   const { submit, isLoading } = useSubmitPromise();
+  const invoiceFetcher = useFetcher({ key: "Invoice-Fetcher" });
 
   // Print a single invoice or all invoices via the body-level InvisiblePrintContainer.
   // The container (InvoicePrintPortal) mounts ONLY the targeted invoice(s) and
@@ -137,9 +148,11 @@ export default function OrderItem() {
   // opening /invoices/:id?print=true in a new tab (Way B) on failure so the
   // user never sees a blank preview.
   const fetchInvoiceDetail = async (invoiceId: number | string): Promise<any> => {
-    const res = await fetch(`/api/invoices/${invoiceId}`);
-    if (!res.ok) throw new Error(`Failed to fetch invoice ${invoiceId}: ${res.status}`);
-    return res.json();
+    const response = await submit<{ invoice: IInvoice }>(
+      { id: invoiceId as string },
+      { method: "get", action: `/invoices/${invoiceId}` },
+    );
+    return response.invoice;
   };
 
   const handlePrintSingle = async (summary: any) => {
@@ -226,6 +239,8 @@ export default function OrderItem() {
   const onSubmitEdit = async (v: OrderSchema) => {
     try {
       await submit({ intent: "update", data: JSON.stringify(v) }, { method: "post" });
+      toast.success({ title: "Success", message: "Cập nhật đơn hàng thành công" });
+      setSearchParams({}, { replace: true });
     } catch (err) {
       console.log("error", err);
       toast.danger({ title: "Error", message: "Cập nhật đơn hàng thất bại" });
@@ -306,6 +321,16 @@ export default function OrderItem() {
                 </div>
               }
               className="p-5 sm:p-6"
+              action={
+                <TMButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchParams({}, { replace: true })}
+                  type="button"
+                >
+                  {t("common.cancel")}
+                </TMButton>
+              }
             >
               <div className="flex flex-col gap-5 mt-2">
                 <OrderForm
@@ -317,7 +342,7 @@ export default function OrderItem() {
                   onError={handleError}
                   submitLabel={t("common.save")}
                 />
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+                {/* <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
                   <TMButton
                     variant="ghost"
                     size="sm"
@@ -335,7 +360,7 @@ export default function OrderItem() {
                     <Icon name="save" fontSize={16} />
                     {t("common.save")}
                   </TMButton>
-                </div>
+                </div> */}
               </div>
             </CardItem>
           </div>
@@ -350,130 +375,10 @@ export default function OrderItem() {
   const vatAmount = (subtotal * Number(order?.VAT || 0)) / 100;
   const totalPaid = subtotal + Number(order?.surcharge || 0) + vatAmount;
 
-  console.log("order", order);
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
       <div className="max-w-5xl w-full mx-auto flex flex-col gap-3">
         {/* Toolbar */}
-        <div className="flex gap-2 shrink-0 no-print justify-start sm:justify-end flex-wrap">
-          <TMButton
-            variant="outline"
-            onClick={handlePrintAll}
-            size="sm"
-            disabled={!invoices.length || isPrintFetching}
-            loading={isPrintFetching}
-          >
-            <Icon name="printer" fontSize={16} />
-            <span className="hidden sm:inline">{t("orders.printAllInvoices", { defaultValue: "In gộp" })}</span>
-          </TMButton>
-          <TMButton variant="outline" onClick={() => setSearchParams({ edit: "1" })} size="sm">
-            <Icon name="edit" fontSize={16} />
-            <span className="hidden sm:inline">{t("orders.editOrder")}</span>
-          </TMButton>
-          {/* Returns are only for sale orders (imports flow the other way) */}
-          {order?.providerId == null && order?.status !== "returned" && (
-            <TMButton
-              variant="outline"
-              onClick={() => navigate(`./return`)}
-              size="sm"
-              className="text-red-600 hover:bg-red-50"
-            >
-              <Icon name="corner-up-left" fontSize={16} />
-              <span className="hidden sm:inline">Trả hàng</span>
-            </TMButton>
-          )}
-          <TMButton onClick={openInvoiceModal} loading={fetcher.state !== "idle"} size="sm">
-            <Icon name="plus" fontSize={16} />
-            <span className="hidden sm:inline">{t("orders.createInvoice")}</span>
-          </TMButton>
-        </div>
-
-        {/* Hóa đơn đã xuất: one row per invoice, each with its own Print. */}
-        <CardItem
-          title={
-            <div className="flex items-start justify-between gap-4 no-print">
-              <div className="flex gap-3">
-                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
-                  <Icon name="file-text" fontSize={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
-                    {t("orders.issuedInvoices", { defaultValue: "Hóa đơn đã xuất" })} ({invoices.length})
-                  </h2>
-                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
-                    {t("orders.issuedInvoicesHint", {
-                      defaultValue: "In theo từng hóa đơn, không in gộp theo đơn hàng",
-                    })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          }
-          className="p-5 sm:p-6 overflow-x-auto"
-        >
-          {invoices.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              {t("orders.noInvoices", { defaultValue: "Chưa có hóa đơn nào. Bấm Tạo hóa đơn để xuất đợt đầu tiên." })}
-            </p>
-          ) : (
-            <div className="border border-slate-200 dark:border-slate-700 rounded overflow-x-auto">
-              <table className="w-full min-w-[560px] text-sm text-slate-700 dark:text-slate-200">
-                <thead className="bg-gray-50 dark:bg-slate-700/60">
-                  <tr>
-                    <th className="p-2 text-left font-medium">{t("invoices.invoiceNumber")}</th>
-                    <th className="p-2 w-24 text-center font-medium">{t("invoices.type", { defaultValue: "Loại" })}</th>
-                    <th className="p-2 w-28 text-right font-medium">{t("invoices.total")}</th>
-                    <th className="p-2 w-28 text-center font-medium">{t("invoices.statusLabel")}</th>
-                    <th className="p-2 w-40 text-right font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-slate-800">
-                  {invoices.map((inv: any, idx: number) => (
-                    <tr key={inv.id} className="border-t border-slate-100 dark:border-slate-700">
-                      <td className="p-2">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{inv.invoiceNumber}</span>
-                          <span className="text-xs text-slate-400">
-                            {t("orders.invoiceBatch", {
-                              defaultValue: `Hóa đơn ${idx + 1}/${invoices.length}`,
-                            })}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="p-2 text-center">
-                        <span
-                          className={
-                            inv.invoiceType === "FULL"
-                              ? "px-2 py-0.5 rounded text-xs bg-green-100 text-green-800"
-                              : "px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800"
-                          }
-                        >
-                          {inv.invoiceType || "FULL"}
-                        </span>
-                      </td>
-                      <td className="p-2 text-right">{formatCurrency(inv.total)}</td>
-                      <td className="p-2 text-center text-xs">{t(`invoices.status.${inv.status}`)}</td>
-                      <td className="p-2 text-right whitespace-nowrap">
-                        <TMButton variant="outline" size="xs" onClick={() => navigate(`/invoices/${inv.id}`)}>
-                          {t("common.view", { defaultValue: "Xem" })}
-                        </TMButton>{" "}
-                        <TMButton
-                          variant="outline"
-                          size="xs"
-                          onClick={() => handlePrintSingle(inv)}
-                          loading={isPrintFetching}
-                          disabled={isPrintFetching}
-                        >
-                          <Icon name="printer" fontSize={14} /> {t("common.print", { defaultValue: "In" })}
-                        </TMButton>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardItem>
 
         {/* Order lines reference (screen only — temp print uses the invoice above) */}
         <CardItem
@@ -495,6 +400,30 @@ export default function OrderItem() {
             </div>
           }
           className="p-5 sm:p-6 overflow-x-auto"
+          action={
+            <div className="flex gap-2 shrink-0 no-print justify-start sm:justify-end flex-wrap">
+              <TMButton variant="outline" onClick={() => setSearchParams({ edit: "1" })} size="sm">
+                <Icon name="edit" fontSize={16} />
+                <span className="hidden sm:inline">{t("orders.editOrder")}</span>
+              </TMButton>
+              {/* Returns are only for sale orders (imports flow the other way) */}
+              {order?.providerId == null && order?.status !== "returned" && (
+                <TMButton
+                  variant="outline"
+                  onClick={() => navigate(`./return`)}
+                  size="sm"
+                  className="text-red-600 hover:bg-red-50"
+                >
+                  <Icon name="corner-up-left" fontSize={16} />
+                  <span className="hidden sm:inline">Trả hàng</span>
+                </TMButton>
+              )}
+              <TMButton onClick={openInvoiceModal} loading={fetcher.state !== "idle"} size="sm">
+                <Icon name="plus" fontSize={16} />
+                <span className="hidden sm:inline">{t("orders.createInvoice")}</span>
+              </TMButton>
+            </div>
+          }
         >
           <div className="flex flex-col gap-6">
             {/* Header */}
@@ -617,6 +546,115 @@ export default function OrderItem() {
 
             {/* <p className="text-xs text-gray-400 text-center">{t("orders.tempInvoiceNotice")}</p> */}
           </div>
+        </CardItem>
+
+        {/* Hóa đơn đã xuất: one row per invoice, each with its own Print. */}
+        <CardItem
+          title={
+            <div className="flex items-start justify-between gap-4 no-print">
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="file-text" fontSize={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
+                    {t("orders.issuedInvoices", { defaultValue: "Hóa đơn đã xuất" })} ({invoices.length})
+                  </h2>
+                  <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+                    {t("orders.issuedInvoicesHint", {
+                      defaultValue: "In theo từng hóa đơn, không in gộp theo đơn hàng",
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          }
+          className="p-5 sm:p-6 overflow-x-auto"
+          action={
+            <TMButton
+              variant="outline"
+              onClick={handlePrintAll}
+              size="sm"
+              disabled={!invoices.length || isPrintFetching}
+              loading={isPrintFetching}
+            >
+              <Icon name="printer" fontSize={16} />
+              <span className="hidden sm:inline">{t("orders.printAllInvoices", { defaultValue: "In gộp" })}</span>
+            </TMButton>
+          }
+        >
+          {invoices.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              {t("orders.noInvoices", { defaultValue: "Chưa có hóa đơn nào. Bấm Tạo hóa đơn để xuất đợt đầu tiên." })}
+            </p>
+          ) : (
+            <div className="border border-slate-200 dark:border-slate-700 rounded overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm text-slate-700 dark:text-slate-200">
+                <thead className="bg-gray-50 dark:bg-slate-700/60">
+                  <tr>
+                    <th className="p-2 text-left font-medium">{t("invoices.invoiceNumber")}</th>
+                    <th className="p-2 w-24 text-center font-medium">{t("invoices.type", { defaultValue: "Loại" })}</th>
+                    <th className="p-2 w-40 text-right font-medium">{t("invoices.total")}</th>
+                    <th className="p-2 w-40 text-center font-medium">{t("invoices.statusLabel")}</th>
+                    <th className="p-2 w-20 text-right font-medium "></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-slate-800">
+                  {invoices.map((inv: any, idx: number) => (
+                    <tr key={inv.id} className="border-t border-slate-100 dark:border-slate-700">
+                      <td className="p-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{inv.invoiceNumber}</span>
+                          <span className="text-xs text-slate-400">
+                            {t("orders.invoiceBatch", {
+                              defaultValue: `Hóa đơn ${idx + 1}/${invoices.length}`,
+                            })}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-2 text-center">
+                        <span
+                          className={
+                            inv.invoiceType === "FULL"
+                              ? "px-2 py-0.5 rounded text-xs bg-green-100 text-green-800"
+                              : "px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800"
+                          }
+                        >
+                          {inv.invoiceType || "FULL"}
+                        </span>
+                      </td>
+                      <td className="p-2 text-right">{formatCurrency(inv.total)}</td>
+                      <td className="p-2 text-center text-xs">{t(`invoices.status.${inv.status}`)}</td>
+                      <td className="p-2 text-right whitespace-nowrap">
+                        <div className="flex gap-2">
+                          <TMButton
+                            // variant="outline"
+                            size="sm"
+                            className="py-2"
+                            onClick={() => navigate(`/invoices/${inv.id}`)}
+                          >
+                            <Icon name="eye" fontSize={16} />
+                            {/* {t("common.view", { defaultValue: "Xem" })} */}
+                          </TMButton>{" "}
+                          <TMButton
+                            // variant="outline"
+                            size="sm"
+                            className="py-2"
+                            onClick={() => handlePrintSingle(inv)}
+                            loading={isPrintFetching}
+                            disabled={isPrintFetching}
+                          >
+                            <Icon name="printer" fontSize={16} />
+                            {/* {t("common.print", { defaultValue: "In" })} */}
+                          </TMButton>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardItem>
       </div>
 

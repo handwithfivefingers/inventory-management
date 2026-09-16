@@ -1,4 +1,5 @@
 import ShiftService from '#/services/shift'
+import { getRequestedWarehouseId } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 
 export default class ShiftController {
@@ -13,7 +14,7 @@ export default class ShiftController {
   }
   async getCurrent(req: Request, res: Response, next: NextFunction) {
     try {
-      const { warehouseId } = req.query
+      const warehouseId = getRequestedWarehouseId(req as any)
       const resp = await new ShiftService().getCurrent(warehouseId as string)
       res.status(200).json({ data: resp })
       return

@@ -2,7 +2,7 @@ import database from '#/database'
 import { IOrderStatic } from '#/types/order'
 import { IOrderDetailStatic } from '#/types/orderDetail'
 import OrderService from '../order'
-import { assertVendorAccess, assertWarehouseAccess, getVendorScope } from '#/utils/tenant'
+import { assertVendorAccess, assertWarehouseAccess, getRequestedWarehouseId, getVendorScope } from '#/utils/tenant'
 import { Op, Sequelize } from 'sequelize'
 import { getPagination } from '#/utils'
 import Order from '#/database/models/order'
@@ -15,14 +15,13 @@ export class ImportOrderService {
 
   async getOrders(req: any) {
     try {
-      const { offset, limit, warehouseId } = getPagination(req.query)
-      // S1: validate the requested warehouse belongs to the caller's vendors.
+      const { offset, limit } = getPagination(req.query)
+      const warehouseId = getRequestedWarehouseId(req)
       const scope = getVendorScope(req)
       if (warehouseId) await assertWarehouseAccess(warehouseId as string | number, scope)
       const where: any = { providerId: { [Op.ne]: null } }
       if (warehouseId) where.warehouseId = Number(warehouseId)
       else if (scope !== null && scope.length === 0) {
-        // deny-all scope -> no rows
         return { count: 0, rows: [] }
       }
       if (req.query.providerId) where.providerId = Number(req.query.providerId)
@@ -49,7 +48,10 @@ export class ImportOrderService {
     try {
       const resp = await Order.findOne({
         where: { id, providerId: { [Op.ne]: null } } as any,
-        include: [{ model: database.orderDetail, include: [{ model: Product, paranoid: false }] }, { model: database.provider }]
+        include: [
+          { model: database.orderDetail, include: [{ model: Product, paranoid: false }] },
+          { model: database.provider }
+        ]
       })
       if (resp) {
         // S1: scoped callers may only read their own vendors' imports.

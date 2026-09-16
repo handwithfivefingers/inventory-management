@@ -32,10 +32,7 @@ const variantOverrideSchema = z.object({
   code: z.string().optional(),
   skuCode: StrOrNum.optional(),
   quantity: StrOrNum.optional(),
-  costPrice: StrOrNum.refine(
-    (v) => !isFinite(parseFloat(v as string)) && parseFloat(v as string) >= 0,
-    "Cost price must be non-negative",
-  ),
+  costPrice: StrOrNum.optional(),
   regularPrice: StrOrNum.optional(),
   salePrice: StrOrNum.optional(),
   wholeSalePrice: StrOrNum.optional(),
@@ -51,7 +48,7 @@ const productSchema = z.object({
   code: z.string().optional(),
   skuCode: z.string().optional(),
   /** 0 = simple, 1 = variant, 2 = combo */
-  type: StrOrNum.optional(),
+  type: z.number().min(0).max(2).default(0),
   unit: StrOrNum.optional(),
   categories: z.array(StrOrNum).optional(),
   tags: z.array(StrOrNum).optional(),

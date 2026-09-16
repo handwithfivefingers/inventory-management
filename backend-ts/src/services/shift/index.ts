@@ -2,6 +2,7 @@ import database from '#/database'
 import { IFinancialRecordStatic } from '#/types/financialRecord'
 import { IShiftStatic } from '#/types/shift'
 import { getPagination } from '#/utils'
+import { getRequestedWarehouseId } from '#/utils/tenant'
 import { Op, Sequelize } from 'sequelize'
 
 export class ShiftService {
@@ -11,7 +12,8 @@ export class ShiftService {
 
   async getShifts(req: any) {
     try {
-      const { offset, limit, warehouseId } = getPagination(req.query)
+      const { offset, limit } = getPagination(req.query)
+      const warehouseId = getRequestedWarehouseId(req)
       const where: any = {}
       if (warehouseId) where.warehouseId = Number(warehouseId)
       if (req.query.status) where.status = req.query.status

@@ -186,7 +186,8 @@
     "tempInvoiceNotice": "This is a temp (draft) invoice, not the final one.",
     "selectOrderForInvoice": "Select an order to create an invoice",
     "code": "Order code",
-    "printDevice": "Print via device"
+    "printDevice": "Print via device",
+    "quantity": "quantity"
   },
   "importOrder": {
     "title": "Import Orders",

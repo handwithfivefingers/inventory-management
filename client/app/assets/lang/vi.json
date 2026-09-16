@@ -187,7 +187,8 @@
     "tempInvoiceNotice": "Đây là hóa đơn tạm tính (nháp), chưa phải hóa đơn chính thức.",
     "selectOrderForInvoice": "Chọn đơn hàng để tạo hóa đơn",
     "code": "Mã đơn hàng",
-    "printDevice": "In qua thiết bị"
+    "printDevice": "In qua thiết bị",
+    "quantity": "Số lượng"
   },
   "importOrder": {
     "title": "Nhập đơn hàng",

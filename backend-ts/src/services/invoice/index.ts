@@ -1,9 +1,9 @@
 import database from '#/database'
 import { ApiError } from '#/response'
 import type { IRequestLocal } from '#/types/common'
-import type { IInvoiceStatic, InvoiceStatus, PaymentType } from '#/types/invoice'
+import type { IInvoiceModel, IInvoiceStatic, InvoiceStatus, PaymentType } from '#/types/invoice'
 import { isDuplicateEntryError } from '#/utils/sequence'
-import { assertVendorAccess, assertWarehouseAccess, getVendorScope, type TVendorScope } from '#/utils/tenant'
+import { assertVendorAccess, assertWarehouseAccess, getRequestedVendorId, getVendorScope, type TVendorScope } from '#/utils/tenant'
 import { Op, type Sequelize } from 'sequelize'
 import { generateInvoiceNumber } from './invoice-number.generator'
 import {
@@ -22,8 +22,6 @@ import type {
   InvoicePaymentSplit,
   NormalizedInvoiceLine
 } from './types'
-import Invoice from '#/database/models/invoice'
-import InvoiceDetail from '#/database/models/invoiceDetail'
 
 const MAX_CREATE_ATTEMPTS = 3
 const SEQUENCE_PADDING_NOTE = 'Sequence is zero-padded to 5 digits (see invoice-number.generator).'
@@ -64,13 +62,14 @@ export class InvoiceService {
   }
 
   private buildInvoiceListWhere(req: IRequestLocal, queryFilters: Record<string, unknown>): Record<string, unknown> {
-    const { search, vendorId, status, customerId, orderId } = queryFilters as {
+    const { search, status, customerId, orderId } = queryFilters as {
       search?: string
-      vendorId?: string | number
       status?: string
       customerId?: string | number
       orderId?: string | number
     }
+    // Active vendor: `x-vendor` header first (legacy `?vendorId=` fallback).
+    const vendorId = getRequestedVendorId(req) ?? (queryFilters as { vendorId?: string | number }).vendorId
     const whereClause: Record<string, unknown> = {}
     const vendorScope = getVendorScope(req)
 
@@ -538,7 +537,7 @@ export class InvoiceService {
   }
 
   private async loadDraftInvoiceForUpdate(invoiceId: string | number, req: IRequestLocal) {
-    const _invoice = await Invoice.findByPk(invoiceId, { include: [InvoiceDetail] } as never)
+    const _invoice = await this.invoice.findByPk(invoiceId, { include: [database.invoiceDetail] } as never)
     if (!_invoice) throw new Error('Invoice not found')
     assertVendorAccess(
       getVendorScope(req),
@@ -556,7 +555,7 @@ export class InvoiceService {
   }
 
   private applyHeaderFieldUpdates(
-    invoice: Invoice,
+    invoice: IInvoiceModel,
     editableFields: {
       customerId?: number
       warehouseId?: number
@@ -619,7 +618,7 @@ export class InvoiceService {
   }
 
   private recalculateHeaderTotals(
-    invoice: Invoice,
+    invoice: IInvoiceModel,
     updateItems: Array<{ quantity: number; unitPrice: number; taxRate?: number; discount?: number }>
   ): void {
     const sourceItems = updateItems.map((updateItem) => ({

@@ -1,15 +1,13 @@
 import { IRequestLocal } from '#/types/common'
-import { getVendorScope } from '#/utils/tenant'
+import { getRequestedVendorId, getVendorScope } from '#/utils/tenant'
 import { NextFunction, Response } from 'express'
 import { captureException } from '@sentry/node'
 import { ApiError } from '#/response'
 
 const resolveRequestedVendorId = (req: IRequestLocal): string | number | undefined => {
-  // const q: any = req.query || {}
-  // const b: any = req.body || {}
-  // return q.vendorId ?? q.vendor ?? b.vendorId ?? b.vendor
-  let raw = (req.headers?.['x-vendor'] as string) || undefined
-  return raw
+  // Tenant identity is carried by the `x-vendor` header (see `utils/tenant.ts`).
+  // Query/body `vendorId`/`vendor` remain as legacy fallbacks; header wins.
+  return getRequestedVendorId(req)
 }
 
 const vendorGuard: any = async (req: IRequestLocal, res: Response, next: NextFunction) => {
@@ -29,6 +27,9 @@ const vendorGuard: any = async (req: IRequestLocal, res: Response, next: NextFun
     if (!Number.isFinite(vendorId) || !scope.includes(vendorId)) {
       throw ApiError.forbidden(`Vendor not found`)
     }
+    // Expose the validated active vendor for downstream controllers/services
+    // so they don't need to re-parse headers/query.
+    ;(req as unknown as Record<string, unknown>).activeVendorId = vendorId
     next()
   } catch (error) {
     console.log('---------- Vendor Guard Middleware catched')

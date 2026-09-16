@@ -1,5 +1,6 @@
 import { UnitsService } from '#/services/units'
-import { IRequestHandler } from '#/types/common'
+import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { getRequestedVendorId } from '#/utils/tenant'
 export class UnitsController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
@@ -18,7 +19,7 @@ export class UnitsController {
     try {
       if (!req.params.id) throw new Error('id is required')
       const { id } = req.params
-      const { vendor } = req.query
+      const vendor = getRequestedVendorId(req as IRequestLocal)
       console.log('req.params', req.params)
       const resp = await new UnitsService().getById({ vendor: vendor as string, id })
       res.status(200).json({

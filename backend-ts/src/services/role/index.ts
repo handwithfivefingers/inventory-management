@@ -3,8 +3,10 @@ import { ApiError } from '#/response'
 import { invalidateUsersByRoleId, invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { RoleStatic } from '#/types/role'
 import { evictCachedEntity, getCachedEntity, setCachedEntity } from '#/utils/entity-cache'
-import { NextFunction, Request, Response } from 'express'
 import { Op, Sequelize } from 'sequelize'
+
+export { sanitizePermissions } from './sanitize-permissions'
+export type { IPermissionGrantInput, ISanitizedPermission } from './sanitize-permissions'
 
 type METHOD = 'CREATE' | 'READ' | 'UPDATE' | 'DELETE'
 interface IPermissionInput {
@@ -41,7 +43,7 @@ interface GetRoleByIdResponse {
 }
 
 export class RoleService {
-  model: Role
+  model: RoleStatic
   sequelize: Sequelize | undefined
   constructor() {
     this.model = database.role
@@ -232,10 +234,10 @@ export class RoleService {
   }
 
   /**
-   * Delete role
+   * Delete role (plus its permission/user links) by id.
+   * Accepts a plain DTO - HTTP parsing lives in the controller.
    */
-  async delete(...[req, res, next]: [Request, Response, NextFunction]) {
-    const { id } = req.params
+  async delete({ id }: { id: number | string }) {
     const t = await this.sequelize?.transaction()
 
     try {
@@ -283,9 +285,9 @@ export class RoleService {
    *
    * A user holds exactly ONE role: any previous assignment is replaced.
    * Re-assigning the same role is a no-op (idempotent).
+   * Accepts a plain DTO - HTTP parsing lives in the controller.
    */
-  async assignToUser(...[req, res, next]: [Request, Response, NextFunction]) {
-    const { userId, roleId, vendorId } = req.body
+  async assignToUser({ userId, roleId, vendorId }: { userId: number; roleId: number; vendorId?: number }) {
     const t = await this.sequelize?.transaction()
 
     try {
@@ -353,10 +355,9 @@ export class RoleService {
   }
 
   /**
-   * Remove role from user
+   * Remove role from user. Accepts a plain DTO - HTTP parsing lives in the controller.
    */
-  async removeFromUser(...[req, res, next]: [Request, Response, NextFunction]) {
-    const { userId, roleId, vendorId } = req.body
+  async removeFromUser({ userId, roleId, vendorId }: { userId: number; roleId: number; vendorId?: number }) {
     const t = await this.sequelize?.transaction()
 
     try {

@@ -7,6 +7,7 @@ describe("ERROR messages", () => {
       "BAD_REQUEST",
       "FORBIDDEN",
       "UNAUTHORIZED",
+      "USR_INACTIVE",
       "USR_NOT_FOUND",
       "USR_NOT_VALID",
     ]);
@@ -15,6 +16,7 @@ describe("ERROR messages", () => {
   it("has the expected message text", () => {
     expect(ERROR.USR_NOT_VALID).toBe("User or password not valid");
     expect(ERROR.USR_NOT_FOUND).toBe("User not found");
+    expect(ERROR.USR_INACTIVE).toBe("User is inactive");
     expect(ERROR.FORBIDDEN).toBe("Forbidden");
     expect(ERROR.UNAUTHORIZED).toBe("Unauthorized");
     expect(ERROR.BAD_REQUEST).toBe("Bad request");

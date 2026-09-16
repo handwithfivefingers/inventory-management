@@ -2,19 +2,17 @@ import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "
 import { Link, useFetcher, useLoaderData, useRouteError, useSearchParams } from "@remix-run/react";
 import { useEffect } from "react";
 import { invoiceService } from "~/action.server/invoice.service";
-import { TMButton } from "~/components/tm-button";
-import { PermissionGuard } from "~/components/permission-guard";
-import { IInvoice } from "~/types/invoice";
-import { parseCookieFromRequest } from "~/sessions";
-import { useTranslation } from "~/i18n";
-import { ReceiptPrinter, printInvoiceViaBrowser } from "~/components/receipt-printer";
 import { CardItem } from "~/components/card-item";
 import { Icon } from "~/components/icon";
+import { PermissionGuard } from "~/components/permission-guard";
+import { ReceiptPrinter, printInvoiceViaBrowser } from "~/components/receipt-printer";
+import { TMButton } from "~/components/tm-button";
 import { MODULE_ENUM } from "~/constants/modules";
+import { useTranslation } from "~/i18n";
+import { IInvoice } from "~/types/invoice";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const resp = await invoiceService.getInvoiceById(params.id as string);
-
   return {
     invoice: (resp.data as any)?.data ?? resp.data,
   };
@@ -23,7 +21,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const id = Number(formData.get("id"));
-
   try {
     await invoiceService.updateInvoiceStatus({
       id,

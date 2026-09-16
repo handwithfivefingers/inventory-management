@@ -36,7 +36,7 @@ export async function getCachedEntity<T>(
   loader: () => Promise<T>,
   ttl: number = ENTITY_CACHE_TTL
 ): Promise<T> {
-  return cacheItem<T>({ key: entityCacheKey(model, id), callback: loader, ttl })
+  return (await cacheItem<T>({ key: entityCacheKey(model, id), callback: loader, ttl })) as T
 }
 
 export async function setCachedEntity(

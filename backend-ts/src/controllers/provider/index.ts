@@ -1,5 +1,6 @@
 import { ProviderService } from '#/services/provider'
 import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { getRequestedVendorId } from '#/utils/tenant'
 export class ProviderController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
@@ -16,7 +17,8 @@ export class ProviderController {
   async getProvider(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const { limit = 10, offset = 0, vendorId } = req.query
+      const { limit = 10, offset = 0 } = req.query
+      const vendorId = getRequestedVendorId(req as IRequestLocal)
       const { count, rows } = await new ProviderService().getProvider({
         limit: Number(limit),
         offset: Number(offset),

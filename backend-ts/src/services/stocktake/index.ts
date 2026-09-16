@@ -7,7 +7,7 @@ import StocktakeDetail from '#/database/models/stocktakeDetail'
 import { ApiError } from '#/response'
 import { IRequestLocal } from '#/types/common'
 import { getPagination } from '#/utils'
-import { assertVendorAccess, assertWarehouseAccess, getVendorScope } from '#/utils/tenant'
+import { assertVendorAccess, assertWarehouseAccess, getRequestedVendorId, getRequestedWarehouseId, getVendorScope } from '#/utils/tenant'
 import { Op, Sequelize } from 'sequelize'
 
 /**
@@ -37,7 +37,7 @@ export class StocktakeService {
     const t = await this.sequelize.transaction()
     try {
       const body: any = (req as any).body || {}
-      const warehouseId = Number(body.warehouseId ?? (req.query as any)?.warehouseId)
+      const warehouseId = Number(body.warehouseId ?? getRequestedWarehouseId(req))
       const vendorId = await this.resolveWarehouse(req, warehouseId, t)
 
       // Only one open session per warehouse at a time
@@ -203,7 +203,7 @@ export class StocktakeService {
       const scope = getVendorScope(req)
       const { offset, limit } = getPagination(req.query)
       const where: any = {}
-      const rawVendorId = (req.query as any)?.vendorId
+      const rawVendorId = getRequestedVendorId(req)
       if (rawVendorId != null && String(rawVendorId).trim() !== '') {
         assertVendorAccess(scope, Number(rawVendorId), 'Unauthorized vendor filter')
         where.vendorId = Number(rawVendorId)

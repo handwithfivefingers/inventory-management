@@ -20,7 +20,6 @@ import { TMButton } from "~/components/tm-button";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
-import { parseCookieFromRequest } from "~/sessions";
 
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
@@ -71,6 +70,7 @@ export default function ProductItem() {
       isNegative: false,
       variantAttributes: [],
       variants: [],
+      type: 0,
     },
     resolver: zodResolver(productSchema),
   });
@@ -133,10 +133,15 @@ export default function ProductItem() {
       });
     if (variantsPayload.length > 0) {
       payload.variants = variantsPayload;
+      payload.type = 1; // 0 = simple, 1 = variant, 2 = combo
     } else {
       delete payload.variants;
     }
     delete payload.variantAttributes;
+
+    console.log(`payload`, payload);
+
+    return;
 
     const response: any = await submit(
       {

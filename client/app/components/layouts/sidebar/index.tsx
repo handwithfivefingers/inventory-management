@@ -2,7 +2,9 @@ import { Link, useLocation } from "@remix-run/react";
 import { m } from "motion/react";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Icon } from "~/components/icon";
+import { TMDropdown } from "~/components/tm-dropdown";
 import { ISidebarChild, ISideBarItem, SIDE_BAR } from "~/constants/sidebar";
+import { useSubmitPromise } from "~/hooks";
 import { checkPermission } from "~/hooks/use-permission";
 import { useTranslation } from "~/i18n";
 import { cn } from "~/libs/utils";
@@ -45,7 +47,8 @@ const filterVisible = <T extends ISidebarChild | ISideBarItem>(items: T[], role?
     typeof window !== "undefined" ? ((window as any).__NICHE_HIDDEN__ as string[] | undefined) || [] : [];
   return items.filter(
     (item) =>
-      (!item.moduleKey || (role && checkPermission(role, item.moduleKey, "READ"))) && !hidden.includes(item.moduleKey || ""),
+      (!item.moduleKey || (role && checkPermission(role, item.moduleKey, "READ"))) &&
+      !hidden.includes(item.moduleKey || ""),
   );
 };
 
@@ -65,7 +68,7 @@ const filterVisibleDeep = (items: ISidebarChild[] | undefined, role?: IRole | un
 export const Sidebar = () => {
   const { t } = useTranslation();
   const role = usePermissionStore();
-  const { activeVendor } = useUser();
+  const { activeVendor, user } = useUser();
   // Re-render when niche visibility changes (settings save dispatches the event).
   const [hiddenTick, setHiddenTick] = useState(0);
   useEffect(() => {
@@ -101,6 +104,7 @@ export const Sidebar = () => {
           />
         ))}
       </div>
+      <UserButton />
     </div>
   );
 };
@@ -224,13 +228,11 @@ const CollapsibleGroup = ({
         ["border-t border-slate-200 dark:border-slate-700 pt-2 mt-1"]: divider,
       })}
     >
-      {/* Group header */}
       <div
         className={cn(
-          "py-1 transition-all rounded-md flex gap-2 justify-between cursor-pointer pr-3 text-indigo-950 hover:text-primary dark:hover:text-slate-800/80 dark:text-slate-200",
+          "py-1 items-center transition-all rounded-md flex gap-2 justify-between cursor-pointer pr-3 text-indigo-950 hover:text-primary dark:hover:text-slate-800/80 dark:text-slate-200",
           {
             ["text-primary dark:text-slate-200"]: containsActive,
-            // Nested headers align their icon with sibling link icons
             ["ml-6"]: level > 0,
           },
         )}
@@ -241,38 +243,37 @@ const CollapsibleGroup = ({
           if (e.key === "Enter" || e.key === " ") setIsExpand(!isExpand);
         }}
       >
-        <div className="flex gap-2 px-2 items-center">
-          <Icon
+        <div className="flex gap-2 px-2 py-1 items-center">
+          {/* <Icon
             name={iconName || "chevron-down"}
             className={cn("min-w-7 px-[5px] dark:text-slate-200", containsActive ? "text-primary" : undefined)}
-          />
+          /> */}
           <div className="flex-shrink-0 text-sm">{label}</div>
         </div>
         <m.div
-          className={cn("w-5")}
+          className="w-4 h-4"
           animate={{
             rotate: isExpand ? 180 : 0,
           }}
         >
-          <Icon name="chevron-down" />
+          <Icon name="chevron-down" fontSize={16} />
         </m.div>
       </div>
 
       {/* Children: grid-rows 0fr -> 1fr animates collapse without measuring */}
       <div
-        className="grid transition-all duration-150 ease-in"
+        className="grid transition-all duration-150 ease-in bg-slate-100 rounded-sm"
         style={{
           gridTemplateRows: isExpand ? "1fr" : "0fr",
           opacity: isExpand ? 1 : 0,
         }}
       >
         <div className="overflow-hidden min-h-0">
-          {/* Every level indents by pl-10 and draws its own guide line */}
-          <div className="relative flex flex-col gap-0.5 py-1 pl-10">
-            <div
+          <div className="relative flex flex-col p-2 gap-2">
+            {/* <div
               className="absolute w-[1px] bg-primary dark:bg-slate-200 rounded-full left-7 mask-linear-[180deg,transparent_5%,black,transparent_95%]"
               style={{ height: `calc(100% - ${ROW_HEIGHT / 2}px)` }}
-            />
+            /> */}
             {children}
           </div>
         </div>
@@ -286,10 +287,10 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: Omit
     <Link
       to={to || "#"}
       className={cn("py-1 hover:bg-white dark:hover:bg-slate-800/80 transition-all rounded-md relative", className, {
-        ["bg-white dark:bg-slate-800/80 shadow-lg"]: isActive,
+        ["bg-white dark:bg-slate-800/80 shadow"]: isActive,
       })}
     >
-      {isChildren && (
+      {/* {isChildren && (
         <div
           className={cn(
             "w-1 h-1 ring-[2px] ring-primary dark:ring-slate-200 rounded-full absolute -left-[11px] top-1/2 -translate-x-1/2 -translate-y-1/2",
@@ -299,12 +300,13 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: Omit
             },
           )}
         />
-      )}
+      )} */}
       <div className="flex gap-2 relative py-1 px-4">
         {iconName && (
           <Icon
             name={iconName}
-            className={cn("min-w-7 px-[5px] text-indigo-950 dark:text-slate-200", {
+            fontSize={16}
+            className={cn("text-indigo-950 dark:text-slate-200", {
               ["text-primary dark:text-slate-200"]: isActive,
             })}
           />
@@ -323,5 +325,61 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: Omit
         />
       </div>
     </Link>
+  );
+};
+
+const UserButton = () => {
+  const { t } = useTranslation();
+  const { user } = useUser();
+  const { submit } = useSubmitPromise();
+  const perm = usePermissionStore();
+
+  const handleLogOut = async () => {
+    useUser.getState().reset();
+    // await AuthService.logout();
+    submit({}, { method: "POST", action: "/api/auth" });
+  };
+  return (
+    <TMDropdown
+      placement="right"
+      variant="ghost"
+      items={[
+        {
+          label: (
+            <div className="flex gap-2 items-center text-sm">
+              <Icon name="user" className="w-4 h-4" />
+              <span>{t("header.profile")}</span>
+            </div>
+          ),
+          onClick: handleLogOut,
+        },
+        {
+          label: (
+            <div className="flex gap-2 items-center text-sm">
+              <Icon name="log-out" className="w-4 h-4" />
+              <span>{t("header.logout")}</span>
+            </div>
+          ),
+          onClick: handleLogOut,
+        },
+      ]}
+      className="w-full"
+      unstyled
+    >
+      {({ toggle }) => (
+        <div
+          className="flex gap-1 h-full items-center p-2 w-full border-t border-slate-200 cursor-pointer"
+          onClick={toggle}
+        >
+          <span className="w-8 bg-slate-200 rounded-full p-2 ">
+            <Icon name="user" fontSize={16} />
+          </span>
+          <div className="flex flex-col items-end text-right cursor-pointer text-slate-400 flex-1">
+            <span className="text-sm text-slate-600">{user?.fullName || user?.email}</span>
+            <span className="text-xs/3 font-light text-slate-400">{perm.name}</span>
+          </div>
+        </div>
+      )}
+    </TMDropdown>
   );
 };

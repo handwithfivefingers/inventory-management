@@ -1,6 +1,7 @@
 import { WarehouseService } from '#/services/warehouse'
 import { IRequestHandler, IRequestLocal } from '#/types/common'
 import { getPagination } from '#/utils'
+import { getRequestedVendorId } from '#/utils/tenant'
 export class WarehouseController {
   async transferStock(...arg: IRequestHandler) {
     const [req, res, next] = arg
@@ -19,8 +20,9 @@ export class WarehouseController {
     try {
       // Tenant guard: a warehouse created without a vendorId would be invisible
       // to vendor-scoped queries (transfers would 403 on it).
+      // Active vendor comes from the `x-vendor` header (legacy query/body fallback).
       const body: any = { ...(req.body || {}) }
-      if (!body.vendorId) body.vendorId = (req.query as any)?.vendorId
+      if (!body.vendorId) body.vendorId = getRequestedVendorId(req as IRequestLocal)
       const resp = await new WarehouseService().create(body)
       res.status(200).json({
         data: resp
@@ -33,8 +35,9 @@ export class WarehouseController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const { offset, limit, vendorId } = getPagination(req.query)
-      const { count, rows } = await new WarehouseService().getWarehouse({ offset, limit, vendorId })
+      const { offset, limit } = getPagination(req.query)
+      const vendorId = getRequestedVendorId(req as IRequestLocal)
+      const { count, rows } = await new WarehouseService().getWarehouse({ offset, limit, vendorId: vendorId as string })
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {
@@ -44,7 +47,7 @@ export class WarehouseController {
   async getWarehouseById(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const { vendorId } = req.query
+      const vendorId = getRequestedVendorId(req as IRequestLocal)
       const id = req.params.id as string
       if (!id) throw new Error('id is required')
       console.log('vendorId', vendorId)
@@ -62,7 +65,7 @@ export class WarehouseController {
     try {
       const id = req.params.id as string
       if (!id) throw new Error('id is required')
-      const vendorId = (req.query.vendorId as string) || (req.body.vendorId as string) || (req as any).vendorId
+      const vendorId = getRequestedVendorId(req as IRequestLocal) || (req as any).vendorId
       const { name, email, address, phone, isMain } = req.body
       const resp = await new WarehouseService().update({
         id,

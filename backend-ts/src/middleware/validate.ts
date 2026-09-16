@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
-import { ContextRunner, param, query, ValidationChain, validationResult } from 'express-validator'
+import { ContextRunner, header, param, query, ValidationChain, validationResult } from 'express-validator'
 
 /**
  * Runs a list of express-validator chains and returns 400 `{ errors }`
@@ -35,11 +35,23 @@ const paginationQuery: ValidationChain[] = [
   query('offset').optional().isInt({ min: 0 }).withMessage('offset must be an integer >= 0').toInt()
 ]
 
-/** Optional `?vendorId=` / `?warehouseId=` integer query filters used across modules. */
+/** Optional `?vendorId=` / `?warehouseId=` integer query filters (legacy; prefer headers). */
 const vendorIdQuery = (field = 'vendorId') =>
   query(field).optional().isInt({ min: 1 }).withMessage(`${field} must be a positive integer`).toInt()
+
+/**
+ * Tenant headers carrying the active workspace:
+ * - `x-vendor`: active vendor id (required by `vendorGuard`, optional here so
+ *   platform admins without a header still pass validation).
+ * - `x-warehouse`: active warehouse id (optional; required by stock-scoped reads).
+ */
+const vendorHeader = () =>
+  header('x-vendor').optional().isInt({ min: 1 }).withMessage('x-vendor must be a positive integer').toInt()
+
+const warehouseHeader = () =>
+  header('x-warehouse').optional().isInt({ min: 1 }).withMessage('x-warehouse must be a positive integer').toInt()
 
 const optionalIsoDateQuery = (field: string) =>
   query(field).optional().isISO8601().withMessage(`${field} must be an ISO8601 date`)
 
-export { idParam, optionalIsoDateQuery, paginationQuery, validate, vendorIdQuery }
+export { header, idParam, optionalIsoDateQuery, paginationQuery, validate, vendorHeader, vendorIdQuery, warehouseHeader }

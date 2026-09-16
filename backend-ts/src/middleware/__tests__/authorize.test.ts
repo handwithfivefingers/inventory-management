@@ -1,17 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Mock the database layer before importing the middleware.
-vi.mock('#/database', () => ({
-  default: {
-    user: {
-      findOne: vi.fn()
-    },
-    role: {},
-    permission: {}
-  }
+// The middleware loads permissions via the shared cached auth context,
+// falling back to `req.user.roles` when the caller already attached them.
+vi.mock('#/services/authenticate/userAuth', () => ({
+  loadUserAuthContext: vi.fn()
 }))
 
-import database from '#/database'
+import { loadUserAuthContext } from '#/services/authenticate/userAuth'
 import authorize from '#/middleware/authorize'
 
 const makeRes = () => {
@@ -27,11 +22,11 @@ const makeRes = () => {
   return res
 }
 
-const makeReq = (method: string, path = '/', locals: any = { id: 1, email: 'a@b.c' }) =>
-  ({ method, path, locals } as any)
+const makeReq = (method: string, path = '/', user: any = { id: 1, email: 'a@b.c' }) =>
+  ({ method, path, user }) as any
 
 const userWithRoles = (roles: any[]) => {
-  ;(database.user.findOne as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1, roles })
+  ;(loadUserAuthContext as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 1, roles })
 }
 
 describe('authorize middleware', () => {
@@ -71,14 +66,14 @@ describe('authorize middleware', () => {
     expect(next).toHaveBeenCalledTimes(1)
   })
 
-  it('returns 401 without an authenticated user in locals', async () => {
-    await authorize('order')(makeReq('GET', '/', {}), res, next)
+  it('returns 401 without an authenticated user', async () => {
+    await authorize('order')(makeReq('GET', '/', null), res, next)
     expect(res.status).toHaveBeenCalledWith(401)
-    expect(database.user.findOne).not.toHaveBeenCalled()
+    expect(loadUserAuthContext).not.toHaveBeenCalled()
   })
 
   it('returns 401 when the user no longer exists', async () => {
-    ;(database.user.findOne as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+    ;(loadUserAuthContext as ReturnType<typeof vi.fn>).mockResolvedValue(null)
     await authorize('order')(makeReq('GET', '/'), res, next)
     expect(res.status).toHaveBeenCalledWith(401)
   })
@@ -114,7 +109,7 @@ describe('authorize middleware', () => {
   })
 
   it('propagates unexpected errors to next(error)', async () => {
-    ;(database.user.findOne as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('db down'))
+    ;(loadUserAuthContext as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('db down'))
     await authorize('order')(makeReq('GET', '/'), res, next)
     expect(next).toHaveBeenCalledWith(expect.any(Error))
   })

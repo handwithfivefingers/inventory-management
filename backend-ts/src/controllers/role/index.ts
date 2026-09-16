@@ -1,4 +1,5 @@
 import { RoleService } from '#/services/role'
+import { getRequestedVendorId } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 
 class RoleController {
@@ -15,8 +16,8 @@ class RoleController {
 
   async get(req: Request, res: Response, next: NextFunction) {
     try {
-      // Get vendorId from query or user context
-      const { vendorId } = req.query
+      // Active vendor comes from the `x-vendor` header (legacy query fallback).
+      const vendorId = getRequestedVendorId(req as any)
       const userVendorId = (req as any).user?.vendorId
 
       const resp = await new RoleService().getRoles(vendorId ? Number(vendorId) : userVendorId)
@@ -32,7 +33,7 @@ class RoleController {
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params
-      const { vendorId } = req.query
+      const vendorId = getRequestedVendorId(req as any)
       const resp = await new RoleService().getRoleById({ id: Number(id), vendorId: Number(vendorId) })
       return res.status(200).json({
         data: resp
@@ -56,7 +57,8 @@ class RoleController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const resp = await new RoleService().delete(req, res, next)
+      const { id } = req.params
+      const resp = await new RoleService().delete({ id: Number(id) })
       return res.status(200).json({
         data: resp
       })
@@ -67,7 +69,12 @@ class RoleController {
 
   async assignToUser(req: Request, res: Response, next: NextFunction) {
     try {
-      const resp = await new RoleService().assignToUser(req, res, next)
+      const { userId, roleId, vendorId } = req.body
+      const resp = await new RoleService().assignToUser({
+        userId: Number(userId),
+        roleId: Number(roleId),
+        vendorId: vendorId != null ? Number(vendorId) : undefined
+      })
       return res.status(200).json({
         data: resp
       })

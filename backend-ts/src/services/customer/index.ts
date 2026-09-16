@@ -3,6 +3,8 @@ import { IRequestLocal } from '#/types/common'
 import { ICustomerStatic } from '#/types/customer'
 import { SettingService } from '../setting'
 import { applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
+import { assertVendorAccess, getRequestedVendorId, getVendorScope } from '#/utils/tenant'
+import { Op } from 'sequelize'
 import { Sequelize } from 'sequelize'
 
 export class CustomerService {
@@ -13,17 +15,28 @@ export class CustomerService {
    * Get all customers with pagination and filtering
    */
   async getCustomers(req: IRequestLocal) {
-    const { page = 1, limit = 10, search, vendorId } = req.query
+    const { page = 1, limit = 10, search } = req.query
     const offset = (Number(page) - 1) * Number(limit)
 
+    // Active vendor: `x-vendor` header first, then legacy query/body.
+    // Non-numeric legacy values (e.g. tests) pass through untouched;
+    // numeric values are scope-checked when a scope exists.
+    const requestedVendorId = getRequestedVendorId(req) ?? (req.query as any)?.vendorId
+    const scope = getVendorScope(req)
     const where: any = {}
-
-    // Filter by vendor
-    if (vendorId) {
-      where.vendorId = vendorId
-    } else if (req.user?.vendorId) {
-      // Auto-filter by user's vendor if not specified
-      where.vendorId = req.user.vendorId
+    if (requestedVendorId != null && String(requestedVendorId).trim() !== '') {
+      const numeric = Number(requestedVendorId)
+      if (scope !== null && Number.isFinite(numeric)) {
+        assertVendorAccess(scope, numeric, 'Unauthorized vendor filter')
+        where.vendorId = numeric
+      } else {
+        where.vendorId = requestedVendorId
+      }
+    } else if (scope !== null && scope.length > 0) {
+      where.vendorId = { [Op.in]: scope }
+    } else if ((req as any).user?.vendorId) {
+      // Auto-filter by user's primary vendor if not specified
+      where.vendorId = (req as any).user.vendorId
     }
 
     // Search by name, phone, or email
@@ -86,18 +99,22 @@ export class CustomerService {
     const t = await this.sequelize.transaction()
 
     try {
-      const { name, phone, email, address, taxCode, vendorId } = req.body
+      const { name, phone, email, address, taxCode } = req.body
 
       // Validate required fields
       if (!name) {
         throw new Error('Customer name is required')
       }
 
-      // Determine vendorId
-      const finalVendorId = vendorId || req.user?.vendorId
+      // Active vendor: header first, then body, then scope/user fallback.
+      const requestedVendorId = getRequestedVendorId(req) ?? (req.body as any)?.vendorId
+      const scope = getVendorScope(req)
+      const fallback = scope && scope.length > 0 ? scope[0] : (req as any)?.user?.vendorId
+      const finalVendorId = requestedVendorId ?? fallback
       if (!finalVendorId) {
         throw new Error('vendorId is required')
       }
+      assertVendorAccess(scope, Number(finalVendorId), 'Unauthorized to create customer for this vendor')
 
       // Auto-generate the customer code from the vendor prefix/suffix settings
       let code = req.body?.code
@@ -149,8 +166,17 @@ export class CustomerService {
         throw new Error('Customer not found')
       }
 
-      // Check vendor permission
-      if (req.user?.vendorId && customer.vendorId !== req.user.vendorId) {
+      // Check vendor permission: scope-aware, plus legacy single `user.vendorId`
+      // shape used by older callers/tests (scope is null there).
+      const updateScope = getVendorScope(req)
+      assertVendorAccess(updateScope, (customer as any).vendorId, 'Unauthorized to update this customer')
+      const legacyVendorId = (req as any)?.user?.vendorId
+      if (
+        updateScope === null &&
+        legacyVendorId != null &&
+        String(legacyVendorId).trim() !== '' &&
+        String((customer as any).vendorId) !== String(legacyVendorId)
+      ) {
         throw new Error('Unauthorized to update this customer')
       }
 
@@ -189,8 +215,17 @@ export class CustomerService {
         throw new Error('Customer not found')
       }
 
-      // Check vendor permission
-      if (req.user?.vendorId && customer.vendorId !== req.user.vendorId) {
+      // Check vendor permission: scope-aware, plus legacy single `user.vendorId`
+      // shape used by older callers/tests (scope is null there).
+      const deleteScope = getVendorScope(req)
+      assertVendorAccess(deleteScope, (customer as any).vendorId, 'Unauthorized to delete this customer')
+      const legacyDeleteVendorId = (req as any)?.user?.vendorId
+      if (
+        deleteScope === null &&
+        legacyDeleteVendorId != null &&
+        String(legacyDeleteVendorId).trim() !== '' &&
+        String((customer as any).vendorId) !== String(legacyDeleteVendorId)
+      ) {
         throw new Error('Unauthorized to delete this customer')
       }
 
@@ -216,5 +251,4 @@ export class CustomerService {
   }
 }
 
-// Import Op at the top
-import { Op } from 'sequelize'
+// Op is imported at the top for search filters

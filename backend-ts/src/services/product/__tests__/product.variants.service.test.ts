@@ -56,6 +56,13 @@ vi.mock("#/database/models/inventory", () => ({ default: db.inventory, Inventory
 vi.mock("#/database/models/category", () => ({ default: db.category, Category: db.category }));
 vi.mock("#/database/models/tag", () => ({ default: db.tag, Tag: db.tag }));
 vi.mock("#/database/models/units", () => ({ default: db.units, Unit: db.units }));
+vi.mock("#/database/models/setting", () => ({ default: db.setting, Setting: db.setting }));
+// Bypass Redis: run cache loaders inline so results stay deterministic.
+vi.mock("#/utils/entity-cache", () => ({
+  getCachedEntity: vi.fn((_model: string, _id: unknown, loader: () => Promise<unknown>) => loader()),
+  setCachedEntity: vi.fn(),
+  evictCachedEntity: vi.fn(),
+}));
 import database from "#/database";
 import { ProductService } from "../index";
 
@@ -71,6 +78,7 @@ const makeInstanceFactory = () => {
       dataValues: { id: seq, ...dataValues },
       setCategories: vi.fn(),
       setTags: vi.fn(),
+      $set: vi.fn().mockResolvedValue(undefined),
       setAttributeValues: vi.fn().mockResolvedValue(undefined),
       ...extra,
     };
@@ -83,9 +91,17 @@ const makeInstanceFactory = () => {
 
 describe("ProductService.create with variants", () => {
   let service: ProductService;
+  // Registry of materialized attribute values (by auto-assigned id) so the
+  // vendor-validation reads in create() echo realistic rows.
+  const valueById = new Map<number, any>();
+  const trackBuiltValue = (row: any) => {
+    valueById.set(Number(row.id), row);
+    return row;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    valueById.clear();
     service = new ProductService();
     database.sequelize.transaction.mockResolvedValue(makeTx());
     database.setting.findOne.mockResolvedValue(null);
@@ -93,6 +109,22 @@ describe("ProductService.create with variants", () => {
     database.product.findOne.mockResolvedValue(null);
     // S1: tenant checks resolve the warehouse (platform-admin scope here).
     database.warehouse.findByPk.mockResolvedValue({ vendorId: 1 });
+    // Matrix materialization always creates fresh rows in these tests.
+    database.productAttribute.findOne.mockResolvedValue(null);
+    database.productAttributeValue.findOne.mockResolvedValue(null);
+    database.productAttributeValue.findAll.mockImplementation(async (opts: any) => {
+      const raw = opts?.where?.id;
+      const ids = (Array.isArray(raw) ? raw : raw !== undefined ? [raw] : []).map(Number);
+      return ids
+        .map((id: number) => valueById.get(id))
+        .filter(Boolean)
+        .map((row: any) => ({
+          id: row.id,
+          attributeId: row.dataValues.attributeId,
+          value: row.dataValues.value,
+          attribute: { vendorId: 1 },
+        }));
+    });
   });
 
   const makeProduct = () => {
@@ -107,8 +139,8 @@ describe("ProductService.create with variants", () => {
     const make = makeInstanceFactory();
     // Attribute rows: Color(id after product) then Size
     database.productAttribute.build.mockImplementation(({ name }: any) => make({ name }));
-    database.productAttributeValue.build.mockImplementation(({ value }: any) =>
-      make({ value }),
+    database.productAttributeValue.build.mockImplementation((data: any) =>
+      trackBuiltValue(make({ ...data })),
     );
     database.productVariant.build.mockImplementation(({ skuCode }: any) =>
       make({ skuCode }, {
@@ -131,6 +163,7 @@ describe("ProductService.create with variants", () => {
         ],
         variants: [],
       },
+      user: { vendorIds: [1] },
     };
 
     const result = await service.create(req);
@@ -153,8 +186,8 @@ describe("ProductService.create with variants", () => {
     makeProduct();
     const make = makeInstanceFactory();
     database.productAttribute.build.mockImplementation(({ name }: any) => make({ name }));
-    database.productAttributeValue.build.mockImplementation(({ value }: any) =>
-      make({ value }),
+    database.productAttributeValue.build.mockImplementation((data: any) =>
+      trackBuiltValue(make({ ...data })),
     );
     database.productVariant.build.mockImplementation(({ skuCode }: any) =>
       make({ skuCode }, {
@@ -174,6 +207,7 @@ describe("ProductService.create with variants", () => {
         attributes: [{ name: "Color", values: ["Red", "Blue"] }],
         variants: [{ optionValues: { Color: "Red" }, quantity: 4, salePrice: 120 }],
       },
+      user: { vendorIds: [1] },
     } as any);
 
     // Only the overridden combination gets opening stock
@@ -195,8 +229,8 @@ describe("ProductService.create with variants", () => {
     makeProduct();
     const make = makeInstanceFactory();
     database.productAttribute.build.mockImplementation(({ name }: any) => make({ name }));
-    database.productAttributeValue.build.mockImplementation(({ value }: any) =>
-      make({ value }),
+    database.productAttributeValue.build.mockImplementation((data: any) =>
+      trackBuiltValue(make({ ...data })),
     );
     database.productVariant.build.mockImplementation(({ skuCode }: any) =>
       make({ skuCode }, {
@@ -226,6 +260,7 @@ describe("ProductService.create with variants", () => {
           },
         ],
       },
+      user: { vendorIds: [1] },
     } as any);
 
     expect(result.variants).toHaveLength(1);
@@ -253,6 +288,7 @@ describe("ProductService.create with variants", () => {
 
     const result = await service.create({
       body: { warehouseId: 1, quantity: 7, name: "Cola", code: "C1" },
+      user: { vendorIds: [1] },
     } as any);
 
     expect(result.variants).toBeUndefined();
@@ -280,8 +316,9 @@ describe("ProductService.create with variants", () => {
           code: "A1",
           attributes: [{ name: "Color", values: ["Red"] }],
         },
+        user: { vendorIds: [1] },
       } as any),
-    ).rejects.toThrow("Product creation failed");
+    ).rejects.toThrow("db down");
     expect(tx.rollback).toHaveBeenCalled();
     expect(tx.commit).not.toHaveBeenCalled();
   });
@@ -296,7 +333,8 @@ describe("ProductService.create validation (shared with variants flow)", () => {
     const service = new ProductService();
     await expect(
       service.create({
-        body: { quantity: 5, attributes: [{ name: "Color", values: ["Red"] }] },
+        body: { vendorId: 1, quantity: 5, attributes: [{ name: "Color", values: ["Red"] }] },
+        user: { vendorIds: [1] },
       } as any),
     ).rejects.toThrow("warehouseId is required");
   });

@@ -13,6 +13,7 @@ import { NumberStepper } from "../number-stepper";
 import { TextInput } from "../text-input";
 import { SelectInput } from "../select-input";
 import { useSubmitPromise } from "~/hooks";
+import { ProductSchemaType } from "~/constants/schema/product";
 
 export type AttributeValueOption = Option;
 
@@ -78,7 +79,7 @@ export const VariantEditor = () => {
   const { settings } = useOutletContext<{ settings: IVendorSettings }>();
   const moneyStep = Number(settings?.moneyStep) > 0 ? Number(settings.moneyStep) : 1000;
   const { t } = useTranslation();
-  const form = useFormContext();
+  const form = useFormContext<ProductSchemaType>();
 
   const {
     fields: variantFields,
@@ -130,7 +131,18 @@ export const VariantEditor = () => {
     form.setValue("variants", [...current, ...fresh] as any);
   }, [JSON.stringify(usableAttrs)]);
 
-  const addNewVariant = () => append({ options: {}, quantity: "", isNegative: false });
+  const addNewVariant = () => {
+    const base = form.getValues();
+    append({
+      options: {},
+      quantity: base.quantity,
+      isNegative: base.isNegative,
+      costPrice: base?.costPrice,
+      regularPrice: base?.regularPrice,
+      salePrice: base?.salePrice,
+      wholeSalePrice: base?.wholeSalePrice,
+    });
+  };
 
   // helper to determine if selecting candidateValue for attrName at rowIndex would duplicate another row
   const isOptionDisabled = (attrName: string, candidateValue: string, rowIndex: number) => {
@@ -241,16 +253,16 @@ export const VariantEditor = () => {
         ) : key === "regularPrice" ? (
           <Label required>{t("product.regularPrice")}</Label>
         ) : key === "salePrice" ? (
-          <Label required>{t("product.salePrice")}</Label>
+          <Label>{t("product.salePrice")}</Label>
         ) : (
-          <Label required>{t("product.wholeSalePrice")}</Label>
+          <Label>{t("product.wholeSalePrice")}</Label>
         ),
       dataIndex: key,
       render: (r: any) => (
         <NumberStepper
           value={form.watch(`variants.${r.index}.${key}`)}
           step={moneyStep}
-          onValueChange={(v) => form.setValue(`variants.${r.index}.${key}`, v.value as any)}
+          onValueChange={(v) => form.setValue(`variants.${r.index}.${key}`, v.float as any)}
         />
       ),
       className: "w-60",
@@ -320,6 +332,7 @@ const AttributeVariant = () => {
   const createAttrFetcher = useFetcher();
   const { submit, isLoading } = useSubmitPromise();
   const revalidator = useRevalidator();
+  const wasCreatingValue = useRef(false);
 
   // Refetch the vendor attribute catalog (suggestedAttributes from the route
   // loader) once a newly created attribute/value has been persisted, so the
@@ -336,7 +349,6 @@ const AttributeVariant = () => {
     }
   }, [createAttrFetcher.state, createAttrFetcher.data, revalidator.revalidate]);
 
-  const wasCreatingValue = useRef(false);
   useEffect(() => {
     if (isLoading) {
       wasCreatingValue.current = true;
@@ -531,7 +543,10 @@ const AttributeVariant = () => {
                       // Optimistically merge the new value into the local
                       // suggestion map so it stays visible even before the
                       // loader revalidation lands.
-                      globalMap[key] = [...(globalMap[key] || []), { label: createOption.label ?? createOption.value, value: createOption.value }];
+                      globalMap[key] = [
+                        ...(globalMap[key] || []),
+                        { label: createOption.label ?? createOption.value, value: createOption.value },
+                      ];
                       submit(
                         { values: createOption.value, intent: "createValue" },
                         { method: "POST", action: `/products/attributes/${attr.id}` },

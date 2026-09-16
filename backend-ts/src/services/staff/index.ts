@@ -2,7 +2,8 @@ import database from '#/database'
 import { ApiError } from '#/response'
 import { getPagination } from '#/utils'
 import { evictCachedEntity } from '#/utils/entity-cache'
-import { nextSequence } from '#/utils/sequence'
+import { isDuplicateEntryError, nextSequence } from '#/utils/sequence'
+import { getRequestedVendorId, getVendorScope, vendorWhere } from '#/utils/tenant'
 import { Op, Sequelize } from 'sequelize'
 import { invalidateUserAuthCache, invalidateUsersByVendorId } from '#/services/authenticate/userAuth'
 
@@ -33,12 +34,31 @@ function normalizeVendorIds(input: unknown): number[] | null {
   return ids
 }
 
+/** Split "Nguyen Van A" -> { firstName: 'Nguyen Van', lastName: 'A' }. */
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const parts = String(fullName ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length <= 1) return { firstName: parts[0] ?? '', lastName: '' }
+  return { firstName: parts.slice(0, -1).join(' '), lastName: parts[parts.length - 1] }
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const isValidEmail = (email: unknown): boolean => typeof email === 'string' && EMAIL_PATTERN.test(email.trim())
+
 interface StaffBodyParams {
   vendorId?: number
-  roleId: number
-  email: string
-  status: 'active' | 'inactive'
-  gender: 'male' | 'female' | 'other'
+  vendorIds?: number[]
+  roleId?: number
+  email?: string
+  accountEmail?: string
+  createAccount?: boolean
+  userId?: number
+  warehouseId?: number
+  status?: 'active' | 'inactive'
+  gender?: 'male' | 'female' | 'other'
   password?: string
   code?: string
   fullName?: string
@@ -51,10 +71,11 @@ export class StaffService {
   sequelize: Sequelize = database.sequelize
   async getStaffs(req: any) {
     try {
-      const { offset, limit, vendorId: paginationVendorId } = getPagination(req.query as any)
-      const where: any = {}
-      const vendorId = (req.query as any).vendorId ?? paginationVendorId
-      if (vendorId) where.vendorId = Number(vendorId)
+      const { offset, limit } = getPagination(req.query as any)
+      const requestedVendorId = getRequestedVendorId(req)
+      const where: any = {
+        ...vendorWhere(getVendorScope(req), requestedVendorId ?? undefined)
+      }
       if (req.query.status) where.status = req.query.status
       if (req.query.gender) where.gender = req.query.gender
       if (req.query.roleId) where.roleId = Number(req.query.roleId)
@@ -121,80 +142,159 @@ export class StaffService {
             attributes: ['name', 'method'],
             through: { attributes: [] }
           } as any
+        },
+        {
+          model: database.vendor,
+          attributes: {
+            exclude: ['createdAt', 'updatedAt']
+          }
         }
-        // {
-        //   model: database.vendor,
-        //   attributes: {
-        //     exclude: ['createdAt', 'updatedAt']
-        //   }
-        // }
       ]
 
       const row = await database.staff.findByPk(id, { include })
       if (!row) throw ApiError.from(new Error('Staff not found'), 404)
-      return row.toJSON()
+      return row
     } catch (error) {
       if ((error as any)?.statusCode === 404) throw error
       throw error
     }
   }
 
+  /** True when the payload asks for a login account (explicit flag or password/accountEmail present). */
+  private wantsLoginAccount(body: StaffBodyParams): boolean {
+    if ((body as any)?.userId != null) return false
+    if ((body as any)?.createAccount === true) return true
+    if ((body as any)?.createAccount === false) return (body as any)?.password != null && (body as any)?.password !== ''
+    return (body as any)?.password != null && (body as any)?.password !== ''
+  }
+
+  /** Validate provisioning input; returns the normalized account email. */
+  private validateAccountInput(body: StaffBodyParams): string {
+    const email = ((body as any)?.accountEmail ?? (body as any)?.email) as string | undefined
+    if (email == null || String(email).trim() === '') {
+      throw new Error('Email is required to create login account')
+    }
+    if (!isValidEmail(email)) throw new Error('Invalid email format')
+    const password = (body as any)?.password
+    if (password == null || String(password).length < 6) {
+      throw new Error('Password must be at least 6 characters')
+    }
+    return String(email).trim()
+  }
+
+  /** Resolve the role for a provisioned account: explicit id wins, else the default Staff role. */
+  private async resolveAccountRoleId(body: StaffBodyParams, t: any): Promise<number> {
+    const explicit = (body as any)?.roleId
+    if (explicit != null && String(explicit).trim() !== '') {
+      const role = await database.role.findByPk(Number(explicit), { transaction: t })
+      if (!role) throw new Error('Role not found')
+      return Number((role as any).id ?? (role as any).get?.('id') ?? explicit)
+    }
+    const [rows] = (await this.sequelize.query(
+      `SELECT id FROM roles WHERE LOWER(name) = LOWER(:name) LIMIT 1`,
+      { replacements: { name: 'staff' }, transaction: t }
+    )) as any
+    const fallback = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+    const fallbackId = Number((fallback as any)?.id)
+    if (!Number.isFinite(fallbackId)) throw new Error('roleId is required')
+    return fallbackId
+  }
+
+  /** Provision the login user + role link; returns the created user. */
+  private async provisionLoginAccount(email: string, body: StaffBodyParams, roleId: number, t: any) {
+    const existing = await (database as any).user.findOne({ where: { email }, transaction: t })
+    if (existing) throw new Error('Email already in use')
+    const { firstName, lastName } = splitFullName(String((body as any)?.fullName ?? ''))
+    const user = await (database as any).user.create(
+      {
+        firstName,
+        lastName,
+        nickname: String((body as any)?.fullName ?? ''),
+        email,
+        password: (body as any)?.password
+      },
+      { transaction: t }
+    )
+    await (database as any).user_role.create(
+      { userId: Number((user as any).id ?? (user as any).get?.('id')), roleId },
+      { transaction: t }
+    )
+    return user
+  }
+
+  /** Next staff code (NV-XXXX) from the atomic counter. */
+  private async nextStaffCode(t: any): Promise<string> {
+    const lastStaff = await database.staff.findOne({
+      order: [['id', 'DESC']],
+      limit: 1,
+      transaction: t
+    })
+    const initial = Number((lastStaff as any)?.get?.('id') ?? (lastStaff as any)?.id ?? 0) + 1
+    const seq = await nextSequence('staff', null, { transaction: t, initial })
+    return `NV-${String(seq).padStart(4, '0')}`
+  }
+
+  /** Persist the staff row, retrying once when the unique code index trips. */
+  private async persistStaffWithRetry(payload: Record<string, any>, t: any) {
+    try {
+      return await database.staff.create(payload, { transaction: t })
+    } catch (error) {
+      if (!isDuplicateEntryError(error)) throw error
+      const retryPayload = { ...payload, code: await this.nextStaffCode(t) }
+      return await database.staff.create(retryPayload, { transaction: t })
+    }
+  }
+
   async create(body: StaffBodyParams) {
     const t = await this.sequelize.transaction()
     try {
-      const {
-        password,
-        email,
-        roleId,
-        vendorId,
-        phone,
-        gender = 'other',
-        salary,
-        hireDate = null,
-        status,
-        address,
-        fullName
-      } = body
-      if (!password || password?.length < 6) throw new Error('Password must be at least 6 characters')
-      if (!roleId) throw new Error('Role not selected')
-      const count = await database.user.count({ where: { email } })
-      if (count > 0) throw new Error('User already exists')
-      const lastStaff = await database.staff.findOne({
-        order: [['id', 'DESC']],
-        limit: 1,
-        transaction: t
-      })
-      const initial = Number((lastStaff as any)?.get?.('id') ?? (lastStaff as any)?.id ?? 0) + 1
-      const seq = await nextSequence('staff', null, { transaction: t, initial })
-      const code = `NV-${String(seq).padStart(4, '0')}`
+      const { fullName, vendorId } = body ?? {}
+      if (vendorId == null || String(vendorId).trim() === '') throw new Error('vendorId is required')
 
-      const _user = await database.user.create({ email, password, subscription: 'free' }, { transaction: t })
+      // Explicit user link: no provisioning, just attach the staff row.
+      const explicitUserId = (body as any)?.userId
+      if (explicitUserId != null) {
+        const code = await this.nextStaffCode(t)
+        const linked = await this.persistStaffWithRetry(
+          { fullName, vendorId: Number(vendorId), code, userId: Number(explicitUserId) },
+          t
+        )
+        await (t as any).commit?.()
+        return linked
+      }
 
-      const _staff = await database.staff.create(
-        {
-          code,
-          phone,
-          gender,
-          salary: Number(salary),
-          hireDate: hireDate ? new Date(hireDate) : undefined,
-          status,
-          address,
-          fullName: fullName || '',
-          userId: _user.id,
-          roleId: Number(roleId)
-          // vendorId: Number(vendorId)
-        },
-        { transaction: t }
-      )
+      let userId: number | undefined
+      let roleId: number | undefined
+      if (this.wantsLoginAccount(body)) {
+        const email = this.validateAccountInput(body)
+        roleId = await this.resolveAccountRoleId(body, t)
+        const user = await this.provisionLoginAccount(email, body, roleId, t)
+        userId = Number((user as any).id ?? (user as any).get?.('id'))
+        try {
+          await invalidateUserAuthCache(userId)
+        } catch {}
+      }
 
-      await _staff.$set('vendors', Number(vendorId), { transaction: t })
-      console.log(_staff)
+      const code = await this.nextStaffCode(t)
+      const payload: Record<string, any> = {
+        fullName,
+        vendorId: Number(vendorId),
+        code
+      }
+      for (const key of ['email', 'phone', 'gender', 'salary', 'hireDate', 'status', 'address'] as const) {
+        if ((body as any)?.[key] !== undefined) payload[key] = (body as any)[key]
+      }
+      if (userId != null) payload.userId = userId
+      if (roleId != null) payload.roleId = roleId
+
+      const staff = await this.persistStaffWithRetry(payload, t)
+      console.log(staff)
       await (t as any).commit?.()
       // Invalidate auth cache: new staff -> new vendor/role scope for the user
       try {
-        await invalidateUserAuthCache(Number(_user.id))
+        if (userId != null) await invalidateUserAuthCache(Number(userId))
       } catch {}
-      return _staff.toJSON()
+      return staff
     } catch (error) {
       await t.rollback()
       console.log('staff create error', error)
@@ -208,11 +308,6 @@ export class StaffService {
       // if ('fullName' in payload && (!payload.fullName || String(payload.fullName).trim() === '')) {
       //   throw new Error('fullName cannot be empty')
       // }
-
-      const staff = await database.staff.findByPk(id)
-      if (staff == null) {
-        throw new Error('Staff not found')
-      }
 
       if (payload.roleId !== undefined) {
         const r = Number(payload.roleId)
@@ -255,9 +350,8 @@ export class StaffService {
       if (nextVendorIds) {
         try {
           const staffRow: any = await database.staff.findByPk(id)
-          const target = staffRow ?? staff
-          if (target && typeof (target as any).$set === 'function') {
-            await (target as any).$set('vendors', nextVendorIds)
+          if (staffRow && typeof (staffRow as any).$set === 'function') {
+            await (staffRow as any).$set('vendors', nextVendorIds)
           } else {
             await database.sequelize.query(`DELETE FROM staff_vendor WHERE staffId = :id`, {
               replacements: { id }
@@ -269,18 +363,11 @@ export class StaffService {
         } catch (e) {
           console.log('staff vendor reassign error', e)
         }
-      }
-      // Invalidate auth cache for owner user (role/status/vendor changes affect permissions & vendor scope)
-      if (affectedRows || nextVendorIds) {
         try {
-          const userId = (staff as any).userId ?? (staff as any).get?.('userId')
-          if (userId) await invalidateUserAuthCache(Number(userId))
-          if (nextVendorIds) {
-            for (const vendorId of nextVendorIds) {
-              try {
-                await invalidateUsersByVendorId(Number(vendorId))
-              } catch {}
-            }
+          for (const vendorId of nextVendorIds) {
+            try {
+              await invalidateUsersByVendorId(Number(vendorId))
+            } catch {}
           }
         } catch {}
       }
@@ -292,46 +379,7 @@ export class StaffService {
 
   async remove(id: number) {
     try {
-      let staff = await database.staff.findByPk(id)
-      if (!staff) throw new Error('Staff not found')
-      const userIdToInvalidate = (staff as any).userId ?? (staff as any).get?.('userId')
-      if (staff && typeof staff.destroy === 'function' && database.sequelize.transaction) {
-        const t = await database.sequelize.transaction()
-        try {
-          if (staff.userId) {
-            try {
-              const otherCount = await (database.staff as any).count({
-                where: { userId: staff.userId, id: { [Op.ne]: id } },
-                transaction: t
-              })
-              if (otherCount === 0) {
-                await (database as any).user.destroy({ where: { id: staff.userId }, transaction: t })
-              }
-            } catch {}
-          }
-          await staff.destroy({ transaction: t })
-          await (t as any).commit?.()
-          try {
-            if (userIdToInvalidate) await invalidateUserAuthCache(Number(userIdToInvalidate))
-          } catch {}
-          // DB succeeded first -> evict `user:<id>` to avoid stale reads.
-          try {
-            if (userIdToInvalidate) await evictCachedEntity('user', Number(userIdToInvalidate))
-          } catch {}
-          return { message: 'Delete successfully' } as any
-        } catch (e) {
-          await (t as any).rollback?.()
-          throw e
-        }
-      }
       const result = await (database.staff as any).destroy({ where: { id } })
-      try {
-        if (userIdToInvalidate) await invalidateUserAuthCache(Number(userIdToInvalidate))
-      } catch {}
-      // DB succeeded first -> evict `user:<id>` to avoid stale reads.
-      try {
-        if (userIdToInvalidate) await evictCachedEntity('user', Number(userIdToInvalidate))
-      } catch {}
       return result
     } catch (error) {
       throw error

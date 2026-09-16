@@ -1,4 +1,5 @@
 import StaffService from '#/services/staff'
+import { getRequestedVendorId } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 
 export default class StaffController {
@@ -23,8 +24,8 @@ export default class StaffController {
   }
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const { vendorId } = req.query
-      const resp = await new StaffService().create({ vendorId, ...req.body })
+      const vendorId = getRequestedVendorId(req as any) ?? (req.body as any)?.vendorId
+      const resp = await new StaffService().create({ ...req.body, vendorId })
       res.status(200).json({ data: resp })
       return
     } catch (error) {

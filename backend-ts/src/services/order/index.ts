@@ -18,6 +18,7 @@ import { ApiError } from '#/response'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductAttribute from '#/database/models/productAttribute'
 import { InvoiceService } from '../invoice'
+import { evictCachedEntity } from '#/utils/entity-cache'
 
 type OrderChannel = 'POS' | 'WHOLESALE' | 'ONLINE'
 
@@ -135,8 +136,6 @@ export default class OrderService {
     /** Multi-tenant scope from auth middleware (null = platform admin). */
     vendorScope: TVendorScope = null
   ) {
-    console.log('vendorScope', vendorScope)
-    console.log('vendorIdInput', vendorIdInput)
     assertVendorAccess(vendorScope, Number(vendorIdInput), 'Unauthorized to create orders for this vendor')
 
     const orderType = this.resolveOrderType(providerId, requestedType)
@@ -778,7 +777,7 @@ export default class OrderService {
     variantNotFoundMessage: string
   }): Promise<void> {
     const { productId, variantId, quantity, operator, transaction, notFoundMessage, variantNotFoundMessage } = params
-    const productResult: any = await (Product as any)[operator]('sold', {
+    const productResult = await Product[operator]('sold', {
       by: quantity,
       where: { id: productId },
       transaction
@@ -786,13 +785,14 @@ export default class OrderService {
     if (!this.hasAffectedSoldRows(productResult)) throw new Error(notFoundMessage)
 
     if (variantId != null) {
-      const variantResult: any = await (ProductVariant as any)[operator]('sold', {
+      const variantResult = await ProductVariant[operator]('sold', {
         by: quantity,
         where: { id: variantId },
         transaction
       })
       if (!this.hasAffectedSoldRows(variantResult)) throw new Error(variantNotFoundMessage)
     }
+    await evictCachedEntity('product', productId)
   }
 
   private hasAffectedSoldRows(rawResult: any): boolean {

@@ -2,10 +2,58 @@ import database from '#/database'
 import { IFinancialRecordStatic } from '#/types/financialRecord'
 import { IOrderStatic } from '#/types/order'
 import { ITransferStatic } from '#/types/transfer'
-import { getPagination } from '#/utils'
 import { assertWarehouseAccess } from '#/utils/tenant'
 import type { TVendorScope } from '#/utils/tenant'
 import { FindAttributeOptions, Op, Sequelize } from 'sequelize'
+
+export interface IFinancialListQuery {
+  limit?: number
+  offset?: number
+  warehouseId?: string | number
+}
+
+export interface IVoucherListQuery extends IFinancialListQuery {
+  type?: string
+  category?: string
+  from?: string
+  to?: string
+}
+
+/** Build the paginated transfer query for the legacy financial view. */
+const buildFinancialListQuery = ({ limit, offset, warehouseId }: IFinancialListQuery, sequelize: Sequelize) => ({
+  where: {
+    ...(warehouseId != null && String(warehouseId) !== '' ? { warehouseId: Number(warehouseId) } : {})
+  },
+  offset,
+  limit,
+  include: [
+    {
+      model: database.product,
+      required: false
+    }
+  ],
+  attributes: [
+    'updatedAt',
+    'type',
+    [sequelize.literal('SUM(product.regularPrice * transfer.quantity)'), 'totalPrice']
+  ] as FindAttributeOptions,
+  group: ['updatedAt', 'type'],
+  raw: true
+})
+
+/** Build the voucher `where` clause from parsed list filters. */
+const buildVoucherWhere = ({ warehouseId, type, category, from, to }: IVoucherListQuery): Record<string, any> => {
+  const where: any = {}
+  if (warehouseId != null && String(warehouseId) !== '') where.warehouseId = Number(warehouseId)
+  if (type) where.type = type
+  if (category) where.category = category
+  if (from || to) {
+    where.transactionDate = {}
+    if (from) where.transactionDate[Op.gte] = new Date(from)
+    if (to) where.transactionDate[Op.lte] = new Date(`${to} 23:59:59`)
+  }
+  return where
+}
 
 export class FinancialService {
   transfer: ITransferStatic = database.transfer
@@ -14,30 +62,9 @@ export class FinancialService {
   sequelize: Sequelize = database.sequelize
 
   /** Legacy view: transfers grouped by day/type (kept for compatibility). */
-  async getFinancial(req: any) {
+  async getFinancial(query: IFinancialListQuery) {
     try {
-      const { offset, limit } = getPagination(req.query)
-      const queryParams = {
-        where: {
-          warehouseId: req.query.warehouse
-        },
-        offset,
-        limit,
-        include: [
-          {
-            model: database.product,
-            required: false
-          }
-        ],
-        attributes: [
-          'updatedAt',
-          'type',
-          [this.sequelize.literal('SUM(product.regularPrice * transfer.quantity)'), 'totalPrice']
-        ] as FindAttributeOptions,
-        group: ['updatedAt', 'type'],
-        raw: true
-      }
-      const resp = await this.transfer.findAndCountAll(queryParams)
+      const resp = await this.transfer.findAndCountAll(buildFinancialListQuery(query, this.sequelize))
       return resp
     } catch (error) {
       console.log('error', error)
@@ -46,19 +73,10 @@ export class FinancialService {
   }
 
   /** List vouchers (financial_records) with filters. */
-  async getVouchers(req: any) {
+  async getVouchers(query: IVoucherListQuery) {
     try {
-      const { offset, limit, warehouseId } = getPagination(req.query)
-      const where: any = {}
-      if (warehouseId) where.warehouseId = Number(warehouseId)
-      if (req.query.type) where.type = req.query.type
-      if (req.query.category) where.category = req.query.category
-      const { from, to } = req.query
-      if (from || to) {
-        where.transactionDate = {}
-        if (from) where.transactionDate[Op.gte] = new Date(from)
-        if (to) where.transactionDate[Op.lte] = new Date(`${to} 23:59:59`)
-      }
+      const { offset, limit } = query
+      const where = buildVoucherWhere(query)
       const resp = await this.financialRecord.findAndCountAll({
         where,
         include: [{ model: database.staff }, { model: database.warehouse }],

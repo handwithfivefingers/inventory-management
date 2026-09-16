@@ -87,11 +87,7 @@ export function buildVariantSkuWithTemplate(
 ): string {
   const templatedBase =
     template && template.trim()
-      ? generateSkuFromTemplate(
-          template,
-          { CODE: baseSku, YYYY: String(new Date().getFullYear()) },
-          baseSku
-        )
+      ? generateSkuFromTemplate(template, { CODE: baseSku, YYYY: String(new Date().getFullYear()) }, baseSku)
       : baseSku
   return buildVariantSku(templatedBase, options, takenSkus)
 }

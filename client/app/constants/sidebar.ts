@@ -165,7 +165,7 @@ export const SIDE_BAR: ISideBarItem[] = [
   {
     labelKey: "sidebar.settings",
     iconName: "settings",
-    divider: true,
+    // divider: true,
     items: [
       {
         to: "/setting/general",

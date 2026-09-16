@@ -52,45 +52,6 @@ export const Header = () => {
           <LanguageToggle /> */}
 
           <ThemeToggle className="shrink-0" />
-
-          <TMDropdown
-            placement="right"
-            variant="ghost"
-            items={[
-              {
-                label: (
-                  <div className="flex gap-2 items-center text-sm">
-                    <Icon name="user" className="w-4 h-4" />
-                    <span>{t("header.profile")}</span>
-                  </div>
-                ),
-                onClick: handleLogOut,
-              },
-              {
-                label: (
-                  <div className="flex gap-2 items-center text-sm">
-                    <Icon name="log-out" className="w-4 h-4" />
-                    <span>{t("header.logout")}</span>
-                  </div>
-                ),
-                onClick: handleLogOut,
-              },
-            ]}
-            className=""
-            unstyled
-          >
-            {({ toggle }) => (
-              <div className="flex gap-1 h-full items-center" onClick={toggle}>
-                <div className="flex flex-col items-end text-right cursor-pointer text-slate-400">
-                  <span className=" text-xs/3 text-slate-600">{user?.fullName || user?.email}</span>
-                  <span className="text-[10px]/3 font-light text-slate-400">{activeVendor?.name}</span>
-                </div>
-                <span className="w-7 bg-slate-200 rounded-full p-1.5 ">
-                  <Icon name="user" fontSize={16} />
-                </span>
-              </div>
-            )}
-          </TMDropdown>
         </div>
       </nav>
     </div>

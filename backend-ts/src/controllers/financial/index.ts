@@ -1,6 +1,7 @@
 import { FinancialService } from '#/services/financial'
-import { IRequestHandler, IRequestLocal } from '#/types/common'
-import { getVendorScope } from '#/utils/tenant'
+import { IRequestHandler } from '#/types/common'
+import { getPagination } from '#/utils'
+import { getRequestedWarehouseId, getVendorScope } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 
 export class FinancialController {
@@ -8,8 +9,13 @@ export class FinancialController {
     const [req, res, next] = arg
     try {
       // #swagger.tags = ['Financial']
-
-      const { count, rows } = await new FinancialService().getFinancial(req as IRequestLocal)
+      const { limit, offset } = getPagination((req as any).query)
+      const warehouseId = getRequestedWarehouseId(req as any)
+      const { count, rows } = await new FinancialService().getFinancial({
+        limit,
+        offset,
+        warehouseId
+      })
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {
@@ -20,8 +26,18 @@ export class FinancialController {
   async getVouchers(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Financial']
-
-      const { count, rows } = await new FinancialService().getVouchers(req)
+      const { limit, offset } = getPagination((req as any).query)
+      const { type, category, from, to } = req.query as any
+      const warehouseId = getRequestedWarehouseId(req as any)
+      const { count, rows } = await new FinancialService().getVouchers({
+        limit,
+        offset,
+        warehouseId,
+        type,
+        category,
+        from,
+        to
+      })
       res.status(200).json({ total: count, data: rows })
       return
     } catch (error) {
@@ -58,7 +74,8 @@ export class FinancialController {
     try {
       // #swagger.tags = ['Financial']
 
-      const { from, to, warehouseId } = req.query
+      const { from, to } = req.query
+      const warehouseId = getRequestedWarehouseId(req as any)
       const vendorScope = getVendorScope(req as any)
       const resp = await new FinancialService().getReport(
         {

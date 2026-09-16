@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 // Plain CJS seeder loaded through Vite's interop (default export holds module.exports).
+// @ts-ignore: untyped CJS seeder module
 import seederModule from '../../../seeders/20260822000001-seed-staff-users.js'
 
 const seeder: any = (seederModule as any).default ?? seederModule
@@ -177,7 +178,7 @@ describe('seeder 20260822000001-seed-staff-users', () => {
     ctx.onSelect(/FROM warehouses/i, [[]])
 
     // Hostile driver: bulkInsert resolves undefined (MySQL behaviour).
-    ctx.bulkInsert.mockResolvedValue(undefined)
+    ctx.bulkInsert.mockResolvedValue(undefined as any)
 
     await expect(seeder.up(ctx.queryInterface, { QueryTypes: {}, Op: {} })).resolves.toBeUndefined()
   })

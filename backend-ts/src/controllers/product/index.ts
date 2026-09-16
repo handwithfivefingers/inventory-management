@@ -4,6 +4,7 @@ import { ProductService } from '#/services/product'
 import { IRequestLocal } from '#/types/common'
 import multer from 'multer'
 import { Request, Response, NextFunction } from 'express'
+import { getRequestedVendorId, getRequestedWarehouseId, getVendorScope } from '#/utils/tenant'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
@@ -57,7 +58,10 @@ export class ProductController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
-      const resp = await new ProductService().create(req as IRequestLocal)
+      const scope = getVendorScope(req)
+      const vendorId = getRequestedVendorId(req as any)
+      const warehouseId = getRequestedWarehouseId(req as any)
+      const resp = await new ProductService().create({ ...req.body, warehouseId, vendorId }, scope)
       res.status(200).json({
         data: resp
       })
@@ -90,7 +94,10 @@ export class ProductController {
   async getProductById(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
-      const resp = await new ProductService().getProductById(req as IRequestLocal)
+      const scope = getVendorScope(req)
+      const vendorId = getRequestedVendorId(req) as string
+      const warehouseId = getRequestedWarehouseId(req) as string
+      const resp = await new ProductService().getProductById({ id: req.params.id, warehouseId, vendorId }, scope)
       res.status(200).json({
         data: resp
       })
@@ -114,7 +121,13 @@ export class ProductController {
   async updateProduct(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
-      const resp = await new ProductService().updateProduct(req as IRequestLocal)
+      const scope = getVendorScope(req)
+      const vendorId = getRequestedVendorId(req as any)
+      const warehouseId = getRequestedWarehouseId(req as any)
+      const resp = await new ProductService().updateProduct(
+        { id: req.params.id, ...req.body, warehouseId, vendorId },
+        scope
+      )
       res.status(200).json({
         data: resp
       })
