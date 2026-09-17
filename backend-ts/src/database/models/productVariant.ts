@@ -13,7 +13,6 @@ import {
 } from 'sequelize-typescript'
 import { Inventory } from './inventory'
 import { Product } from './product'
-import ProductAttribute from './productAttribute'
 import { Transfer } from './transfer'
 import ProductAttributeValue from './productAttributeValue'
 
@@ -43,7 +42,7 @@ export class ProductVariant extends Model {
     allowNull: true,
     validate: {
       len: {
-        args: [[12, 255]],
+        args: [12, 255],
         msg: 'code must be at least 12 characters'
       }
     }
@@ -65,11 +64,19 @@ export class ProductVariant extends Model {
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare costPrice: number | null
 
-  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0, comment: 'VAT percent override; null falls back to parent product VAT' })
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: 0,
+    comment: 'VAT percent, source of truth (parent product VAT removed)'
+  })
   declare VAT: number | null
 
   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
   declare sold: number
+
+  @Column({ type: DataType.STRING, allowNull: true, comment: 'Variant-level image (migrated from products.image)' })
+  declare imageUrl: string | null
 
   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
   declare isActive: boolean

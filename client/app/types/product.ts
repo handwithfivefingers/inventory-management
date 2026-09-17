@@ -25,6 +25,9 @@ export interface IProductVariant {
   regularPrice?: number | null;
   wholeSalePrice?: number | null;
   costPrice?: number | null;
+  VAT?: number | null;
+  imageUrl?: string | null;
+  isNegative?: boolean;
   sold?: number;
   isActive?: boolean;
   quantity?: number;
@@ -41,21 +44,30 @@ export interface IVariantAttributeInput {
 export interface IProduct {
   id: number;
   documentId: string;
-  code: string;
   createdAt: string;
   description: string;
   expiredAt: string;
   inventories: any[];
   name: string;
   publishedAt: string;
+  /** @deprecated Sellable fields live on variants. Present only in adapted legacy rows. */
+  code: string;
+  /** @deprecated Sellable fields live on variants. Present only in adapted legacy rows. */
   skuCode: string;
   quantity?: number;
+  /** @deprecated Use variants[0].salePrice / unifiedVariant.salePrice. */
   salePrice?: number;
+  /** @deprecated Use variants[0].regularPrice / unifiedVariant.regularPrice. */
   regularPrice?: number;
+  /** @deprecated Use variants[0].wholeSalePrice / unifiedVariant.wholeSalePrice. */
   wholeSalePrice?: number;
+  /** @deprecated Use variants[0].costPrice / unifiedVariant.costPrice. */
   costPrice?: number;
+  /** @deprecated Product sold is an aggregate of variants[].sold. */
   sold?: number;
+  /** @deprecated Use variants[0].imageUrl / unifiedVariant.imageUrl. */
   image?: string | null;
+  /** @deprecated Use variants[0].VAT / unifiedVariant.VAT. */
   VAT?: number;
   createdDate?: string;
   updatedAt: string;
@@ -67,7 +79,7 @@ export interface IProduct {
   variantCount?: number;
   /** 0 = simple, 1 = variant, 2 = combo */
   type?: number;
-  /** Allow selling below zero (oversell). Product-level flag. */
+  /** @deprecated Use variants[0].isNegative / unifiedVariant.isNegative. */
   isNegative?: boolean;
   attributes?: IProductAttribute[];
   variants?: IProductVariant[];
@@ -108,6 +120,10 @@ export interface IPosSearchItem {
   barcode: string | null;
   price: number;
   stock_quantity: number;
+  VAT?: number | null;
+  imageUrl?: string | null;
+  isNegative?: boolean;
+  sold?: number;
 }
 
 /** Product-level aggregate returned for ADMIN context (backoffice management). */

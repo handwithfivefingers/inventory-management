@@ -183,6 +183,7 @@ export class WarehouseService {
         if (!productId || !quantity || quantity <= 0) {
           throw new Error(`Invalid item: productId and positive quantity are required`)
         }
+        if (variantId == null || !Number.isFinite(variantId)) throw new Error('variantId is required')
 
         // Product ownership check (also gives a nicer error than an FK failure)
         const product: any = await Product.findByPk(productId, { transaction: t })
@@ -239,7 +240,7 @@ export class WarehouseService {
     transaction: t
   }: {
     productId: number
-    variantId: number | null
+    variantId: number
     fromWarehouseId: number
     toWarehouseId: number
     quantity: number
@@ -249,7 +250,7 @@ export class WarehouseService {
     const sourceWhere: Record<string, unknown> = {
       productId,
       warehouseId: fromWarehouseId,
-      ...(variantId != null ? { variantId } : { variantId: null })
+      variantId
     }
     // Atomic decrement guarded by quantity >= requested: two concurrent
     // transfers can't both take the same stock (C2 pattern from OrderService).
@@ -262,14 +263,14 @@ export class WarehouseService {
     if (affectedCount === 0) {
       const row = await Inventory.findOne({ where: sourceWhere, transaction: t })
       if (!row) throw new Error('Stock row not found in source warehouse')
-      const label = variantId != null ? `variant ${variantId} of product ${productId}` : `product ${productId}`
+      const label = `variant ${variantId} of product ${productId}`
       throw new Error(`Insufficient stock in source warehouse for ${label}`)
     }
 
     const destWhere: Record<string, unknown> = {
       productId,
       warehouseId: toWarehouseId,
-      ...(variantId != null ? { variantId } : { variantId: null })
+      variantId
     }
     const dest: any = await Inventory.findOne({ where: destWhere, transaction: t })
     if (dest) {

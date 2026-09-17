@@ -28,14 +28,14 @@ const buildFinancialListQuery = ({ limit, offset, warehouseId }: IFinancialListQ
   limit,
   include: [
     {
-      model: database.product,
+      model: database.productVariant,
       required: false
     }
   ],
   attributes: [
     'updatedAt',
     'type',
-    [sequelize.literal('SUM(product.regularPrice * transfer.quantity)'), 'totalPrice']
+    [sequelize.literal('SUM(productVariant.regularPrice * transfer.quantity)'), 'totalPrice']
   ] as FindAttributeOptions,
   group: ['updatedAt', 'type'],
   raw: true

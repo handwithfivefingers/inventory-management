@@ -37,6 +37,10 @@ export const mapPosItemToRow = (item: IPosSearchItem): IProductSearchRow => {
     salePrice: item.price,
     regularPrice: item.price,
     quantity: item.stock_quantity,
+    VAT: item.VAT ?? null,
+    imageUrl: item.imageUrl ?? null,
+    isNegative: item.isNegative ?? false,
+    sold: item.sold ?? 0,
   };
   return {
     id: item.product_id,
@@ -112,8 +116,9 @@ export interface UnifiedFormParams {
 }
 
 /** fetcher-submit-ready params: string values only, blanks omitted. */
-export const buildUnifiedFormParams = ({ query, context, page, limit }: UnifiedFormParams): Record<string, string> => {
+export const buildUnifiedFormParams = ({ query, context, warehouseId, page, limit }: UnifiedFormParams): Record<string, string> => {
   const params: Record<string, string> = { context };
+  if (warehouseId != null && String(warehouseId).trim() !== "") params.warehouse_id = String(warehouseId);
   if (query !== undefined && query !== null && String(query).trim() !== "") params.query = String(query);
   if (page !== undefined && page !== null && String(page).trim() !== "") params.page = String(page);
   if (limit !== undefined && limit !== null && String(limit).trim() !== "") params.limit = String(limit);

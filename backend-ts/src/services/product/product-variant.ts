@@ -6,7 +6,7 @@ import { assertUniqueVariantSku, assertValidSku, normalizeSku } from '#/utils/sk
 import { buildVariantSkuWithTemplate } from '#/utils/variant'
 import { Transaction } from 'sequelize'
 import { SettingService } from '../setting'
-import { resolveVariantCode, toPrice, toVat } from './helper'
+import { resolveStringField, resolveVariantCode, toPrice, toVat } from './helper'
 import { adjustStock, createOpeningStock } from './product-stock'
 import { VariantInput } from './product.types'
 
@@ -134,6 +134,7 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
         wholeSalePrice: toPrice(variant.wholeSalePrice, 'wholeSalePrice'),
         costPrice: toPrice(variant.costPrice, 'costPrice'),
         VAT: variant.VAT !== undefined ? toVat(variant.VAT) : null,
+        imageUrl: resolveStringField(variant.imageUrl, true) ?? null,
         isNegative: Boolean(variant.isNegative),
         isActive: variant.isActive !== undefined ? Boolean(variant.isActive) : true
       },
@@ -184,6 +185,7 @@ const buildVariantFields = (v: VariantInput) => ({
     : {}),
   ...(v.costPrice !== undefined && v.costPrice !== '' ? { costPrice: toPrice(v.costPrice, 'costPrice') } : {}),
   ...(v.VAT !== undefined && v.VAT !== '' ? { VAT: toVat(v.VAT) } : {}),
+  ...(v.imageUrl !== undefined ? { imageUrl: resolveStringField(v.imageUrl, true) } : {}),
   isNegative: Boolean(v.isNegative),
   ...(v.isActive !== undefined ? { isActive: Boolean(v.isActive) } : {})
 })
@@ -227,8 +229,8 @@ export const applyVariantSync = async (
     })
   ).filter((r: any) => r.get?.('deletedAt'))
 
-  const productCode = product.code ?? product.get?.('code') ?? null
-  const baseSku = product.skuCode || product.code || String(productId)
+  const productCode = null
+  const baseSku = String(productId)
 
   let skuTemplate: string | undefined
   try {

@@ -144,11 +144,12 @@ export class StocktakeService {
         if (variance === 0) continue
 
         const productId = Number(detail.get('productId'))
-        const variantId = (detail.get('variantId') as number | null) ?? null
+        const variantId = Number(detail.get('variantId'))
+        if (!Number.isFinite(variantId)) throw new Error('variantId is required')
         const where: Record<string, unknown> = {
           productId,
           warehouseId,
-          ...(variantId != null ? { variantId } : { variantId: null })
+          variantId
         }
         const inv: any = await Inventory.findOne({ where, transaction: t })
         if (inv) {

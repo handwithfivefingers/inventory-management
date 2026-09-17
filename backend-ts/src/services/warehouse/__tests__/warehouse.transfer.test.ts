@@ -47,7 +47,7 @@ const stockRow = () =>
     id: 1,
     productId: 42,
     warehouseId: 1,
-    variantId: null,
+    variantId: 7,
     quantity: 10
   })
 
@@ -58,6 +58,7 @@ beforeEach(() => {
     id === 1 ? { vendorId: 3 } : id === 2 ? { vendorId: 3 } : null
   )
   productModel.findByPk.mockResolvedValue({ id: 42, vendorId: 3 })
+  productVariantModel.findByPk.mockResolvedValue({ productId: 42, id: 7 })
   // source stock row exists with 10 units
   inventoryModel.findOne.mockImplementation(async ({ where }: any) => {
     if (Number(where?.warehouseId) === 1) return stockRow()
@@ -75,22 +76,22 @@ describe('WarehouseService.transferStock', () => {
   it('moves stock: guarded decrement, destination upsert, auditable transfer row', async () => {
     const svc = new WarehouseService()
     const result = await svc.transferStock(
-      req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 4 }], note: 'rebalance' })
+      req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 4 }], note: 'rebalance' })
     )
 
-    expect(result).toEqual({ transferred: [{ productId: 42, variantId: null, quantity: 4 }] })
+    expect(result).toEqual({ transferred: [{ productId: 42, variantId: 7, quantity: 4 }] })
     // source decrement guarded by quantity >= requested (Op.gte is a symbol key)
     const decArgs = inventoryModel.decrement.mock.calls[0][1]
     expect(decArgs.by).toBe(4)
     expect(decArgs.where.productId).toBe(42)
     expect(decArgs.where.warehouseId).toBe(1)
-    expect(decArgs.where.variantId).toBeNull()
+    expect(decArgs.where.variantId).toBe(7)
     const gteSymbol = Object.getOwnPropertySymbols(decArgs.where.quantity).find((s) => String(s).includes('gte'))
     expect(gteSymbol).toBeDefined()
     expect((decArgs.where.quantity as any)[gteSymbol!]).toBe(4)
     // destination upsert
     expect(inventoryModel.build).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: 42, warehouseId: 2, variantId: null, quantity: 4 })
+      expect.objectContaining({ productId: 42, warehouseId: 2, variantId: 7, quantity: 4 })
     )
     // one IN/OUT link row with both endpoints
     expect(transferModel.build).toHaveBeenCalledWith(
@@ -113,24 +114,24 @@ describe('WarehouseService.transferStock', () => {
       Number(where?.warehouseId) === 1 ? stockRow() : dest
     )
     const svc = new WarehouseService()
-    await svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 2 }] }))
+    await svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 2 }] }))
     expect(dest.increment).toHaveBeenCalledWith('quantity', { by: 2, transaction: tx })
     expect(inventoryModel.build).not.toHaveBeenCalled()
   })
 
   it('rejects missing / equal warehouses and empty or invalid items', async () => {
     const svc = new WarehouseService()
-    await expect(svc.transferStock(req({ toWarehouseId: 2, items: [{ productId: 42, quantity: 1 }] }))).rejects.toThrow(
+    await expect(svc.transferStock(req({ toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 1 }] }))).rejects.toThrow(
       /fromWarehouseId and toWarehouseId are required/
     )
-    await expect(svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 1, items: [{ productId: 42, quantity: 1 }] }))).rejects.toThrow(
+    await expect(svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 1, items: [{ productId: 42, variantId: 7, quantity: 1 }] }))).rejects.toThrow(
       /must differ/
     )
     await expect(svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [] }))).rejects.toThrow(
       'items are required'
     )
     await expect(
-      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 0 }] }))
+      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 0 }] }))
     ).rejects.toThrow(/positive quantity/)
     expect(tx.rollback).toHaveBeenCalled()
   })
@@ -142,7 +143,7 @@ describe('WarehouseService.transferStock', () => {
     const svc = new WarehouseService()
     // the tenant guard on the destination fires before the same-vendor check
     await expect(
-      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 1 }] }))
+      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 1 }] }))
     ).rejects.toThrow(/Unauthorized destination warehouse/)
     expect(tx.rollback).toHaveBeenCalled()
   })
@@ -151,12 +152,12 @@ describe('WarehouseService.transferStock', () => {
     productModel.findByPk.mockResolvedValue({ id: 42, vendorId: 9 })
     const svc = new WarehouseService()
     await expect(
-      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 1 }] }))
+      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 1 }] }))
     ).rejects.toThrow(/Unauthorized product/)
 
     warehouseModel.findByPk.mockResolvedValue(null)
     await expect(
-      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 1 }] }))
+      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 1 }] }))
     ).rejects.toThrow(/not found/)
   })
 
@@ -165,7 +166,7 @@ describe('WarehouseService.transferStock', () => {
     inventoryModel.decrement.mockResolvedValue([[undefined, 0]])
     const svc = new WarehouseService()
     await expect(
-      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 999 }] }))
+      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 999 }] }))
     ).rejects.toThrow(/Insufficient stock in source warehouse/)
     expect(tx.rollback).toHaveBeenCalled()
   })
@@ -175,7 +176,7 @@ describe('WarehouseService.transferStock', () => {
     inventoryModel.findOne.mockResolvedValue(null)
     const svc = new WarehouseService()
     await expect(
-      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 1 }] }))
+      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 1 }] }))
     ).rejects.toThrow(/Stock row not found/)
   })
 
@@ -199,7 +200,7 @@ describe('WarehouseService.transferStock', () => {
     inventoryModel.decrement.mockRejectedValue(new Error('db down'))
     const svc = new WarehouseService()
     await expect(
-      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, quantity: 1 }] }))
+      svc.transferStock(req({ fromWarehouseId: 1, toWarehouseId: 2, items: [{ productId: 42, variantId: 7, quantity: 1 }] }))
     ).rejects.toThrow()
     expect(tx.rollback).toHaveBeenCalled()
     expect(tx.commit).not.toHaveBeenCalled()

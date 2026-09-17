@@ -188,6 +188,8 @@ const VariantsManager = ({
       regularPrice: (v.regularPrice ?? "") as any,
       salePrice: (v.salePrice ?? "") as any,
       wholeSalePrice: (v.wholeSalePrice ?? "") as any,
+      VAT: v.VAT ?? null,
+      imageUrl: v.imageUrl ?? null,
       isNegative: !!(v as any).isNegative,
     }));
     // Fallback: if product no longer stores attributes per product, derive from variants + catalog

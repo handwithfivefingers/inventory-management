@@ -32,8 +32,8 @@ export class StocktakeDetail extends Model {
   declare productId: number
 
   @ForeignKey(() => ProductVariant)
-  @Column({ type: DataType.INTEGER, allowNull: true })
-  declare variantId: number | null
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare variantId: number
 
   /** Snapshot of inventory quantity when the session started */
   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
@@ -58,7 +58,7 @@ export class StocktakeDetail extends Model {
   @BelongsTo(() => Product, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare product: Product
 
-  @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  @BelongsTo(() => ProductVariant, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
   declare variant: ProductVariant
 }
 

@@ -491,7 +491,10 @@ export class InvoiceService {
       include: [
         {
           model: database.invoiceDetail,
-          include: [{ model: database.product, attributes: ['id', 'name', 'code', 'skuCode'], paranoid: false }]
+          include: [
+            { model: database.product, attributes: ['id', 'name'], paranoid: false },
+            { model: database.productVariant, attributes: ['id', 'skuCode', 'code'], paranoid: false }
+          ]
         },
         { model: database.customer, attributes: ['id', 'name', 'phone', 'email'] }
       ]
@@ -509,7 +512,14 @@ export class InvoiceService {
       const editableFields = req.body as {
         customerId?: number
         warehouseId?: number
-        items?: Array<{ productId: number; quantity: number; unitPrice: number; taxRate?: number; discount?: number }>
+        items?: Array<{
+          productId: number
+          variantId: number
+          quantity: number
+          unitPrice: number
+          taxRate?: number
+          discount?: number
+        }>
         VAT?: number
         discount?: number
         surcharge?: number
@@ -523,6 +533,9 @@ export class InvoiceService {
       const invoice = await this.loadDraftInvoiceForUpdate(invoiceId, req)
       this.applyHeaderFieldUpdates(invoice, editableFields)
       if (editableFields.items && editableFields.items.length > 0) {
+        for (const item of editableFields.items) {
+          if (item.variantId == null || !Number.isFinite(Number(item.variantId))) throw new Error('variantId is required')
+        }
         await this.rebuildInvoiceLines(invoice as { id: number }, editableFields.items, transaction)
         this.recalculateHeaderTotals(invoice, editableFields.items)
       }
@@ -584,14 +597,21 @@ export class InvoiceService {
 
   private async rebuildInvoiceLines(
     invoice: { id: number },
-    updateItems: Array<{ productId: number; quantity: number; unitPrice: number; taxRate?: number; discount?: number }>,
+    updateItems: Array<{
+      productId: number
+      variantId: number
+      quantity: number
+      unitPrice: number
+      taxRate?: number
+      discount?: number
+    }>,
     transaction: unknown
   ): Promise<void> {
     await database.invoiceDetail.destroy({ where: { invoiceId: invoice.id }, transaction } as never)
     const sourceItems = updateItems.map((updateItem) => ({
       orderDetailId: 0,
       productId: updateItem.productId,
-      variantId: null as number | null,
+      variantId: updateItem.variantId,
       quantity: updateItem.quantity,
       unitPrice: updateItem.unitPrice,
       taxRate: updateItem.taxRate || 0,
@@ -605,6 +625,7 @@ export class InvoiceService {
         {
           invoiceId: invoice.id,
           productId: updateItem.productId,
+          variantId: updateItem.variantId,
           quantity: updateItem.quantity,
           unitPrice: updateItem.unitPrice,
           discount: pricedLine.discount,
@@ -619,12 +640,12 @@ export class InvoiceService {
 
   private recalculateHeaderTotals(
     invoice: IInvoiceModel,
-    updateItems: Array<{ quantity: number; unitPrice: number; taxRate?: number; discount?: number }>
+    updateItems: Array<{ productId?: number; variantId: number; quantity: number; unitPrice: number; taxRate?: number; discount?: number }>
   ): void {
     const sourceItems = updateItems.map((updateItem) => ({
       orderDetailId: 0,
-      productId: 0,
-      variantId: null as number | null,
+      productId: updateItem.productId ?? 0,
+      variantId: updateItem.variantId,
       quantity: updateItem.quantity,
       unitPrice: updateItem.unitPrice,
       taxRate: updateItem.taxRate || 0,

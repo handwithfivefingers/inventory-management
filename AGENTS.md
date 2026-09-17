@@ -1,3 +1,4 @@
+# ~/.codex/AGENTS.md
 # AGENTS.md
 
 Three independent projects, no root workspace. `cd` into one before running anything:

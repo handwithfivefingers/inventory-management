@@ -15,7 +15,6 @@ import { Category } from './category'
 import { ProductCategory } from './product_category'
 import { Tag } from './tag'
 import { ProductVariant } from './productVariant'
-import { ProductAttribute } from './productAttribute'
 import { Inventory } from './inventory'
 import { OrderDetail } from './orderDetail'
 import { Transfer } from './transfer'
@@ -30,50 +29,11 @@ export class Product extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   declare name: string
 
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-    validate: {
-      len: {
-        args: [[12, 255]],
-        msg: 'code must be at least 12 characters'
-      }
-    }
-  })
-  declare code: string | null
-
-  @Column({ type: DataType.STRING, allowNull: true })
-  declare skuCode: string | null
-
   @Column({ type: DataType.STRING, allowNull: true })
   declare description: string | null
 
-  @Column({ type: DataType.BIGINT, allowNull: true })
-  declare salePrice: number | null
-
-  @Column({ type: DataType.BIGINT, allowNull: true })
-  declare regularPrice: number | null
-
-  @Column({ type: DataType.BIGINT, allowNull: true })
-  declare wholeSalePrice: number | null
-
-  @Column({ type: DataType.INTEGER, allowNull: true })
-  declare costPrice: number | null
-
-  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0, comment: 'VAT percent, e.g. 0/5/8/10' })
-  declare VAT: number | null
-
-  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
-  declare sold: number
-
-  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
-  declare isNegative: boolean
-
   @Column({ type: DataType.INTEGER, allowNull: false, defaultValue: 0 })
   declare type: number
-
-  @Column({ type: DataType.STRING, allowNull: true })
-  declare image: string | null
 
   @ForeignKey(() => Unit)
   @Column({ type: DataType.INTEGER, allowNull: true })

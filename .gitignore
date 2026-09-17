@@ -3,3 +3,4 @@ db/dump/*
 
 yarn.lock
 pack-lock.json
+.tree-sister

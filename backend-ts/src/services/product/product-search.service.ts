@@ -32,6 +32,7 @@ export interface ProductSearchParams {
   query?: string | null
   context: string
   warehouseId?: number | string | null
+  warehouse_id?: number | string | null
   vendorId?: number | string | null
   page?: number | string | null
   limit?: number | string | null
@@ -47,6 +48,10 @@ export interface ExactMatchItem {
   barcode: string | null
   price: number
   stock_quantity: number
+  VAT: number | null
+  imageUrl: string | null
+  isNegative: boolean
+  sold: number
 }
 
 export interface PosSearchItem extends ExactMatchItem {}
@@ -111,7 +116,11 @@ const toExactItem = (variant: any, stockQuantity: number): ExactMatchItem => {
     sku,
     barcode: (get('code') ?? get('barcode') ?? null) as string | null,
     price: variantPrice(variant),
-    stock_quantity: stockQuantity
+    stock_quantity: stockQuantity,
+    VAT: get('VAT') == null ? null : Number(get('VAT')),
+    imageUrl: get('imageUrl') ?? null,
+    isNegative: Boolean(get('isNegative')),
+    sold: Number(get('sold') ?? 0)
   }
 }
 
@@ -128,12 +137,15 @@ export const searchProducts = async (
     .toUpperCase() as ProductSearchContext
   if (context !== 'POS' && context !== 'ADMIN') throw ApiError.badRequest('context must be POS or ADMIN')
 
-  const warehouseId = params.warehouseId as number
-
-  // if (context === 'POS' && (!Number.isFinite(warehouseId) || (warehouseId as number) < 1)) {
-  //   throw ApiError.badRequest('warehouse_id is required when context is POS')
-  // }
-  await assertWarehouseAccess(warehouseId, vendorScope)
+  const rawWarehouseId = params.warehouseId ?? params.warehouse_id
+  const warehouseId = rawWarehouseId == null || String(rawWarehouseId).trim() === '' ? null : Number(rawWarehouseId)
+  if (context === 'POS' && warehouseId === null) {
+    throw ApiError.badRequest('warehouse_id is required when context is POS')
+  }
+  if (warehouseId !== null) {
+    if (!Number.isSafeInteger(warehouseId) || warehouseId < 1) throw ApiError.badRequest('Invalid warehouse_id')
+    await assertWarehouseAccess(warehouseId, vendorScope)
+  }
 
   const page = Math.max(1, Number(params.page ?? 1) || 1)
   const limit = Math.min(200, Math.max(1, Number(params.limit ?? 20) || 20))
@@ -222,7 +234,7 @@ const searchPos = async (args: FallbackArgs): Promise<Extract<ProductSearchResul
 
   const variantWhere: Record<string, unknown> = { isActive: true }
   if (hasQuery) {
-    variantWhere[Op.or] = [
+    ;(variantWhere as any)[Op.or] = [
       { code: { [Op.like]: like } },
       { skuCode: { [Op.like]: like } },
       // `$product.name$` reaches into the joined product row.
@@ -284,8 +296,6 @@ const searchAdmin = async (args: FallbackArgs): Promise<Extract<ProductSearchRes
   if (hasQuery) {
     ;(where as any)[Op.or] = [
       { name: { [Op.like]: like } },
-      { code: { [Op.like]: like } },
-      { skuCode: { [Op.like]: like } },
       ...(variantMatchedProductIds.length ? [{ id: { [Op.in]: variantMatchedProductIds } }] : [])
     ]
   }

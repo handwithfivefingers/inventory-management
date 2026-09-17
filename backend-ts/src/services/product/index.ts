@@ -1456,7 +1456,7 @@ import { applyCodeFormat, generateSkuFromTemplate, getCodeFormat, padSeq } from 
 // Option A: product detail reads are uncached (fresh DB). `evictCachedEntity`
 // stays only to purge legacy `product:<id>` keys written before this change.
 import { evictCachedEntity } from '#/utils/entity-cache'
-import { normalizeSku, assertValidSku } from '#/utils/sku'
+import { assertUniqueVariantSku, normalizeSku, assertValidSku } from '#/utils/sku'
 import { nextSequence } from '#/utils/sequence'
 import {
   assertVendorAccess,
@@ -1472,7 +1472,7 @@ import { ProductAttributeServices } from './productAttribute'
 import { ProductExcelService } from './product-excel.service'
 import { searchProducts, ProductSearchParams } from './product-search.service'
 import { resolveStringField, toPrice, toVat } from './helper'
-import { adjustStock, createOpeningStock } from './product-stock'
+import { adjustStock } from './product-stock'
 import { CreateProductParams, PRICE_FIELDS, PRODUCT_TYPE, ProductType, UpdateProductParams } from './product.types'
 import { applyVariantSync, createVariants } from './product-variant'
 
@@ -1578,7 +1578,7 @@ export class ProductService {
       const settings = await this.tryLoadSettings(vendorId)
       await this.assignProductCodes(productParams, settings, t)
 
-      const product = await Product.create({ ...productParams, vendorId }, { transaction: t })
+      const product = await Product.create(this.buildProductFields(productParams, vendorId), { transaction: t })
 
       if (categories) await product.$set('categories', categories, { transaction: t })
       if (tags) await product.$set('tags', tags, { transaction: t })
@@ -1591,6 +1591,7 @@ export class ProductService {
         warehouseId,
         vendorId,
         settings,
+        defaultVariant: productParams,
         transaction: t
       })
 
@@ -1604,6 +1605,11 @@ export class ProductService {
       await t.rollback()
       throw ApiError.from(error, (error as any)?.status ?? 400)
     }
+  }
+
+  private buildProductFields(params: Record<string, any>, vendorId: number) {
+    const { name, description, type, unitId } = params
+    return { name, description, type, unitId, vendorId }
   }
 
   /** Best-effort settings load; product creation must not fail just because settings are unavailable. */
@@ -1668,31 +1674,55 @@ export class ProductService {
     warehouseId: number
     vendorId: number
     settings: any
+    defaultVariant: Record<string, any>
     transaction: Transaction
   }) {
-    const { product, type, variants, quantity, warehouseId, vendorId, settings, transaction } = args
+    const { product, type, variants, quantity, warehouseId, vendorId, settings, defaultVariant, transaction } = args
 
     if (type === PRODUCT_TYPE.VARIANT) {
       const created = await createVariants(variants || [], {
         productId: product.id,
         vendorId,
         warehouseId,
-        baseSku: product.skuCode || product.code || String(product.id),
-        baseCode: product.code || null,
+        baseSku: defaultVariant.skuCode || defaultVariant.code || String(product.id),
+        baseCode: defaultVariant.code || null,
         skuTemplate: settings?.skuTemplate,
         transaction
       })
       return { variants: created }
     }
 
-    // Simple product stock: an explicitly provided quantity must be a
-    // positive number (opening stock); omitted/zero quantity means no stock.
+    // Simple products are represented by exactly one default variant.
     const qty = Number(quantity)
     if (quantity !== undefined && quantity !== null && quantity !== '' && (!Number.isFinite(qty) || qty <= 0)) {
       throw new Error('Invalid quantity')
     }
-    const stock = await createOpeningStock({ productId: product.id, warehouseId, quantity: qty || 0, transaction })
-    return stock ? { inventory: stock.inventory.dataValues, transfer: stock.transfer.dataValues } : { variants: [] }
+    const created = await createVariants(
+      [
+        {
+          code: defaultVariant.code ?? null,
+          skuCode: defaultVariant.skuCode,
+          salePrice: defaultVariant.salePrice,
+          regularPrice: defaultVariant.regularPrice,
+          wholeSalePrice: defaultVariant.wholeSalePrice,
+          costPrice: defaultVariant.costPrice,
+          VAT: defaultVariant.VAT,
+          imageUrl: defaultVariant.imageUrl ?? defaultVariant.image ?? null,
+          isNegative: defaultVariant.isNegative,
+          quantity: qty || 0
+        }
+      ],
+      {
+        productId: product.id,
+        vendorId,
+        warehouseId,
+        baseSku: String(product.id),
+        baseCode: defaultVariant.code || null,
+        skuTemplate: settings?.skuTemplate,
+        transaction
+      }
+    )
+    return { variants: created }
   }
 
   /* ------------------------------------------------------------------ */
@@ -1737,6 +1767,7 @@ export class ProductService {
         ],
         attributes: {
           include: [
+            [database.sequelize.literal('(SELECT COALESCE(SUM(sold), 0) FROM productVariants WHERE productVariants.productId = product.id)'), 'sold'],
             [
               database.sequelize.literal(`(
                 SELECT COUNT(*)
@@ -1822,6 +1853,7 @@ export class ProductService {
         ],
         attributes: {
           include: [
+            [database.sequelize.literal('(SELECT COALESCE(SUM(sold), 0) FROM productVariants WHERE productVariants.productId = product.id)'), 'sold'],
             [database.sequelize.col('inventories.quantity'), 'quantity'],
             [database.sequelize.col('unit.id'), 'unitId'],
             [database.sequelize.col('unit.name'), 'unitName']
@@ -1936,7 +1968,6 @@ export class ProductService {
       if (params.warehouseId) await assertWarehouseAccess(params.warehouseId, vendorScope)
 
       const base = this.buildUpdateFields(params, nextType)
-      await this.assertNoCodeClash(base, vendorId, params.id, t)
       await product.update(base, { transaction: t })
 
       if (params.categories !== undefined) await product.$set('categories', params.categories || [], { transaction: t })
@@ -1971,62 +2002,70 @@ export class ProductService {
       if (!name) throw new Error('name must not be empty')
       base.name = name
     }
-    setField('code', resolveStringField(params.code, true))
-    // Global barcode rule: a non-blank product `code` must be >= 12 chars.
-    // `null`/missing means "leave/clear" and is handled by resolveStringField.
-    if (base.code !== undefined && base.code !== null) {
-      base.code = assertValidBarcode(base.code, 'code')
-    }
-    const rawSkuUpdate = (params as any).sku !== undefined ? (params as any).sku : params.skuCode
-    setField('skuCode', resolveStringField(rawSkuUpdate, true))
-    // Strict SKU rule (normalized trim+uppercase, ^[A-Z0-9_-]{3,30}$).
-    if (base.skuCode !== undefined && base.skuCode !== null) {
-      base.skuCode = assertValidSku(base.skuCode, 'sku')
-    }
     setField('description', resolveStringField(params.description, true))
-    setField('image', resolveStringField(params.image, true))
 
     if (params.unitId !== undefined || params.unit !== undefined) {
       const raw = params.unitId ?? params.unit
       base.unitId = raw === null ? null : Number(raw)
       if (base.unitId !== null && !Number.isFinite(base.unitId as number)) throw new Error('Invalid unitId')
     }
-    for (const f of PRICE_FIELDS) {
-      if (params[f] !== undefined) base[f] = toPrice(params[f], f)
-    }
-    if (params.VAT !== undefined) base.VAT = toVat(params.VAT)
-    if (params.isNegative !== undefined) base.isNegative = Boolean(params.isNegative)
-    if (params.isActive !== undefined) base.isActive = Boolean(params.isActive)
-
     return base
   }
 
-  /** Duplicate barcode / SKU guard (vendor scope, excluding self). */
-  private async assertNoCodeClash(base: Record<string, unknown>, vendorId: number, productId: number, t: Transaction) {
-    const duplicateOr: Record<string, unknown>[] = []
-    if (base.code) duplicateOr.push({ code: base.code })
-    if (base.skuCode) duplicateOr.push({ skuCode: base.skuCode })
-    if (!duplicateOr.length) return
+  private async buildDefaultVariantFields(params: UpdateProductParams, existingVariantId?: number, t?: Transaction) {
+    const fields: Record<string, unknown> = {}
+    const code = resolveStringField(params.code, true)
+    if (code !== undefined) fields.code = code === null ? null : assertValidBarcode(code, 'code')
 
-    const clash = await Product.findOne({
-      where: { vendorId, [Op.or]: duplicateOr, id: { [Op.ne]: productId } },
-      transaction: t
-    })
-    if (clash) throw ApiError.conflict('Product already exists or code/skuCode is duplicated')
+    const rawSkuUpdate = (params as any).sku !== undefined ? (params as any).sku : params.skuCode
+    const skuCode = resolveStringField(rawSkuUpdate, true)
+    if (skuCode !== undefined && skuCode !== null) {
+      const normalized = assertValidSku(skuCode, 'sku')
+      await assertUniqueVariantSku(normalized, { excludeVariantId: existingVariantId, transaction: t as unknown })
+      fields.skuCode = normalized
+    }
+
+    for (const f of PRICE_FIELDS) {
+      if (params[f] !== undefined) fields[f] = toPrice(params[f], f)
+    }
+    if (params.VAT !== undefined) fields.VAT = toVat(params.VAT)
+    if (params.image !== undefined) fields.imageUrl = resolveStringField(params.image, true)
+    if (params.isNegative !== undefined) fields.isNegative = Boolean(params.isNegative)
+    if (params.isActive !== undefined) fields.isActive = Boolean(params.isActive)
+    return fields
   }
 
-  /** Switching (back) to simple soft-removes all variant rows, then applies opening/adjusted stock. */
+  /** Switching (back) to simple keeps one default variant as the stock/price source of truth. */
   private async switchToSimple(params: UpdateProductParams, existingVariantCount: number, t: Transaction) {
-    // Inventory rows are kept for audit (paranoid); only the variant rows are removed.
-    if (existingVariantCount > 0) {
-      const rows: any[] = await ProductVariant.findAll({ where: { productId: params.id }, transaction: t })
-      for (const row of rows) await row.destroy({ transaction: t })
+    const rows: any[] = await ProductVariant.findAll({ where: { productId: params.id }, order: [['id', 'ASC']], transaction: t })
+    let defaultVariant = rows[0]
+
+    if (!defaultVariant) {
+      const generatedSku = `P-${params.id}-DEFAULT`
+      await assertUniqueVariantSku(generatedSku, { transaction: t as unknown })
+      defaultVariant = await ProductVariant.create(
+        {
+          productId: params.id,
+          skuCode: generatedSku,
+          code: null,
+          VAT: 0,
+          isNegative: false,
+          isActive: true
+        },
+        { transaction: t }
+      )
     }
+
+    const fields = await this.buildDefaultVariantFields(params, Number(defaultVariant.get('id')), t)
+    if (Object.keys(fields).length) await defaultVariant.update(fields, { transaction: t })
+
+    for (const row of rows.slice(1)) await row.destroy({ transaction: t })
+
     if (params.quantity !== undefined && params.quantity !== null && String(params.quantity) !== '') {
       if (!params.warehouseId) throw new Error('warehouseId is required to adjust quantity')
       await adjustStock({
         productId: params.id,
-        variantId: null,
+        variantId: Number(defaultVariant.get('id')),
         warehouseId: params.warehouseId,
         target: Number(params.quantity),
         transaction: t

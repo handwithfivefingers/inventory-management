@@ -1,6 +1,7 @@
 import database from '#/database'
 import Category from '#/database/models/category'
 import Product from '#/database/models/product'
+import ProductVariant from '#/database/models/productVariant'
 import Unit from '#/database/models/units'
 import { IRequestLocal } from '#/types/common'
 import { assertValidBarcode } from '#/utils/barcode'
@@ -99,11 +100,7 @@ export class ProductExcelService {
     })()
 
     if (s) {
-      where[Op.or] = {
-        name: { [Op.startsWith]: s },
-        code: { [Op.startsWith]: s },
-        skuCode: { [Op.startsWith]: s }
-      }
+      where.name = { [Op.startsWith]: s }
     }
 
     const products: any[] = await Product.findAll({
@@ -122,28 +119,32 @@ export class ProductExcelService {
       },
       include: [
         { model: Category, through: { attributes: [] } },
-        { model: Unit, attributes: ['name'] }
+        { model: Unit, attributes: ['name'] },
+        { model: ProductVariant, as: 'variants', limit: 1, order: [['id', 'ASC']] }
       ],
       order: [['id', 'DESC']],
       limit: 5000
     })
 
-    const rows = products.map((p) => ({
-      name: p.get('name'),
-      code: p.get('code') ?? '',
-      skuCode: p.get('skuCode') ?? '',
-      salePrice: Number(p.get('salePrice') ?? 0),
-      regularPrice: Number(p.get('regularPrice') ?? 0),
-      wholeSalePrice: Number(p.get('wholeSalePrice') ?? 0),
-      costPrice: Number(p.get('costPrice') ?? 0),
-      VAT: Number(p.get('VAT') ?? 0),
-      quantity: Number(p.get('quantity') ?? 0),
-      sold: Number(p.get('sold') ?? 0),
-      isNegative: p.get('isNegative') ? 'true' : 'false',
-      categories: (p.get('categories') || []).map((c: any) => c.get('name')).join(', '),
-      unit: p.get('unit')?.get('name') ?? '',
-      description: p.get('description') ?? ''
-    }))
+    const rows = products.map((p) => {
+      const variant = (p.get('variants') || [])[0]
+      return {
+        name: p.get('name'),
+        code: variant?.get('code') ?? '',
+        skuCode: variant?.get('skuCode') ?? '',
+        salePrice: Number(variant?.get('salePrice') ?? 0),
+        regularPrice: Number(variant?.get('regularPrice') ?? 0),
+        wholeSalePrice: Number(variant?.get('wholeSalePrice') ?? 0),
+        costPrice: Number(variant?.get('costPrice') ?? 0),
+        VAT: Number(variant?.get('VAT') ?? 0),
+        quantity: Number(p.get('quantity') ?? 0),
+        sold: Number(variant?.get('sold') ?? 0),
+        isNegative: variant?.get('isNegative') ? 'true' : 'false',
+        categories: (p.get('categories') || []).map((c: any) => c.get('name')).join(', '),
+        unit: p.get('unit')?.get('name') ?? '',
+        description: p.get('description') ?? ''
+      }
+    })
 
     return { buffer: buildWorkbookBuffer(rows), filename: `products-${new Date().toISOString().slice(0, 10)}.xlsx` }
   }
@@ -247,11 +248,13 @@ export class ProductExcelService {
   }
 
   private async indexExistingProducts(vendorId: number) {
-    const existing = await Product.findAll({ where: { vendorId }, attributes: ['id', 'name', 'skuCode', 'code'] })
+    const existing = await ProductVariant.findAll({
+      include: [{ model: Product, where: { vendorId }, attributes: ['id', 'name', 'vendorId'] }]
+    })
     const bySku = new Map<string, any>()
-    for (const p of existing as any[]) {
-      const sku = String(p.get('skuCode') ?? '').trim()
-      if (sku) bySku.set(sku.toLowerCase(), p)
+    for (const variant of existing as any[]) {
+      const sku = String(variant.get('skuCode') ?? '').trim()
+      if (sku) bySku.set(sku.toLowerCase(), variant)
     }
     return bySku
   }
@@ -355,13 +358,41 @@ export class ProductExcelService {
     warehouseId: number,
     t: Transaction
   ) {
-    await match.update(fields, { transaction: t })
-    if (categoryId) await match.$set('categories', [categoryId], { transaction: t })
-    if (unitId) await match.update({ unitId }, { transaction: t })
+    const product = match.get('product') ?? match.product
+    if (!product) throw new Error('Product not found for variant')
+    const { name, description, code, skuCode, salePrice, regularPrice, wholeSalePrice, costPrice, VAT, isNegative } = fields
+    await product.update(
+      {
+        ...(name !== undefined ? { name } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(unitId ? { unitId } : {})
+      },
+      { transaction: t }
+    )
+    await match.update(
+      {
+        ...(code !== undefined ? { code } : {}),
+        ...(skuCode !== undefined ? { skuCode } : {}),
+        ...(salePrice !== undefined ? { salePrice } : {}),
+        ...(regularPrice !== undefined ? { regularPrice } : {}),
+        ...(wholeSalePrice !== undefined ? { wholeSalePrice } : {}),
+        ...(costPrice !== undefined ? { costPrice } : {}),
+        ...(VAT !== undefined ? { VAT } : {}),
+        ...(isNegative !== undefined ? { isNegative } : {})
+      },
+      { transaction: t }
+    )
+    if (categoryId) await product.$set('categories', [categoryId], { transaction: t })
     // Import quantity is an absolute stock level; 0/blank means "leave
     // unchanged" since a blank cell and an explicit 0 are indistinguishable.
     if (quantity != null && quantity !== 0) {
-      await adjustStock({ productId: match.get('id'), variantId: null, warehouseId, target: quantity, transaction: t })
+      await adjustStock({
+        productId: Number(product.get('id')),
+        variantId: Number(match.get('id')),
+        warehouseId,
+        target: quantity,
+        transaction: t
+      })
     }
   }
 
@@ -417,12 +448,33 @@ export class ProductExcelService {
       await assertUniqueVariantSku(String(fields.skuCode), { transaction: t as unknown })
     }
 
-    const created: any = await Product.build({ ...fields, vendorId } as any).save({ transaction: t })
+    const { name, description, code, skuCode, salePrice, regularPrice, wholeSalePrice, costPrice, VAT, isNegative } = fields
+    const created: any = await Product.build({ name, description, unitId, vendorId, type: 0 } as any).save({ transaction: t })
     if (categoryId) await created.$set('categories', [categoryId], { transaction: t })
-    if (unitId) await created.update({ unitId }, { transaction: t })
+    const variant: any = await ProductVariant.create(
+      {
+        productId: created.get('id'),
+        code,
+        skuCode,
+        salePrice,
+        regularPrice,
+        wholeSalePrice,
+        costPrice,
+        VAT,
+        isNegative: Boolean(isNegative),
+        isActive: true
+      },
+      { transaction: t }
+    )
     if (quantity) {
-      await createOpeningStock({ productId: created.get('id'), warehouseId, quantity, transaction: t })
+      await createOpeningStock({
+        productId: created.get('id'),
+        variantId: variant.get('id'),
+        warehouseId,
+        quantity,
+        transaction: t
+      })
     }
-    return created
+    return variant
   }
 }

@@ -78,12 +78,12 @@ describe("OrderService stock handling with product variants", () => {
   });
 
   describe("updateInventory", () => {
-    it("increments the legacy product-level row (variantId NULL) for simple products", async () => {
-      // simple product import (type 0) skips Product lookup, directly increments inventory
+    it("increments the default variant row for simple products", async () => {
       (Inventory as any).increment.mockResolvedValue([1]);
 
       await service.updateInventory({
         productId: 1,
+        variantId: 33,
         warehouseId: 2,
         quantity: 5,
         transaction: tx,
@@ -94,7 +94,7 @@ describe("OrderService stock handling with product variants", () => {
         "quantity",
         expect.objectContaining({
           by: 5,
-          where: { productId: 1, warehouseId: 2, variantId: null },
+          where: { productId: 1, warehouseId: 2, variantId: 33 },
         }),
       );
     });
@@ -230,6 +230,7 @@ describe("OrderService stock handling with product variants", () => {
       await expect(
         service.updateInventory({
           productId: 1,
+          variantId: 33,
           warehouseId: 2,
           quantity: 5,
           transaction: tx,
@@ -238,18 +239,21 @@ describe("OrderService stock handling with product variants", () => {
       ).rejects.toThrow("Inventory not found");
     });
 
-    it("skips the guard when the product allows negative stock", async () => {
+    it("skips the guard when the variant allows negative stock", async () => {
       (Product as any).findByPk.mockResolvedValue({
         id: 1,
         name: "Cola",
-        isNegative: true,
-        get: (k: string) => (k === "name" ? "Cola" : true),
+        get: (k: string) => (k === "name" ? "Cola" : false),
+      });
+      (ProductVariant as any).findByPk.mockResolvedValue({
+        get: (key: string) => (key === "isNegative" ? true : "COLA-DEFAULT"),
       });
       (Inventory as any).decrement.mockResolvedValue([1]);
 
       await expect(
         service.updateInventory({
           productId: 1,
+          variantId: 33,
           warehouseId: 2,
           quantity: 100,
           transaction: tx,
@@ -286,18 +290,24 @@ describe("OrderService stock handling with product variants", () => {
   });
 
   describe("updateProductQuantity", () => {
-    it("bumps only the product counter for simple products", async () => {
-      // The service uses atomic increment(); Sequelize resolves with
-      // [affectedCount, affectedRows].
-      (Product as any).increment.mockResolvedValue([{ sold: 7 }]);
-      (ProductVariant as any).increment.mockResolvedValue([{}]);
-
-      await service.updateProductQuantity({ quantity: 2, productId: 1, transaction: tx });
-
-      expect(Product.increment).toHaveBeenCalledWith(
-        "sold",
-        { by: 2, where: { id: 1 }, transaction: tx },
+    it("bumps only the default variant counter for simple products", async () => {
+      (ProductVariant as any).increment.mockResolvedValue([1]);
+      await service.updateProductQuantity({ quantity: 2, productId: 1, variantId: 33, transaction: tx });
+      expect(Product.increment).not.toHaveBeenCalled();
+      expect(ProductVariant.increment).toHaveBeenCalledExactlyOnceWith(
+        "sold", { by: 2, where: { id: 33, productId: 1 }, transaction: tx },
       );
+    });
+
+    it("rejects missing variantId rather than writing a parent sold counter", async () => {
+      (ProductVariant as any).increment.mockRejectedValue(new Error("variantId is required"));
+      await expect(service.updateProductQuantity({ quantity: 2, productId: 1, transaction: tx } as any)).rejects.toThrow("variantId is required");
+      expect(Product.increment).not.toHaveBeenCalled();
+    });
+
+    it("does not count imports as sales", async () => {
+      await service.updateProductQuantity({ quantity: 2, productId: 1, variantId: 33, transaction: tx, type: "0" });
+      expect(Product.increment).not.toHaveBeenCalled();
       expect(ProductVariant.increment).not.toHaveBeenCalled();
     });
 
@@ -314,15 +324,16 @@ describe("OrderService stock handling with product variants", () => {
 
       expect(ProductVariant.increment).toHaveBeenCalledWith(
         "sold",
-        { by: 2, where: { id: 33 }, transaction: tx },
+        { by: 2, where: { id: 33, productId: 1 }, transaction: tx },
       );
     });
 
-    it("throws when the product increment affects no rows", async () => {
-      (Product as any).increment.mockResolvedValue([]);
+    it("throws when the scoped variant increment affects no rows", async () => {
+      (ProductVariant as any).increment.mockResolvedValue([0]);
       await expect(
-        service.updateProductQuantity({ quantity: 2, productId: 999, transaction: tx }),
-      ).rejects.toThrow("Product not found");
+        service.updateProductQuantity({ quantity: 2, productId: 999, variantId: 33, transaction: tx }),
+      ).rejects.toThrow("Variant not found");
+      expect(Product.increment).not.toHaveBeenCalled();
     });
   });
 

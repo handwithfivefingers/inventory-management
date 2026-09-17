@@ -159,7 +159,7 @@ export class StatsService {
         attributes: [
           [this.sequelize.col('orderDetail.productId'), 'productId'],
           [this.sequelize.col('product.name'), 'productName'],
-          [this.sequelize.col('product.code'), 'productCode'],
+          [this.sequelize.col('variant.code'), 'productCode'],
           [this.sequelize.fn('SUM', this.sequelize.col('orderDetail.quantity')), 'quantitySold'],
           [
             this.sequelize.fn(
@@ -171,6 +171,7 @@ export class StatsService {
         ] as FindAttributeOptions,
         include: [
           { model: database.product, attributes: [], paranoid: false },
+          { model: database.productVariant, attributes: [], required: false },
           {
             model: database.order,
             attributes: [],
@@ -182,7 +183,7 @@ export class StatsService {
           this.sequelize.col('orderDetail.productId'),
           this.sequelize.col('product.id'),
           this.sequelize.col('product.name'),
-          this.sequelize.col('product.code')
+          this.sequelize.col('variant.code')
         ],
         order: [[this.sequelize.literal('`quantitySold`'), 'DESC']],
         limit: 5,

@@ -56,7 +56,7 @@ interface IOrderDetailCreateParams {
   name: string
   quantity: number
   productId: number
-  variantId?: number | null
+  variantId: number
   warehouseId: number
   orderId: number
   price: number
@@ -68,7 +68,7 @@ interface IOrderDetailCreateParams {
 
 interface IInventoryUpdateParams {
   productId: number
-  variantId?: number | null
+  variantId: number
   warehouseId: number
   quantity: number
   transaction: Transaction
@@ -78,7 +78,7 @@ interface IInventoryUpdateParams {
 interface IProductUpdateParams {
   quantity: number
   productId: number
-  variantId?: number | null
+  variantId: number
   transaction: Transaction
   type?: string
 }
@@ -90,7 +90,7 @@ interface ICreateTransferParams {
   toWarehouseId?: number
   quantity: number
   productId: number
-  variantId?: number | null
+  variantId: number
   type?: string
 }
 
@@ -101,7 +101,7 @@ interface OrderTotals {
 
 interface OrderLineQuantity {
   productId: number
-  variantId?: number | null
+  variantId: number
   quantity: number
 }
 
@@ -355,11 +355,11 @@ export default class OrderService {
     return Inventory.findAll({ where: { productId: { [Op.in]: productIds }, warehouseId }, transaction })
   }
 
-  private findAvailableQuantity(warehouseStockRows: any[], productId: number, variantId?: number | null): number {
+  private findAvailableQuantity(warehouseStockRows: any[], productId: number, variantId: number): number {
     const matchingStockRow = warehouseStockRows.find(
       (stockRow: any) =>
         Number(stockRow.get('productId')) === productId &&
-        (variantId != null ? Number(stockRow.get('variantId')) === variantId : stockRow.get('variantId') == null)
+        Number(stockRow.get('variantId')) === variantId
     )
     return Number(matchingStockRow?.get('quantity') ?? 0)
   }
@@ -379,15 +379,16 @@ export default class OrderService {
         await this.throwForMissingSaleProduct(Number(orderLine.productId), transaction)
       }
 
-      const variantRow = orderLine.variantId != null ? stockCatalog.variantById.get(Number(orderLine.variantId)) : null
-      const allowsOversell =
-        orderLine.variantId != null ? Boolean(variantRow?.get('isNegative')) : Boolean(productRow.get('isNegative'))
+      if (orderLine.variantId == null) throw new Error('variantId is required')
+      const variantRow = stockCatalog.variantById.get(Number(orderLine.variantId))
+      if (!variantRow) throw new Error(`Variant ${orderLine.variantId} not found`)
+      const allowsOversell = Boolean(variantRow.get('isNegative'))
       if (allowsOversell) continue
 
       const availableQuantity = this.findAvailableQuantity(
         warehouseStockRows,
         Number(orderLine.productId),
-        orderLine.variantId != null ? Number(orderLine.variantId) : null
+        Number(orderLine.variantId)
       )
       if (availableQuantity < requestedQuantity) {
         const productLabel = variantRow
@@ -484,7 +485,7 @@ export default class OrderService {
     name: string
     quantity: number
     productId: number
-    variantId?: number | null
+    variantId: number
     warehouseId: number
     orderId: number
     note: string
@@ -498,7 +499,7 @@ export default class OrderService {
       orderId,
       note,
       productId,
-      variantId: variantId ?? null,
+      variantId,
       ...extraAttributes
     } as any)
 
@@ -508,18 +509,17 @@ export default class OrderService {
   private async propagateOrderDetailStockChanges(params: {
     quantity: number
     productId: number
-    variantId?: number | null
+    variantId: number
     warehouseId: number
     transaction: Transaction
     type: string
   }): Promise<void> {
     const { quantity, productId, variantId, warehouseId, transaction, type } = params
-    const normalizedVariantId = variantId ?? null
-    await this.updateInventory({ quantity, productId, variantId: normalizedVariantId, warehouseId, transaction, type })
+    await this.updateInventory({ quantity, productId, variantId, warehouseId, transaction, type })
     await this.updateProductQuantity({
       quantity,
       productId,
-      variantId: normalizedVariantId,
+      variantId,
       transaction,
       type
     })
@@ -599,39 +599,24 @@ export default class OrderService {
     return orderType === ORDER_TYPE_IMPORT ? 'increment' : 'decrement'
   }
 
-  private buildStockWhereClause(
-    productId: number,
-    warehouseId: number,
-    variantId?: number | null
-  ): Record<string, unknown> {
-    // Variant-aware stock row: a variant has its own (product, warehouse, variant)
-    // inventory row; simple products use the legacy row where variantId IS NULL.
+  private buildStockWhereClause(productId: number, warehouseId: number, variantId: number): Record<string, unknown> {
+    if (variantId == null) throw new Error('variantId is required')
     return {
       productId,
       warehouseId,
-      ...(variantId != null ? { variantId } : { variantId: null })
+      variantId
     }
   }
 
   private async resolveOversellPermission(
     productId: number,
-    variantId: number | null | undefined,
+    variantId: number,
     transaction: Transaction
   ): Promise<{ allowsOversell: boolean; productLabel: string }> {
-    // For variant sales the check is ISOLATED to the variant row:
-    // variant.quantity + variant.isNegative only. The parent product's
-    // isNegative/quantity are ignored when variantId is present.
-    // Simple products (variantId == null) fall back to products.isNegative.
     const productRow = await this.fetchProductForStockGuard(productId, transaction)
-    let productLabel = productRow.name
-
-    if (variantId != null) {
-      const variantRow = await this.fetchVariantForStockGuard(variantId, transaction)
-      productLabel = `${productLabel} [${variantRow.get('skuCode')}]`
-      return { allowsOversell: Boolean(variantRow.get('isNegative')), productLabel }
-    }
-
-    return { allowsOversell: Boolean(productRow.isNegative), productLabel }
+    const variantRow = await this.fetchVariantForStockGuard(variantId, transaction)
+    const productLabel = `${productRow.name} [${variantRow.get('skuCode')}]`
+    return { allowsOversell: Boolean(variantRow.get('isNegative')), productLabel }
   }
 
   private async fetchProductForStockGuard(productId: number, transaction: Transaction): Promise<any> {
@@ -659,12 +644,12 @@ export default class OrderService {
 
   private async assertInventoryRowExistsForSale(
     stockWhereClause: Record<string, unknown>,
-    variantId: number | null | undefined,
+    variantId: number,
     transaction: Transaction
   ): Promise<void> {
     const inventoryRow = await Inventory.findOne({ where: stockWhereClause, transaction } as any)
     if (!inventoryRow) {
-      throw ApiError.from(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
+      throw ApiError.from(`Inventory not found for variant ${variantId}`)
     }
   }
 
@@ -710,14 +695,14 @@ export default class OrderService {
   private assertStockMovementApplied(
     affectedRowCount: number,
     insufficientStockProductLabel: string | null,
-    variantId: number | null | undefined
+    variantId: number
   ): void {
     if (affectedRowCount !== 0) return
     // Distinguish "row missing" from "insufficient stock" for the client.
     if (insufficientStockProductLabel) {
       throw ApiError.from(`Insufficient stock for product "${insufficientStockProductLabel}"`)
     }
-    throw ApiError.from(variantId != null ? `Inventory not found for variant ${variantId}` : 'Inventory not found')
+    throw ApiError.from(`Inventory not found for variant ${variantId}`)
   }
 
   /**
@@ -769,29 +754,22 @@ export default class OrderService {
 
   private async applySoldCounterChange(params: {
     productId: number
-    variantId?: number | null
+    variantId: number
     quantity: number
     operator: 'increment' | 'decrement'
     transaction: Transaction
     notFoundMessage: string
     variantNotFoundMessage: string
   }): Promise<void> {
-    const { productId, variantId, quantity, operator, transaction, notFoundMessage, variantNotFoundMessage } = params
-    const productResult = await Product[operator]('sold', {
+    const { productId, variantId, quantity, operator, transaction, variantNotFoundMessage } = params
+    // Product has no stored sold column anymore; the variant counter is the
+    // single source of truth and product-level sold is a read aggregate.
+    const variantResult = await ProductVariant[operator]('sold', {
       by: quantity,
-      where: { id: productId },
+      where: { id: variantId, productId },
       transaction
     })
-    if (!this.hasAffectedSoldRows(productResult)) throw new Error(notFoundMessage)
-
-    if (variantId != null) {
-      const variantResult = await ProductVariant[operator]('sold', {
-        by: quantity,
-        where: { id: variantId },
-        transaction
-      })
-      if (!this.hasAffectedSoldRows(variantResult)) throw new Error(variantNotFoundMessage)
-    }
+    if (!this.hasAffectedSoldRows(variantResult)) throw new Error(variantNotFoundMessage)
     await evictCachedEntity('product', productId)
   }
 
@@ -952,7 +930,8 @@ export default class OrderService {
   }
 
   private buildLineQuantityKey(line: { productId: number; variantId?: number | null }): string {
-    return `${line.productId}-${line.variantId ?? 'x'}`
+    if (line.variantId == null) throw new Error('variantId is required')
+    return `${line.productId}-${line.variantId}`
   }
 
   private async computeOrderQuantityDeltas(
@@ -970,7 +949,7 @@ export default class OrderService {
       const detailValues = detailRow.get() as any
       previousQuantityByKey.set(this.buildLineQuantityKey(detailValues), {
         productId: Number(detailRow.get('productId')),
-        variantId: (detailRow.get('variantId') as number | null) ?? undefined,
+        variantId: Number(detailRow.get('variantId')),
         quantity: Number(detailRow.get('quantity'))
       })
     }
@@ -979,7 +958,7 @@ export default class OrderService {
     for (const orderLine of updatedOrderLines) {
       updatedQuantityByKey.set(this.buildLineQuantityKey(orderLine), {
         productId: Number(orderLine.productId),
-        variantId: orderLine.variantId ?? undefined,
+        variantId: Number(orderLine.variantId),
         quantity: Number(orderLine.quantity)
       })
     }
@@ -1028,7 +1007,7 @@ export default class OrderService {
       // Keep history (transfers) in sync with inventory movements.
       await this.createTransfer({
         productId: quantityDelta.productId,
-        variantId: quantityDelta.variantId ?? null,
+        variantId: quantityDelta.variantId,
         warehouseId,
         quantity: absoluteDelta,
         transaction,
@@ -1038,7 +1017,7 @@ export default class OrderService {
       if (effectiveOrderType !== ORDER_TYPE_IMPORT) {
         await this.adjustSoldByDelta({
           productId: quantityDelta.productId,
-          variantId: quantityDelta.variantId ?? null,
+          variantId: quantityDelta.variantId,
           quantity: absoluteDelta,
           delta: quantityDelta.delta,
           type: effectiveOrderType,
@@ -1062,7 +1041,7 @@ export default class OrderService {
           orderId,
           warehouseId,
           productId: orderLine.productId,
-          variantId: orderLine.variantId ?? null,
+          variantId: Number(orderLine.variantId),
           quantity: orderLine.quantity,
           price: orderLine.price,
           buyPrice: orderLine.buyPrice,
@@ -1249,7 +1228,7 @@ export default class OrderService {
       returnLineSnapshot.push({
         orderDetailId: Number(matchingDetail.get('id')),
         productId: Number(matchingDetail.get('productId')),
-        variantId: (matchingDetail.get('variantId') as number | null) ?? null,
+        variantId: Number(matchingDetail.get('variantId')),
         name: (matchingDetail as any).name ?? '',
         quantity: returnQuantity,
         price: unitPrice
@@ -1289,7 +1268,8 @@ export default class OrderService {
   }): Promise<void> {
     const { matchingDetail, warehouseId, returnQuantity, transaction } = params
     const productId = Number(matchingDetail.get('productId'))
-    const variantId = (matchingDetail.get('variantId') as number | null) ?? null
+    const variantId = Number(matchingDetail.get('variantId'))
+    if (!Number.isFinite(variantId)) throw new Error('variantId is required')
 
     // Goods flow back into stock (IN transfer, type '0').
     await this.updateInventory({

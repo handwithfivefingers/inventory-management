@@ -25,6 +25,7 @@ export type VariantInput = {
   wholeSalePrice?: unknown
   costPrice?: unknown
   VAT?: unknown
+  imageUrl?: string | null
   isNegative?: unknown
   isActive?: unknown
 }

@@ -31,8 +31,8 @@ export class OrderDetail extends Model {
   declare productId: number
 
   @ForeignKey(() => ProductVariant)
-  @Column({ type: DataType.INTEGER, allowNull: true })
-  declare variantId: number | null
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare variantId: number
 
   @ForeignKey(() => Order)
   @Column(DataType.INTEGER)
@@ -53,7 +53,7 @@ export class OrderDetail extends Model {
   @BelongsTo(() => Warehouse, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare warehouse: Warehouse
 
-  @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  @BelongsTo(() => ProductVariant, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
   declare variant: ProductVariant
 
   @HasMany(() => InvoiceDetail)

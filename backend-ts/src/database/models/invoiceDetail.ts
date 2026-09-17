@@ -22,8 +22,8 @@ export class InvoiceDetail extends Model {
   declare productId: number | null
 
   @ForeignKey(() => ProductVariant)
-  @Column({ type: DataType.INTEGER, allowNull: true })
-  declare variantId: number | null
+  @Column({ type: DataType.INTEGER, allowNull: false })
+  declare variantId: number
 
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare quantity: number
@@ -58,7 +58,7 @@ export class InvoiceDetail extends Model {
   @BelongsTo(() => Product, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   declare product: Product
 
-  @BelongsTo(() => ProductVariant, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  @BelongsTo(() => ProductVariant, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
   declare variant: ProductVariant
 }
 

@@ -19,6 +19,10 @@ const posItem = {
   barcode: "BARCODE-001",
   price: 150,
   stock_quantity: 8,
+  VAT: 8,
+  imageUrl: "/variant.png",
+  isNegative: true,
+  sold: 12,
 };
 
 const adminItem = {
@@ -62,7 +66,7 @@ describe("unified product search adapters", () => {
       expect(row.name).toBe("Ao thun - ABC-123");
       expect(row.skuCode).toBe("ABC-123");
       expect(row.quantity).toBe(8);
-      expect(row.unifiedVariant).toMatchObject({ id: 11, productId: 5, salePrice: 150 });
+      expect(row.unifiedVariant).toMatchObject({ id: 11, productId: 5, salePrice: 150, VAT: 8, imageUrl: "/variant.png", isNegative: true, sold: 12 });
       expect(row.variants).toHaveLength(1);
     });
 

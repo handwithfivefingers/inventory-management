@@ -1,6 +1,3 @@
-// const { Sequelize } = require('sequelize')
-// const fs = require('fs')
-// const path = require('path')
 import { Sequelize, DataTypes, Transaction } from 'sequelize'
 import { Sequelize as STSequelize, Model as STModel } from 'sequelize-typescript'
 import fs from 'node:fs'

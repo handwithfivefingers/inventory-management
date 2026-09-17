@@ -13,8 +13,7 @@ interface ICreateParams {
   /** Legacy single warehouse field – automatically mapped to fromWarehouseId for backwards compatibility */
   warehouseId?: number | null
   productId: number
-  /** Optional: set for variant-level movements, NULL/undefined = product level */
-  variantId?: number | null
+  variantId: number
   quantity: number
   type?: string | null
   status?: string | null
@@ -65,6 +64,9 @@ export class TransferService {
       normalized.fromWarehouseId = normalized.warehouseId
     }
     delete normalized.warehouseId
+    if (normalized.variantId == null || !Number.isFinite(Number(normalized.variantId))) {
+      throw new Error('variantId is required')
+    }
     const transferBuilder = this.transfer.build(normalized)
     const trans = await transferBuilder.save(options)
     return trans

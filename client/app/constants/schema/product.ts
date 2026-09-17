@@ -36,6 +36,8 @@ const variantOverrideSchema = z.object({
   regularPrice: StrOrNum.optional(),
   salePrice: StrOrNum.optional(),
   wholeSalePrice: StrOrNum.optional(),
+  VAT: StrOrNum.nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
   /** Allow negative stock for this specific combination (required choice) */
   isNegative: z.boolean().optional(),
   // New: references to global attributes

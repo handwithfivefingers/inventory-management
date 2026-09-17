@@ -76,7 +76,7 @@ const buildOrder = (overrides: Record<string, any> = {}) =>
   })
 
 const buildDetail = (overrides: Record<string, any> = {}) =>
-  makeRow({ id: 101, orderId: 9, productId: 42, variantId: null, quantity: 2, price: 10000, ...overrides })
+  makeRow({ id: 101, orderId: 9, productId: 42, variantId: 33, quantity: 2, price: 10000, ...overrides })
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -113,8 +113,9 @@ describe('OrderService.returnOrder', () => {
     // stock flows back (IN transfer type '0')
     expect(inventoryModel.increment).toHaveBeenCalled()
     expect(db.transfer.build).toHaveBeenCalled()
-    // sold counter decremented
-    expect(productModel.decrement).toHaveBeenCalled()
+    // sold counter decremented (variant is the only stored counter now)
+    expect(productVariantModel.decrement).toHaveBeenCalled()
+    expect(productModel.decrement).not.toHaveBeenCalled()
     // return document snapshots the line
     expect(orderReturnModel.create).toHaveBeenCalledTimes(1)
     const docArg = orderReturnModel.create.mock.calls[0][0]

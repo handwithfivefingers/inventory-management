@@ -447,3 +447,57 @@ export async function action({ request }: ActionFunctionArgs) {
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }
+
+// Bạn là một Chuyên gia Kiến trúc Phần mềm (Software Architect) và Chuyên gia CSDL (Database Expert).
+// Tôi cần bạn lập kế hoạch và viết các script/code cụ thể để thực hiện Migration hệ thống Quản lý Sản phẩm (Catalog) từ mô hình cũ sang mô hình mới có hỗ trợ Biến thể (Product & Product Variant) và Barcode.
+
+// ---
+// ### 1. BỐI CẢNH VÀ HIỆN TRẠNG (CONTEXT)
+// - **Hệ thống hiện tại (Legacy):**
+//   - Đang lưu tất cả sản phẩm ở bảng `products` và `productVariants`.
+//   - Hệ thông đang có nhiều đơn hàng trong bảng `orders`, `orderDetails`,`invoices`, `invoiceDetails`
+//   - FE đang lấy dữ liệu ở cả 2 bảng `products` và `productVariants`.
+// - **Mục tiêu Migration:**
+//   1. Chuyển đổi mô hình dữ liệu sang 2 bảng: `products` (thông tin chung) và `product_variants` (chứa SKU, Barcode, Giá, Tồn kho, ...).
+//   2. Thêm column `sold` ở bảng `product_variants`
+//   3. Toàn bộ Sản phẩm hiện tại (Simple Product) sẽ được migrate thành 1 Product + 1 Variant mặc định (Default Variant).
+//   4. Tất cả Barcode hiện tại ở bảng cũ phải chuyển sang bảng `product_variants` mới và đảm bảo tính Duy nhất theo vendorId.
+//   5. Cập nhật khóa ngoại (Foreign Key) ở bảng `order_items` để trỏ chính xác về `variant_id` mới tạo mà KHÔNG làm đứt gãy lịch sử đơn hàng.
+//   6. Cập nhật method tạo/cập nhật `order` `orderdetails` cần cập nhật chỉ số `sold` cho `productvariant` và `product`.
+//   7. Client cần xem xét mapping lại data nếu có thay đổi
+
+// ---
+// ### 2. YÊU CẦU ĐẦU RA (OUTPUT DELIVERABLES)
+
+// Hãy cung cấp giải pháp chi tiết theo 5 phần sau:
+
+// #### PHẦN 1: DDL SCRIPTS (Cấu trúc CSDL mới)
+// - Viết các câu lệnh SQL DDL để tạo bảng `products`, `product_variants` (và bảng `variant_barcodes` nếu cần).
+// - Đảm bảo có đầy đủ Data Types, Foreign Keys, Unique Indexes, Default values, Soft-delete (`deleted_at` hoặc `status`), và Timestamp.
+
+// #### PHẦN 2: DATA MIGRATION SCRIPT (SQL/Code ETL)
+// - Viết script chuyển đổi dữ liệu cũ sang mới (Data ETL):
+//   + Bước 1: Migrate dữ liệu từ `products` cũ sang `products` mới và `product_variants` mới.
+//   + Bước 2: Map lại `variant_id` mới tạo vào các bảng lịch sử như `order_items`, `inventory_logs` (xử lý snapshot dữ liệu: name, sku, barcode, price tại thời điểm bán).
+// - Viết script dạng Idempotent (có thể chạy lại nhiều lần không bị trùng lặp dữ liệu - ví dụ dùng `ON CONFLICT` hoặc `INSERT INTO ... SELECT`).
+// - Xử lý các edge case: Barcode bị null, Barcode cũ bị trùng lặp trong DB hiện tại, Tên sản phẩm bị trùng.
+
+// #### PHẦN 3: BUSINESS & ORM LAYER (Code ứng dụng)
+// - Viết các đoạn Code/Model mẫu trên:
+//   + Khai báo Quan hệ (Relationship) giữa Product và Variant.
+//   + Logic Validation khi tạo/sửa Barcode (Khóa sửa Barcode khi Variant đã có trong `order_items`).
+//   + Logic Quét mã Barcode (Scan) để tìm Variant tương ứng.
+
+// #### PHẦN 4: CHIẾN LƯỢC DEPLOYMENT & ROLLBACK (Phát hành an toàn)
+// - Chi tiết các bước thực hiện theo quy trình **Expand-Contract Pattern (Parallel Run)**:
+//   1. Expand: Thêm bảng mới, chạy đồng bộ song song.
+//   2. Migrate: Chuyển dữ liệu cũ sang.
+//   3. Switch: Chuyển App sang dùng schema mới.
+//   4. Contract: Dọn dẹp schema cũ.
+// - Script Rollback khẩn cấp nếu việc migration gặp sự cố giữa chừng.
+
+// #### PHẦN 5: CHECKLIST KIỂM THỬ (Verification)
+// - Danh sách các câu lệnh SQL Query để Kiểm tra (Audit) tính toàn vẹn dữ liệu sau khi Migration xong (Ví dụ: So sánh tổng số lượng sản phẩm cũ vs mới, kiểm tra record bị mồ côi FK, kiểm tra trùng barcode).
+
+// ---
+// Hãy trình bày rõ ràng, chi tiết, kèm comment giải thích cụ thể trong từng đoạn code/SQL.

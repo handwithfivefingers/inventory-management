@@ -41,7 +41,9 @@ vi.mock('#/database', () => ({ default: db }))
 // The service touches models through the `database.*` seam; direct imports
 // below are only `model:` metadata, kept on the same mocks for consistency.
 vi.mock('#/database/models/product', () => ({ default: db.product, Product: db.product }))
+vi.mock('#/database/models/productVariant', () => ({ default: db.productVariant, ProductVariant: db.productVariant }))
 vi.mock('#/database/models/inventory', () => ({ default: db.inventory, Inventory: db.inventory }))
+vi.mock('#/database/models/transfer', () => ({ default: db.transfer, Transfer: db.transfer }))
 vi.mock('#/database/models/category', () => ({ default: db.category, Category: db.category }))
 vi.mock('#/database/models/units', () => ({ default: db.units, Unit: db.units }))
 vi.mock('#/database/models/setting', () => ({ default: db.setting, Setting: db.setting }))
@@ -56,6 +58,7 @@ import database from '#/database'
 import { ProductService } from '#/services/product'
 
 const productModel = database.product
+const productVariantModel = database.productVariant
 const inventoryModel = database.inventory
 const categoryModel = database.category
 const unitModel = database.unit
@@ -84,9 +87,12 @@ const req = (extra: any = {}) =>
 beforeEach(() => {
   vi.clearAllMocks()
   db.sequelize.transaction.mockResolvedValue(tx)
+  db.sequelize.query.mockResolvedValue([[{ seq: 1 }]])
   db.warehouse.findByPk.mockResolvedValue({ vendorId: 3 })
   db.transfer.build.mockReturnValue({ save: vi.fn(async () => ({})) })
   productModel.findAll.mockResolvedValue([])
+  productVariantModel.findAll.mockResolvedValue([])
+  productVariantModel.create.mockImplementation(async (fields: any) => makeRow({ id: 77, ...fields }))
   productModel.count.mockResolvedValue(0)
   inventoryModel.findOne.mockResolvedValue(null)
   inventoryModel.build.mockReturnValue({ save: vi.fn(async () => ({})) })
@@ -99,6 +105,22 @@ const makeProduct = (fields: Record<string, any>) =>
     name: 'P', code: '', skuCode: '', salePrice: 0, regularPrice: 0, wholeSalePrice: 0,
     costPrice: 0, quantity: 0, sold: 0, isNegative: false, categories: [], unit: null,
     description: '', ...fields
+  })
+
+const makeVariant = (fields: Record<string, any>) =>
+  makeRow({
+    id: 7,
+    productId: 42,
+    code: '',
+    skuCode: '',
+    salePrice: 0,
+    regularPrice: 0,
+    wholeSalePrice: 0,
+    costPrice: 0,
+    VAT: 0,
+    sold: 0,
+    isNegative: false,
+    ...fields
   })
 
 function workbookBuffer(rows: Record<string, any>[]): Buffer {
@@ -114,7 +136,11 @@ const fileReq = (rows: Record<string, any>[], vendorId: any = 3) =>
 describe('ProductService.exportExcel', () => {
   it('maps products to flat rows and returns an xlsx buffer + filename', async () => {
     productModel.findAll.mockResolvedValue([
-      makeProduct({ name: 'Áo thun', code: 'A01', skuCode: 'A01-BLUE', salePrice: 150000, quantity: 12 })
+      makeProduct({
+        name: 'Áo thun',
+        quantity: 12,
+        variants: [makeVariant({ code: 'A01', skuCode: 'A01-BLUE', salePrice: 150000 })]
+      })
     ])
 
     const { buffer, filename } = await new ProductService().exportExcel(req({}))
@@ -132,11 +158,7 @@ describe('ProductService.exportExcel', () => {
 
     const arg = productModel.findAll.mock.calls[0][0]
     expect(arg.where.vendorId).toBe(3)
-    // Op.or is a symbol key with per-column startsWith
-    const orKey = Object.getOwnPropertySymbols(arg.where).find((s) => String(s).includes('or'))
-    expect(orKey).toBeDefined()
-    // each column gets Op.startsWith (symbol key) with the search term
-    const nameCol = arg.where[orKey!].name
+    const nameCol = arg.where.name
     const startsWithKey = Object.getOwnPropertySymbols(nameCol).find((s) => String(s).includes('startsWith'))
     expect(startsWithKey).toBeDefined()
     expect(nameCol[startsWithKey!]).toBe('ao')
@@ -160,15 +182,17 @@ describe('ProductService.importExcel', () => {
 
     expect(report.created).toBe(1)
     expect(report.failed).toBe(0)
-    expect(productModel.build).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sản phẩm mới', skuCode: 'SKU-NEW', vendorId: 3 }))
-    expect(inventoryModel.build).toHaveBeenCalledWith(expect.objectContaining({ warehouseId: 5, quantity: 6, productId: 51 }))
+    expect(productModel.build).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sản phẩm mới', vendorId: 3, type: 0 }))
+    expect(productVariantModel.create).toHaveBeenCalledWith(expect.objectContaining({ productId: 51, skuCode: 'SKU-NEW' }), expect.anything())
+    expect(inventoryModel.build).toHaveBeenCalledWith(expect.objectContaining({ warehouseId: 5, quantity: 6, productId: 51, variantId: 77 }))
     // opening stock booked as IN transfer (type '0')
     expect(db.transfer.build).toHaveBeenCalledWith(expect.objectContaining({ productId: 51, quantity: 6, type: '0' }))
   })
 
   it('updates existing products matched by skuCode and adjusts stock to the absolute quantity', async () => {
-    const existing = makeRow({ id: 42, skuCode: 'SKU-OLD', name: 'Cũ', salePrice: 1 })
-    productModel.findAll.mockResolvedValue([existing])
+    const product = makeRow({ id: 42, name: 'Cũ' })
+    const existing = makeVariant({ id: 77, productId: 42, skuCode: 'SKU-OLD', salePrice: 1, product })
+    productVariantModel.findAll.mockResolvedValue([existing])
     inventoryModel.findOne.mockResolvedValue(makeRow({ quantity: 10 }))
 
     const report = await new ProductService().importExcel(
@@ -177,10 +201,11 @@ describe('ProductService.importExcel', () => {
 
     expect(report.updated).toBe(1)
     expect(report.created).toBe(0)
-    expect(existing.update).toHaveBeenCalledWith(expect.objectContaining({ name: 'Mới', salePrice: 99000 }), expect.anything())
+    expect(product.update).toHaveBeenCalledWith(expect.objectContaining({ name: 'Mới' }), expect.anything())
+    expect(existing.update).toHaveBeenCalledWith(expect.objectContaining({ salePrice: 99000 }), expect.anything())
     // absolute quantity semantics: inventory set to 4, movement records the -6 delta
-    expect(inventoryModel.findOne.mock.calls[0][0].where).toMatchObject({ productId: 42, warehouseId: 5 })
-    expect(db.transfer.build).toHaveBeenCalledWith(expect.objectContaining({ productId: 42, quantity: 6, type: '1' }))
+    expect(inventoryModel.findOne.mock.calls[0][0].where).toMatchObject({ productId: 42, variantId: 77, warehouseId: 5 })
+    expect(db.transfer.build).toHaveBeenCalledWith(expect.objectContaining({ productId: 42, variantId: 77, quantity: 6, type: '1' }))
   })
 
   it('reports per-row failures without aborting the run', async () => {

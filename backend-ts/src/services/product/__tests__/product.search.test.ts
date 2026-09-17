@@ -35,6 +35,10 @@ const makeVariant = (overrides: Record<string, any> = {}) => {
     salePrice: 150,
     regularPrice: 200,
     isActive: true,
+    VAT: 8,
+    imageUrl: '/variant.png',
+    isNegative: true,
+    sold: 12,
     product: { id: 5, name: 'Ao thun', vendorId: 1, get: (k: string) => ({ id: 5, name: 'Ao thun', vendorId: 1 })[k] },
     inventories: [],
     ...overrides
@@ -57,7 +61,7 @@ describe('unified product search', () => {
     expect(result.exact_match).toBe(true)
     expect(result.context).toBe('POS')
     if (result.exact_match) {
-      expect(result.data).toMatchObject({ variant_id: 11, product_id: 5, sku: 'ABC-123', stock_quantity: 8 })
+      expect(result.data).toMatchObject({ variant_id: 11, product_id: 5, sku: 'ABC-123', stock_quantity: 8, VAT: 8, imageUrl: '/variant.png', isNegative: true, sold: 12 })
     }
     // Exact lookup hits barcode or SKU (case variants covered)
     const orFilter = db.productVariant.findOne.mock.calls[0][0].where
