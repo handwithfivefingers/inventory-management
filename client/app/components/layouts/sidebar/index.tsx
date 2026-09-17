@@ -1,7 +1,9 @@
 import { Link, useLocation } from "@remix-run/react";
+import { animate } from "motion";
 import { m } from "motion/react";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "~/components/icon";
+import { Portal } from "~/components/portal";
 import { TMDropdown } from "~/components/tm-dropdown";
 import { ISidebarChild, ISideBarItem, SIDE_BAR } from "~/constants/sidebar";
 import { useSubmitPromise } from "~/hooks";
@@ -87,9 +89,11 @@ export const Sidebar = () => {
   }, [role, hiddenTick]);
 
   return (
-    <div className="w-full max-w-60 h-full shrink-0 shadow-xl shadow-primary/20 bg-white dark:bg-transparent flex flex-col">
-      <div className="p-2 min-w-40 text-center max-w-60 font-bold w-full bg-white  dark:bg-transparent shrink-0 h-10">
-        <Link to="/">{activeVendor?.name}</Link>
+    <div className="w-full max-w-80 h-full shrink-0 shadow-xl shadow-primary/20 bg-white dark:bg-transparent flex flex-col">
+      <div className="p-2 w-full min-w-60 text-center max-w-80 font-bold bg-white  dark:bg-transparent shrink-0 h-10">
+        <Link to="/" className="w-full">
+          {activeVendor?.name}
+        </Link>
       </div>
       <div className="flex flex-col flex-1 p-2 rounded-md gap-1 overflow-auto scrollbar h-[calc(100dvh-40px)]">
         {visibleGroups.map((group, index) => (
@@ -262,7 +266,7 @@ const CollapsibleGroup = ({
 
       {/* Children: grid-rows 0fr -> 1fr animates collapse without measuring */}
       <div
-        className="grid transition-all duration-150 ease-in bg-slate-100 rounded-sm"
+        className="grid transition-all duration-150 ease-in bg-slate-100 dark:bg-slate-700/40 rounded-sm"
         style={{
           gridTemplateRows: isExpand ? "1fr" : "0fr",
           opacity: isExpand ? 1 : 0,
@@ -286,22 +290,11 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: Omit
   return (
     <Link
       to={to || "#"}
-      className={cn("py-1 hover:bg-white dark:hover:bg-slate-800/80 transition-all rounded-md relative", className, {
-        ["bg-white dark:bg-slate-800/80 shadow"]: isActive,
+      className={cn("py-1 hover:bg-white dark:hover:bg-slate-500 transition-all rounded-md relative", className, {
+        ["bg-white dark:bg-slate-500 shadow"]: isActive,
       })}
     >
-      {/* {isChildren && (
-        <div
-          className={cn(
-            "w-1 h-1 ring-[2px] ring-primary dark:ring-slate-200 rounded-full absolute -left-[11px] top-1/2 -translate-x-1/2 -translate-y-1/2",
-            {
-              ["bg-primary"]: isActive,
-              ["bg-slate-200"]: !isActive,
-            },
-          )}
-        />
-      )} */}
-      <div className="flex gap-2 relative py-1 px-4">
+      <div className="flex gap-2 relative py-1 px-2">
         {iconName && (
           <Icon
             name={iconName}
@@ -328,58 +321,190 @@ const LinkItem = ({ to, isActive, className, label, iconName, isChildren }: Omit
   );
 };
 
+// const UserButton = () => {
+//   const { t } = useTranslation();
+//   const { user } = useUser();
+//   const { submit } = useSubmitPromise();
+//   const perm = usePermissionStore();
+
+//   const handleLogOut = async () => {
+//     useUser.getState().reset();
+//     // await AuthService.logout();
+//     submit({}, { method: "POST", action: "/api/auth" });
+//   };
+//   return (
+//     <TMDropdown
+//       placement="right"
+//       variant="ghost"
+//       items={[
+//         {
+//           label: (
+//             <div className="flex gap-2 items-center text-sm">
+//               <Icon name="user" className="w-4 h-4" />
+//               <span>{t("header.profile")}</span>
+//             </div>
+//           ),
+//           onClick: handleLogOut,
+//         },
+//         {
+//           label: (
+//             <div className="flex gap-2 items-center text-sm">
+//               <Icon name="log-out" className="w-4 h-4" />
+//               <span>{t("header.logout")}</span>
+//             </div>
+//           ),
+//           onClick: handleLogOut,
+//         },
+//       ]}
+//       className="w-full"
+//       unstyled
+//     >
+//       {({ toggle }) => (
+//         <div
+//           className="flex gap-1 h-full items-center p-2 w-full border-t border-slate-200 dark:border-slate-500 cursor-pointer"
+//           onClick={toggle}
+//         >
+//           <span className="w-8 bg-slate-200 rounded-full p-2 ">
+//             <Icon name="user" fontSize={16} />
+//           </span>
+//           <div className="flex flex-col items-end text-right cursor-pointer text-slate-400 flex-1">
+//             <span className="text-sm text-slate-600">{user?.fullName || user?.email}</span>
+//             <span className="text-xs/3 font-light text-slate-400">{perm.name}</span>
+//           </div>
+//         </div>
+//       )}
+//     </TMDropdown>
+//   );
+// };
+
 const UserButton = () => {
   const { t } = useTranslation();
   const { user } = useUser();
   const { submit } = useSubmitPromise();
   const perm = usePermissionStore();
-
+  const mainRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const handleLogOut = async () => {
     useUser.getState().reset();
     // await AuthService.logout();
     submit({}, { method: "POST", action: "/api/auth" });
   };
-  return (
-    <TMDropdown
-      placement="right"
-      variant="ghost"
-      items={[
-        {
-          label: (
-            <div className="flex gap-2 items-center text-sm">
-              <Icon name="user" className="w-4 h-4" />
-              <span>{t("header.profile")}</span>
-            </div>
-          ),
-          onClick: handleLogOut,
-        },
-        {
-          label: (
-            <div className="flex gap-2 items-center text-sm">
-              <Icon name="log-out" className="w-4 h-4" />
-              <span>{t("header.logout")}</span>
-            </div>
-          ),
-          onClick: handleLogOut,
-        },
-      ]}
-      className="w-full"
-      unstyled
-    >
-      {({ toggle }) => (
-        <div
-          className="flex gap-1 h-full items-center p-2 w-full border-t border-slate-200 cursor-pointer"
-          onClick={toggle}
-        >
-          <span className="w-8 bg-slate-200 rounded-full p-2 ">
-            <Icon name="user" fontSize={16} />
-          </span>
-          <div className="flex flex-col items-end text-right cursor-pointer text-slate-400 flex-1">
-            <span className="text-sm text-slate-600">{user?.fullName || user?.email}</span>
-            <span className="text-xs/3 font-light text-slate-400">{perm.name}</span>
-          </div>
+  const [show, setShow] = useState(false);
+  const toggle = () => {
+    setShow(!show);
+  };
+  const items = [
+    {
+      label: (
+        <div className="flex gap-2 items-center text-sm">
+          <Icon name="user" className="w-4 h-4" />
+          <span>{t("header.profile")}</span>
         </div>
-      )}
-    </TMDropdown>
+      ),
+      onClick: handleLogOut,
+    },
+    {
+      label: (
+        <div className="flex gap-2 items-center text-sm">
+          <Icon name="log-out" className="w-4 h-4" />
+          <span>{t("header.logout")}</span>
+        </div>
+      ),
+      onClick: handleLogOut,
+    },
+  ];
+
+  // useEffect(() => {
+  //   if (!mainRef.current) {
+  //     return;
+  //   }
+  //   if (show) {
+  //     const bounce = mainRef.current.getBoundingClientRect();
+  //     animate(
+  //       popupRef.current,
+  //       {
+  //         x: bounce.x,
+  //         // y: bounce.y,
+  //         top: bounce.top - bounce.height,
+  //       },
+  //       { duration: 0.2 },
+  //     );
+  //     // mainRef.current.style.setProperty("--bounce", `${bounce.y}px`);
+  //   }
+  // }, [show]);
+
+  return (
+    // <TMDropdown
+    //   placement="right"
+    //   variant="ghost"
+    //   items={[
+    //     {
+    //       label: (
+    //         <div className="flex gap-2 items-center text-sm">
+    //           <Icon name="user" className="w-4 h-4" />
+    //           <span>{t("header.profile")}</span>
+    //         </div>
+    //       ),
+    //       onClick: handleLogOut,
+    //     },
+    //     {
+    //       label: (
+    //         <div className="flex gap-2 items-center text-sm">
+    //           <Icon name="log-out" className="w-4 h-4" />
+    //           <span>{t("header.logout")}</span>
+    //         </div>
+    //       ),
+    //       onClick: handleLogOut,
+    //     },
+    //   ]}
+    //   className="w-full"
+    //   unstyled
+    // >
+    //   {({ toggle }) => (
+    <div>
+      <div
+        className="flex gap-1 h-full items-center p-2 w-full border-t border-slate-200 dark:border-slate-500 cursor-pointer"
+        onClick={toggle}
+        ref={mainRef}
+      >
+        <span className="w-8 bg-slate-200 rounded-full p-2 ">
+          <Icon name="user" fontSize={16} />
+        </span>
+        <div className="flex flex-col items-end text-right cursor-pointer text-slate-400 flex-1">
+          <span className="text-sm text-slate-600">{user?.fullName || user?.email}</span>
+          <span className="text-xs/3 font-light text-slate-400">{perm.name}</span>
+        </div>
+      </div>
+      <Portal>
+        {show && (
+          <div className="user-popover fixed top-0 left-0 right-0 bottom-0 z-50">
+            <div className="w-full h-full absolute z-1" onClick={toggle} />
+            <m.div
+              className="flex flex-col z-2 gap-1 bg-white p-2 rounded fixed"
+              animate={{
+                x: mainRef.current ? mainRef.current.offsetLeft + mainRef.current.offsetWidth + 8 : 0,
+                width: mainRef.current ? mainRef.current.offsetWidth + 8 : 0,
+                // bottom: mainRef.current ? mainRef.current.off - mainRef.current.offsetHeight : 0,
+                bottom: 8,
+                opacity: show ? [0, 0, 1] : 0,
+              }}
+              ref={popupRef}
+            >
+              {items.map((item, i) => (
+                <div
+                  onClick={item.onClick}
+                  key={i}
+                  className="px-3 py-2 cursor-pointer rounded-md flex items-center gap-2 text-sm hover:bg-indigo-50 text-gray-700 dark:hover:bg-slate-700 dark:text-slate-300"
+                >
+                  {item.label}
+                </div>
+              ))}
+            </m.div>
+          </div>
+        )}
+      </Portal>
+    </div>
+    //   )}
+    // </TMDropdown>
   );
 };

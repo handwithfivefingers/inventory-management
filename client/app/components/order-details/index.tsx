@@ -2,6 +2,7 @@ import React, { forwardRef, useImperativeHandle } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { OrderDetailSchema } from "~/constants/schema/order";
 import { useTranslation } from "~/i18n";
+import { formatCurrency } from "~/libs/format-currency";
 import { FormControl } from "../form/form-control";
 import { NumberInput } from "../form/number-input";
 import { NumberStepper } from "../form/number-stepper";
@@ -39,6 +40,20 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
     const v = Number(value) * Number(quantity);
     form.setValue(`orderDetails.${pos}.buyPrice` as any, v);
   };
+  const onChangeVAT = ({ value }: any, field: any) => {
+    // VAT is display-only for totals: never touch quantity/buyPrice here.
+    field.onChange(value === "" || value === undefined ? undefined : value);
+  };
+
+  // Line math (shared with the order detail page):
+  // base = buyPrice snapshot (already qty x unit price, excl. VAT),
+  // line total = base x (1 + lineVAT / 100).
+  const headerVAT = form.watch("VAT");
+  const lineRateOf = (item: any) => Number(item?.VAT ?? headerVAT ?? 0);
+  const lineBaseOf = (item: any) =>
+    Number(item?.buyPrice ?? Number(item?.quantity || 0) * Number(item?.price || 0));
+  const lineTotalOf = (item: any) => lineBaseOf(item) * (1 + lineRateOf(item) / 100);
+  const subtotalInclVAT = (orderDetails || []).reduce((sum: number, item: any) => sum + lineTotalOf(item), 0);
 
   useImperativeHandle(
     ref,
@@ -53,11 +68,12 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
   return (
     <div className="min-h-40 h-full overflow-auto flex flex-col gap-4 relative border border-indigo-50 rounded-md">
       <div className="flex-1 overflow-x-auto">
-        <div className="min-w-[640px]">
+        <div className="min-w-[760px]">
           <div className="flex gap-2 items-center py-3 bg-indigo-50 px-2 text-primary">
             <div className="w-full text-sm font-medium">{t("importOrder.product")}</div>
             <div className="w-32 shrink-0 text-sm font-medium ">{t("importOrder.quantity")}</div>
             <div className="w-28 shrink-0 text-sm font-medium text-right">{t("importOrder.unitPrice")}</div>
+            <div className="w-24 shrink-0 text-sm font-medium text-right">VAT (%)</div>
             <div className="w-28 shrink-0 text-sm font-medium text-right">{t("importOrder.total")}</div>
             <div className="w-10 shrink-0" />
           </div>
@@ -93,17 +109,22 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
                       }}
                     </FormControl>
                   </div>
-                  <div className="w-32 shrink-0">
-                    <FormControl name={`orderDetails.${i}.vat`}>
+                  <div className="w-24 shrink-0">
+                    <FormControl name={`orderDetails.${i}.VAT`}>
                       {(field) => (
-                        <NumberInput value={field.value} onValueChange={(v) => onQuantityChange(v, field, i)} />
+                        <NumberInput value={field.value} suffix="%" onValueChange={(v) => onChangeVAT(v, field)} />
                       )}
                     </FormControl>
                   </div>
                   <div className="w-28 shrink-0 text-right">
-                    <FormControl name={`orderDetails.${i}.buyPrice` as any}>
-                      <NumberInput displayType="text" className="text-sm" />
-                    </FormControl>
+                    <span className="text-sm font-medium">
+                      {formatCurrency(lineTotalOf((orderDetails || [])[i]))}
+                    </span>
+                    <div className="hidden">
+                      <FormControl name={`orderDetails.${i}.buyPrice` as any}>
+                        <NumberInput displayType="text" className="text-sm" />
+                      </FormControl>
+                    </div>
                   </div>
                   <div className="w-10 shrink-0 flex justify-end">
                     <TMButton
@@ -117,23 +138,6 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
                     </TMButton>
                   </div>
                 </div>
-                {/* <div className="flex gap-2 items-center order-row bg-white odd:bg-slate-50 p-2 border-b border-slate-100 hover:bg-slate-200/70 transition-all">
-                  <div className="w-full">VAT</div>
-                  <div className="w-32 shrink-0">
-                    <FormControl name={`orderDetails.${i}.vat`}>
-                      {(field) => (
-                        <NumberStepper value={field.value} onValueChange={(v) => onQuantityChange(v, field, i)} />
-                      )}
-                    </FormControl>
-                  </div>
-                  <div className="w-28 shrink-0"></div>
-                  <div className="w-28 shrink-0 text-right">
-                    <FormControl name={`orderDetails.${i}.buyPrice` as any}>
-                      <NumberInput displayType="text" className="text-sm" />
-                    </FormControl>
-                  </div>
-                  <div className="w-10 shrink-0 flex justify-end"></div>
-                </div> */}
               </React.Fragment>
             );
           })}
@@ -158,12 +162,9 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
         </div>
       </div>
       <div className="flex gap-2 items-center order-row mt-auto bg-indigo-50 p-2 text-sm rounded-b text-primary">
-        <div className="w-full font-medium">{t("importOrder.total")}</div>
+        <div className="w-full font-medium">Tạm tính (gồm VAT dòng)</div>
         <div className="shrink-0">
-          <NumberInput
-            displayType="text"
-            value={orderDetails.reduce((total, item: any) => total + Number(item?.buyPrice), 0) as any}
-          />
+          <NumberInput displayType="text" value={subtotalInclVAT as any} />
         </div>
       </div>
     </div>

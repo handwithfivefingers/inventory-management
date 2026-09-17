@@ -2,3 +2,4 @@ export * from "./useFetch";
 export * from "./useSubmitPromise";
 export * from "./use-permission";
 export * from "./use-dropdown-position";
+export * from "./use-unified-product-search";

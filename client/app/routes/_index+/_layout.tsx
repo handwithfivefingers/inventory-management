@@ -5,6 +5,7 @@ import { LoaderArgs } from "~/action.server/context.server";
 import { ErrorComponent } from "~/components/error-component";
 import { AppLayout } from "~/components/layouts";
 import { destroySession } from "~/sessions";
+import { IVendorSettings } from "~/types/setting";
 export async function loader({ request, context }: LoaderArgs) {
   const { userId, session } = context;
   if (!userId) {
@@ -17,12 +18,12 @@ export async function loader({ request, context }: LoaderArgs) {
   return {};
 }
 export interface MainLayoutContext {
-  settings: any;
+  settings: IVendorSettings;
   setOpenSidebar: (open: boolean) => void;
 }
 
 const MainLayout = () => {
-  const settings = useOutletContext<{ settings: any }>();
+  const { settings } = useOutletContext<{ settings: any }>();
   const [openSidebar, setOpenSidebar] = useState(true);
   return (
     <AppLayout showSidebar={openSidebar}>

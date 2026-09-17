@@ -105,6 +105,14 @@ export default function Customers() {
             </div>
           </div>
         }
+        action={
+          <PermissionGuard permission="CREATE" module="customer">
+            <TMButton component={Link} to="add" size="sm" className="hidden sm:inline-flex">
+              <Icon name="plus" fontSize={16} />
+              {t("customers.create")}
+            </TMButton>
+          </PermissionGuard>
+        }
         className="flex flex-col w-full rounded-md bg-white shadow-2xl shadow-slate-200 gap-2 dark:bg-slate-800 dark:shadow-black/20 p-5 sm:p-6 h-full"
       >
         <div className="flex gap-2 flex-col h-full overflow-hidden">
@@ -118,12 +126,6 @@ export default function Customers() {
               }}
               className="max-w-sm w-full"
             />
-            <PermissionGuard permission="CREATE" module="customer">
-              <TMButton component={Link} to="add" size="sm" className="hidden sm:inline-flex">
-                <Icon name="plus" fontSize={16} />
-                {t("customers.create")}
-              </TMButton>
-            </PermissionGuard>
           </div>
 
           <div className="flex-1 overflow-auto">

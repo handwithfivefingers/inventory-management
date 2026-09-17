@@ -19,6 +19,7 @@ export interface IProductVariantModel
   regularPrice: number | null
   wholeSalePrice: number | null
   costPrice: number | null
+  VAT?: number | null
   sold: CreationOptional<number>
   isActive: CreationOptional<boolean>
   isNegative: CreationOptional<boolean>

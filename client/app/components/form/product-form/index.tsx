@@ -11,17 +11,17 @@ import { SelectInput } from "../select-input";
 import { MultiSelectInput } from "../multi-select-input";
 import { NumberInput } from "../number-input";
 import { BarCode } from "~/components/barcode";
+import { ProductSchemaType } from "~/constants/schema/product";
 
 interface Props {
   categories: ICategory[];
   units: ICategory[];
   tags: ICategory[];
   barcode?: string;
-  moneyStep: number;
 }
-export const ProductForm = ({ categories, units, tags, moneyStep, barcode }: Props) => {
+export const ProductForm = ({ categories, units, tags, barcode }: Props) => {
   const { t } = useTranslation();
-  const form = useFormContext();
+  const form = useFormContext<ProductSchemaType>();
   const watchedAttrs = (form.watch("variantAttributes") || []) as any[];
   const hasVariantAttrs = watchedAttrs.some(
     (a) => (a?.name || "").trim() && (Array.isArray(a?.values) ? a.values.length > 0 : String(a?.values || "").trim()),
@@ -32,6 +32,7 @@ export const ProductForm = ({ categories, units, tags, moneyStep, barcode }: Pro
       <div className="w-full md:max-w-xs mx-auto md:mx-0 flex flex-col gap-1 shrink-0">
         {/* <span className="font-medium text-sm">{t("product.image")}</span> */}
         <ImagePreview />
+
         {barcode && (
           <div className="w-full py-2 rounded-md flex justify-center">
             <BarCode code={barcode || ""} />

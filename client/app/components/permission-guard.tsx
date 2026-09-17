@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
 import { useIsAdmin, usePermission } from "~/hooks/use-permission";
 import { cn } from "~/libs/utils";
 import { IPermission } from "~/types/user";
@@ -59,10 +59,10 @@ export const PermissionGuard = ({
   };
 
   if (isAllowed()) {
-    return <div className={cn("inline", className)}>{children}</div>;
+    return children;
   }
 
-  return <>{fallback}</>;
+  return <React.Fragment>{fallback}</React.Fragment>;
 };
 
 /**

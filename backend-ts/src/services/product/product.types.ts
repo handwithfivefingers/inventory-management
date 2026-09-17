@@ -13,6 +13,8 @@ export type VariantInput = {
   id?: number | string
   variantId?: number | string
   code?: string | null
+  /** Canonical variant SKU field is `skuCode`; `sku` is accepted as an alias (spec). */
+  sku?: string
   skuCode?: string
   quantity?: number | string
   attributeValues?: (number | string)[]
@@ -22,6 +24,7 @@ export type VariantInput = {
   regularPrice?: unknown
   wholeSalePrice?: unknown
   costPrice?: unknown
+  VAT?: unknown
   isNegative?: unknown
   isActive?: unknown
 }
@@ -51,6 +54,7 @@ export type UpdateProductParams = {
   regularPrice?: unknown
   wholeSalePrice?: unknown
   costPrice?: unknown
+  VAT?: unknown
   isNegative?: unknown
   isActive?: unknown
   categories?: number[]

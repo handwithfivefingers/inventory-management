@@ -11,10 +11,11 @@ import { TMButton } from "~/components/tm-button";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
+import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
 import { useTranslation } from "~/i18n";
-import { parseCookieFromRequest } from "~/sessions";
-import { IProduct, IProductVariant } from "~/types/product";
+import { IProduct, IProductSearchRow, IProductVariant } from "~/types/product";
 import { MainLayoutContext } from "../_layout";
+import { debounce } from "~/libs/debounce";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Bán hàng (POS)" }];
@@ -26,16 +27,15 @@ export const meta: MetaFunction = () => {
  * inside ONE transaction (attemptCreateInvoice runs in the same tx).
  */
 export default function SellPage() {
-  const { setOpenSidebar } = useOutletContext<MainLayoutContext>();
+  const { setOpenSidebar, settings } = useOutletContext<MainLayoutContext>();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const searchFetcher = useFetcher<{ data: { data: IProduct[] } }>({ key: "Products-Search" });
   const form = useForm<OrderSchema>({
     defaultValues: {
       customer: undefined,
       orderDetails: [],
       price: 0,
-      VAT: "5",
+      VAT: settings.defaultTaxRate ?? 0,
       surcharge: "0",
       paid: 0,
       paymentType: "cash",
@@ -44,7 +44,24 @@ export default function SellPage() {
     resolver: orderSchema,
   });
   const { submit, isLoading } = useSubmitPromise();
-  const data = searchFetcher?.data?.data?.data || [];
+  // Unified POS search: exact barcode/SKU scans auto-add to cart, otherwise
+  // variant-level rows come back for fast checkout (real-time stock).
+  const { rows: searchedRows, search: searchProducts } = useUnifiedProductSearch({
+    context: "POS",
+    onExactMatch: (item) => {
+      form.setValue(
+        "orderDetails",
+        addLine(form.getValues("orderDetails") || [], {
+          productId: item.product_id,
+          variantId: item.variant_id,
+          name: item.display_name,
+          price: item.price,
+          note: "",
+        }),
+      );
+    },
+  });
+  const data = searchedRows;
 
   const variantsFetcher = useFetcher<{ data: { data: IProductVariant[]; total: number } }>({
     key: "Product-Variants",
@@ -52,9 +69,9 @@ export default function SellPage() {
   const [variantTarget, setVariantTarget] = useState<IProduct | null>(null);
   const [showVariantPicker, setShowVariantPicker] = useState(false);
 
-  const handleFilterProduct = (value: string) => {
-    searchFetcher.submit({ s: value }, { method: "POST", action: "/products" });
-  };
+  const handleFilterProduct = debounce((value: string) => {
+    searchProducts(value);
+  }, 250);
 
   const addLine = (
     currentValue: OrderDetailSchema[],
@@ -95,6 +112,22 @@ export default function SellPage() {
   };
 
   const handleAdd = (item: IProduct, variant?: IProductVariant) => {
+    // Unified POS rows already carry their actionable variant — add directly.
+    const unifiedVariant = (item as IProductSearchRow).unifiedVariant ?? variant;
+    if (unifiedVariant && (item as IProductSearchRow).unifiedVariant) {
+      const price = Number(unifiedVariant.salePrice ?? unifiedVariant.regularPrice ?? item.regularPrice ?? 0);
+      form.setValue(
+        "orderDetails",
+        addLine(form.getValues("orderDetails") || [], {
+          productId: item.id,
+          variantId: unifiedVariant.id,
+          name: item.name,
+          price,
+          note: "",
+        }),
+      );
+      return;
+    }
     if (variant) {
       const price = Number(variant.salePrice ?? variant.regularPrice ?? item.regularPrice ?? 0);
       form.setValue(

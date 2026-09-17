@@ -1,6 +1,13 @@
 import { HTTPService } from "~/http/index.server";
 import { BaseQueryParams, IResponse } from "~/types/common";
-import { IProduct, IProductAttribute, IProductDetails, IProductVariant } from "~/types/product";
+import {
+  IProduct,
+  IProductAttribute,
+  IProductDetails,
+  IProductVariant,
+  IUnifiedSearchRequest,
+  IUnifiedSearchResponse,
+} from "~/types/product";
 
 const API_PATH = {
   products: "/products",
@@ -65,8 +72,23 @@ const productService = {
   getProductById: (id: string | number) => {
     return http.get<{ data: IProduct }>(API_PATH.products + "/" + id);
   },
+  /**
+   * Unified product query for POS/Sell and Admin views.
+   * Tenant context (cookie / X-Vendor / X-Warehouse) is forwarded by the
+   * HTTP layer; `warehouse_id` is still sent explicitly for POS so scans are
+   * always scoped even when no warehouse header is present.
+   */
+  searchProducts: (params: IUnifiedSearchRequest) => {
+    return http.post<IUnifiedSearchResponse, IUnifiedSearchRequest>(`${API_PATH.products}/search`, params);
+  },
   createProduct: (params: ICreateProductParams & { vendorId?: string | number }) => {
     return http.post(API_PATH.products, params);
+  },
+  deleteProduct: (id: number | string) => {
+    return http.delete<{ message: string }>(`${API_PATH.products}/${id}`);
+  },
+  restoreProduct: (id: number | string) => {
+    return http.post(`${API_PATH.products}/${id}/restore`, {});
   },
   importProduct: (params: any) => {
     return http.post(`${API_PATH.products}/import`, params);

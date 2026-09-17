@@ -9,6 +9,13 @@ const orderDetails = z.object({
   quantity: StrOrNum,
   price: StrOrNum.optional(),
   buyPrice: StrOrNum.optional(),
+  /**
+   * Per-line VAT %. Snapshot of `variant.VAT ?? product.VAT` taken when the
+   * line is picked; omitted lines fall back to the header `VAT`.
+   * Stored on the line so a later backend migration (orderDetails VAT column)
+   * can persist it without payload changes.
+   */
+  VAT: StrOrNum.optional(),
   note: z.string().optional(),
   name: z.string().optional(),
   warehouseId: StrOrNum.optional(),

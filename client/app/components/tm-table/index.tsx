@@ -55,7 +55,7 @@ export const TMTable = <T extends object>({
         }}
       />
       {loading && <Loader />}
-      <div className="relative rounded-md h-full flex flex-col ">
+      <div className="relative rounded-md h-full flex flex-col">
         <div
           className={cn("shadow-sm flex-1 min-h-0", {
             ["overflow-auto"]: scrollable,
@@ -71,7 +71,7 @@ export const TMTable = <T extends object>({
             })}
           >
             <TMTable.Header columns={columns} />
-            <tbody className="bg-white dark:bg-slate-800">
+            <tbody className="bg-white dark:bg-slate-800 ">
               {isEmpty && (
                 <tr>
                   <td colSpan={columns?.length || 1} className="h-full">
@@ -133,9 +133,10 @@ TMTable.Row = <T extends object>({ columns, data, onClick, index }: IRow<T>) => 
     <tr
       onClick={handleCellClick}
       className={cn(
-        "cursor-pointer group bg-white dark:bg-slate-800 even:[&>td]:bg-slate-100 even:dark:[&>td]:bg-slate-700/40",
+        "cursor-pointer group bg-white dark:bg-slate-800 even:bg-slate-50 dark:even:bg-slate-700/40",
         styles.row,
       )}
+      tabIndex={-1}
     >
       {columns.map((item, i) => {
         return (
@@ -156,7 +157,7 @@ TMTable.Cell = ({ children, className, style }: any) => {
   return (
     <td
       className={cn(
-        "dark:border-slate-600 p-2 sm:p-4 text-slate-500 dark:text-slate-300 group-hover:bg-slate-100 dark:group-hover:bg-slate-700/60 transition-colors break-words",
+        "dark:border-slate-600 p-2 sm:p-4 text-slate-500 dark:text-slate-300 group-hover:bg-indigo-50 dark:group-hover:bg-slate-700/60 transition-colors break-words",
         className,
       )}
       style={style}

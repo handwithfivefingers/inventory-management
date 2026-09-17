@@ -4,22 +4,22 @@ import "animate.css";
 import "feather-icons/dist/feather";
 import { domAnimation, LazyMotion, useIsomorphicLayoutEffect } from "motion/react";
 import { useEffect } from "react";
+import { withContext } from "~/action.server/context.server";
 import "~/assets/styles/index.scss";
 import "~/assets/styles/tailwind.css";
 import { useLocale } from "~/store/locale.store";
 import { applyTheme, initThemeSync, useTheme } from "~/store/theme.store";
 import { AuthService } from "./action.server/auth.service";
 import { settingService } from "./action.server/setting.service";
-import { DEFAULT_SETTINGS } from "./types/setting";
 import { ErrorComponent } from "./components/error-component";
 import { NotificationProvider } from "./components/notification";
 import { applyNicheTheme } from "./libs/niche-theme";
-import { commitSession, destroySession } from "./sessions";
+import { commitSession, destroySession, parseCookieFromRequest } from "./sessions";
 import { usePermissionStore } from "./store/permission.store";
 import { useUser } from "./store/user.store";
+import { DEFAULT_SETTINGS } from "./types/setting";
 import { IVendor } from "./types/vendor";
 import { IWareHouse } from "./types/warehouse";
-import { LoaderArgs, updateContext, withContext } from "~/action.server/context.server";
 // import { requestStorage } from "./libs/request-store";
 /**
  * Applies the persisted theme before first paint to avoid a flash
@@ -56,70 +56,65 @@ const getActiveWarehouse = (session: Session, warehouses: IWareHouse[]) => {
 };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  return withContext(request, async ({ cookie, userId, vendorId, warehouseId, session }) => {
+  // return withContext(request, async ({ cookie, userId, vendorId, warehouseId, session }) => {
+  const { cookie, session, vendorId, warehouseId } = await parseCookieFromRequest(request);
+  try {
+    // if (!userId || !cookie || !session) throw new Error("User not authenticated");
+    const getMeResponse = await AuthService.getMe({ cookie });
+    if (getMeResponse.status !== 200) throw getMeResponse;
+
+    const user = getMeResponse.data?.data;
+    if (!user) throw new Error("User not found");
+    const vendors = user.vendors ?? [];
+
+    getActiveVendor(session, vendors);
+    getActiveWarehouse(session, vendors[0]?.warehouses ?? []);
+
+    let settings = DEFAULT_SETTINGS;
     try {
-      if (!userId || !cookie || !session) throw new Error("User not authenticated");
-
-      const getMeResponse = await AuthService.getMe({ cookie });
-      if (getMeResponse.status !== 200) throw getMeResponse;
-
-      const user = getMeResponse.data?.data;
-      if (!user) throw new Error("User not found");
-      const vendors = user.vendors ?? [];
-
-      getActiveVendor(session, vendors);
-      getActiveWarehouse(session, vendors[0]?.warehouses ?? []);
-
-      let settings = DEFAULT_SETTINGS;
-      try {
-        const settingsVendorId = session?.get("vendorId") ?? vendorId ?? vendors[0]?.id;
-        if (settingsVendorId) {
-          const res = await settingService.getSettings();
-          const fetched = (res as any)?.data?.data ?? (res as any)?.data;
-          if (fetched && typeof fetched === "object") {
-            settings = { ...DEFAULT_SETTINGS, ...fetched };
-          }
+      const settingsVendorId = session?.get("vendorId") ?? vendorId ?? vendors[0]?.id;
+      if (settingsVendorId) {
+        const res = await settingService.getSettings();
+        const fetched = (res as any)?.data?.data ?? (res as any)?.data;
+        if (fetched && typeof fetched === "object") {
+          settings = { ...DEFAULT_SETTINGS, ...fetched };
         }
-      } catch (settingsError) {
-        console.error("Failed to load settings, using defaults", settingsError);
       }
-      const resolvedVendorId = session.get("vendorId") ?? vendorId;
-      const resolvedWarehouseId = session.get("warehouseId") ?? warehouseId;
-      // `vendors` travel inside `user` (single source of truth) - no duplication.
-
-      const role = user.role;
-      delete user.role;
-      // const contextUpdated = {
-      //   vendorId: resolvedVendorId,
-      //   warehouseId: resolvedWarehouseId,
-      // };
-      // updateContext(contextUpdated);
-      return Response.json(
-        {
-          user,
-          role,
-          selectedVendorId: resolvedVendorId,
-          selectedWarehouseId: resolvedWarehouseId != null ? Number(resolvedWarehouseId) : undefined,
-          settings,
-        },
-        {
-          headers: {
-            "Set-Cookie": await commitSession(session),
-          },
-        },
-      );
-      // );
-    } catch (error) {
-      return Response.json(
-        { error },
-        {
-          headers: {
-            "Set-Cookie": await destroySession(session as Session),
-          },
-        },
-      );
+    } catch (settingsError) {
+      console.error("Failed to load settings, using defaults", settingsError);
     }
-  });
+    const resolvedVendorId = session.get("vendorId") ?? vendorId;
+    const resolvedWarehouseId = session.get("warehouseId") ?? warehouseId;
+    // `vendors` travel inside `user` (single source of truth) - no duplication.
+
+    const role = user.role;
+    delete user.role;
+    return Response.json(
+      {
+        user,
+        role,
+        selectedVendorId: resolvedVendorId,
+        selectedWarehouseId: resolvedWarehouseId != null ? Number(resolvedWarehouseId) : undefined,
+        settings,
+      },
+      {
+        headers: {
+          "Set-Cookie": await commitSession(session),
+        },
+      },
+    );
+    // );
+  } catch (error) {
+    return Response.json(
+      { error },
+      {
+        headers: {
+          "Set-Cookie": await destroySession(session as Session),
+        },
+      },
+    );
+  }
+  // });
 };
 
 export function Layout({ children }: { children: React.ReactNode }) {

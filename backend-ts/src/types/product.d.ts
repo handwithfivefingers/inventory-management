@@ -18,6 +18,7 @@ export interface IProductModel extends Model<InferAttributes<IProductModel>, Inf
   regularPrice: number
   wholeSalePrice: number
   costPrice: number
+  VAT?: number | null
   sold: number
   image?: string | null
   isNegative: CreationOptional<boolean>

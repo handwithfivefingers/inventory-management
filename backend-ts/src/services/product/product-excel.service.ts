@@ -3,8 +3,10 @@ import Category from '#/database/models/category'
 import Product from '#/database/models/product'
 import Unit from '#/database/models/units'
 import { IRequestLocal } from '#/types/common'
+import { assertValidBarcode } from '#/utils/barcode'
 import { applyCodeFormat, generateSkuFromTemplate, getCodeFormat, padSeq } from '#/utils/code-generator'
 import { nextSequence } from '#/utils/sequence'
+import { assertUniqueVariantSku, assertValidSku, duplicateSkuMessage, normalizeSku } from '#/utils/sku'
 import {
   assertVendorAccess,
   assertWarehouseAccess,
@@ -26,6 +28,7 @@ const EXCEL_COLUMNS: { header: string; key: string; width?: number }[] = [
   { header: 'Giá niêm yết (regularPrice)', key: 'regularPrice', width: 22 },
   { header: 'Giá sỉ (wholeSalePrice)', key: 'wholeSalePrice', width: 20 },
   { header: 'Giá vốn (costPrice)', key: 'costPrice', width: 16 },
+  { header: 'VAT (%)', key: 'VAT', width: 12 },
   { header: 'Tồn kho', key: 'quantity', width: 12 },
   { header: 'Đã bán', key: 'sold', width: 10 },
   { header: 'Cho âm (isNegative)', key: 'isNegative', width: 16 },
@@ -133,6 +136,7 @@ export class ProductExcelService {
       regularPrice: Number(p.get('regularPrice') ?? 0),
       wholeSalePrice: Number(p.get('wholeSalePrice') ?? 0),
       costPrice: Number(p.get('costPrice') ?? 0),
+      VAT: Number(p.get('VAT') ?? 0),
       quantity: Number(p.get('quantity') ?? 0),
       sold: Number(p.get('sold') ?? 0),
       isNegative: p.get('isNegative') ? 'true' : 'false',
@@ -155,6 +159,7 @@ export class ProductExcelService {
         regularPrice: 199000,
         wholeSalePrice: 130000,
         costPrice: 90000,
+        VAT: 8,
         quantity: 50,
         sold: 0,
         isNegative: 'false',
@@ -198,7 +203,10 @@ export class ProductExcelService {
       rowNumber += 1
       const row = this.normalizeRow(rawRow, aliasMap)
       const name = String(row.name ?? '').trim()
-      const skuCode = String(row.skuCode ?? '').trim()
+      // Normalize early so update-matching is case-insensitive on the canonical form.
+      // Format validation happens inside `importRow` (per-row try/catch) so one
+      // bad SKU is reported for its row instead of aborting the whole run.
+      const skuCode = normalizeSku(row.skuCode ?? '')
       if (!name && !skuCode) continue // blank row
 
       try {
@@ -270,11 +278,18 @@ export class ProductExcelService {
 
   private buildRowFields(row: Record<string, any>, name: string, skuCode: string): Record<string, unknown> {
     const fields: Record<string, unknown> = { name }
-    if (row.code) fields.code = String(row.code).trim()
-    if (skuCode) fields.skuCode = skuCode
+    if (row.code !== undefined && row.code !== null && String(row.code).trim() !== '') {
+      fields.code = assertValidBarcode(String(row.code).trim(), 'code')
+    }
+    // Strict SKU rule: normalize trim+uppercase, then ^[A-Z0-9_-]{3,30}$.
+    if (skuCode) fields.skuCode = assertValidSku(skuCode, 'sku')
     for (const key of ['salePrice', 'regularPrice', 'wholeSalePrice', 'costPrice'] as const) {
       const n = toNumberOrNull(row[key])
       if (n != null) fields[key] = n
+    }
+    if (row.VAT !== undefined && row.VAT !== '' && row.VAT !== null) {
+      const vat = Number(String(row.VAT).replace(/[,\s%]/g, ''))
+      if (Number.isFinite(vat)) fields.VAT = Math.min(100, Math.max(0, vat))
     }
     if (row.description) fields.description = String(row.description).trim()
     if (row.isNegative !== undefined && row.isNegative !== '') {
@@ -361,26 +376,45 @@ export class ProductExcelService {
     bySku: Map<string, any>,
     t?: Transaction
   ) {
-    if (settings && (!fields.code || !fields.skuCode)) {
+    if (!fields.code || !fields.skuCode) {
       const seq = await nextSequence('product', new Date().getFullYear(), {
         transaction: t,
         initial: (await Product.count()) + 1
       })
+      // 8-digit padding keeps generated barcodes >= 12 chars (see ProductService).
+      const seq8 = padSeq(seq, 8)
       if (!fields.code) {
-        const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
-        fields.code = applyCodeFormat(padSeq(seq), prefix, suffix)
+        if (settings) {
+          const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
+          fields.code = applyCodeFormat(seq8, prefix, suffix)
+        } else {
+          fields.code = `PRD-${seq8}`
+        }
+        if (String(fields.code).length < 12) {
+          fields.code = `PRD-${padSeq(seq, 10)}`
+        }
       }
       if (!fields.skuCode) {
-        const baseCode = (fields.code as string) || padSeq(seq)
-        fields.skuCode = generateSkuFromTemplate(
-          settings.skuTemplate,
-          { CODE: baseCode, SEQ: padSeq(seq), YYYY: String(new Date().getFullYear()) },
-          baseCode
-        )
+        const baseCode = (fields.code as string) || seq8
+        fields.skuCode = settings
+          ? generateSkuFromTemplate(
+              settings.skuTemplate,
+              { CODE: baseCode, SEQ: seq8, YYYY: String(new Date().getFullYear()) },
+              baseCode
+            )
+          : baseCode
       }
     }
+    if (fields.skuCode) {
+      fields.skuCode = normalizeSku(fields.skuCode)
+    }
     if (fields.skuCode && bySku.has(String(fields.skuCode).toLowerCase())) {
-      throw new Error(`SKU ${fields.skuCode} đã tồn tại trong hệ thống`)
+      throw new Error(duplicateSkuMessage(String(fields.skuCode)))
+    }
+    // Guard the global variant namespace as well: a product SKU must not
+    // collide with an active variant SKU (spec: globally unique variants).
+    if (fields.skuCode) {
+      await assertUniqueVariantSku(String(fields.skuCode), { transaction: t as unknown })
     }
 
     const created: any = await Product.build({ ...fields, vendorId } as any).save({ transaction: t })

@@ -30,7 +30,16 @@ export class Product extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   declare name: string
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    validate: {
+      len: {
+        args: [[12, 255]],
+        msg: 'code must be at least 12 characters'
+      }
+    }
+  })
   declare code: string | null
 
   @Column({ type: DataType.STRING, allowNull: true })
@@ -50,6 +59,9 @@ export class Product extends Model {
 
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare costPrice: number | null
+
+  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0, comment: 'VAT percent, e.g. 0/5/8/10' })
+  declare VAT: number | null
 
   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
   declare sold: number

@@ -15,12 +15,13 @@ import { printInvoiceViaBrowser, ReceiptPrinter } from "~/components/receipt-pri
 import { TMButton } from "~/components/tm-button";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
+import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
 import { clampLineQty, defaultSelection, deriveInvoiceType, lineRemaining } from "~/libs/invoice-lines";
 import { parseCookieFromRequest } from "~/sessions";
 import { IInvoice } from "~/types/invoice";
-import { IProduct } from "~/types/product";
+import { IProduct, IProductSearchRow } from "~/types/product";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Chi tiết đơn hàng" }];
@@ -99,10 +100,7 @@ export default function OrderItem() {
   const [selection, setSelection] = useState<Record<number, { checked: boolean; qty: number }>>({});
   const [printInvoices, setPrintInvoices] = useState<any[] | null>(null);
   const [isPrintFetching, setIsPrintFetching] = useState(false);
-
-  const searchFetcher = useFetcher<{ data: { data: IProduct[]; total: number } }>({ key: "Products-Search" });
-  const form = useForm<OrderSchema>({
-    defaultValues: {
+  const form = useForm<OrderSchema>({    defaultValues: {
       customer: undefined,
       orderDetails: (order?.orderDetails || []).map((detail: any) => ({
         productId: detail.productId,
@@ -111,6 +109,9 @@ export default function OrderItem() {
         quantity: Number(detail.quantity),
         price: Number(detail.price),
         buyPrice: Number(detail.buyPrice),
+        // Backend has no per-line VAT column yet: prefer a stored line VAT,
+        // else the line's product/variant snapshot, else the header VAT.
+        VAT: detail.VAT ?? detail.taxRate ?? detail.product?.VAT ?? detail.variant?.VAT ?? order?.VAT ?? "0",
         note: detail.note || "",
       })),
       price: order?.price || 0,
@@ -124,6 +125,27 @@ export default function OrderItem() {
 
   const { submit, isLoading } = useSubmitPromise();
   const invoiceFetcher = useFetcher({ key: "Invoice-Fetcher" });
+
+  // Unified POS search for edit mode: exact scans auto-add a line, the
+  // fallback list carries actionable variants (real-time stock per warehouse).
+  const { rows: searchedRows, search: searchProducts } = useUnifiedProductSearch({
+    context: "POS",
+    onExactMatch: (item) => {
+      const currentValue: OrderDetailSchema[] = form.getValues("orderDetails") || [];
+      const headerVAT = form.getValues("VAT") ?? order?.VAT ?? "0";
+      currentValue.push({
+        productId: item.product_id,
+        variantId: item.variant_id,
+        name: item.display_name,
+        quantity: 1,
+        price: item.price,
+        buyPrice: item.price,
+        VAT: headerVAT,
+        note: "",
+      });
+      form.setValue("orderDetails", currentValue);
+    },
+  });
 
   // Print a single invoice or all invoices via the body-level InvisiblePrintContainer.
   // The container (InvoicePrintPortal) mounts ONLY the targeted invoice(s) and
@@ -212,11 +234,43 @@ export default function OrderItem() {
   };
 
   const handleFilterProduct = (queryString: string) => {
-    searchFetcher.submit({ s: queryString }, { method: "POST", action: "/products" });
+    searchProducts(queryString);
   };
 
   const handleAdd = (item: IProduct) => {
     const currentValue: OrderDetailSchema[] = form.getValues("orderDetails") || [];
+    const headerVAT = form.getValues("VAT") ?? order?.VAT ?? "0";
+    // Unified POS rows already carry their actionable variant.
+    const unifiedVariant = (item as IProductSearchRow).unifiedVariant;
+    if (unifiedVariant) {
+      const price = Number(unifiedVariant.salePrice ?? unifiedVariant.regularPrice ?? item.regularPrice ?? 0);
+      const lineVAT =
+        item.VAT !== undefined && item.VAT !== null && String(item.VAT).trim() !== "" ? item.VAT : headerVAT;
+      const index = currentValue.findIndex(
+        (cItem) => item.id === cItem.productId && unifiedVariant.id === (cItem.variantId ?? undefined),
+      );
+      if (index === -1) {
+        currentValue.push({
+          productId: item.id,
+          variantId: unifiedVariant.id,
+          name: item.name,
+          quantity: 1,
+          price,
+          buyPrice: price,
+          VAT: lineVAT,
+          note: "",
+        });
+      } else {
+        const target = { ...currentValue[index] };
+        target.quantity = Number(target.quantity) + 1;
+        target.buyPrice = Number(target.quantity) * Number(target.price);
+        currentValue[index] = target;
+      }
+      form.setValue("orderDetails", currentValue);
+      return;
+    }
+    const lineVAT =
+      item.VAT !== undefined && item.VAT !== null && String(item.VAT).trim() !== "" ? item.VAT : headerVAT;
     const index = currentValue.findIndex((cItem) => item.id === cItem.productId && cItem.productId);
     if (index === -1) {
       currentValue.push({
@@ -225,6 +279,7 @@ export default function OrderItem() {
         quantity: 1,
         price: Number(item.regularPrice),
         buyPrice: Number(item.regularPrice),
+        VAT: lineVAT,
         note: "",
       });
     } else {
@@ -294,7 +349,7 @@ export default function OrderItem() {
   // NOTE (re-enable later): restore `handleDevicePrint` via
   // `printReceiptToDevice` (see git history).
 
-  const data = searchFetcher?.data?.data?.data || [];
+  const data = searchedRows;
 
   // ---------- Edit mode ----------
   if (isEdit) {
@@ -371,8 +426,19 @@ export default function OrderItem() {
 
   // ---------- Read-only detail mode ----------
   const items = order?.orderDetails || [];
-  const subtotal = items.reduce((sum: number, d: any) => sum + Number(d.buyPrice || 0), 0);
-  const vatAmount = (subtotal * Number(order?.VAT || 0)) / 100;
+  // Line math (same as the OrderDetails editor):
+  // base = buyPrice snapshot (already qty x unit price, excl. VAT),
+  // line total = base x (1 + lineVAT / 100).
+  // Subtotal = Σ VAT-inclusive line totals; header VAT (defaultTax)
+  // applies on top: VAT = subtotal x defaultTax / 100, total = subtotal + VAT.
+  const defaultTaxRate = Number(order?.VAT ?? 0);
+  const lineVatRateOf = (item: any) =>
+    Number(item?.VAT ?? item?.taxRate ?? item?.product?.VAT ?? item?.variant?.VAT ?? order?.VAT ?? 0);
+  const lineBaseOf = (item: any) => Number(item?.buyPrice ?? Number(item?.quantity || 0) * Number(item?.price || 0));
+  const lineTotalInclOf = (item: any) => lineBaseOf(item) * (1 + lineVatRateOf(item) / 100);
+  const lineVatAmountOf = (item: any) => (lineBaseOf(item) * lineVatRateOf(item)) / 100;
+  const subtotal = items.reduce((sum: number, d: any) => sum + lineTotalInclOf(d), 0);
+  const vatAmount = (subtotal * defaultTaxRate) / 100;
   const totalPaid = subtotal + Number(order?.surcharge || 0) + vatAmount;
 
   return (
@@ -456,7 +522,7 @@ export default function OrderItem() {
 
             {/* Items with invoice progress: ordered / invoiced / remaining */}
             <div className="border border-slate-200 dark:border-slate-700 rounded overflow-x-auto">
-              <table className="w-full min-w-[680px] text-sm text-slate-700 dark:text-slate-200">
+              <table className="w-full min-w-[760px] text-sm text-slate-700 dark:text-slate-200">
                 <thead className="bg-gray-50 dark:bg-slate-700/60">
                   <tr>
                     <th className="p-2 text-left font-medium text-slate-500 dark:text-slate-300">
@@ -468,17 +534,19 @@ export default function OrderItem() {
                     <th className="p-2 text-right font-medium text-slate-500 dark:text-slate-300">
                       {t("importOrder.price")}
                     </th>
+                    <th className="p-2 text-right font-medium text-slate-500 dark:text-slate-300">VAT (%)</th>
                     <th className="p-2 text-right font-medium text-slate-500 dark:text-slate-300">
-                      Thành tiền (chưa VAT)
+                      Thành tiền (gồm VAT)
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-slate-800">
                   {items.map((item: any, index: number) => {
                     const ordered = Number(item.quantity || 0);
-                    const lineTotal = ordered * Number(item.price || 0);
-                    const vatRate = Number(order?.VAT || 0);
-                    const vatAmount = (lineTotal * vatRate) / 100;
+                    const lineBase = lineBaseOf(item);
+                    const lineTotal = lineTotalInclOf(item);
+                    const vatRate = lineVatRateOf(item);
+                    const vatAmount = lineVatAmountOf(item);
 
                     return (
                       <React.Fragment key={item.id}>
@@ -501,11 +569,15 @@ export default function OrderItem() {
                           </td>
                           <td className="p-2 text-right">{ordered}</td>
                           <td className="p-2 text-right">{formatCurrency(item.price)}</td>
+                          <td className="p-2 text-right">{vatRate}%</td>
                           <td className="p-2 text-right">{formatCurrency(lineTotal)}</td>
                         </tr>
                         {(vatRate > 0 || vatAmount > 0) && (
                           <tr className="border-t-0 text-slate-500 dark:text-slate-400 italic">
-                            <td className="px-2 pb-2 pt-0 text-[0.9em]">└ VAT ({vatRate}%)</td>
+                            <td className="px-2 pb-2 pt-0 text-[0.9em]">
+                              └ VAT ({vatRate}%) trên {formatCurrency(lineBase)}
+                            </td>
+                            <td className="px-2 pb-2 pt-0"></td>
                             <td className="px-2 pb-2 pt-0"></td>
                             <td className="px-2 pb-2 pt-0"></td>
                             <td className="px-2 pb-2 pt-0 text-right text-[0.9em]">+ {formatCurrency(vatAmount)}</td>
@@ -518,15 +590,15 @@ export default function OrderItem() {
               </table>
             </div>
 
-            {/* Totals — Tạm tính (chưa VAT) / Tổng VAT / Giảm giá / Tổng thanh toán */}
+            {/* Totals — Tạm tính (gồm VAT dòng) / VAT chung (defaultTax) / Giảm giá / Phụ thu / Tổng thanh toán */}
             <div className="flex justify-end">
               <div className="w-full sm:w-72 sm:ml-auto space-y-2 text-slate-700 dark:text-slate-200">
                 <div className="flex justify-between">
-                  <span>Tạm tính (chưa VAT)</span>
+                  <span>Tạm tính (gồm VAT dòng)</span>
                   <span className="font-medium">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Tổng VAT</span>
+                  <span>VAT chung ({defaultTaxRate}%)</span>
                   <span className="font-medium">{formatCurrency(vatAmount)}</span>
                 </div>
                 <div className="flex justify-between">

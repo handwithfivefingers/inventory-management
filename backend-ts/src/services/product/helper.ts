@@ -1,4 +1,5 @@
 import { ApiError } from '#/response'
+import { assertValidBarcode } from '#/utils/barcode'
 
 /**
  * The client sends prices as strings and "" when a field is cleared.
@@ -9,6 +10,18 @@ export const toPrice = (value: unknown, field: string): number | null => {
   if (value === undefined || value === null || value === '') return null
   const n = Number(value)
   if (!Number.isFinite(n)) throw ApiError.badRequest(`Invalid ${field}: must be a number`)
+  return n
+}
+
+/**
+ * Normalize a VAT percent (client sends `VAT` as string/number/"").
+ * Blank clears to NULL; otherwise must be a finite number in [0, 100].
+ */
+export const toVat = (value: unknown): number | null => {
+  if (value === undefined || value === null || value === '') return null
+  const n = Number(value)
+  if (!Number.isFinite(n)) throw ApiError.badRequest('Invalid VAT: must be a number')
+  if (n < 0 || n > 100) throw ApiError.badRequest('Invalid VAT: must be between 0 and 100')
   return n
 }
 
@@ -46,7 +59,8 @@ export interface ResolveVariantCodeOptions {
 
 /**
  * Resolve a variant barcode (`code`).
- * - Manual value wins (trimmed). Empty string clears to null so blank is allowed.
+ * - Manual value wins (trimmed, must be >= 12 chars when non-blank).
+ *   Empty string clears to null so blank is allowed.
  * - Missing/undefined on create falls back to `{productCode}-{segments}` when the
  *   parent has a barcode; otherwise stays null (manual entry before General
  *   settings are switched on).
@@ -64,7 +78,13 @@ export const resolveVariantCode = (
   if (hasKey) {
     const trimmed = String(inputCode ?? '').trim()
     // Explicit empty string: allow blank barcode (return null = cleared).
-    return trimmed ? dedupe(trimmed, taken) : null
+    if (!trimmed) return null
+    try {
+      assertValidBarcode(trimmed, 'variants[].code')
+    } catch (error) {
+      throw ApiError.badRequest((error as Error).message)
+    }
+    return dedupe(trimmed, taken)
   }
 
   if (opts.allowBlankUpdate) return undefined

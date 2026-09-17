@@ -11,9 +11,11 @@ import { toast } from "~/components/notification";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
+import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
 import { useTranslation } from "~/i18n";
-import { IProduct, IProductVariant } from "~/types/product";
+import { IProduct, IProductSearchRow, IProductVariant } from "~/types/product";
 import type { IVendorSettings } from "~/types/setting";
+import { MainLayoutContext } from "../../_layout";
 
 const PRINT_STYLES = `
 @media print {
@@ -36,20 +38,30 @@ export const meta: MetaFunction = () => {
   return [{ title: "Tạo đơn hàng" }];
 };
 
+/**
+ * Resolve a new order line's VAT %: variant override wins, then the parent
+ * product VAT, then the current header VAT (fallback for lines picked before
+ * the product VAT column existed). Blank/undefined means "use header VAT".
+ */
+const resolveLineVAT = (product?: any, variant?: any, fallback?: number | string | null): number | string => {
+  const pick = (v: unknown) =>
+    v !== undefined && v !== null && String(v).trim() !== "" ? (v as number | string) : undefined;
+  return pick(variant?.VAT) ?? pick(product?.VAT) ?? pick(fallback) ?? "0";
+};
+
 export default function OrderItem() {
   const navigate = useNavigate();
-  const searchFetcher = useFetcher<{ data: { data: IProduct[] } }>({
-    key: "Products-Search",
-  });
-  const { settings } = useOutletContext<{ settings: IVendorSettings }>();
+  const { settings } = useOutletContext<MainLayoutContext>();
   const { t } = useTranslation();
   const [showTempInvoice, setShowTempInvoice] = useState(false);
+  console.log("settings", settings);
   const form = useForm<OrderSchema>({
     defaultValues: {
       customer: undefined,
       orderDetails: [],
       price: 0,
-      VAT: settings.defaultTaxRate || "5",
+      // `??` (not `||`): an explicit vendor defaultTaxRate of 0 must stay 0.
+      VAT: settings.defaultTaxRate ?? 0,
       surcharge: "0",
       paid: 0,
       paymentType: "cash",
@@ -60,7 +72,25 @@ export default function OrderItem() {
 
   const { submit, isLoading } = useSubmitPromise();
 
-  const data = searchFetcher?.data?.data?.data || [];
+  // Unified POS search: exact scans auto-add a line, the fallback list carries
+  // actionable variants (real-time stock per warehouse).
+  const { rows: searchedRows, search: searchProducts } = useUnifiedProductSearch({
+    context: "POS",
+    onExactMatch: (item) => {
+      form.setValue(
+        "orderDetails",
+        addLine(form.getValues("orderDetails") || [], {
+          productId: item.product_id,
+          variantId: item.variant_id,
+          name: item.display_name,
+          price: item.price,
+          VAT: resolveLineVAT(undefined, undefined, form.getValues("VAT")),
+          note: "",
+        }),
+      );
+    },
+  });
+  const data = searchedRows;
 
   // Variant picking: when a variable product is chosen, its variants are
   // loaded through the /products action (variantOf=<id>) and shown in a modal.
@@ -77,7 +107,7 @@ export default function OrderItem() {
   };
 
   const handleFilterProduct = (value: string) => {
-    searchFetcher.submit({ s: value }, { method: "POST", action: "/products" });
+    searchProducts(value);
   };
 
   const addLine = (
@@ -115,6 +145,7 @@ export default function OrderItem() {
         variantId: variant.id,
         name: `${variantTarget.name} (${(variant.attributeValues || []).map((v: any) => v.value).join(" / ")})`,
         price,
+        VAT: resolveLineVAT(variantTarget, variant, form.getValues("VAT")),
         note: "",
       }),
     );
@@ -123,6 +154,23 @@ export default function OrderItem() {
   };
 
   const handleAdd = (item: IProduct, variant?: IProductVariant) => {
+    // Unified POS rows already carry their actionable variant — add directly.
+    const unifiedVariant = (item as IProductSearchRow).unifiedVariant ?? variant;
+    if (unifiedVariant && (item as IProductSearchRow).unifiedVariant) {
+      const price = Number(unifiedVariant.salePrice ?? unifiedVariant.regularPrice ?? item.regularPrice ?? 0);
+      form.setValue(
+        "orderDetails",
+        addLine(form.getValues("orderDetails") || [], {
+          productId: item.id,
+          variantId: unifiedVariant.id,
+          name: item.name,
+          price,
+          VAT: resolveLineVAT(item, unifiedVariant, form.getValues("VAT")),
+          note: "",
+        }),
+      );
+      return;
+    }
     if (variant) {
       const price = Number(variant.salePrice ?? variant.regularPrice ?? item.regularPrice ?? 0);
       form.setValue(
@@ -137,6 +185,7 @@ export default function OrderItem() {
               .join(" / ") || variant.skuCode
           })`,
           price,
+          VAT: resolveLineVAT(item, variant, form.getValues("VAT")),
           note: "",
         }),
       );
@@ -155,6 +204,7 @@ export default function OrderItem() {
         productId: item.id,
         name: item.name,
         price: Number(item.regularPrice),
+        VAT: resolveLineVAT(item, undefined, form.getValues("VAT")),
         note: "",
       }),
     );
@@ -192,7 +242,14 @@ export default function OrderItem() {
   const orderDetails = form.watch("orderDetails") as OrderDetailSchema[];
   const watchSurcharge = form.watch("surcharge");
   const watchVAT = form.watch("VAT");
-  const tempSubtotal = (orderDetails || []).reduce((sum, item) => sum + Number(item?.buyPrice || 0), 0);
+  // Same math as the order detail page: line total = base x (1 + lineVAT / 100),
+  // subtotal = Σ VAT-inclusive line totals, header VAT applies on top of it.
+  const lineBaseOf = (item: OrderDetailSchema) => Number(item?.buyPrice || 0);
+  const lineRateOf = (item: OrderDetailSchema) => Number((item as any)?.VAT ?? watchVAT ?? 0);
+  const tempSubtotal = (orderDetails || []).reduce(
+    (sum, item) => sum + lineBaseOf(item) * (1 + lineRateOf(item) / 100),
+    0,
+  );
   const tempVatAmount = (tempSubtotal * Number(watchVAT || 0)) / 100;
   const tempTotal = tempSubtotal + Number(watchSurcharge || 0) + tempVatAmount;
 

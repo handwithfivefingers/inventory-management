@@ -5,7 +5,6 @@ import { Link, useFetcher, useLoaderData, useOutletContext } from "@remix-run/re
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { namedAction } from "remix-utils/named-action";
-import { withContext } from "~/action.server/context.server";
 import { historyService } from "~/action.server/history.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
@@ -13,13 +12,13 @@ import { ErrorComponent } from "~/components/error-component";
 import { ProductForm } from "~/components/form/product-form";
 import { VariantEditor } from "~/components/form/variant-editor";
 import { Icon } from "~/components/icon";
+import { toast } from "~/components/notification";
 import { Tab } from "~/components/tab";
 import { TMButton } from "~/components/tm-button";
 import { TMTimeline } from "~/components/tm-timeline";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
-import { parseCookieFromRequest } from "~/sessions";
 import { ICategory } from "~/types/category";
 import { IProduct, IProductAttribute, IProductAttributeValue, IProductVariant } from "~/types/product";
 
@@ -313,14 +312,6 @@ const EditForm = () => {
   const { t } = useTranslation();
   const hasVariants = (data?.variants || []).length > 0;
   const productType = (data as any)?.type ?? (hasVariants ? 1 : 0);
-  let moneyStep = 1000;
-  try {
-    const ctx = useOutletContext<{ settings?: { moneyStep?: number | string } }>();
-    const step = Number(ctx?.settings?.moneyStep);
-    if (step > 0) moneyStep = step;
-  } catch {
-    // no layout context -> default step
-  }
   const { submit, isLoading } = useSubmitPromise();
   const formMethods = useForm<ProductSchemaType>({
     defaultValues: {
@@ -337,7 +328,7 @@ const EditForm = () => {
       regularPrice: (data?.regularPrice ?? undefined) as any,
       salePrice: (data?.salePrice ?? undefined) as any,
       wholeSalePrice: (data?.wholeSalePrice ?? undefined) as any,
-      VAT: (data as any)?.VAT ?? 5,
+      VAT: (data as any)?.VAT ?? 0,
       expiredAt: (data as any)?.expiredAt || undefined,
     },
     resolver: zodResolver(productSchema),
@@ -354,27 +345,35 @@ const EditForm = () => {
     load("/categories");
     loadUnits("/units");
     loadTags("/tags");
-    (window as any).form = formMethods;
   }, []);
+  console.log("data", data);
 
-  const onSubmit = (v: ProductSchemaType) => {
-    const { unit, quantity, ...rest } = v as any;
-    submit(
-      {
-        data: JSON.stringify({
-          // Unified PUT /products/:id: simple products update base + stock,
-          // variant products update base only (prices/stock live on variants).
-          data: {
-            ...rest,
-            unitId: unit,
-            ...(hasVariants ? {} : { quantity }),
-            type: productType,
-          },
-        }),
-        intent: "updateProduct",
-      },
-      { method: "POST" },
-    );
+  const onSubmit = async (v: ProductSchemaType) => {
+    try {
+      const { unit, quantity, ...rest } = v as any;
+      const response = await submit<{ status: number }>(
+        {
+          data: JSON.stringify({
+            // Unified PUT /products/:id: simple products update base + stock,
+            // variant products update base only (prices/stock live on variants).
+            data: {
+              ...rest,
+              unitId: unit,
+              ...(hasVariants ? {} : { quantity }),
+              type: productType,
+            },
+          }),
+          intent: "updateProduct",
+        },
+        { method: "POST" },
+      );
+      if (response.status === 200) {
+        return toast.success({ title: "Success", message: "Update product success" });
+      }
+      return toast.danger({ title: "Error", message: "Update product failed" });
+    } catch (error) {
+      console.log("error", error);
+    }
   };
   return (
     <FormProvider {...formMethods}>
@@ -387,7 +386,6 @@ const EditForm = () => {
           categories={categories?.data || []}
           tags={tags?.data || []}
           units={units?.data || []}
-          moneyStep={moneyStep}
         />
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
           <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
@@ -451,6 +449,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         id,
         ...payload,
       });
+
       return Response.json(response);
     },
   });

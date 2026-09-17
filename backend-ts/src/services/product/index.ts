@@ -1451,8 +1451,12 @@ import Unit from '#/database/models/units'
 import { ApiError } from '#/response'
 import { IRequestLocal } from '#/types/common'
 import { getPagination } from '#/utils'
+import { assertValidBarcode, normalizeBarcode } from '#/utils/barcode'
 import { applyCodeFormat, generateSkuFromTemplate, getCodeFormat, padSeq } from '#/utils/code-generator'
-import { evictCachedEntity, getCachedEntity, setCachedEntity } from '#/utils/entity-cache'
+// Option A: product detail reads are uncached (fresh DB). `evictCachedEntity`
+// stays only to purge legacy `product:<id>` keys written before this change.
+import { evictCachedEntity } from '#/utils/entity-cache'
+import { normalizeSku, assertValidSku } from '#/utils/sku'
 import { nextSequence } from '#/utils/sequence'
 import {
   assertVendorAccess,
@@ -1466,7 +1470,8 @@ import { Op, Sequelize, Transaction } from 'sequelize'
 import { SettingService } from '../setting'
 import { ProductAttributeServices } from './productAttribute'
 import { ProductExcelService } from './product-excel.service'
-import { resolveStringField, toPrice } from './helper'
+import { searchProducts, ProductSearchParams } from './product-search.service'
+import { resolveStringField, toPrice, toVat } from './helper'
 import { adjustStock, createOpeningStock } from './product-stock'
 import { CreateProductParams, PRICE_FIELDS, PRODUCT_TYPE, ProductType, UpdateProductParams } from './product.types'
 import { applyVariantSync, createVariants } from './product-variant'
@@ -1535,6 +1540,33 @@ export class ProductService {
       await assertWarehouseAccess(warehouseId, vendorScope)
 
       for (const f of PRICE_FIELDS) productParams[f] = toPrice(productParams[f], f)
+      if (productParams.VAT !== undefined) productParams.VAT = toVat(productParams.VAT)
+
+      // Global barcode rule: non-blank `code` must be >= 12 chars (CODE128).
+      // Blank on create means "auto-generate below", so normalize '' -> undefined.
+      if (productParams.code !== undefined && productParams.code !== null) {
+        const normalized = normalizeBarcode(productParams.code)
+        if (normalized === null) {
+          delete productParams.code
+        } else {
+          productParams.code = assertValidBarcode(normalized, 'code')
+        }
+      }
+
+      // Strict SKU rule for the parent product code: accept `sku` alias,
+      // normalize trim+uppercase, then enforce ^[A-Z0-9_-]{3,30}$.
+      if (productParams.sku !== undefined && productParams.skuCode === undefined) {
+        productParams.skuCode = productParams.sku
+      }
+      delete productParams.sku
+      if (productParams.skuCode !== undefined && productParams.skuCode !== null) {
+        const raw = String(productParams.skuCode).trim()
+        if (raw === '') {
+          delete productParams.skuCode
+        } else {
+          productParams.skuCode = assertValidSku(raw, 'sku')
+        }
+      }
 
       const isExist = await this.isExist({
         code: productParams.code || null,
@@ -1563,8 +1595,10 @@ export class ProductService {
       })
 
       await t.commit()
-      // Cache-Aside: prime `product:<id>` after a successful DB write.
-      await setCachedEntity('product', product.id, product.dataValues)
+      // Option A: no cache priming. The bare `dataValues` lack the includes
+      // (variants/categories/tags/quantity) that `getProductById` returns,
+      // so seeding it poisons the first detail read. Detail reads are
+      // uncached DB hits now, so nothing needs priming here.
       return { product: product.dataValues, ...stockResult }
     } catch (error) {
       await t.rollback()
@@ -1584,25 +1618,41 @@ export class ProductService {
 
   /** Auto-generate `code`/`skuCode` from vendor settings when the caller didn't supply them. */
   private async assignProductCodes(productParams: Record<string, any>, settings: any, t?: Transaction) {
-    if (!settings || (productParams.code && productParams.skuCode)) return
+    if (productParams.code && productParams.skuCode) return
 
     const seq = await nextSequence('product', new Date().getFullYear(), {
       transaction: t,
       initial: (await Product.count()) + 1
     })
+    // 8-digit padding keeps generated barcodes >= 12 chars with typical
+    // prefix/suffix configs (e.g. "SP-00000005-V1" = 14 chars).
+    const seq8 = padSeq(seq, 8)
 
     if (!productParams.code) {
-      const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
-      productParams.code = applyCodeFormat(padSeq(seq), prefix, suffix)
+      if (settings) {
+        const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
+        productParams.code = applyCodeFormat(seq8, prefix, suffix)
+      } else {
+        productParams.code = `PRD-${seq8}`
+      }
+      // Safety net: a minimal prefix/suffix config could still yield < 12
+      // chars (e.g. no prefix/suffix -> 8 chars); extend the padding then.
+      if (String(productParams.code).length < 12) {
+        productParams.code = `PRD-${padSeq(seq, 10)}`
+      }
     }
     if (!productParams.skuCode) {
-      const baseCode = productParams.code || padSeq(seq)
-      productParams.skuCode = generateSkuFromTemplate(
-        settings.skuTemplate,
-        { CODE: baseCode, SEQ: padSeq(seq), YYYY: String(new Date().getFullYear()) },
-        baseCode
-      )
+      const baseCode = productParams.code || seq8
+      productParams.skuCode = settings
+        ? generateSkuFromTemplate(
+            settings.skuTemplate,
+            { CODE: baseCode, SEQ: seq8, YYYY: String(new Date().getFullYear()) },
+            baseCode
+          )
+        : baseCode
     }
+    // Canonical form: trim + uppercase (validated by callers / variant helpers).
+    if (productParams.skuCode) productParams.skuCode = normalizeSku(productParams.skuCode)
   }
 
   /**
@@ -1744,39 +1794,40 @@ export class ProductService {
   ) {
     try {
       assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized vendor filter')
-      // Cache-Aside on `product:<id>`: Hit returns immediately, Miss loads
-      // from DB then populates Redis. Tenant checks below still run on a Hit.
-      const product = await getCachedEntity('product', Number(id), () =>
-        Product.findOne({
-          where: { id },
-          include: [
-            { model: Inventory, attributes: [] },
-            { model: Category, attributes: ['id', 'name'], through: { attributes: [] } },
-            { model: Tag, attributes: ['id', 'name'], through: { attributes: [] } },
-            { model: Unit, attributes: ['id', 'name'] },
-            {
-              model: ProductVariant,
-              as: 'variants',
-              include: [
-                {
-                  model: ProductAttributeValue,
-                  as: 'attributeValues',
-                  attributes: ['id', 'value', 'attributeId'],
-                  through: { attributes: [] },
-                  include: [{ model: ProductAttribute, attributes: ['id', 'name'] }]
-                }
-              ]
-            }
-          ],
-          attributes: {
+      // Option A: no read-through cache here. Stock (`inventories.quantity`),
+      // variants and associations mutate from many services (orders, stocktake,
+      // excel import), so a 24h `product:<id>` entry goes stale and leaks
+      // cross-warehouse quantities. Always read fresh from DB; the POS/Sell
+      // list path (`getProducts`) is likewise uncached.
+      const product = await Product.findOne({
+        where: { id },
+        include: [
+          { model: Inventory, attributes: [] },
+          { model: Category, attributes: ['id', 'name'], through: { attributes: [] } },
+          { model: Tag, attributes: ['id', 'name'], through: { attributes: [] } },
+          { model: Unit, attributes: ['id', 'name'] },
+          {
+            model: ProductVariant,
+            as: 'variants',
             include: [
-              [database.sequelize.col('inventories.quantity'), 'quantity'],
-              [database.sequelize.col('unit.id'), 'unitId'],
-              [database.sequelize.col('unit.name'), 'unitName']
+              {
+                model: ProductAttributeValue,
+                as: 'attributeValues',
+                attributes: ['id', 'value', 'attributeId'],
+                through: { attributes: [] },
+                include: [{ model: ProductAttribute, attributes: ['id', 'name'] }]
+              }
             ]
           }
-        })
-      )
+        ],
+        attributes: {
+          include: [
+            [database.sequelize.col('inventories.quantity'), 'quantity'],
+            [database.sequelize.col('unit.id'), 'unitId'],
+            [database.sequelize.col('unit.name'), 'unitName']
+          ]
+        }
+      })
       if (!product) return product
 
       const productVendorId = Number((product as any).vendorId ?? product.get?.('vendorId'))
@@ -1828,6 +1879,24 @@ export class ProductService {
         ] as any,
         order: [['id', 'ASC']]
       })
+    } catch (error) {
+      throw ApiError.from(error, (error as any)?.status || 400)
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Unified search (POS & Admin)                                        */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Unified product query for POS/Sell and Admin views.
+   * - Branch 1: exact barcode/SKU scan match (both contexts).
+   * - Branch 2: POS returns variant-level rows (never cached); Admin
+   *   returns product-level aggregates with `total_count` for pagination.
+   */
+  async search(params: ProductSearchParams, vendorScope: TVendorScope) {
+    try {
+      return await searchProducts(params, vendorScope)
     } catch (error) {
       throw ApiError.from(error, (error as any)?.status || 400)
     }
@@ -1903,7 +1972,17 @@ export class ProductService {
       base.name = name
     }
     setField('code', resolveStringField(params.code, true))
-    setField('skuCode', resolveStringField(params.skuCode, true))
+    // Global barcode rule: a non-blank product `code` must be >= 12 chars.
+    // `null`/missing means "leave/clear" and is handled by resolveStringField.
+    if (base.code !== undefined && base.code !== null) {
+      base.code = assertValidBarcode(base.code, 'code')
+    }
+    const rawSkuUpdate = (params as any).sku !== undefined ? (params as any).sku : params.skuCode
+    setField('skuCode', resolveStringField(rawSkuUpdate, true))
+    // Strict SKU rule (normalized trim+uppercase, ^[A-Z0-9_-]{3,30}$).
+    if (base.skuCode !== undefined && base.skuCode !== null) {
+      base.skuCode = assertValidSku(base.skuCode, 'sku')
+    }
     setField('description', resolveStringField(params.description, true))
     setField('image', resolveStringField(params.image, true))
 
@@ -1915,6 +1994,7 @@ export class ProductService {
     for (const f of PRICE_FIELDS) {
       if (params[f] !== undefined) base[f] = toPrice(params[f], f)
     }
+    if (params.VAT !== undefined) base.VAT = toVat(params.VAT)
     if (params.isNegative !== undefined) base.isNegative = Boolean(params.isNegative)
     if (params.isActive !== undefined) base.isActive = Boolean(params.isActive)
 

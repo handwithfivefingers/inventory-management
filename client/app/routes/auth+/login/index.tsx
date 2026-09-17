@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "react-router";
-// import { AuthService } from "~/action.client/auth.service";
+import { AuthService } from "~/action.server/auth.service";
 import { CardItem } from "~/components/card-item";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
@@ -12,14 +12,12 @@ import { ILoginForm, loginSchema } from "~/constants/schema/login";
 import { useSubmitPromise } from "~/hooks";
 import { ResponseError } from "~/http/index.server";
 import { cn } from "~/libs/utils";
-import { commitSession, getSession, parseCookieFromRequest } from "~/sessions";
+import { commitSession, getSession } from "~/sessions";
 import { IUser } from "~/types/user";
 import styles from "./styles.module.scss";
-import { AuthService } from "~/action.server/auth.service";
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const { token, userId } = await parseCookieFromRequest(request);
-  if (token && userId) throw redirect("/");
+export async function loader({ request, context }: LoaderFunctionArgs) {
+  if (context.userId && context.token) throw redirect("/");
   return {};
 }
 export const meta = [
@@ -40,18 +38,18 @@ function Login() {
   const onError = (errors: any) => {
     console.log("errors", errors);
   };
-
   const handleSubmit = async (v: ILoginForm) => {
     try {
-      const resp = await submit<{ data: IUser }>({ data: JSON.stringify(v) }, { method: "POST" });
-      const user = resp.data;
-      if (!user) {
-        toast.danger({
-          title: "Đăng nhập thất bại",
-          message: "Không có dữ liệu phản hồi",
-        });
-        return;
+      const resp = await submit<{ success: boolean }>({ data: JSON.stringify(v) }, { method: "POST" });
+      console.log(`submit`, resp);
+      if (resp.success) {
+        return (window.location.href = "/");
       }
+      toast.danger({
+        title: "Đăng nhập thất bại",
+        message: "Không có dữ liệu phản hồi",
+      });
+      return;
     } catch (error) {
       const err = error as ResponseError;
       toast.danger({
@@ -115,24 +113,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       defaultWarehouseId?: number | null;
     };
     const { token, ...user } = loginData || ({ id: "" } as unknown as typeof loginData);
+
     session.set("token", token as string);
     session.set("userId", user?.id);
-    // Seed the active vendor/warehouse immediately. The first document request
-    // after login runs the layout and page loaders in parallel against this
-    // cookie, so it must already carry a consistent selection — otherwise data
-    // is fetched without a warehouseId and falls back to an arbitrary one.
+
     if (!session.get("vendorId") && user?.defaultVendorId) {
       session.set("vendorId", user.defaultVendorId);
     }
     if (!session.get("warehouseId") && user?.defaultWarehouseId) {
       session.set("warehouseId", user.defaultWarehouseId);
     }
-    return redirect("/", {
-      headers: {
-        "Set-Cookie": await commitSession(session),
+    return Response.json(
+      { success: true },
+      {
+        headers: {
+          "Set-Cookie": await commitSession(session),
+        },
       },
-      status: 302,
-    });
+    );
   } catch (error) {
     console.log("error", error);
     return {

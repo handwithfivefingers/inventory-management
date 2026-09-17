@@ -28,7 +28,7 @@ export const Header = () => {
             to="/sell"
             className="flex gap-2 items-center text-sm relative px-2 cursor-pointer hover:text-indigo-300"
           >
-            <Icon name="package" className="w-4 h-4" />
+            <Icon name="shopping-cart" className="w-4 h-4" />
             <span>{t("header.sell")}</span>
           </Link>
 

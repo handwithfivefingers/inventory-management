@@ -1,6 +1,7 @@
-import { ActionFunctionArgs, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
+import { ActionFunctionArgs, json, type LoaderFunctionArgs, type MetaFunction } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { useMemo, useRef, useState } from "react";
+import { namedAction } from "remix-utils/named-action";
 import { productService } from "~/action.server/products.service";
 import { BarcodePrintModal } from "~/components/barcode-print-modal";
 import { IBarcodeLabel } from "~/components/barcode-print-sheet";
@@ -9,41 +10,40 @@ import { ErrorComponent } from "~/components/error-component";
 import { CheckboxInput } from "~/components/form/checkbox-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
-import { ProductImportModal } from "~/components/product-import-modal";
-import { PermissionGuard } from "~/components/permission-guard";
-import { toast } from "~/components/notification";
 import { CreateFab } from "~/components/layouts/create-fab";
+import { toast } from "~/components/notification";
+import { PermissionGuard } from "~/components/permission-guard";
+import { ProductImportModal } from "~/components/product-import-modal";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { MODULE_ENUM } from "~/constants/modules";
+import { useSubmitPromise } from "~/hooks";
+import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { debounce } from "~/libs/debounce";
 import { formatCurrency } from "~/libs/format-currency";
-import { IProduct } from "~/types/product";
-import { withContext } from "~/action.server/context.server";
+import { IProduct, IProductSearchRow } from "~/types/product";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  return withContext(request, async () => {
-    const url = new URL(request.url);
-    const params = url.searchParams;
-    const page = params.get("page") || "1";
-    const pageSize = params.get("pageSize") || "10";
-    const s = params.get("s") || "";
-    const resp = await productService.getProducts({
-      page,
-      pageSize,
-      s,
-    });
-    return {
-      data: resp.data?.data,
-      total: resp.data?.total,
-      s,
-      page,
-      pageSize,
-    };
+  const url = new URL(request.url);
+  const params = url.searchParams;
+  const page = params.get("page") || "1";
+  const pageSize = params.get("pageSize") || "10";
+  const s = params.get("s") || "";
+  const resp = await productService.getProducts({
+    page,
+    pageSize,
+    s,
   });
+  return {
+    data: resp.data?.data,
+    total: resp.data?.total,
+    s,
+    page,
+    pageSize,
+  };
 }
 
 export const meta: MetaFunction = () => {
@@ -62,13 +62,36 @@ export default function Products() {
     s: string;
   }>();
   const isLoading = fetcher.state === "submitting" || fetcher.state === "loading";
+  const { submit: deleteProduct, isLoading: isDeleting } = useSubmitPromise();
+
+  // ---------- Excel export ----------
+  const exportRef = useRef<HTMLAnchorElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   // ---------- Barcode print selection ----------
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const products = fetcher.data?.data || data || [];
-  const total = fetcher.data?.total || currentTotal || 0;
+  // Unified ADMIN search: exact barcode/SKU scans jump to the product,
+  // otherwise aggregate rows (total variants/stock + total_count) render below.
+  const [unifiedQuery, setUnifiedQuery] = useState("");
+  const [unifiedPage, setUnifiedPage] = useState(1);
+  const {
+    rows: unifiedRows,
+    totalCount: unifiedTotal,
+    loading: unifiedLoading,
+    active: unifiedActive,
+    search: searchUnified,
+  } = useUnifiedProductSearch({
+    context: "ADMIN",
+    onExactMatch: (item) => {
+      toast.success({ title: t("common.success"), message: item.display_name });
+      navigate(`./${item.product_id}`);
+    },
+  });
+  const searchingUnified = unifiedActive && unifiedQuery.trim() !== "";
+  const products = searchingUnified ? unifiedRows : fetcher.data?.data || data || [];
+  const total = searchingUnified ? unifiedTotal : fetcher.data?.total || currentTotal || 0;
   const query = fetcher?.data?.s || s || "";
   const pageSize = Number(fetcher?.data?.pageSize || defaultPageSize || 10);
   const page = Number(fetcher?.data?.page || defaultPage || 1);
@@ -82,6 +105,27 @@ export default function Products() {
     });
   };
 
+  const handleDelete = async (id: string | number) => {
+    if (!confirm(t("common.confirmDelete"))) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    await deleteProduct({ intent: "delete", id: String(id) }, { method: "POST" });
+    // The route loader revalidates after the action; when a search filter is
+    // active the visible list comes from the search fetcher, so reload it.
+    if (fetcher.data) {
+      fetcher.load(
+        `/products?${new URLSearchParams({
+          s: query,
+          page: "1",
+          pageSize: String(pageSize),
+        }).toString()}`,
+      );
+    }
+  };
+
   const barcodeLabels: IBarcodeLabel[] = useMemo(
     () =>
       products
@@ -90,9 +134,6 @@ export default function Products() {
     [products, selectedIds],
   );
 
-  // ---------- Excel export ----------
-  const exportRef = useRef<HTMLAnchorElement>(null);
-  const [exporting, setExporting] = useState(false);
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -116,8 +157,6 @@ export default function Products() {
       setExporting(false);
     }
   };
-
-  console.log(`data`, data);
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <PermissionGuard permission="CREATE" module={MODULE_ENUM.product}>
@@ -188,19 +227,32 @@ export default function Products() {
               defaultValue={query}
               onChange={debounce((v) => {
                 const value = v.target.value;
-                fetcher.load(
-                  `/products?${new URLSearchParams({
-                    s: value,
-                    page: "1",
-                    pageSize: String(pageSize),
-                  }).toString()}`,
-                );
+                if (value.trim() !== "") {
+                  setUnifiedQuery(value);
+                  setUnifiedPage(1);
+                  searchUnified(value, { page: 1, limit: pageSize });
+                  return;
+                }
+                setUnifiedQuery("");
+                const url = `/products?${new URLSearchParams({
+                  s: value,
+                  page: "1",
+                  pageSize: String(pageSize),
+                }).toString()}`;
+                // fetcher.load(
+                //   `/products?${new URLSearchParams({
+                //     s: value,
+                //     page: "1",
+                //     pageSize: String(pageSize),
+                //   }).toString()}`,
+                // );
+                navigate(url);
               }, 500)}
             />
           </div>
-          <div className="flex gap-2 flex-col items-end animate__animated animate__faster animate__fadeIn flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto">
             <TMTable
-              loading={isLoading}
+              loading={isLoading || isDeleting || unifiedLoading}
               scrollable
               columns={[
                 {
@@ -241,13 +293,16 @@ export default function Products() {
                   title: "Mã sản phẩm",
                   dataIndex: "skuCode",
                   hideOnMobile: true,
-                  render: (record) => record["skuCode"] || record["code"],
+                  render: (record) =>
+                    (record as IProductSearchRow).unifiedAdmin ? "—" : record["skuCode"] || record["code"],
                 },
                 {
                   title: "Giá bán",
                   dataIndex: "salePrice",
                   render: (record) =>
-                    formatCurrency(Number(record?.salePrice) > 0 ? record.salePrice : record.regularPrice ?? 0),
+                    (record as IProductSearchRow).unifiedAdmin
+                      ? "—"
+                      : formatCurrency(Number(record?.salePrice) > 0 ? record.salePrice : record.regularPrice ?? 0),
                 },
                 {
                   title: "Tồn kho",
@@ -279,6 +334,28 @@ export default function Products() {
                   hideOnMobile: true,
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
+                {
+                  title: t("common.actions"),
+                  dataIndex: "actions",
+                  width: 70,
+                  render: (record) => (
+                    <div className="flex gap-1" onClick={(e: any) => e.stopPropagation()}>
+                      <PermissionGuard permission="DELETE" module={MODULE_ENUM.product}>
+                        <TMButton
+                          size="sm"
+                          onClick={(e: any) => {
+                            e.stopPropagation();
+                            handleDelete(record.id);
+                          }}
+                          className="py-2 text-red-500 bg-red-500/20"
+                          title={t("common.delete")}
+                        >
+                          <Icon name="trash-2" fontSize={12} />
+                        </TMButton>
+                      </PermissionGuard>
+                    </div>
+                  ),
+                },
               ]}
               data={products || []}
               rowKey={"id"}
@@ -290,16 +367,20 @@ export default function Products() {
           <div className="flex gap-2 shrink-0 overflow-x-auto max-w-full">
             <TMPagination
               total={total || 0}
-              current={page}
+              current={searchingUnified ? unifiedPage : page}
               pageSize={pageSize}
               onPageChange={(page: number) => {
+                if (searchingUnified) {
+                  setUnifiedPage(page);
+                  searchUnified(unifiedQuery, { page, limit: pageSize });
+                  return;
+                }
                 navigate(`?page=${page}&pageSize=${pageSize}&s=${s}`);
               }}
             />
           </div>
         </div>
       </CardItem>
-
       <BarcodePrintModal show={showBarcodeModal} close={() => setShowBarcodeModal(false)} labels={barcodeLabels} />
       <ProductImportModal show={showImportModal} close={() => setShowImportModal(false)} />
     </div>
@@ -308,14 +389,44 @@ export default function Products() {
 export async function action({ request }: ActionFunctionArgs) {
   // return withContext(request, async () => {
   const form = await request.formData();
+  // Soft-delete a product (backend uses paranoid delete, so orders / stock /
+  // finance history that references the product is preserved).
+
+  return namedAction(form, () => {});
+
+  if (form.get("intent") === "delete") {
+    const id = form.get("id");
+    if (!id) return json({ error: "Missing id" }, { status: 400 });
+    try {
+      await productService.deleteProduct(String(id));
+      return json({ success: true });
+    } catch (error: any) {
+      return json({ error: error?.message || "Delete failed" }, { status: 400 });
+    }
+  }
   // Variant listing for the order flow: POST /products with variantOf=<productId>
   const variantOf = form.get("variantOf");
   if (variantOf) {
     return productService.getProductVariants({ id: variantOf as string });
   }
+  // Unified search (POS/Sell + Admin): POST /products with context=POS|ADMIN.
+  // Exact barcode/SKU scans return { exact_match: true }; otherwise POS gets
+  // variant-level rows and ADMIN gets product aggregates with total_count.
+  const context = String(form.get("context") ?? "")
+    .trim()
+    .toUpperCase();
+
+  if (context === "POS" || context === "ADMIN") {
+    const query = String(form.get("query") ?? form.get("s") ?? "");
+    return productService.searchProducts({
+      query,
+      context: context as "POS" | "ADMIN",
+      page: String(form.get("page") ?? "1"),
+      limit: String(form.get("limit") ?? form.get("pageSize") ?? "20"),
+    });
+  }
   const s = form.get("s") || "";
   return productService.getProducts({ s: s as string, page: "1", pageSize: "10" });
-  // });
 }
 
 export function ErrorBoundary() {

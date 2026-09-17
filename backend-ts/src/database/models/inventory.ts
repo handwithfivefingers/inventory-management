@@ -3,7 +3,17 @@ import { Warehouse } from './warehouse'
 import { Product } from './product'
 import { ProductVariant } from './productVariant'
 
-@Table({ tableName: 'inventories', modelName: 'inventory', timestamps: true })
+@Table({
+  tableName: 'inventories',
+  modelName: 'inventory',
+  timestamps: true,
+  indexes: [
+    // Unified search joins stock per (variant, warehouse) for POS exact/scan reads.
+    { fields: ['variantId', 'warehouseId'] },
+    { fields: ['productId'] },
+    { fields: ['warehouseId'] }
+  ]
+})
 export class Inventory extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
   declare id: number

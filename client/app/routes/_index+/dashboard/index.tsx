@@ -18,8 +18,6 @@ import "./styles.scss";
 import { SelectInput } from "~/components/form/select-input";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
-  // const { cookie, warehouseId, vendorId } = context;
-  console.log("context dashboard", context);
   const url = new URL(request.url);
   const days = url.searchParams.get("days") || "7";
   const from = url.searchParams.get("from") || "";

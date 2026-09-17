@@ -30,6 +30,7 @@ export async function withContext<T>(
     cookie: cookie || undefined,
     vendorId: vendorId || undefined,
     warehouseId: warehouseId || undefined,
+    token: session?.get("token") || undefined,
   };
   return requestStorage.run(contextData, async () => {
     return await callback(contextData);

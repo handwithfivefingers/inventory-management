@@ -22,7 +22,13 @@ import ProductAttributeValue from './productAttributeValue'
   modelName: 'productVariant',
   timestamps: true,
   paranoid: true,
-  indexes: [{ unique: true, fields: ['productId', 'skuCode'] }]
+  indexes: [
+    { unique: true, fields: ['productId', 'skuCode'] },
+    // Unified search (exact scan + POS/ADMIN fallback) filters/sorts on these.
+    { fields: ['skuCode'] },
+    { fields: ['code'] },
+    { fields: ['productId'] }
+  ]
 })
 export class ProductVariant extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
@@ -32,7 +38,16 @@ export class ProductVariant extends Model {
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare productId: number
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    validate: {
+      len: {
+        args: [[12, 255]],
+        msg: 'code must be at least 12 characters'
+      }
+    }
+  })
   declare code: string | null
 
   @Column({ type: DataType.STRING, allowNull: false })
@@ -49,6 +64,9 @@ export class ProductVariant extends Model {
 
   @Column({ type: DataType.INTEGER, allowNull: true })
   declare costPrice: number | null
+
+  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0, comment: 'VAT percent override; null falls back to parent product VAT' })
+  declare VAT: number | null
 
   @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: 0 })
   declare sold: number

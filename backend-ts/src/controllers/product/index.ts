@@ -91,6 +91,42 @@ export class ProductController {
       next(error)
     }
   }
+
+  async search(req: Request, res: Response, next: NextFunction) {
+    try {
+      // #swagger.tags = ['Products']
+      // #swagger.summary = 'Unified product query for POS/Sell and Admin (exact scan match + context fallback)'
+      const scope = getVendorScope(req)
+      const vendorId = getRequestedVendorId(req as any)
+      const headerWarehouseId = getRequestedWarehouseId(req as any)
+      const result = await new ProductService().search(
+        {
+          query: req.body?.query ?? null,
+          context: req.body?.context,
+          warehouseId: headerWarehouseId ?? null,
+          vendorId: vendorId ?? null,
+          page: req.body?.page ?? 1,
+          limit: req.body?.limit ?? 20
+        },
+        scope
+      )
+      if ((result as any).exact_match) {
+        res.status(200).json({ exact_match: true, context: (result as any).context, data: (result as any).data })
+        return
+      }
+      res.status(200).json({
+        exact_match: false,
+        context: (result as any).context,
+        data: (result as any).data,
+        total_count: (result as any).total_count,
+        page: (result as any).page,
+        limit: (result as any).limit
+      })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
   async getProductById(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']

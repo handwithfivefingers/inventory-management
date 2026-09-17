@@ -13,6 +13,7 @@ import {
   productIdValidation,
   productImportValidation,
   productListValidation,
+  productSearchValidation,
   productUpdateValidation,
   productVariantIdValidation
 } from './validator'
@@ -68,6 +69,16 @@ Router.post(
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/ProductBody' } } */
   new ProductController().create
+)
+// NOTE: must be registered before '/:id' so "search" is not captured as an id
+Router.post(
+  '/search',
+  productSearchValidation as any,
+  // #swagger.tags = ['Products']
+  // #swagger.summary = 'Unified product query for POS/Sell and Admin (exact scan match + context fallback)'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { query: { type: 'string' }, context: { type: 'string', enum: ['POS', 'ADMIN'] }, warehouse_id: { type: 'integer' }, page: { type: 'integer', default: 1 }, limit: { type: 'integer', default: 20 } }, required: ['context'] } } */
+  new ProductController().search
 )
 // NOTE: must be registered before '/:id' so "attributes" is not captured as an id
 Router.get(

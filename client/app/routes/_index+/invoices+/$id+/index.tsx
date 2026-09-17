@@ -9,6 +9,7 @@ import { ReceiptPrinter, printInvoiceViaBrowser } from "~/components/receipt-pri
 import { TMButton } from "~/components/tm-button";
 import { MODULE_ENUM } from "~/constants/modules";
 import { useTranslation } from "~/i18n";
+import { formatCurrency } from "~/libs/format-currency";
 import { IInvoice } from "~/types/invoice";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -53,6 +54,21 @@ export default function InvoiceDetail() {
   // QZ Tray device printing is disabled — browser print only.
   // NOTE (re-enable later): restore `handleDevicePrint` via
   // `printReceiptToDevice` + `loadPrinterSettings` (see git history).
+
+  // Explicit on-screen VAT breakdown — same math as the backend
+  // `calculateLineTotals` helper and the order detail page:
+  // base = qty × unitPrice − discount, tax = stored taxAmount ?? base × rate / 100.
+  const details = data.invoiceDetails || [];
+  const lineBaseOf = (d: any) => Number(d.quantity || 0) * Number(d.unitPrice || 0) - Number(d.discount || 0);
+  const lineTaxOf = (d: any) => {
+    const stored = Number(d.taxAmount ?? 0);
+    if (stored) return stored;
+    return (lineBaseOf(d) * Number(d.taxRate || 0)) / 100;
+  };
+  const subtotalExcVat = details.reduce((sum: number, d: any) => sum + lineBaseOf(d), 0);
+  const vatTotal = details.length
+    ? details.reduce((sum: number, d: any) => sum + lineTaxOf(d), 0)
+    : Number(data.taxAmount || 0);
 
   // Support ?print=true (way B): auto-trigger browser print after the
   // printable portal (ReceiptPrinter's Portal) has mounted and hydrated.
@@ -120,6 +136,61 @@ export default function InvoiceDetail() {
             {/* Receipt preview + printer settings. The component injects its own
           print CSS into <head> after mount (hydration-safe). */}
             <ReceiptPrinter invoice={data} />
+            {/* Explicit VAT breakdown (screen only — the receipt above is the print source) */}
+            {details.length > 0 && (
+              <div className="border border-slate-200 dark:border-slate-700 rounded overflow-x-auto">
+                <table className="w-full min-w-[560px] text-sm text-slate-700 dark:text-slate-200">
+                  <thead className="bg-gray-50 dark:bg-slate-700/60">
+                    <tr>
+                      <th className="p-2 text-left font-medium">{t("importOrder.product")}</th>
+                      <th className="p-2 w-28 text-right font-medium">VAT (%)</th>
+                      <th className="p-2 w-32 text-right font-medium">Tiền VAT</th>
+                      <th className="p-2 w-32 text-right font-medium">Thành tiền (chưa VAT)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-slate-800">
+                    {details.map((d: any) => (
+                      <tr key={d.id} className="border-t border-slate-100 dark:border-slate-700">
+                        <td className="p-2">
+                          {(d.product as any)?.name || `#${d.productId ?? d.orderDetailId ?? d.id}`} × {d.quantity}
+                        </td>
+                        <td className="p-2 text-right">{Number(d.taxRate || 0)}%</td>
+                        <td className="p-2 text-right">{formatCurrency(lineTaxOf(d))}</td>
+                        <td className="p-2 text-right">{formatCurrency(lineBaseOf(d))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex justify-end border-t border-slate-200 dark:border-slate-700 p-3">
+                  <div className="w-full sm:w-72 sm:ml-auto space-y-2">
+                    <div className="flex justify-between">
+                      <span>Tạm tính (chưa VAT)</span>
+                      <span className="font-medium">{formatCurrency(subtotalExcVat)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tổng VAT{data.VAT ? ` (${Number(data.VAT)}%)` : ""}</span>
+                      <span className="font-medium">{formatCurrency(vatTotal)}</span>
+                    </div>
+                    {Number(data.discount || 0) > 0 && (
+                      <div className="flex justify-between">
+                        <span>Giảm giá</span>
+                        <span className="font-medium">{formatCurrency(data.discount)}</span>
+                      </div>
+                    )}
+                    {Number(data.surcharge || 0) > 0 && (
+                      <div className="flex justify-between">
+                        <span>Phụ thu</span>
+                        <span className="font-medium">{formatCurrency(data.surcharge)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2">
+                      <span>Tổng tiền thanh toán</span>
+                      <span className="text-blue-600 dark:text-blue-400">{formatCurrency(data.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
               <TMButton variant="ghost" size="sm" component={Link} to="/invoices" type="button">
                 {t("common.cancel")}

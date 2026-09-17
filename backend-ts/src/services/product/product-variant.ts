@@ -1,13 +1,61 @@
 import ProductAttribute from '#/database/models/productAttribute'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductVariant from '#/database/models/productVariant'
+import { ApiError } from '#/response'
+import { assertUniqueVariantSku, assertValidSku, normalizeSku } from '#/utils/sku'
 import { buildVariantSkuWithTemplate } from '#/utils/variant'
 import { Transaction } from 'sequelize'
 import { SettingService } from '../setting'
-import { resolveVariantCode, toPrice } from './helper'
+import { resolveVariantCode, toPrice, toVat } from './helper'
 import { adjustStock, createOpeningStock } from './product-stock'
 import { VariantInput } from './product.types'
 
+/** Read the caller-provided SKU from either `sku` (spec) or legacy `skuCode`. */
+const readInputSku = (variant: VariantInput): string => {
+  const raw = (variant as any).sku ?? variant.skuCode
+  if (raw === undefined || raw === null) return ''
+  return String(raw)
+}
+
+/**
+ * Validate a manually provided SKU: trim + uppercase, strict format, then
+ * globally-unique check. Returns the normalized SKU.
+ */
+const validateManualSku = async (
+  raw: string,
+  transaction?: Transaction,
+  excludeVariantId?: number | string | null,
+  field = 'variants[].sku'
+): Promise<string> => {
+  const normalized = assertValidSku(raw, field)
+  await assertUniqueVariantSku(normalized, { excludeVariantId, transaction: transaction as unknown })
+  return normalized
+}
+
+/**
+ * Sanitize an auto-generated SKU into the strict spec shape so stored rows
+ * are always compliant (`^[A-Z0-9_-]{3,30}$`): uppercase, non-conforming
+ * runs become `-`, truncated to 30 chars, batch-deduped with `-2`, `-3`, ...
+ * (Manual SKUs bypass this and throw on violation instead.)
+ */
+const finalizeGeneratedSku = (candidate: string, taken: Set<string>): string => {
+  const sanitized = normalizeSku(candidate)
+    .replace(/[^A-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30)
+  const base = sanitized || 'VAR'
+  let result = base
+  let n = 2
+  while (taken.has(result)) {
+    const suffix = `-${n}`
+    result = `${base.slice(0, 30 - suffix.length)}${suffix}`
+    n += 1
+  }
+  taken.add(result)
+  return result
+}
+
+/** Extract numeric attributeValue ids from a variant payload. */
 const extractValueIds = (variant: VariantInput): number[] =>
   Array.isArray(variant.attributeValues)
     ? variant.attributeValues.map((x) => Number(x)).filter((n) => Number.isFinite(n))
@@ -45,7 +93,8 @@ export interface CreateVariantsContext {
  */
 export const createVariants = async (variants: VariantInput[], ctx: CreateVariantsContext) => {
   const { productId, vendorId, warehouseId, baseSku, baseCode, skuTemplate, transaction } = ctx
-  const takenSkus = new Set<string>([baseSku])
+  // Seed with the normalized base so in-batch dedupe is case-insensitive.
+  const takenSkus = new Set<string>([normalizeSku(baseSku)].filter(Boolean))
   const takenCodes = new Set<string>([String(baseCode ?? '').trim()].filter(Boolean))
   const created: any[] = []
 
@@ -53,13 +102,24 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
     const valIds = extractValueIds(variant)
     const attributeValues = await loadAndVerifyAttributeValues(valIds, vendorId, transaction)
 
-    let skuCode = variant.skuCode ? String(variant.skuCode).trim() : ''
-    if (!skuCode) {
+    const rawSku = readInputSku(variant).trim()
+    let skuCode: string
+    if (rawSku) {
+      // Manual SKU: strict format + globally unique (normalized to uppercase).
+      skuCode = await validateManualSku(rawSku, transaction)
+      if (takenSkus.has(skuCode)) {
+        throw ApiError.conflict(`SKU '${skuCode}' is already in use by another variant.`)
+      }
+      takenSkus.add(skuCode)
+    } else {
       const optMap: Record<string, string> = {}
       for (const val of attributeValues as any[]) optMap[String(val.attributeId)] = String(val.value)
-      skuCode = buildVariantSkuWithTemplate(skuTemplate, baseSku, optMap as any, takenSkus)
+      const generated = buildVariantSkuWithTemplate(skuTemplate, baseSku, optMap as any, takenSkus)
+      // Auto-generated SKUs are sanitized into the strict shape (never throw),
+      // then guarded against the global variant namespace.
+      skuCode = finalizeGeneratedSku(generated, takenSkus)
+      await assertUniqueVariantSku(skuCode, { transaction: transaction as unknown })
     }
-    takenSkus.add(skuCode)
 
     const codeSegments = attributeValues.map((val: any) => String(val.value ?? ''))
     const code = resolveVariantCode(baseCode, variant.code, codeSegments, takenCodes)
@@ -73,6 +133,7 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
         regularPrice: toPrice(variant.regularPrice, 'regularPrice'),
         wholeSalePrice: toPrice(variant.wholeSalePrice, 'wholeSalePrice'),
         costPrice: toPrice(variant.costPrice, 'costPrice'),
+        VAT: variant.VAT !== undefined ? toVat(variant.VAT) : null,
         isNegative: Boolean(variant.isNegative),
         isActive: variant.isActive !== undefined ? Boolean(variant.isActive) : true
       },
@@ -114,7 +175,6 @@ const resolveValueIds = (variant: VariantInput, byName: Map<string, any>): numbe
 }
 
 const buildVariantFields = (v: VariantInput) => ({
-  ...(v.skuCode ? { skuCode: String(v.skuCode).trim() } : {}),
   ...(v.salePrice !== undefined && v.salePrice !== '' ? { salePrice: toPrice(v.salePrice, 'salePrice') } : {}),
   ...(v.regularPrice !== undefined && v.regularPrice !== ''
     ? { regularPrice: toPrice(v.regularPrice, 'regularPrice') }
@@ -123,6 +183,7 @@ const buildVariantFields = (v: VariantInput) => ({
     ? { wholeSalePrice: toPrice(v.wholeSalePrice, 'wholeSalePrice') }
     : {}),
   ...(v.costPrice !== undefined && v.costPrice !== '' ? { costPrice: toPrice(v.costPrice, 'costPrice') } : {}),
+  ...(v.VAT !== undefined && v.VAT !== '' ? { VAT: toVat(v.VAT) } : {}),
   isNegative: Boolean(v.isNegative),
   ...(v.isActive !== undefined ? { isActive: Boolean(v.isActive) } : {})
 })
@@ -177,11 +238,11 @@ export const applyVariantSync = async (
     console.warn('settings not available for variant sku generation', e)
   }
 
-  const takenSkus = new Set<string>([
-    baseSku,
-    ...currentVariants.map((v) => v.get('skuCode')),
-    ...deletedVariants.map((v) => v.get('skuCode'))
-  ])
+  const takenSkus = new Set<string>(
+    [baseSku, ...currentVariants.map((v) => v.get('skuCode')), ...deletedVariants.map((v) => v.get('skuCode'))]
+      .map((s) => normalizeSku(s ?? ''))
+      .filter(Boolean)
+  )
   const takenCodes = new Set<string>(
     [...currentVariants, ...deletedVariants].map((v) => String(v.get('code') ?? '').trim()).filter(Boolean)
   )
@@ -228,11 +289,17 @@ export const applyVariantSync = async (
     const codeSegments = valuesForCode.map((val: any) => String(val.value ?? ''))
     const fields: Record<string, unknown> = buildVariantFields(v)
     const existing: any = await findExistingVariant(v, valIds)
+    const rawSku = readInputSku(v).trim()
 
     if (existing) {
       if (Number(existing.productId ?? existing.get?.('productId')) !== productId)
         throw new Error('Variant does not belong to product')
-      if (!fields.skuCode) delete fields.skuCode
+      if (rawSku) {
+        const existingId = Number(existing.get?.('id') ?? existing.id)
+        const normalized = await validateManualSku(rawSku, transaction, existingId)
+        fields.skuCode = normalized
+        takenSkus.add(normalized)
+      }
       if (v.code !== undefined) {
         const nextCode = resolveVariantCode(productCode, v.code, codeSegments, takenCodes, { allowBlankUpdate: false })
         if (nextCode !== undefined) fields.code = nextCode
@@ -251,13 +318,20 @@ export const applyVariantSync = async (
       continue
     }
 
-    let skuCode = fields.skuCode as string | undefined
-    if (!skuCode) {
+    let skuCode: string
+    if (rawSku) {
+      skuCode = await validateManualSku(rawSku, transaction)
+      if (takenSkus.has(skuCode)) {
+        throw ApiError.conflict(`SKU '${skuCode}' is already in use by another variant.`)
+      }
+      takenSkus.add(skuCode)
+    } else {
       const optMap: Record<string, string> = {}
       for (const val of valuesForCode as any[]) optMap[String(val.attributeId)] = String(val.value)
-      skuCode = buildVariantSkuWithTemplate(skuTemplate, baseSku, optMap as any, takenSkus)
+      const generated = buildVariantSkuWithTemplate(skuTemplate, baseSku, optMap as any, takenSkus)
+      skuCode = finalizeGeneratedSku(generated, takenSkus)
+      await assertUniqueVariantSku(skuCode, { transaction: transaction as unknown })
     }
-    takenSkus.add(skuCode as string)
 
     const code = resolveVariantCode(productCode, v.code, codeSegments, takenCodes)
     const variantRow: any = await ProductVariant.build({ productId, code, skuCode, ...fields }).save({ transaction })
