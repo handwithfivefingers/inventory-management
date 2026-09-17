@@ -343,7 +343,7 @@ const ProductDropdown = ({ open, products, onSelect }: ProductDropdownProps) => 
   const canPickProduct = (product: IProduct) => {
     return Number(product.quantity ?? 0) > 0 || !!product.isNegative || Number(product.variantCount || 0) > 0;
   };
-
+  console.log("products", products);
   if (!open) return;
   return (
     <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-80 overflow-auto rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
@@ -383,7 +383,7 @@ const ProductDropdown = ({ open, products, onSelect }: ProductDropdownProps) => 
                 </div>
                 {hasVariants && <div className="text-xs text-primary shrink-0">Biến thể</div>}
               </div>
-              {product.variants?.map((variant) => {
+              {/* {product.variants?.map((variant) => {
                 const pickable = canPickVariant(variant);
                 const stock = variantStock(variant);
                 return (
@@ -418,7 +418,7 @@ const ProductDropdown = ({ open, products, onSelect }: ProductDropdownProps) => 
                     </div>
                   </button>
                 );
-              })}
+              })} */}
             </div>
           );
         })

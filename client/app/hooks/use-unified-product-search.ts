@@ -49,13 +49,16 @@ export const useUnifiedProductSearch = ({
 
   const search = (query: string, opts?: { page?: number | string; limit?: number | string }) => {
     fetcher.submit(
-      buildUnifiedFormParams({
-        query,
-        context,
-        // warehouseId: (activeWarehouse as any)?.id ?? undefined,
-        page: opts?.page ?? 1,
-        limit: opts?.limit ?? pageSize,
-      }),
+      {
+        ...buildUnifiedFormParams({
+          query,
+          context,
+          // warehouseId: (activeWarehouse as any)?.id ?? undefined,
+          page: opts?.page ?? 1,
+          limit: opts?.limit ?? pageSize,
+        }),
+        intent: "search",
+      },
       { method: "POST", action: "/products" },
     );
   };

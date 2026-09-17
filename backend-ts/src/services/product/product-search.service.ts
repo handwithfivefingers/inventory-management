@@ -130,10 +130,10 @@ export const searchProducts = async (
 
   const warehouseId = params.warehouseId as number
 
-  if (context === 'POS' && (!Number.isFinite(warehouseId) || (warehouseId as number) < 1)) {
-    throw ApiError.badRequest('warehouse_id is required when context is POS')
-  }
-  if (warehouseId !== null) await assertWarehouseAccess(warehouseId, vendorScope)
+  // if (context === 'POS' && (!Number.isFinite(warehouseId) || (warehouseId as number) < 1)) {
+  //   throw ApiError.badRequest('warehouse_id is required when context is POS')
+  // }
+  await assertWarehouseAccess(warehouseId, vendorScope)
 
   const page = Math.max(1, Number(params.page ?? 1) || 1)
   const limit = Math.min(200, Math.max(1, Number(params.limit ?? 20) || 20))
@@ -251,7 +251,7 @@ const searchPos = async (args: FallbackArgs): Promise<Extract<ProductSearchResul
       },
       inventoryInclude
     ],
-    order: [[{ model: Product, as: 'product' }, 'name', 'ASC']],
+    // order: [[{ model: Product, as: 'product' }, 'name', 'ASC']],
     limit,
     offset,
     distinct: true

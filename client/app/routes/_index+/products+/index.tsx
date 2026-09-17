@@ -392,7 +392,44 @@ export async function action({ request }: ActionFunctionArgs) {
   // Soft-delete a product (backend uses paranoid delete, so orders / stock /
   // finance history that references the product is preserved).
 
-  return namedAction(form, () => {});
+  return namedAction(form, {
+    delete: async () => {
+      const id = form.get("id");
+      if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
+      try {
+        await productService.deleteProduct(String(id));
+        return Response.json({ success: true });
+      } catch (error: any) {
+        return Response.json({ error: error?.message || "Delete failed" }, { status: 400 });
+      }
+    },
+    search: async () => {
+      const variantOf = form.get("variantOf");
+      if (variantOf) {
+        return Response.json(await productService.getProductVariants({ id: variantOf as string }));
+      }
+      // Unified search (POS/Sell + Admin): POST /products with context=POS|ADMIN.
+      // Exact barcode/SKU scans return { exact_match: true }; otherwise POS gets
+      // variant-level rows and ADMIN gets product aggregates with total_count.
+      const context = String(form.get("context") ?? "")
+        .trim()
+        .toUpperCase();
+
+      if (context === "POS" || context === "ADMIN") {
+        const query = String(form.get("query") ?? form.get("s") ?? "");
+        return Response.json(
+          await productService.searchProducts({
+            query,
+            context: context as "POS" | "ADMIN",
+            page: String(form.get("page") ?? "1"),
+            limit: String(form.get("limit") ?? form.get("pageSize") ?? "20"),
+          }),
+        );
+      }
+      const s = form.get("s") || "";
+      return Response.json(await productService.getProducts({ s: s as string, page: "1", pageSize: "10" }));
+    },
+  });
 
   if (form.get("intent") === "delete") {
     const id = form.get("id");
@@ -405,64 +442,8 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
   // Variant listing for the order flow: POST /products with variantOf=<productId>
-  const variantOf = form.get("variantOf");
-  if (variantOf) {
-    return productService.getProductVariants({ id: variantOf as string });
-  }
-  // Unified search (POS/Sell + Admin): POST /products with context=POS|ADMIN.
-  // Exact barcode/SKU scans return { exact_match: true }; otherwise POS gets
-  // variant-level rows and ADMIN gets product aggregates with total_count.
-  const context = String(form.get("context") ?? "")
-    .trim()
-    .toUpperCase();
-
-  if (context === "POS" || context === "ADMIN") {
-    const query = String(form.get("query") ?? form.get("s") ?? "");
-    return productService.searchProducts({
-      query,
-      context: context as "POS" | "ADMIN",
-      page: String(form.get("page") ?? "1"),
-      limit: String(form.get("limit") ?? form.get("pageSize") ?? "20"),
-    });
-  }
-  const s = form.get("s") || "";
-  return productService.getProducts({ s: s as string, page: "1", pageSize: "10" });
 }
 
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }
-
-// Role & Goal:
-
-// Act as a Principal Software Engineer focused on code quality and clean architecture. Your task is to refactor the provided code by splitting large functions into smaller, single-purpose functions while following proper Controller-Service separation.
-
-// Instructions & Guidelines:
-
-// Controller Layer Responsibility:
-
-// Controllers must strictly handle HTTP concerns: parse parameters, query strings, headers, and request bodies.
-
-// Convert/map request inputs into clean Data Transfer Objects (DTOs) or plain data types, then pass them to the Service layer.
-
-// Do not write business logic inside the controller.
-
-// Service Layer Responsibility:
-
-// Services must never accept HTTP Request objects (e.g., req, HttpServletRequest, Request).
-
-// Service methods must accept pure data types or DTOs/Value Objects.
-
-// Split large service methods into smaller, dedicated sub-functions where each function handles only one specific piece of business logic (Single Responsibility Principle).
-
-// Clear & Readable Naming:
-
-// Use self-explanatory, descriptive variable and function names (e.g., extractUserData, validateInventoryLevel, isUserEligible).
-
-// Behavior Integrity:
-
-// Preserve original functionality and output behavior completely.
-
-// Summary of Changes:
-
-// Provide a brief summary of how the logic was split and list the new functions created for Controller and Service layers.
