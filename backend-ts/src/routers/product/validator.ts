@@ -14,6 +14,25 @@ const skuRule = (field: string) =>
     .matches(SKU_PATTERN)
     .withMessage(SKU_FORMAT_MESSAGE)
 
+const barcodeRules = [
+  body('variants.*.barcodes').optional().isArray({ min: 1 }).withMessage('variants[].barcodes must be a non-empty array'),
+  body('variants.*.barcodes.*.barcode').optional().isString().trim().notEmpty().isLength({ max: 64 }),
+  body('variants.*.barcodes.*.unitId').optional().isInt({ min: 1 }).toInt(),
+  body('variants.*.barcodes.*.conversionRate').optional().isInt({ min: 1 }).toInt(),
+  body('variants.*.barcodes.*.costPrice').optional().isFloat({ min: 0 }).toFloat(),
+  body('variants.*.barcodes.*.retailPrice').optional().isFloat({ min: 0 }).toFloat(),
+  body('variants.*.barcodes.*.wholesalePrice').optional().isFloat({ min: 0 }).toFloat(),
+  body('variants.*.barcodes.*.isBaseUnit').optional().isBoolean().toBoolean()
+]
+
+const legacyFieldRejections = [
+  'code', 'salePrice', 'regularPrice', 'wholeSalePrice', 'costPrice',
+  'variants.*.code', 'variants.*.salePrice', 'variants.*.regularPrice', 'variants.*.wholeSalePrice', 'variants.*.costPrice'
+].map((field) => body(field).custom((value) => {
+  if (value !== undefined) throw new Error(`${field} was removed; use variants[].barcodes`)
+  return true
+}))
+
 const productListValidation = validate([
   ...paginationQuery,
   vendorIdQuery('vendorId'),
@@ -50,6 +69,8 @@ const productCreateValidation = validate([
   skuRule('skuCode'),
   skuRule('variants.*.sku'),
   skuRule('variants.*.skuCode'),
+  ...barcodeRules,
+  ...legacyFieldRejections,
   body('price').optional().isFloat({ min: 0 }).withMessage('price must be a number >= 0').toFloat(),
   body('categoryId').optional().isInt({ min: 1 }).withMessage('categoryId must be a positive integer').toInt(),
   body('unitId').optional().isInt({ min: 1 }).withMessage('unitId must be a positive integer').toInt(),
@@ -149,7 +170,9 @@ const productUpdateValidation = validate([
     .isFloat({ min: 0, max: 100 })
     .withMessage('variants[].VAT must be a number between 0 and 100')
     .toFloat(),
-  body('removedVariantIds').optional().isArray().withMessage('removedVariantIds must be an array')
+  body('removedVariantIds').optional().isArray().withMessage('removedVariantIds must be an array'),
+  ...barcodeRules,
+  ...legacyFieldRejections
 ])
 
 const attributeIdValidation = validate([idParam('attributeId')])

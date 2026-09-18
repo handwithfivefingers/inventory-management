@@ -6,6 +6,8 @@ import OrderDetail from '#/database/models/orderDetail'
 import OrderReturn from '#/database/models/orderReturn'
 import Product from '#/database/models/product'
 import ProductVariant from '#/database/models/productVariant'
+import ProductBarcode from '#/database/models/productBarcode'
+import Unit from '#/database/models/units'
 import { IRequestLocal } from '#/types/common'
 import { applyCodeFormat, getCodeFormat } from '#/utils/code-generator'
 import { assertVendorAccess, assertWarehouseAccess, getVendorScope, TVendorScope } from '#/utils/tenant'
@@ -139,12 +141,15 @@ export default class OrderService {
     assertVendorAccess(vendorScope, Number(vendorIdInput), 'Unauthorized to create orders for this vendor')
 
     const orderType = this.resolveOrderType(providerId, requestedType)
-    const orderTotals = this.calculateOrderTotals(orderLines, surchargeInput, vatInput)
     const orderChannel = this.resolveOrderChannel(requestedChannel)
     const warehouseId = Number(warehouseIdInput)
     const vendorId = Number(vendorIdInput)
+    const transaction = await this.sequelize.transaction()
+    try {
+      const resolvedLines = await this.resolveBarcodeOrderLines(orderLines, orderChannel, transaction)
+      const orderTotals = this.calculateOrderTotals(resolvedLines, surchargeInput, vatInput)
 
-    const orderAttributes = this.buildNewOrderAttributes({
+      const orderAttributes = this.buildNewOrderAttributes({
       vatInput,
       surchargeInput,
       paymentType,
@@ -158,19 +163,17 @@ export default class OrderService {
       orderTotals
     })
 
-    const transaction = await this.sequelize.transaction()
-    try {
       const createdOrder = await this.persistOrderWithGeneratedCode(orderAttributes, vendorId, transaction)
 
       await this.validateSaleStockAvailability({
-        orderLines,
+        orderLines: resolvedLines,
         warehouseId,
         orderType,
         transaction
       })
 
       await this.persistAllOrderDetails({
-        orderLines,
+        orderLines: resolvedLines,
         warehouseId,
         orderId: (createdOrder as any).id,
         orderType,
@@ -194,6 +197,40 @@ export default class OrderService {
       await transaction.rollback()
       throw ApiError.from(error, 400)
     }
+  }
+
+  /** The browser selects a unit barcode; price and base-unit quantity are server-owned. */
+  private async resolveBarcodeOrderLines(lines: any[], channel: OrderChannel, transaction: Transaction): Promise<any[]> {
+    return Promise.all(lines.map(async (line) => {
+      const barcodeId = Number(line.barcodeId)
+      if (!Number.isSafeInteger(barcodeId) || barcodeId < 1) throw ApiError.badRequest('orderDetails[].barcodeId is required')
+      const barcode: any = await ProductBarcode.findByPk(barcodeId, { include: [{ model: Unit }], transaction })
+      if (!barcode) throw ApiError.badRequest('Barcode not found')
+      if (Number(barcode.get('variantId')) !== Number(line.variantId)) throw ApiError.badRequest('Barcode does not belong to submitted variant')
+      const variant: any = await ProductVariant.findByPk(Number(line.variantId), { transaction })
+      if (!variant || Number(variant.get('productId')) !== Number(line.productId)) {
+        throw ApiError.badRequest('Variant does not belong to submitted product')
+      }
+      const promoActive = barcode.get('promoPrice') != null &&
+        (!barcode.get('promoStartAt') || new Date(barcode.get('promoStartAt')).getTime() <= Date.now()) &&
+        (!barcode.get('promoEndAt') || new Date(barcode.get('promoEndAt')).getTime() >= Date.now())
+      const unitPrice = channel === 'WHOLESALE'
+        ? Number(barcode.get('wholesalePrice'))
+        : Number(promoActive ? barcode.get('promoPrice') : barcode.get('retailPrice'))
+      const quantity = Number(line.quantity)
+      if (!Number.isFinite(quantity) || quantity <= 0) throw ApiError.badRequest('orderDetails[].quantity must be positive')
+      const conversionRate = Number(barcode.get('conversionRate'))
+      return {
+        ...line,
+        barcodeId,
+        price: unitPrice,
+        buyPrice: unitPrice * quantity,
+        priceAtSale: unitPrice,
+        conversionRateAtSale: conversionRate,
+        unitNameAtSale: barcode.unit?.get?.('name') ?? barcode.unit?.name ?? null,
+        baseQuantity: quantity * conversionRate
+      }
+    }))
   }
 
   private resolveOrderType(providerId: number | string | undefined | null, requestedType: string): string {
@@ -392,7 +429,7 @@ export default class OrderService {
         Number(orderLine.productId),
         Number(orderLine.variantId)
       )
-      if (availableQuantity < requestedQuantity) {
+      if (availableQuantity < requestedQuantity * Number(orderLine.conversionRateAtSale ?? 1)) {
         const productLabel = variantRow
           ? `${productRow.get('name')} [${variantRow.get('skuCode')}]`
           : String(productRow.get('name'))
@@ -480,7 +517,9 @@ export default class OrderService {
       transaction,
       extraAttributes: orderDetail
     })
-    await this.propagateOrderDetailStockChanges({ quantity, productId, variantId, warehouseId, transaction, type })
+    await this.propagateOrderDetailStockChanges({
+      quantity: Number((orderDetail as any).baseQuantity ?? quantity), productId, variantId, warehouseId, transaction, type
+    })
   }
 
   private async persistOrderDetailRow(params: {
@@ -504,6 +543,7 @@ export default class OrderService {
       variantId,
       ...extraAttributes
     } as any)
+    delete (orderDetailBuilder as any).dataValues.baseQuantity
 
     await orderDetailBuilder.save({ transaction })
   }

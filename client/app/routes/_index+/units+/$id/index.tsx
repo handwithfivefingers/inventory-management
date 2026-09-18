@@ -13,12 +13,11 @@ import { TMButton } from "~/components/tm-button";
 import { IUnitSchema, unitSchema } from "~/constants/schema/units";
 import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const id = params.id as string;
-  const resp = await unitsService.getById({ id: Number(id), vendorId: vendorId as string, cookie });
+  const resp = await unitsService.getById(id);
   return resp.data?.data;
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Product Item" }, { name: "description", content: "Welcome to Remix!" }];
@@ -47,30 +46,19 @@ export default function ProductItem() {
                   </p>
                 </div>
               </div>
-              <TMButton variant="ghost" size="xs" onClick={() => setEdit(!edit)}>
-                {edit ? "Hủy" : "Sửa"}
-              </TMButton>
             </div>
           }
           className="p-5 sm:p-6"
         >
           <div className="flex gap-2 flex-col">
-            {!edit ? <Detail /> : null}
-            {edit ? <EditForm {...(data as IUnitSchema)} onCancel={() => setEdit(false)} /> : null}
+            <EditForm {...(data as IUnitSchema)} />
           </div>
         </CardItem>
       </div>
     </div>
   );
 }
-const Detail = () => {
-  const data = useLoaderData<typeof loader>();
-  return (
-    <div className="w-full grid grid-cols-5 gap-4 mt-2">
-      <div className="col-span-5 text-sm text-slate-700 dark:text-slate-200">{data?.name}</div>
-    </div>
-  );
-};
+
 const EditForm = ({ name, id, onCancel }: IUnitSchema & { onCancel?: () => void }) => {
   const fetcher = useFetcher();
   const formMethods = useForm<IUnitSchema>({
@@ -129,19 +117,18 @@ const EditForm = ({ name, id, onCancel }: IUnitSchema & { onCancel?: () => void 
   );
 };
 
-export const action = async ({ request, params }: any) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request, params }: any) {
   const { id } = params;
   const formData = await request.formData();
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson.data, id };
-  const resp = await unitsService.update({ ...bodyData, vendorId, cookie } as any);
+  const resp = await unitsService.update(bodyData);
   if (resp.status === 200) {
     return redirect(`/units`, 302);
   }
   return resp;
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

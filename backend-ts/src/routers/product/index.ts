@@ -181,6 +181,13 @@ Router.get(
   // #swagger.security = [{ "bearerAuth": [] }]
   new ProductController().getProductVariants
 )
+Router.get(
+  '/:id/barcodes',
+  productIdValidation as any,
+  // #swagger.tags = ['ProductBarcodes']
+  // #swagger.summary = 'List barcode selling units for a product'
+  new ProductController().getProductBarcodes
+)
 
 Router.put(
   '/:id',

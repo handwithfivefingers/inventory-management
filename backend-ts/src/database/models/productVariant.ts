@@ -15,6 +15,7 @@ import { Inventory } from './inventory'
 import { Product } from './product'
 import { Transfer } from './transfer'
 import ProductAttributeValue from './productAttributeValue'
+import ProductBarcode from './productBarcode'
 
 @Table({
   tableName: 'productVariants',
@@ -25,7 +26,6 @@ import ProductAttributeValue from './productAttributeValue'
     { unique: true, fields: ['productId', 'skuCode'] },
     // Unified search (exact scan + POS/ADMIN fallback) filters/sorts on these.
     { fields: ['skuCode'] },
-    { fields: ['code'] },
     { fields: ['productId'] }
   ]
 })
@@ -37,36 +37,8 @@ export class ProductVariant extends Model {
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare productId: number
 
-  @Column({
-    type: DataType.STRING(12),
-    allowNull: true,
-    validate: {
-      len: {
-        args: [1, 12],
-        msg: 'code must contain only letters, digits, and hyphens and be at most 12 characters'
-      },
-      is: {
-        args: /^[A-Za-z0-9-]+$/,
-        msg: 'code must contain only letters, digits, and hyphens'
-      }
-    }
-  })
-  declare code: string | null
-
   @Column({ type: DataType.STRING, allowNull: false })
   declare skuCode: string
-
-  @Column({ type: DataType.BIGINT, allowNull: true })
-  declare salePrice: number | null
-
-  @Column({ type: DataType.BIGINT, allowNull: true })
-  declare regularPrice: number | null
-
-  @Column({ type: DataType.BIGINT, allowNull: true })
-  declare wholeSalePrice: number | null
-
-  @Column({ type: DataType.INTEGER, allowNull: true })
-  declare costPrice: number | null
 
   @Column({
     type: DataType.INTEGER,
@@ -106,6 +78,10 @@ export class ProductVariant extends Model {
 
   @HasMany(() => Transfer)
   declare transfers: Transfer[]
+
+  /** Barcode + unit conversion/pricing rows. */
+  @HasMany(() => ProductBarcode)
+  declare barcodes: ProductBarcode[]
 
   @BelongsToMany(() => ProductAttributeValue, {
     through: 'productVariantAttributeValues',

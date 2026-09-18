@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, redirect, useFetcher } from "@remix-run/react";
 import { MouseEvent, useEffect } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -11,10 +11,8 @@ import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
-import { productSchema } from "~/constants/schema/product";
+import { unitSchema } from "~/constants/schema/units";
 import { useSubmitPromise } from "~/hooks";
-import { ResponseError } from "~/http/index.server";
-import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
   return [{ title: "Unit - Đơn vị" }];
 };
@@ -53,7 +51,7 @@ const UnitForm = () => {
     defaultValues: {
       name: "",
     },
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(unitSchema),
   });
 
   const handleError = (errors: any) => {
@@ -65,11 +63,7 @@ const UnitForm = () => {
       console.log("resp", resp);
       toast.success({ title: "Created", message: "Tạo đơn vị thành công" });
     } catch (error) {
-      if (error instanceof ResponseError) {
-        toast.danger({ title: "Error", message: error.message });
-      } else {
-        console.log("onSubmit Error", error);
-      }
+      toast.danger({ title: "Error", message: (error as Error).message });
     }
   };
 
@@ -81,13 +75,7 @@ const UnitForm = () => {
   }, [fetcher.state]);
   return (
     <FormProvider {...formMethods}>
-      <form
-        onSubmit={formMethods.handleSubmit(
-          (v) => onSubmit({ ...v }),
-          (error) => handleError(error),
-        )}
-        className="flex flex-col gap-5 mt-2"
-      >
+      <form onSubmit={formMethods.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
         <FormControl name="name">
           {(field) => {
             return (
@@ -103,10 +91,10 @@ const UnitForm = () => {
           }}
         </FormControl>
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
-          <TMButton variant="ghost" size="sm" component={Link} to="/units" type="button">
+          <TMButton variant="ghost" size="sm" component={Link} to="/units" type="button" loading={isLoading}>
             Hủy
           </TMButton>
-          <TMButton htmlType="submit" size="sm">
+          <TMButton htmlType="submit" size="sm" loading={isLoading}>
             <Icon name="save" fontSize={16} />
             Thêm
           </TMButton>
@@ -115,13 +103,12 @@ const UnitForm = () => {
     </FormProvider>
   );
 };
-export const action = async ({ request }: any) => {
+export async function action({ request }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = (await formData.get("data")) as `${string}`;
     const dataJson: { name: string } = JSON.parse(data);
-    const bodyData = { ...dataJson, vendorId: vendorId, cookie };
+    const bodyData = { ...dataJson };
     const resp = await unitsService.create(bodyData);
     if (resp.status === 200) {
       return redirect(`/units`, 302);
@@ -131,7 +118,7 @@ export const action = async ({ request }: any) => {
     console.log("error", error);
     return { status: false };
   }
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

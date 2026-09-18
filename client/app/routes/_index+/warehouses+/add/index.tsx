@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json } from "@remix-run/node";
 import { Link, useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { warehouseService } from "~/action.server/warehouse.service";
@@ -14,7 +13,6 @@ import { TMButton } from "~/components/tm-button";
 import { warehouseSchema, WarehouseSchema } from "~/constants/schema/warehouse";
 import { useSubmitPromise } from "~/hooks";
 import { ResponseError } from "~/http/index.server";
-import { parseCookieFromRequest } from "~/sessions";
 import { useTranslation } from "~/i18n";
 
 export const meta: MetaFunction = () => {
@@ -36,23 +34,14 @@ export default function WarehouseAdd() {
   });
   const { handleSubmit } = formMethods;
   const { submit, isLoading } = useSubmitPromise();
-
   const onSubmit = async (v: WarehouseSchema) => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resp = await submit<any>({ data: JSON.stringify(v) }, { method: "POST" });
-      if (resp?.status && Number(resp.status) >= 400) {
-        const message = Array.isArray(resp?.error)
-          ? resp.error.map((e: any) => `${e.path} ${e.msg}`).join(", ")
-          : resp?.error ?? resp?.message ?? t("common.tryAgain");
-        throw new ResponseError({ error: message, status: Number(resp.status) });
-      }
+      if (Number(resp.status) >= 400) throw resp;
       toast.success({ title: t("common.success"), message: t("warehouses.createSuccess") });
       navigate("/warehouses");
     } catch (error) {
-      if (error instanceof ResponseError) {
-        toast.danger({ title: t("common.error"), message: error.message });
-      }
+      toast.danger({ title: t("common.error"), message: (error as Error).message });
     }
   };
 
@@ -158,14 +147,13 @@ export default function WarehouseAdd() {
   );
 }
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export async function action({ request }: ActionFunctionArgs) {
   try {
-    const { vendorId, cookie } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = JSON.parse(Object.fromEntries(formData)?.data as string);
-    const resp = await warehouseService.createWarehouse({ ...data, vendorId, cookie });
-    return json(resp);
+    const resp = await warehouseService.createWarehouse(data);
+    return Response.json(resp);
   } catch (error) {
-    return json({ status: 400, error: (error as any)?.message }, { status: 400 });
+    return Response.json({ status: 400, error: (error as any)?.message }, { status: 400 });
   }
-};
+}

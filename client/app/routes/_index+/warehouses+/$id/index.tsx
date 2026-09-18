@@ -1,33 +1,30 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useNavigate, useRevalidator } from "@remix-run/react";
+import { redirect } from "@remix-run/node";
+import { useLoaderData, useRevalidator } from "@remix-run/react";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { warehouseService } from "~/action.server/warehouse.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { SwitchInput } from "~/components/form/switch-input";
 import { FormControl } from "~/components/form/form-control";
+import { SwitchInput } from "~/components/form/switch-input";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { warehouseSchema, WarehouseSchema } from "~/constants/schema/warehouse";
 import { useSubmitPromise } from "~/hooks";
-import { ResponseError } from "~/http/index.server";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
-import { parseCookieFromRequest } from "~/sessions";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
   if (!id) return redirect("/warehouses");
-  const { vendorId, cookie } = await parseCookieFromRequest(request);
-  const resp = await warehouseService.getWareHouseById({ id, vendorId, cookie });
+  const resp = await warehouseService.getWareHouseById(id);
   if (resp.status !== 200) throw new Response("Warehouse not found", { status: resp.status });
   return resp.data?.data;
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Thông tin kho hàng" }, { name: "description", content: "Thông tin kho hàng" }];
@@ -38,26 +35,19 @@ export default function WarehouseItem() {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const revalidator = useRevalidator();
-  const navigate = useNavigate();
   const { submit: submitMain, isLoading: isMainLoading } = useSubmitPromise();
   const isMain = !!data?.isMain;
 
   const handleSetMain = async () => {
     try {
       const payload = isMain ? { isMain: false } : { isMain: true };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resp = await submitMain<any>({ data: JSON.stringify(payload) }, { method: "PUT" });
       const status = resp?.status ?? resp?.data?.status;
-      if (status && Number(status) >= 400) {
-        const msg = resp?.error ?? resp?.message ?? t("common.tryAgain");
-        throw new ResponseError({ error: msg, status: Number(status) });
-      }
-      // Some HTTP service returns {status:200} without body on PUT
+      if (Number(status) >= 400) throw resp;
       toast.success({ title: t("common.success"), message: t("warehouses.mainSuccess") });
       revalidator.revalidate();
-    } catch (e: any) {
-      const msg = e instanceof ResponseError ? e.message : e?.message ?? t("common.tryAgain");
-      toast.danger({ title: t("common.error"), message: msg });
+    } catch (e) {
+      toast.danger({ title: t("common.error"), message: (e as Error).message });
     }
   };
 
@@ -195,20 +185,14 @@ function Detail({ data, onSetMain, isMainLoading }: { data: any; onSetMain: () =
     </div>
   );
 }
-
-function InfoRow({
-  icon,
-  label,
-  value,
-  multiline,
-  valueClassName,
-}: {
+type InforRow = {
   icon: string;
   label: string;
   value: string;
   multiline?: boolean;
   valueClassName?: string;
-}) {
+};
+function InfoRow({ icon, label, value, multiline, valueClassName }: InforRow) {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
@@ -245,20 +229,13 @@ function EditForm({ data, onCancel, onSuccess }: { data: any; onCancel: () => vo
 
   const onSubmit = async (v: WarehouseSchema) => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resp = await submit<any>({ data: JSON.stringify(v) }, { method: "PUT" });
       const status = resp?.status ?? 200;
-      if (status && Number(status) >= 400) {
-        const msg = Array.isArray(resp?.error)
-          ? resp.error.map((e: any) => `${e.path} ${e.msg}`).join(", ")
-          : resp?.error ?? resp?.message ?? t("common.tryAgain");
-        throw new ResponseError({ error: msg, status: Number(status) });
-      }
+      if (Number(status) >= 400) throw resp;
       toast.success({ title: t("common.success"), message: t("warehouses.updateSuccess") });
       onSuccess();
-    } catch (error: any) {
-      const msg = error instanceof ResponseError ? error.message : error?.message ?? t("common.tryAgain");
-      toast.danger({ title: t("common.error"), message: msg });
+    } catch (error) {
+      toast.danger({ title: t("common.error"), message: (error as Error).message });
     }
   };
 
@@ -336,23 +313,20 @@ function EditForm({ data, onCancel, onSuccess }: { data: any; onCancel: () => vo
   );
 }
 
-export const action = async ({ request, params }: ActionFunctionArgs) => {
+export async function action({ request, params }: ActionFunctionArgs) {
   try {
-    const { vendorId, cookie } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const raw = Object.fromEntries(formData)?.data as string;
     const data = JSON.parse(raw);
-    const resp = await warehouseService.updateWarehouse({ ...data, id: params.id as string, vendorId, cookie });
-    // warehouseService.put returns {status:200} on success, no data wrapper
-    // Normalize to shape expected by useSubmitPromise
+    const resp = await warehouseService.updateWarehouse({ ...data, id: params.id as string });
     if ((resp as any)?.status && Number((resp as any).status) >= 400) {
-      return json(resp, { status: Number((resp as any).status) });
+      return Response.json(resp, { status: Number((resp as any).status) });
     }
-    return json({ status: 200, data: resp });
+    return Response.json({ status: 200, data: resp });
   } catch (error: any) {
-    return json({ status: 400, error: error?.message ?? "Update failed" }, { status: 400 });
+    return Response.json({ status: 400, error: error?.message ?? "Update failed" }, { status: 400 });
   }
-};
+}
 
 export function ErrorBoundary() {
   return <ErrorComponent />;

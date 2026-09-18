@@ -157,6 +157,16 @@ export class ProductController {
     }
   }
 
+  async getProductBarcodes(req: Request, res: Response, next: NextFunction) {
+    try {
+      const rows = await new ProductService().getProductBarcodes(req as IRequestLocal)
+      res.status(200).json({ total: rows.length, data: rows })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+
   async updateProduct(req: IRequestLocal, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']

@@ -10,7 +10,7 @@ route.get(
   // #swagger.summary = 'List tags'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['vendorId'] = { in: 'query', type: 'string', required: true } */
-  new TagsController().get
+  new TagsController().get as any
 )
 route.get(
   '/:id',
@@ -18,7 +18,7 @@ route.get(
   // #swagger.tags = ['Tags']
   // #swagger.summary = 'Get tag by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
-  new TagsController().getById
+  new TagsController().getById as any
 )
 route.post(
   '/',
@@ -27,7 +27,7 @@ route.post(
   // #swagger.summary = 'Create tag'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/TagBody' } } */
-  new TagsController().create
+  new TagsController().create as any
 )
 route.post(
   '/:id',
@@ -36,7 +36,7 @@ route.post(
   // #swagger.summary = 'Update tag'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { id: { type: 'integer' }, name: { type: 'string' } }, required: ['id'] } } */
-  new TagsController().update
+  new TagsController().update as any
 )
 
 export default route

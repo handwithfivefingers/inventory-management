@@ -18,5 +18,5 @@ export interface IRequestTenant {
 export type IRequestLocal = Request & {
   user: IUserPayload
   tenant: IRequestTenant
-  activeVendorId?: number
+  activeVendorId?: number | string
 }

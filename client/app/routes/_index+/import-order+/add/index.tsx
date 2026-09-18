@@ -13,6 +13,7 @@ import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
 import { debounce } from "~/libs/debounce";
+import { getVariantCostPrice } from "~/libs/product-price";
 import { useTranslation } from "~/i18n";
 import { IProduct, IProductSearchRow, IProductVariant } from "~/types/product";
 import { IProvider } from "~/types/provider";
@@ -47,7 +48,7 @@ export default function OrderItem() {
   const [showVariantPicker, setShowVariantPicker] = useState(false);
 
   const importPriceOf = (item: IProduct | IProductVariant) =>
-    Number((item as IProductVariant).costPrice ?? (item as IProduct).costPrice ?? 0);
+    Number(getVariantCostPrice(item as IProductVariant) ?? (item as IProduct).costPrice ?? 0);
 
   // Unified POS search: exact scans auto-add a line, the fallback list carries
   // actionable variants (real-time stock per warehouse).

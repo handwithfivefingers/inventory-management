@@ -98,6 +98,8 @@ const dedupeInvoiceIndexes = async () => {
   await dedupeTable('products', ['PRIMARY', 'products_code_unique', 'code', 'vendorId', 'unitId'], /^code/)
   await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
   await dedupeTable('staff_vendor', ['PRIMARY', 'staffId'], /^staffId/)
+  await dedupeTable('productVariants', ['UNIQUE', 'productId', 'skuCode'], /^[productId|skuCode]/)
+  await dedupeTable('product_barcodes', ['UNIQUE', 'barcode', 'baseVariantId'], /^[barcode|baseVariantId]/)
 }
 
 const database: IDatabase = {

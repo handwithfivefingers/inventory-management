@@ -16,6 +16,7 @@ import { useTranslation } from "~/i18n";
 import { IProduct, IProductSearchRow, IProductVariant } from "~/types/product";
 import { MainLayoutContext } from "../_layout";
 import { debounce } from "~/libs/debounce";
+import { getVariantRetailPrice } from "~/libs/product-price";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Bán hàng (POS)" }];
@@ -96,7 +97,7 @@ export default function SellPage() {
 
   const pickVariant = (variant: IProductVariant) => {
     if (!variantTarget) return;
-    const price = Number(variant.salePrice ?? variantTarget.regularPrice ?? 0);
+    const price = Number(getVariantRetailPrice(variant) ?? variantTarget.regularPrice ?? 0);
     form.setValue(
       "orderDetails",
       addLine(form.getValues("orderDetails") || [], {
@@ -115,7 +116,7 @@ export default function SellPage() {
     // Unified POS rows already carry their actionable variant — add directly.
     const unifiedVariant = (item as IProductSearchRow).unifiedVariant ?? variant;
     if (unifiedVariant && (item as IProductSearchRow).unifiedVariant) {
-      const price = Number(unifiedVariant.salePrice ?? unifiedVariant.regularPrice ?? item.regularPrice ?? 0);
+      const price = Number(getVariantRetailPrice(unifiedVariant) ?? item.regularPrice ?? 0);
       form.setValue(
         "orderDetails",
         addLine(form.getValues("orderDetails") || [], {
@@ -129,7 +130,7 @@ export default function SellPage() {
       return;
     }
     if (variant) {
-      const price = Number(variant.salePrice ?? variant.regularPrice ?? item.regularPrice ?? 0);
+      const price = Number(getVariantRetailPrice(variant) ?? item.regularPrice ?? 0);
       form.setValue(
         "orderDetails",
         addLine(form.getValues("orderDetails") || [], {

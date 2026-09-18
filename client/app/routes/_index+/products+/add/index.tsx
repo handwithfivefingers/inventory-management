@@ -13,11 +13,11 @@ import { ProductForm } from "~/components/form/product-form";
 import { VariantEditor } from "~/components/form/variant-editor";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
-import { Tab } from "~/components/tab";
 import { TMButton } from "~/components/tm-button";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
+import { cn } from "~/libs/utils";
 
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
@@ -41,6 +41,26 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 }
 
+const Title = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex gap-3">
+        <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+          <Icon name="package" fontSize={20} />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">{t("sidebar.products")}</h2>
+          <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
+            {t("product.formHint", {
+              defaultValue: "Thêm sản phẩm mới",
+            })}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 export default function ProductItem() {
   const { submit, isLoading } = useSubmitPromise();
   const navigate = useNavigate();
@@ -49,45 +69,42 @@ export default function ProductItem() {
   const formMethods = useForm<ProductSchemaType>({
     defaultValues: {
       name: "",
-      // Left empty on purpose: the backend auto-generates code/skuCode
-      // from the vendor prefix/suffix & SKU template settings.
-      code: "",
       skuCode: "",
       quantity: 0,
       unit: undefined,
       categories: undefined,
       description: undefined,
       tags: undefined,
-      costPrice: "0",
-      regularPrice: "0",
-      salePrice: "0",
-      wholeSalePrice: "0",
       VAT: 0,
       expiredAt: undefined,
       isNegative: false,
       variantAttributes: [],
-      variants: [],
+      variants: [
+        {
+          options: {},
+          barcodes: [
+            {
+              barcode: "",
+              unitId: "",
+              conversionRate: 1,
+              costPrice: 0,
+              retailPrice: 0,
+              wholesalePrice: 0,
+              isBaseUnit: true,
+            },
+          ],
+        },
+      ],
       type: 0,
     },
     resolver: zodResolver(productSchema),
   });
-  const handleError = (errors: any) => {
-    // Surface validation failures instead of failing silently
-    const collect = (obj: any, prefix = ""): string[] => {
-      if (!obj) return [];
-      if (obj.message) return [`${prefix ? prefix + ": " : ""}${obj.message}`];
-      return Object.entries(obj).flatMap(([key, value]) =>
-        typeof value === "object" ? collect(value, prefix ? `${prefix}.${key}` : key) : [],
-      );
-    };
-    const messages = collect(errors);
-    if (messages.length > 0) {
-      toast.danger({
-        title: "Dữ liệu chưa hợp lệ",
-        message: messages.join("; "),
-      });
-    }
-    console.log("errors", errors);
+  const productType = formMethods.watch("type") ?? 0;
+  const setProductType = (type: number) => formMethods.setValue("type", type, { shouldDirty: true });
+  const variantSeed = {
+    quantity: formMethods.watch("quantity"),
+    isNegative: formMethods.watch("isNegative"),
+    barcodes: [],
   };
 
   const onSubmit = async (v: ProductSchemaType) => {
@@ -107,7 +124,7 @@ export default function ProductItem() {
       }
     }
     const variantsPayload = (v.variants || [])
-      .filter((m: any) => m?.options && Object.keys(m.options).length > 0)
+      .filter((m: any) => m?.barcodes?.length)
       .map((m: any) => {
         const opts: Record<string, string> = m.options || {};
         const attributeIds: number[] = [];
@@ -120,13 +137,9 @@ export default function ProductItem() {
           if (vid) attributeValueIds.push(vid);
         }
         return {
-          code: m.code,
           skuCode: m.skuCode,
           quantity: m.quantity,
-          costPrice: m.costPrice,
-          regularPrice: m.regularPrice,
-          salePrice: m.salePrice,
-          wholeSalePrice: m.wholeSalePrice,
+          barcodes: m.barcodes,
           isNegative: !!m.isNegative,
           VAT: m.VAT,
           imageUrl: m.imageUrl,
@@ -138,11 +151,14 @@ export default function ProductItem() {
       });
     if (variantsPayload.length > 0) {
       payload.variants = variantsPayload;
-      payload.type = 1; // 0 = simple, 1 = variant, 2 = combo
+      // The selected product type is authoritative. In particular, a Combo
+      // must not be silently converted to Basic when it has no attributes.
+      payload.type = v.type;
     } else {
       delete payload.variants;
     }
     delete payload.variantAttributes;
+    for (const key of ["code", "costPrice", "regularPrice", "salePrice", "wholeSalePrice"]) delete payload[key];
 
     try {
       const response: any = await submit({ data: JSON.stringify(payload) }, { method: "POST" });
@@ -171,33 +187,15 @@ export default function ProductItem() {
   return (
     <FormProvider {...formMethods}>
       <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-        <div className="w-full mx-auto">
+        <div className="max-w-5xl w-full mx-auto">
           <form
             onSubmit={formMethods.handleSubmit(
               (v) => onSubmit({ ...v }),
-              (error) => handleError(error),
+              () => toast.danger({ title: t("product.createFailed"), message: t("common.tryAgain") }),
             )}
           >
             <CardItem
-              title={
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex gap-3">
-                    <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
-                      <Icon name="package" fontSize={20} />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
-                        {t("sidebar.products")}
-                      </h2>
-                      <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
-                        {t("product.formHint", {
-                          defaultValue: "Thêm sản phẩm mới",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              }
+              title={<Title />}
               action={
                 <div className="flex items-center justify-stretch sm:justify-end gap-2 pt-2 sm:pt-0 sm:border-t-0 border-t border-slate-100 dark:border-slate-700 w-full sm:w-auto">
                   <TMButton
@@ -218,38 +216,36 @@ export default function ProductItem() {
               }
               className="p-5 sm:p-6"
             >
-              <Tab
-                items={[
-                  {
-                    label: (
-                      <div className="flex gap-1">
-                        <Icon name="info" fontSize={16} />
-                        {t("product.infoTab")}
-                      </div>
-                    ),
-                    content: (
-                      <ProductForm
-                        categories={categories?.data || []}
-                        tags={tags?.data || []}
-                        units={units?.data || []}
-                      />
-                    ),
-                    value: "info",
-                  },
-                  {
-                    label: (
-                      <div className="flex gap-1">
-                        <Icon name="sliders" fontSize={16} />
-                        {t("product.variantsTab")}
-                      </div>
-                    ),
-                    content: <VariantEditor />,
-                    value: "variant",
-                  },
-                ]}
-                active="info"
-                onChange={(value) => console.log("value", value)}
-              />
+              <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+                {[
+                  [0, "Basic"],
+                  [1, "Variant"],
+                  [2, "Combo"],
+                ].map(([type, label]) => (
+                  <button
+                    key={String(type)}
+                    type="button"
+                    onClick={() => setProductType(Number(type))}
+                    className={cn(`rounded-md px-4 py-2 text-sm font-medium transition-all cursor-pointer`, {
+                      ["bg-primary text-white shadow-sm"]: productType === type,
+                      ["text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-700"]:
+                        productType !== type,
+                    })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <ProductForm categories={categories?.data || []} tags={tags?.data || []} />
+              <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
+                <VariantEditor
+                  type={productType as 0 | 1 | 2}
+                  seed={variantSeed}
+                  units={(units?.data || [])
+                    .filter((unit: any) => unit.id != null)
+                    .map((unit: any) => ({ id: unit.id, name: unit.name }))}
+                />
+              </div>
             </CardItem>
           </form>
         </div>

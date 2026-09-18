@@ -14,7 +14,6 @@ const unitsService = {
     return HTTPService.getInstance().post(API_PATH.units, params);
   },
   getById: (id: string | number) => {
-    const params = new URLSearchParams({});
     return HTTPService.getInstance().get<{ data: IUnit }>(API_PATH.units + "/" + id);
   },
   update: ({ id, ...params }: IUnitParams) => {

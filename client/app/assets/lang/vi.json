@@ -242,6 +242,7 @@
     "category": "Danh mục",
     "amount": "Số tiền",
     "note": "Ghi chú",
+    "description": "Mô tả",
     "date": "Ngày",
     "addVoucher": "Tạo phiếu",
     "report": "Báo cáo thuế",

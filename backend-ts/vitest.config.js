@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'migrations/**/*.{test,spec}.{ts,tsx}'],
     setupFiles: ['./test/setup.ts'],
     coverage: {
       provider: 'v8',

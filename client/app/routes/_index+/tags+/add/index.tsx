@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, redirect } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { tagsService } from "~/action.server/tags.service";
@@ -11,7 +11,6 @@ import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { ITagSchema, tagSchema } from "~/constants/schema/tag";
 import { useSubmitPromise } from "~/hooks";
-import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
   return [{ title: "Create Tag" }];
 };
@@ -88,22 +87,20 @@ const CategoryForm = () => {
     </FormProvider>
   );
 };
-export const action = async ({ request }: any) => {
+export async function action({ request }: ActionFunctionArgs) {
   try {
-    const { cookie, vendorId } = await parseCookieFromRequest(request);
     const formData = await request.formData();
     const data = (await formData.get("data")) as `${string}`;
     const dataJson: { name: string } = JSON.parse(data);
-    const bodyData = { ...dataJson, vendorId: vendorId, cookie };
-    const resp = await tagsService.create(bodyData);
+    const resp = await tagsService.create(dataJson);
     if (resp.status === 200) {
-      return redirect("/tags");
+      return redirect("/tags", 302);
     }
     throw resp;
   } catch (error) {
     return Response.json({ error, status: 400 }, { status: 400 });
   }
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

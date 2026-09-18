@@ -2,6 +2,7 @@ import database from '#/database'
 import Category from '#/database/models/category'
 import Product from '#/database/models/product'
 import ProductVariant from '#/database/models/productVariant'
+import ProductBarcode from '#/database/models/productBarcode'
 import Unit from '#/database/models/units'
 import { IRequestLocal } from '#/types/common'
 import { assertValidBarcode } from '#/utils/barcode'
@@ -120,7 +121,7 @@ export class ProductExcelService {
       include: [
         { model: Category, through: { attributes: [] } },
         { model: Unit, attributes: ['name'] },
-        { model: ProductVariant, as: 'variants', limit: 1, order: [['id', 'ASC']] }
+        { model: ProductVariant, as: 'variants', limit: 1, order: [['id', 'ASC']], include: [{ model: ProductBarcode, as: 'barcodes' }] }
       ],
       order: [['id', 'DESC']],
       limit: 5000
@@ -128,14 +129,15 @@ export class ProductExcelService {
 
     const rows = products.map((p) => {
       const variant = (p.get('variants') || [])[0]
+      const barcode = (variant?.get('barcodes') || []).find((row: any) => row.get('isBaseUnit')) || (variant?.get('barcodes') || [])[0]
       return {
         name: p.get('name'),
-        code: variant?.get('code') ?? '',
+        code: barcode?.get('barcode') ?? '',
         skuCode: variant?.get('skuCode') ?? '',
-        salePrice: Number(variant?.get('salePrice') ?? 0),
-        regularPrice: Number(variant?.get('regularPrice') ?? 0),
-        wholeSalePrice: Number(variant?.get('wholeSalePrice') ?? 0),
-        costPrice: Number(variant?.get('costPrice') ?? 0),
+        salePrice: Number(barcode?.get('retailPrice') ?? 0),
+        regularPrice: Number(barcode?.get('retailPrice') ?? 0),
+        wholeSalePrice: Number(barcode?.get('wholesalePrice') ?? 0),
+        costPrice: Number(barcode?.get('costPrice') ?? 0),
         VAT: Number(variant?.get('VAT') ?? 0),
         quantity: Number(p.get('quantity') ?? 0),
         sold: Number(variant?.get('sold') ?? 0),
@@ -360,7 +362,7 @@ export class ProductExcelService {
   ) {
     const product = match.get('product') ?? match.product
     if (!product) throw new Error('Product not found for variant')
-    const { name, description, code, skuCode, salePrice, regularPrice, wholeSalePrice, costPrice, VAT, isNegative } = fields
+    const { name, description, skuCode, VAT, isNegative } = fields
     await product.update(
       {
         ...(name !== undefined ? { name } : {}),
@@ -371,17 +373,20 @@ export class ProductExcelService {
     )
     await match.update(
       {
-        ...(code !== undefined ? { code } : {}),
         ...(skuCode !== undefined ? { skuCode } : {}),
-        ...(salePrice !== undefined ? { salePrice } : {}),
-        ...(regularPrice !== undefined ? { regularPrice } : {}),
-        ...(wholeSalePrice !== undefined ? { wholeSalePrice } : {}),
-        ...(costPrice !== undefined ? { costPrice } : {}),
         ...(VAT !== undefined ? { VAT } : {}),
         ...(isNegative !== undefined ? { isNegative } : {})
       },
       { transaction: t }
     )
+    const barcode: any = await ProductBarcode.findOne({ where: { variantId: Number(match.get('id')), isBaseUnit: true }, transaction: t })
+    if (!barcode) throw new Error('Variant is missing its base barcode')
+    await barcode.update({
+      ...(fields.code !== undefined ? { barcode: fields.code } : {}),
+      ...(fields.salePrice !== undefined || fields.regularPrice !== undefined ? { retailPrice: fields.salePrice ?? fields.regularPrice } : {}),
+      ...(fields.wholeSalePrice !== undefined ? { wholesalePrice: fields.wholeSalePrice } : {}),
+      ...(fields.costPrice !== undefined ? { costPrice: fields.costPrice } : {})
+    }, { transaction: t })
     if (categoryId) await product.$set('categories', [categoryId], { transaction: t })
     // Import quantity is an absolute stock level; 0/blank means "leave
     // unchanged" since a blank cell and an explicit 0 are indistinguishable.
@@ -445,18 +450,19 @@ export class ProductExcelService {
     const variant: any = await ProductVariant.create(
       {
         productId: created.get('id'),
-        code,
         skuCode,
-        salePrice,
-        regularPrice,
-        wholeSalePrice,
-        costPrice,
         VAT,
         isNegative: Boolean(isNegative),
         isActive: true
       },
       { transaction: t }
     )
+    if (!unitId) throw new Error('A unit is required to import barcode pricing')
+    await ProductBarcode.create({
+      variantId: variant.get('id'), unitId, barcode: code || skuCode, conversionRate: 1,
+      costPrice: costPrice ?? 0, retailPrice: salePrice ?? regularPrice ?? 0,
+      wholesalePrice: wholeSalePrice ?? salePrice ?? regularPrice ?? 0, isBaseUnit: true
+    }, { transaction: t })
     if (quantity) {
       await createOpeningStock({
         productId: created.get('id'),

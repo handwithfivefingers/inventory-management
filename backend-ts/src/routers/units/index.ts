@@ -10,7 +10,7 @@ route.get(
   // #swagger.summary = 'List units'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['vendorId'] = { in: 'query', type: 'string' } */
-  new UnitsController().get
+  new UnitsController().get as any
 )
 route.get(
   '/:id',
@@ -19,7 +19,7 @@ route.get(
   // #swagger.summary = 'Get unit by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['vendor'] = { in: 'query', type: 'string' } */
-  new UnitsController().getById
+  new UnitsController().getById as any
 )
 route.post(
   '/',
@@ -28,7 +28,7 @@ route.post(
   // #swagger.summary = 'Create unit'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/UnitBody' } } */
-  new UnitsController().create
+  new UnitsController().create as any
 )
 route.post(
   '/:id',
@@ -37,7 +37,7 @@ route.post(
   // #swagger.summary = 'Update unit'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { id: { type: 'integer' }, name: { type: 'string' } }, required: ['id'] } } */
-  new UnitsController().update
+  new UnitsController().update as any
 )
 
 export default route

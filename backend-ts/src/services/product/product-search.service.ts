@@ -4,6 +4,7 @@ import Product from '#/database/models/product'
 import ProductAttribute from '#/database/models/productAttribute'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductVariant from '#/database/models/productVariant'
+import ProductBarcode from '#/database/models/productBarcode'
 import { ApiError } from '#/response'
 import { assertVendorAccess, assertWarehouseAccess, TVendorScope } from '#/utils/tenant'
 import { Op } from 'sequelize'
@@ -46,6 +47,7 @@ export interface ExactMatchItem {
   display_name: string
   sku: string
   barcode: string | null
+  barcode_id: number | null
   price: number
   costPrice: number
   stock_quantity: number
@@ -85,14 +87,21 @@ export type ProductSearchResult =
       limit: number
     }
 
+const effectiveBarcodePrice = (barcode: any): number => {
+  const get = (k: string) => (typeof barcode?.get === 'function' ? barcode.get(k) : barcode?.[k])
+  const now = Date.now()
+  const promo = Number(get('promoPrice'))
+  const start = get('promoStartAt') ? new Date(get('promoStartAt')).getTime() : -Infinity
+  const end = get('promoEndAt') ? new Date(get('promoEndAt')).getTime() : Infinity
+  if (Number.isFinite(promo) && promo >= 0 && now >= start && now <= end) return promo
+  return Number(get('retailPrice') ?? 0)
+}
+
 const variantPrice = (variant: any): number => {
   const get = (k: string) => (typeof variant.get === 'function' ? variant.get(k) : variant[k])
-  const sale = Number(get('salePrice') ?? get('price'))
-  if (Number.isFinite(sale) && sale > 0) return sale
-  const regular = Number(get('regularPrice'))
-  if (Number.isFinite(regular) && regular > 0) return regular
-  const cost = Number(get('costPrice'))
-  return Number.isFinite(cost) && cost > 0 ? cost : 0
+  const barcodes = get('barcodes') ?? []
+  const base = barcodes.find((row: any) => Boolean(row.get?.('isBaseUnit') ?? row.isBaseUnit)) ?? barcodes[0]
+  return effectiveBarcodePrice(base)
 }
 
 const variantStock = (variant: any): number => {
@@ -118,9 +127,10 @@ const toExactItem = (variant: any, stockQuantity: number): ExactMatchItem => {
     variant_name: sku,
     display_name: sku ? `${productName} - ${sku}` : productName,
     sku,
-    barcode: (get('code') ?? get('barcode') ?? null) as string | null,
+    barcode: ((get('matchedBarcode') ?? get('barcodes')?.find((row: any) => row.get?.('isBaseUnit') ?? row.isBaseUnit) ?? get('barcodes')?.[0])?.get?.('barcode') ?? (get('matchedBarcode') ?? get('barcodes')?.[0])?.barcode ?? null) as string | null,
+    barcode_id: Number((get('matchedBarcode') ?? get('barcodes')?.find((row: any) => row.get?.('isBaseUnit') ?? row.isBaseUnit) ?? get('barcodes')?.[0])?.get?.('id') ?? 0) || null,
     price: variantPrice(variant),
-    costPrice: Number(get('costPrice') ?? 0),
+    costPrice: Number((get('matchedBarcode') ?? get('barcodes')?.find((row: any) => row.get?.('isBaseUnit') ?? row.isBaseUnit) ?? get('barcodes')?.[0])?.get?.('costPrice') ?? 0),
     stock_quantity: stockQuantity,
     VAT: get('VAT') == null ? null : Number(get('VAT')),
     imageUrl: get('imageUrl') ?? null,
@@ -187,17 +197,30 @@ export const searchProducts = async (
   return await searchAdmin({ query, hasQuery, warehouseId, productVendorWhere, limit, offset, page })
 }
 
-/** Exact lookup on `code` (barcode) or `skuCode` (either case), active variants only. */
+/** Exact lookup on product_barcodes (or a SKU), active variants only. */
 const tryExactMatch = async (
   query: string,
   queryUpper: string,
   productVendorWhere: Record<string, unknown>
 ): Promise<any | null> => {
-  const or: Record<string, unknown>[] = [{ code: query }, { skuCode: query }]
+  const matchedBarcode: any = await ProductBarcode.findOne({ where: { barcode: query } })
+  if (matchedBarcode) {
+    const variant: any = await (ProductVariant as any).findOne({
+      where: { id: Number(matchedBarcode.get('variantId')), isActive: true },
+      include: [
+        { model: ProductBarcode, as: 'barcodes', required: false },
+        { model: Product, required: true, where: { ...productVendorWhere }, attributes: ['id', 'name', 'vendorId'] }
+      ]
+    })
+    if (variant) variant.setDataValue('matchedBarcode', matchedBarcode)
+    return variant
+  }
+  const or: Record<string, unknown>[] = [{ skuCode: query }]
   if (queryUpper !== query) or.push({ skuCode: queryUpper })
   return (ProductVariant as any).findOne({
     where: { isActive: true, [Op.or]: or },
     include: [
+      { model: ProductBarcode, as: 'barcodes', required: false },
       {
         model: Product,
         required: true,
@@ -205,7 +228,7 @@ const tryExactMatch = async (
         attributes: ['id', 'name', 'vendorId']
       }
     ]
-  })
+  }).then((variant: any) => variant)
 }
 
 /** Stock for an exact hit: single-warehouse level, or summed across warehouses for Admin. */
@@ -240,8 +263,8 @@ const searchPos = async (args: FallbackArgs): Promise<Extract<ProductSearchResul
   const variantWhere: Record<string, unknown> = { isActive: true }
   if (hasQuery) {
     ;(variantWhere as any)[Op.or] = [
-      { code: { [Op.like]: like } },
       { skuCode: { [Op.like]: like } },
+      { '$barcodes.barcode$': { [Op.like]: like } },
       // `$product.name$` reaches into the joined product row.
       { '$product.name$': { [Op.like]: like } }
     ]
@@ -257,6 +280,7 @@ const searchPos = async (args: FallbackArgs): Promise<Extract<ProductSearchResul
   const { rows, count } = await (ProductVariant as any).findAndCountAll({
     where: variantWhere,
     include: [
+      { model: ProductBarcode, as: 'barcodes', required: false },
       { model: Product, as: 'product', required: true, where: { ...productVendorWhere }, attributes: ['id', 'name'] },
       {
         model: ProductAttributeValue,
@@ -290,7 +314,7 @@ const searchAdmin = async (args: FallbackArgs): Promise<Extract<ProductSearchRes
   let variantMatchedProductIds: number[] = []
   if (hasQuery) {
     const matched: any[] = await (ProductVariant as any).findAll({
-      where: { [Op.or]: [{ code: { [Op.like]: like } }, { skuCode: { [Op.like]: like } }] },
+      where: { skuCode: { [Op.like]: like } },
       attributes: ['productId'],
       raw: true
     })
@@ -317,7 +341,8 @@ const searchAdmin = async (args: FallbackArgs): Promise<Extract<ProductSearchRes
         model: ProductVariant,
         as: 'variants',
         required: false,
-        attributes: ['id', 'skuCode', 'code', 'salePrice', 'regularPrice', 'costPrice', 'isActive']
+        attributes: ['id', 'skuCode', 'isActive'],
+        include: [{ model: ProductBarcode, as: 'barcodes', required: false }]
       }
     ],
     attributes: {

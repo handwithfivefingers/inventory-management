@@ -6,7 +6,8 @@ import { assertUniqueVariantSku, assertValidSku, normalizeSku } from '#/utils/sk
 import { buildVariantSkuWithTemplate } from '#/utils/variant'
 import { Transaction } from 'sequelize'
 import { SettingService } from '../setting'
-import { resolveStringField, resolveVariantCode, toPrice, toVat } from './helper'
+import { resolveStringField, toVat } from './helper'
+import { syncVariantBarcodes } from './product-barcode'
 import { adjustStock, createOpeningStock } from './product-stock'
 import { VariantInput } from './product.types'
 
@@ -82,7 +83,6 @@ export interface CreateVariantsContext {
   vendorId: number
   warehouseId: number
   baseSku: string
-  baseCode: string | null
   skuTemplate: string | undefined
   transaction?: Transaction
 }
@@ -92,10 +92,9 @@ export interface CreateVariantsContext {
  * `PRODUCT_TYPE.VARIANT` product. Used by `ProductService.create`.
  */
 export const createVariants = async (variants: VariantInput[], ctx: CreateVariantsContext) => {
-  const { productId, vendorId, warehouseId, baseSku, baseCode, skuTemplate, transaction } = ctx
+  const { productId, vendorId, warehouseId, baseSku, skuTemplate, transaction } = ctx
   // Seed with the normalized base so in-batch dedupe is case-insensitive.
   const takenSkus = new Set<string>([normalizeSku(baseSku)].filter(Boolean))
-  const takenCodes = new Set<string>([String(baseCode ?? '').trim()].filter(Boolean))
   const created: any[] = []
   const optionVariants = variants.filter(
     (variant) => Object.keys((variant as any).options || (variant as any).optionValues || {}).length
@@ -140,18 +139,10 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
       await assertUniqueVariantSku(skuCode, { transaction: transaction as unknown })
     }
 
-    const codeSegments = attributeValues.map((val: any) => String(val.value ?? ''))
-    const code = resolveVariantCode(baseCode, variant.code, codeSegments, takenCodes)
-
     const variantRow: any = await ProductVariant.create(
       {
         productId,
-        code,
         skuCode,
-        salePrice: toPrice(variant.salePrice, 'salePrice'),
-        regularPrice: toPrice(variant.regularPrice, 'regularPrice'),
-        wholeSalePrice: toPrice(variant.wholeSalePrice, 'wholeSalePrice'),
-        costPrice: toPrice(variant.costPrice, 'costPrice'),
         VAT: variant.VAT !== undefined ? toVat(variant.VAT) : null,
         imageUrl: resolveStringField(variant.imageUrl, true) ?? null,
         isNegative: Boolean(variant.isNegative),
@@ -161,6 +152,7 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
     )
 
     if (valIds.length) await variantRow.$set('attributeValues', valIds, { transaction })
+    await syncVariantBarcodes(Number(variantRow.id), vendorId, variant.barcodes, transaction!)
 
     const quantity = Number(variant.quantity ?? 0)
     const stock = await createOpeningStock({ productId, variantId: variantRow.id, warehouseId, quantity, transaction })
@@ -195,14 +187,6 @@ const resolveValueIds = (variant: VariantInput, byName: Map<string, any>): numbe
 }
 
 const buildVariantFields = (v: VariantInput) => ({
-  ...(v.salePrice !== undefined && v.salePrice !== '' ? { salePrice: toPrice(v.salePrice, 'salePrice') } : {}),
-  ...(v.regularPrice !== undefined && v.regularPrice !== ''
-    ? { regularPrice: toPrice(v.regularPrice, 'regularPrice') }
-    : {}),
-  ...(v.wholeSalePrice !== undefined && v.wholeSalePrice !== ''
-    ? { wholeSalePrice: toPrice(v.wholeSalePrice, 'wholeSalePrice') }
-    : {}),
-  ...(v.costPrice !== undefined && v.costPrice !== '' ? { costPrice: toPrice(v.costPrice, 'costPrice') } : {}),
   ...(v.VAT !== undefined && v.VAT !== '' ? { VAT: toVat(v.VAT) } : {}),
   ...(v.imageUrl !== undefined ? { imageUrl: resolveStringField(v.imageUrl, true) } : {}),
   isNegative: Boolean(v.isNegative),
@@ -255,7 +239,7 @@ export const applyVariantSync = async (
     await ProductVariant.findAll({
       where: { productId },
       paranoid: false,
-      attributes: ['skuCode', 'code', 'deletedAt'],
+      attributes: ['skuCode', 'deletedAt'],
       transaction
     })
   ).filter((r: any) => r.get?.('deletedAt'))
@@ -263,9 +247,8 @@ export const applyVariantSync = async (
   // Product-level code/SKU no longer exists. Use the first existing variant as
   // the stable base so update-generated values match create-generated values.
   const sourceVariant = currentVariants[0] || deletedVariants[0]
-  const productCode = sourceVariant ? String(sourceVariant.get('code') ?? '').trim() || null : null
   const baseSku = sourceVariant
-    ? String(sourceVariant.get('skuCode') ?? '').trim() || productCode || String(productId)
+    ? String(sourceVariant.get('skuCode') ?? '').trim() || String(productId)
     : String(productId)
 
   let skuTemplate: string | undefined
@@ -281,10 +264,6 @@ export const applyVariantSync = async (
       .map((s) => normalizeSku(s ?? ''))
       .filter(Boolean)
   )
-  const takenCodes = new Set<string>(
-    [...currentVariants, ...deletedVariants].map((v) => String(v.get('code') ?? '').trim()).filter(Boolean)
-  )
-  if (productCode) takenCodes.add(String(productCode).trim())
 
   const vendorAttrs: any[] = await ProductAttribute.findAll({ where: { vendorId }, transaction })
   const allValues: any[] = vendorAttrs.length
@@ -331,7 +310,6 @@ export const applyVariantSync = async (
     }
 
     const valuesForCode = valIds.map((id) => valueById.get(id)).filter(Boolean)
-    const codeSegments = valuesForCode.map((val: any) => String(val.value ?? ''))
     const fields: Record<string, unknown> = buildVariantFields(v)
     const existing: any = await findExistingVariant(v, valIds)
     const rawSku = readInputSku(v).trim()
@@ -348,24 +326,9 @@ export const applyVariantSync = async (
         fields.skuCode = normalized
         takenSkus.add(normalized)
       }
-      if (v.code !== undefined) {
-        // `takenCodes` contains every current variant code. Remove this
-        // variant's old code before checking the incoming value so keeping an
-        // unchanged barcode is allowed while a barcode used by another
-        // variant still conflicts.
-        const currentCode = String(existing.get?.('code') ?? existing.code ?? '').trim()
-        if (currentCode) takenCodes.delete(currentCode)
-        if (
-          Number(existing.get?.('id') ?? existing.id) === protectedVariantId &&
-          String(v.code ?? '').trim() !== String(existing.get('code') ?? '').trim()
-        ) {
-          throw new Error('The original simple variant barcode cannot be changed.')
-        }
-        const nextCode = resolveVariantCode(productCode, v.code, codeSegments, takenCodes, { allowBlankUpdate: false })
-        if (nextCode !== undefined) fields.code = nextCode
-      }
       await existing.update(fields, { transaction })
       if (valIds.length) await existing.$set('attributeValues', valIds, { transaction })
+      await syncVariantBarcodes(Number(existing.get('id')), vendorId, v.barcodes, transaction!)
       if (v.quantity !== undefined && v.quantity !== null && v.quantity !== '' && warehouseId) {
         await adjustStock({
           productId,
@@ -393,9 +356,9 @@ export const applyVariantSync = async (
       await assertUniqueVariantSku(skuCode, { transaction: transaction as unknown })
     }
 
-    const code = resolveVariantCode(productCode, v.code, codeSegments, takenCodes)
-    const variantRow: any = await ProductVariant.build({ productId, code, skuCode, ...fields }).save({ transaction })
+    const variantRow: any = await ProductVariant.build({ productId, skuCode, ...fields }).save({ transaction })
     if (valIds.length) await variantRow.$set('attributeValues', valIds, { transaction })
+    await syncVariantBarcodes(Number(variantRow.get('id')), vendorId, v.barcodes, transaction!)
 
     const quantity = Number(v.quantity ?? 0)
     if (quantity && warehouseId) {

@@ -5,14 +5,13 @@ export const PRODUCT_TYPE = { SIMPLE: 0, VARIANT: 1, COMBO: 2 } as const
 export type ProductType = (typeof PRODUCT_TYPE)[keyof typeof PRODUCT_TYPE]
 
 /** Fields the client sends as price strings; "" means "cleared". */
-export const PRICE_FIELDS = ['salePrice', 'regularPrice', 'wholeSalePrice', 'costPrice'] as const
+export const PRICE_FIELDS = ['VAT'] as const
 export type PriceField = (typeof PRICE_FIELDS)[number]
 
 /** One row of the `variants` array in create/update payloads. */
 export type VariantInput = {
   id?: number | string
   variantId?: number | string
-  code?: string | null
   /** Canonical variant SKU field is `skuCode`; `sku` is accepted as an alias (spec). */
   sku?: string
   skuCode?: string
@@ -20,14 +19,25 @@ export type VariantInput = {
   attributeValues?: (number | string)[]
   optionValues?: Record<string, string>
   options?: Record<string, string>
-  salePrice?: unknown
-  regularPrice?: unknown
-  wholeSalePrice?: unknown
-  costPrice?: unknown
+  barcodes?: BarcodeInput[]
   VAT?: unknown
   imageUrl?: string | null
   isNegative?: unknown
   isActive?: unknown
+}
+
+export type BarcodeInput = {
+  id?: number | string
+  barcode: string
+  unitId: number | string
+  conversionRate: number | string
+  costPrice: number | string
+  retailPrice: number | string
+  wholesalePrice: number | string
+  promoPrice?: number | string | null
+  promoStartAt?: string | Date | null
+  promoEndAt?: string | Date | null
+  isBaseUnit: boolean
 }
 
 export type CreateProductParams = Omit<Product, 'id'> & {
@@ -45,16 +55,11 @@ export type UpdateProductParams = {
   warehouseId?: number
   type?: ProductType
   name?: string
-  code?: string | null
   skuCode?: string | null
   description?: string | null
   image?: string | null
   unitId?: number | string | null
   unit?: number | string | null
-  salePrice?: unknown
-  regularPrice?: unknown
-  wholeSalePrice?: unknown
-  costPrice?: unknown
   VAT?: unknown
   isNegative?: unknown
   isActive?: unknown

@@ -1325,6 +1325,28 @@
         ]
       }
     },
+    "/api/products/{id}/barcodes": {
+      "get": {
+        "tags": [
+          "ProductBarcodes"
+        ],
+        "summary": "List barcode selling units for a product",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/products/{id}/variants/{variantId}": {
       "delete": {
         "tags": [

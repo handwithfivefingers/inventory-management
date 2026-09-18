@@ -11,8 +11,7 @@ export class TagsService {
   tag: ITagStatic = database.tag
   async create(params: Optional<ITagModel, 'id'>) {
     try {
-      const builder = this.tag.build(params)
-      const instance = await builder.save()
+      const instance = await this.tag.create(params)
       return instance
     } catch (error) {
       throw error
@@ -31,7 +30,7 @@ export class TagsService {
     try {
       const queryParams = {
         where: {
-          vendorId: vendorId
+          vendorId
         }
       }
       const resp = await this.tag.findAndCountAll(queryParams)
@@ -41,11 +40,12 @@ export class TagsService {
     }
   }
 
-  async getById({ id }: { id: string }) {
+  async getById({ id, vendorId }: { id: string; vendorId: string }) {
     try {
       const resp = await this.tag.findOne({
         where: {
-          id: id
+          id,
+          vendorId
         },
         include: database.product
       })

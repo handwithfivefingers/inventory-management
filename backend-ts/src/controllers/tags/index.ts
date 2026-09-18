@@ -1,10 +1,12 @@
+import { ApiError } from '#/response'
 import { TagsService } from '#/services/tags'
 import { IRequestHandler } from '#/types/common'
 export class TagsController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new TagsService().create(req.body)
+      const vendorId = req.activeVendorId
+      const resp = await new TagsService().create({ ...req.body, vendorId })
       res.status(200).json({
         data: resp
       })
@@ -16,8 +18,10 @@ export class TagsController {
   async update(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      if (!req.body.id) throw new Error('id is required')
-      const resp = await new TagsService().update(req.body)
+      const id = req.params.id
+      if (!id) throw ApiError.from(new Error('Tag not found'))
+      const vendorId = req.activeVendorId
+      const resp = await new TagsService().update({ ...req.body, id, vendorId })
       res.status(200).json({
         data: resp
       })
@@ -30,9 +34,7 @@ export class TagsController {
     const [req, res, next] = arg
     try {
       const warehouseId = req.headers['x-warehouse']
-      const vendorId = req.headers['x-vendor']
-
-      // if (!req.query.vendorId) throw new Error('vendorId is required')
+      const vendorId = req.activeVendorId
       const { count, rows } = await new TagsService().getTags({ vendorId: vendorId as string })
       res.status(200).json({ total: count, data: rows })
       return
@@ -43,7 +45,8 @@ export class TagsController {
   async getById(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new TagsService().getById({ id: req.params.id })
+      const vendorId = req.activeVendorId as string
+      const resp = await new TagsService().getById({ id: req.params.id, vendorId })
       res.status(200).json({
         data: resp
       })

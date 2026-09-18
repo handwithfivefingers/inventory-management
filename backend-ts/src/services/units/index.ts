@@ -4,6 +4,7 @@
  */
 
 import database from '#/database'
+import { ApiError } from '#/response'
 import { IUnitModel, IUnitStatic } from '#/types/unit'
 import { Optional } from 'sequelize'
 
@@ -11,12 +12,10 @@ export class UnitsService {
   unit: IUnitStatic = database.unit
   async create(params: Optional<IUnitModel, 'id'>) {
     try {
-      console.log('params', params)
-      const builder = this.unit.build(params)
-      const instance = await builder.save()
-      return instance
+      const _unit = await this.unit.create(params)
+      return _unit
     } catch (error) {
-      throw error
+      throw ApiError.from(error)
     }
   }
   async update({ id, ...params }: IUnitModel) {
@@ -24,7 +23,7 @@ export class UnitsService {
       const resp = await this.unit.update(params, { where: { id: id } })
       return resp
     } catch (error) {
-      throw error
+      throw ApiError.from(error)
     }
   }
 
@@ -39,21 +38,21 @@ export class UnitsService {
       const resp = await this.unit.findAndCountAll(queryParams)
       return resp
     } catch (error) {
-      throw error
+      throw ApiError.from(error)
     }
   }
 
-  async getById({ id, vendor }: { id: string; vendor: string }) {
+  async getById({ id, vendorId }: { id: string; vendorId: string }) {
     try {
       const resp = await this.unit.findOne({
         where: {
-          id: id,
-          vendorId: vendor
+          id,
+          vendorId
         }
       })
       return resp
     } catch (error) {
-      throw error
+      throw ApiError.from(error)
     }
   }
 }

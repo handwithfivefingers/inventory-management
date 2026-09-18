@@ -1,10 +1,10 @@
 import { useFetcher, useLoaderData, useOutletContext, useRevalidator } from "@remix-run/react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import type { IVendorSettings } from "~/types/setting";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
-import { TMTable } from "~/components/tm-table";
+import { TMModal } from "~/components/tm-modal";
 import { useTranslation } from "~/i18n";
 import { SwitchInput } from "../switch-input";
 import { CreatableSelectInput } from "../creatable-select-input";
@@ -14,46 +14,46 @@ import { TextInput } from "../text-input";
 import { SelectInput } from "../select-input";
 import { useSubmitPromise } from "~/hooks";
 import { ProductSchemaType } from "~/constants/schema/product";
+import type { IProductBarcode } from "~/types/product";
+import { normalizeValues } from "~/libs/normalize";
+import { AttributeVariant } from "./attribute";
 
 export type AttributeValueOption = Option;
-
+export interface VariantEditorProps {
+  /** Values copied from a simple product's type-0 default variant. */
+  seed?: Partial<IVariantDraft>;
+  protectFirstVariant?: boolean;
+  units?: { id: number | string; name: string }[];
+  type: 0 | 1 | 2;
+}
 export interface IVariantAttributeDraft {
   id?: number | string;
   name: string;
   values: AttributeValueOption[];
 }
-
+export interface BarCodeManagerProps {
+  index: number;
+  rows: IProductBarcode[];
+  units: { id: number | string; name: string }[];
+  moneyStep: number;
+  setVariant: (index: number, key: string, value: unknown) => void;
+  skuCode: string;
+  setSkuCode: (value: string) => void;
+  quantity?: number | string;
+  setQuantity: (value: number | undefined) => void;
+  VAT?: number | string | null;
+  setVAT: (value: number | undefined) => void;
+}
 export interface IVariantDraft {
   variantId?: number | string;
   options: Record<string, string>;
-  /** Per-variant barcode extending the parent product barcode */
-  code?: string;
   skuCode?: number | string;
   quantity?: number | string;
-  costPrice?: number | string;
-  regularPrice?: number | string;
-  salePrice?: number | string;
-  wholeSalePrice?: number | string;
+  barcodes?: any[];
   isNegative?: boolean;
   VAT?: number | string | null;
+  isActive?: boolean;
 }
-
-const normalizeValues = (raw: any): string[] => {
-  if (!raw) return [];
-  if (Array.isArray(raw))
-    return raw
-      .map((v: any) => (typeof v === "string" ? v : v?.value ?? v?.label ?? ""))
-      .map((s: string) => String(s).trim())
-      .filter(Boolean);
-  if (typeof raw === "object") {
-    // Option object single?
-    if ((raw as any).value) return [String((raw as any).value).trim()].filter(Boolean);
-  }
-  return String(raw)
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
-};
 
 export const buildCombos = (attributes: { name: string; values: any }[]): Record<string, string>[] => {
   const usable = attributes
@@ -74,14 +74,6 @@ export const buildCombos = (attributes: { name: string; values: any }[]): Record
   return combos;
 };
 
-type MoneyKey = "costPrice" | "regularPrice" | "salePrice" | "wholeSalePrice" | "VAT";
-
-interface VariantEditorProps {
-  /** Values copied from a simple product's type-0 default variant. */
-  seed?: Partial<IVariantDraft>;
-  protectFirstVariant?: boolean;
-}
-
 /** Keep variant options in sync with the attributes currently selected above. */
 export const filterVariantOptionsByAttributes = (
   options: Record<string, string> | undefined,
@@ -94,7 +86,11 @@ export const filterVariantOptionsByAttributes = (
         const values = Array.isArray(attribute?.values)
           ? attribute.values
               .map((value) => (typeof value === "string" ? value : value?.value))
-              .map((value) => String(value || "").trim().toLowerCase())
+              .map((value) =>
+                String(value || "")
+                  .trim()
+                  .toLowerCase(),
+              )
               .filter(Boolean)
           : [];
         return [name.toLowerCase(), { name, values: new Set(values) }] as const;
@@ -112,12 +108,23 @@ export const filterVariantOptionsByAttributes = (
   }, {});
 };
 
-export const VariantEditor = ({ seed, protectFirstVariant = false }: VariantEditorProps = {}) => {
+export const VariantEditor = (
+  { seed, protectFirstVariant = false, units = [], type }: VariantEditorProps = { type: 0 },
+) => {
   const { settings } = useOutletContext<{ settings: IVendorSettings }>();
   const moneyStep = Number(settings?.moneyStep) > 0 ? Number(settings.moneyStep) : 1000;
   const { t } = useTranslation();
   const form = useFormContext<ProductSchemaType>();
-
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulk, setBulk] = useState<Record<string, { enabled: boolean; value: any }>>({
+    regularPrice: { enabled: false, value: "" },
+    costPrice: { enabled: false, value: "" },
+    wholeSalePrice: { enabled: false, value: "" },
+    salePrice: { enabled: false, value: "" },
+    quantity: { enabled: false, value: "" },
+    isActive: { enabled: false, value: true },
+  });
   const {
     fields: variantFields,
     append,
@@ -127,23 +134,21 @@ export const VariantEditor = ({ seed, protectFirstVariant = false }: VariantEdit
     name: "variants",
   });
 
-  const watchedVariants: IVariantDraft[] = useWatch({ control: form.control, name: "variants" }) || [];
+  const watchedVariants = (useWatch({ control: form.control, name: "variants" }) || []) as IVariantDraft[];
   const watchedAttrs: IVariantAttributeDraft[] = useWatch({ control: form.control, name: "variantAttributes" }) || [];
 
-  const usableAttrs = useMemo(
-    () =>
-      watchedAttrs
-        .map((a) => ({
-          name: (a?.name || "").trim(),
-          values: Array.isArray(a?.values)
-            ? (a.values as AttributeValueOption[])
-                .map((o) => (typeof o === "string" ? String(o) : o.value))
-                .filter(Boolean)
-            : [],
-        }))
-        .filter((a) => a.name && a.values.length > 0),
-    [JSON.stringify(watchedAttrs)],
-  );
+  const usableAttrs = useMemo(() => {
+    return watchedAttrs
+      .map((a) => ({
+        name: (a?.name || "").trim(),
+        values: Array.isArray(a?.values)
+          ? (a.values as AttributeValueOption[])
+              .map((o) => (typeof o === "string" ? String(o) : o.value))
+              .filter(Boolean)
+          : [],
+      }))
+      .filter((a) => a.name && a.values.length > 0);
+  }, [JSON.stringify(watchedAttrs)]);
 
   useEffect(() => {
     const variants = form.getValues("variants") || [];
@@ -167,11 +172,6 @@ export const VariantEditor = ({ seed, protectFirstVariant = false }: VariantEdit
       .map(([k, v]) => `${k}:${String(v).trim().toLowerCase()}`)
       .sort()
       .join("|");
-
-  const existingKeys = useMemo(
-    () => new Set(watchedVariants.map((v) => optionKeyOf(v.options))),
-    [JSON.stringify(watchedVariants.map((v) => v.options))],
-  );
 
   const generateVariant = useCallback(() => {
     if (!usableAttrs.length) return;
@@ -204,12 +204,9 @@ export const VariantEditor = ({ seed, protectFirstVariant = false }: VariantEdit
       ...(seed || {
         quantity: base.quantity,
         isNegative: base.isNegative,
-        costPrice: base?.costPrice,
-        regularPrice: base?.regularPrice,
-        salePrice: base?.salePrice,
-        wholeSalePrice: base?.wholeSalePrice,
+        barcodes: [],
       }),
-    });
+    } as any);
   };
 
   // helper to determine if selecting candidateValue for attrName at rowIndex would duplicate another row
@@ -228,480 +225,257 @@ export const VariantEditor = ({ seed, protectFirstVariant = false }: VariantEdit
     return false;
   };
 
-  const columns = [
-    {
-      title: t("product.variant"),
-      dataIndex: "options",
-      render: (r: any) => {
-        const rowIdx: number = r.index;
-        const rowOptions: Record<string, string> = watchedVariants[rowIdx]?.options || {};
-        const isProtectedRow = protectFirstVariant && rowIdx === 0 && !!watchedVariants[rowIdx]?.variantId;
-        if (usableAttrs.length === 0) {
-          return <span className="text-slate-400 text-xs">{t("product.newVariant")}</span>;
-        }
-        return (
-          <div className="flex flex-col gap-1 min-w-[220px]">
-            {usableAttrs.map((a) => {
-              const opts = a.values.map((v) => ({ label: v, value: v }));
-              const val = rowOptions[a.name] ?? "";
-              return (
-                <div key={a.name} className="flex items-center gap-1">
-                  <span className="text-xs text-slate-500 w-16 shrink-0 truncate">{a.name}:</span>
-                  <div className="flex-1 min-w-[120px]">
-                    <SelectInput
-                      disabled={isProtectedRow}
-                      value={val}
-                      options={opts.map((o) => ({
-                        ...o,
-                        disabled: isOptionDisabled(a.name, o.value, rowIdx),
-                      }))}
-                      placeholder="---"
-                      onSelect={(v: any) => {
-                        const next = { ...(rowOptions || {}) };
-                        if (!v) delete next[a.name];
-                        else next[a.name] = String(v);
-                        form.setValue(`variants.${rowIdx}.options`, next as any);
-                      }}
+  const applyBulk = () => {
+    watchedVariants.forEach((_, index) => {
+      Object.entries(bulk).forEach(([key, item]) => {
+        if (item.enabled)
+          form.setValue(`variants.${index}.${key}` as any, key === "isActive" ? !!item.value : (item.value as any), {
+            shouldDirty: true,
+          });
+      });
+    });
+    setBulkOpen(false);
+  };
+  const setVariant = (index: number, key: string, value: any) => {
+    return form.setValue(`variants.${index}.${key}` as any, value, { shouldDirty: true });
+  };
+  const variantName = (variant: IVariantDraft) => {
+    return (
+      Object.values(variant.options || {})
+        .filter(Boolean)
+        .join(" / ") || t("product.newVariant")
+    );
+  };
+  const isProductVariant = type === 1;
+  console.log(`usableAttrs`, usableAttrs);
+  return (
+    <div className="flex flex-col gap-2 h-full">
+      {isProductVariant && (
+        <>
+          <AttributeVariant /> <div className="w-full h-[1px] bg-slate-300 my-4" />
+          {variantFields.length === 0 && <div className="text-sm text-slate-500 py-2">{t("product.noVariants")}</div>}
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
+            <div>
+              <p className="font-medium text-slate-800 dark:text-white">{t("product.variantsTab")}</p>
+              <p className="text-xs text-slate-500">
+                {variantFields.length} {t("product.variant")}
+              </p>
+            </div>
+            <TMButton type="button" size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
+              <Icon name="edit-3" fontSize={14} /> Cập nhật hàng loạt
+            </TMButton>
+          </div>
+        </>
+      )}
+
+      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+        {variantFields.map((field, index) => {
+          const variant = watchedVariants[index] || ({} as IVariantDraft);
+          // Basic products always keep their sole default variant. It is the
+          // sellable record for the product and therefore cannot be deleted.
+          const locked = type === 0 || (protectFirstVariant && index === 0 && !!variant.variantId);
+          const isOpen = type !== 1 || expanded === index;
+          return (
+            <div key={field.id} className="border-b last:border-b-0 border-slate-200 dark:border-slate-700">
+              <div className="grid grid-cols-[minmax(150px,1.4fr)_minmax(130px,1fr)_minmax(120px,1fr)_minmax(150px,1fr)_auto] items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                <div className="flex min-w-0 items-center gap-2">
+                  {type === 1 && (
+                    <button
+                      type="button"
+                      className="rounded p-1 text-primary hover:bg-indigo-50"
+                      aria-label="Toggle variant details"
+                      aria-expanded={isOpen}
+                      onClick={() => setExpanded(isOpen ? null : index)}
+                    >
+                      <Icon name={isOpen ? "chevron-up" : "chevron-down"} fontSize={16} />
+                    </button>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{variantName(variant)}</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {usableAttrs.map((a) => (
+                        <SelectInput
+                          key={a.name}
+                          disabled={locked}
+                          value={variant.options?.[a.name] || ""}
+                          options={a.values.map((v) => ({
+                            label: v,
+                            value: v,
+                            disabled: isOptionDisabled(a.name, v, index),
+                          }))}
+                          placeholder={a.name}
+                          onSelect={(v: any) =>
+                            setVariant(index, "options", { ...variant.options, [a.name]: v || undefined })
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-500">
+                  <span className="block">SKU: {variant.skuCode || "—"}</span>
+                  <span>Barcode: {variant.barcodes?.find((row) => row.isBaseUnit)?.barcode || "—"}</span>
+                </div>
+                <div className="text-sm">
+                  <span className="font-medium">{variant.quantity ?? 0}</span>
+                  <span
+                    className={`ml-2 rounded-full px-2 py-0.5 text-[10px] ${
+                      variant.isNegative ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {variant.isNegative ? "Âm cho phép" : "Không âm"}
+                  </span>
+                </div>
+                <div className="text-sm font-medium">
+                  {Number(variant.barcodes?.find((row) => row.isBaseUnit)?.retailPrice || 0).toLocaleString()}
+                </div>
+                <div className="flex items-center gap-1">
+                  {!locked && (
+                    <TMButton
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => remove(index)}
+                      aria-label="Delete variant"
+                    >
+                      <Icon name="trash-2" fontSize={15} />
+                    </TMButton>
+                  )}
+                  <SwitchInput
+                    checked={variant.isActive !== false}
+                    onChange={(event: any) => setVariant(index, "isActive", event.target.checked)}
+                    aria-label="Toggle variant status"
+                  />
+                </div>
+              </div>
+              {isOpen && (
+                <div className="bg-slate-50 p-4 dark:bg-slate-800/40">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <BarcodeManager
+                      index={index}
+                      rows={variant.barcodes || []}
+                      units={units}
+                      moneyStep={moneyStep}
+                      setVariant={setVariant}
+                      skuCode={String(variant.skuCode ?? "")}
+                      setSkuCode={(value) => setVariant(index, "skuCode", value)}
+                      quantity={variant.quantity}
+                      setQuantity={(value) => setVariant(index, "quantity", value)}
+                      VAT={variant.VAT}
+                      setVAT={(value) => setVariant(index, "VAT", value)}
                     />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        );
-      },
-      className: "w-64",
-    },
-    {
-      title: t("product.barcode"),
-      dataIndex: "code",
-      render: (r: any) => (
-        <TextInput
-          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
-          maxLength={12}
-          inputMode="text"
-          pattern="[A-Za-z0-9-]*"
-          value={(form.watch(`variants.${r.index}.code`) as string) || ""}
-          onChange={(e: any) =>
-            form.setValue(
-              `variants.${r.index}.code`,
-              String(e.target.value).replace(/[^A-Za-z0-9-]/g, "").slice(0, 12) as any,
-            )
-          }
-        />
-      ),
-      className: "w-40",
-    },
-    {
-      title: t("product.sku"),
-      dataIndex: "skuCode",
-      render: (r: any) => (
-        <TextInput
-          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
-          value={(form.watch(`variants.${r.index}.skuCode`) as string) || ""}
-          onChange={(e: any) => form.setValue(`variants.${r.index}.skuCode`, e.target.value as any)}
-        />
-      ),
-      className: "w-40",
-    },
-    {
-      title: t("product.openingStock"),
-      dataIndex: "quantity",
-      render: (r: any) => (
-        <NumberStepper
-          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
-          value={form.watch(`variants.${r.index}.quantity`)}
-          step={1}
-          onValueChange={(v) => form.setValue(`variants.${r.index}.quantity`, v.value as any)}
-        />
-      ),
-      className: "w-40",
-    },
-    {
-      title: t("product.allowNegative"),
-      dataIndex: "isNegative",
-      render: (r: any) => (
-        <SwitchInput
-          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
-          value={!!form.watch(`variants.${r.index}.isNegative`)}
-          onChange={(e: any) => form.setValue(`variants.${r.index}.isNegative`, e.target.checked)}
-        />
-      ),
-    },
-    ...(["costPrice", "regularPrice", "salePrice", "wholeSalePrice", "VAT"] as MoneyKey[]).map((key) => ({
-      title:
-        key === "costPrice" ? (
-          <Label required>{t("product.costPrice")}</Label>
-        ) : key === "regularPrice" ? (
-          <Label required>{t("product.regularPrice")}</Label>
-        ) : key === "salePrice" ? (
-          <Label>{t("product.salePrice")}</Label>
-        ) : key === "wholeSalePrice" ? (
-          <Label>{t("product.wholeSalePrice")}</Label>
-        ) : (
-          <Label>{t("product.VAT")}</Label>
-        ),
-      dataIndex: key,
-      render: (r: any) => (
-        <NumberStepper
-          disabled={key === "VAT" && protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
-          value={(form.watch(`variants.${r.index}.${key}`) as number | string | null | undefined) ?? undefined}
-          step={moneyStep}
-          onValueChange={(v) => form.setValue(`variants.${r.index}.${key}`, v.float as any)}
-        />
-      ),
-      className: "w-60",
-    })),
-    {
-      title: t("product.isActive"),
-      dataIndex: "isActive",
-      render: (r: any) => (
-        <SwitchInput
-          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
-          value={!!form.watch(`variants.${r.index}.isActive`)}
-          onChange={(e: any) => form.setValue(`variants.${r.index}.isActive`, e.target.checked)}
-        />
-      ),
-    },
-    {
-      title: "",
-      dataIndex: "remove",
-      render: (r: any) => {
-        const isProtectedRow = protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId;
-        if (isProtectedRow) return null;
-        return (
-          <TMButton variant="ghost" size="xs" onClick={() => remove(r.index)}>
-            <Icon name="trash-2" fontSize={14} />
-          </TMButton>
-        );
-      },
-    },
-  ];
-  return (
-    <div className="flex flex-col gap-2 h-full">
-      <AttributeVariant />
-
-      <div className="w-full h-[1px] bg-slate-300 my-4" />
-
-      {variantFields.length === 0 && <div className="text-sm text-slate-500 py-2">{t("product.noVariants")}</div>}
-
-      {variantFields.length > 0 && (
-        <TMTable
-          scrollable
-          columns={columns as any}
-          data={variantFields.map((_, index) => ({
-            index,
-            options: watchedVariants[index]?.options || {},
-          }))}
-          rowKey="index"
-        />
-      )}
-
-      <div className="sticky bottom-0 grid grid-cols-2 gap-2 bg-white pt-2">
-        <TMButton
-          type="button"
-          disabled={!usableAttrs.length}
-          onClick={generateVariant}
-          className="flex flex-col items-center justify-center gap-1 py-2 border border-dashed border-slate-400 rounded bg-slate-100 text-slate-600 hover:border-indigo-500 hover:text-primary disabled:opacity-40 transition-colors cursor-pointer"
-        >
-          {/* <Icon name="plus" fontSize={16} /> */}
-          <span className="text-xs">{t("product.generateAllVariants")}</span>
-        </TMButton>
-        <TMButton
-          type="button"
-          onClick={addNewVariant}
-          className="flex flex-col items-center justify-center gap-1 py-2 border border-dashed border-slate-400 rounded bg-slate-100 text-slate-600 hover:border-indigo-500 hover:text-primary transition-colors cursor-pointer"
-        >
-          {/* <Icon name="plus" fontSize={16} /> */}
-          <span className="text-xs">{t("product.addVariant")}</span>
-        </TMButton>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </div>
-  );
-};
 
-const AttributeVariant = () => {
-  const form = useFormContext();
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "variantAttributes",
-  });
-  const { t } = useTranslation();
-  const watchedAttrs: IVariantAttributeDraft[] = useWatch({ control: form.control, name: "variantAttributes" }) || [];
-  const createAttrFetcher = useFetcher();
-  const { submit, isLoading } = useSubmitPromise();
-  const revalidator = useRevalidator();
-  const wasCreatingValue = useRef(false);
-
-  // Refetch the vendor attribute catalog (suggestedAttributes from the route
-  // loader) once a newly created attribute/value has been persisted, so the
-  // suggestions (globalMap) pick up the new entries without a page reload.
-  const wasCreatingAttr = useRef(false);
-  useEffect(() => {
-    if (createAttrFetcher.state !== "idle") {
-      wasCreatingAttr.current = true;
-      return;
-    }
-    if (wasCreatingAttr.current && createAttrFetcher.data) {
-      wasCreatingAttr.current = false;
-      revalidator.revalidate();
-    }
-  }, [createAttrFetcher.state, createAttrFetcher.data, revalidator.revalidate]);
-
-  useEffect(() => {
-    if (isLoading) {
-      wasCreatingValue.current = true;
-      return;
-    }
-    if (wasCreatingValue.current) {
-      wasCreatingValue.current = false;
-      revalidator.revalidate();
-    }
-  }, [isLoading, revalidator.revalidate]);
-
-  // Vendor-global attribute catalog: unique per vendor (Size {sm,md,lg}, Color {red,green})
-  let vendorAttrs: {
-    id: number | string;
-    name: string;
-    values: { id: number | string; value: string }[];
-  }[] = [];
-  let globalMap: Record<string, Option[]> = {};
-  try {
-    const loaderData: any = useLoaderData();
-    const globalAttrs: any[] =
-      loaderData?.suggestedAttributes || loaderData?.attributesData || loaderData?.data?.attributes || [];
-    if (Array.isArray(globalAttrs)) {
-      // already deduped per vendor in backend listAttributes
-      vendorAttrs = globalAttrs
-        .map((g: any) => ({
-          id: g.id,
-          name: String(g.name || "").trim(),
-          values: (g.values || [])
-            .map((v: any) => ({
-              id: v.id,
-              value: String(v.value ?? v.label ?? "").trim(),
-            }))
-            .filter((v: any) => v.value),
-        }))
-        .filter((a: any) => a.name);
-      for (const g of vendorAttrs) {
-        const key = g.name.trim().toLowerCase();
-        if (!key) continue;
-        globalMap[key] = g.values.map((v) => ({
-          label: v.value,
-          value: v.value,
-        }));
-      }
-    }
-  } catch {
-    // no loader context
-  }
-
-  // Attribute name options: vendor catalog + locally created names (for optimistic create)
-  const attributeNameOptions = useMemo(() => {
-    const map = new Map<string, { label: string; value: string }>();
-    for (const a of vendorAttrs) {
-      const key = a.name.trim().toLowerCase();
-      if (!map.has(key)) map.set(key, { label: a.name, value: a.name });
-    }
-    for (const a of watchedAttrs) {
-      const n = String(a.name || "").trim();
-      if (!n) continue;
-      const k = n.toLowerCase();
-      if (!map.has(k)) map.set(k, { label: n, value: n });
-    }
-    return Array.from(map.values()).sort((x, y) => x.label.localeCompare(y.label));
-  }, [JSON.stringify(vendorAttrs), JSON.stringify(watchedAttrs.map((a) => a.name))]);
-
-  // Disable duplicate attribute names across rows (unique per vendor)
-  const usedNames = useMemo(() => {
-    const m = new Map<string, number[]>();
-    watchedAttrs.forEach((a, idx) => {
-      const k = String(a.name || "")
-        .trim()
-        .toLowerCase();
-      if (!k) return;
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(idx);
-    });
-    return m;
-  }, [JSON.stringify(watchedAttrs.map((a) => a.name))]);
-
-  const attributeNameOptionsWithDisabled = (currentIndex: number) =>
-    attributeNameOptions.map((opt) => {
-      const lower = opt.value.toLowerCase();
-      const indices = usedNames.get(lower) || [];
-      const isTakenElsewhere = indices.some((i) => i !== currentIndex);
-      return { ...opt, disabled: isTakenElsewhere };
-    });
-
-  // Build value suggestions per attribute name (filtered by selected attribute)
-  const getValueSuggestions = (attrName: string, currentValues: Option[]) => {
-    const key = String(attrName || "")
-      .trim()
-      .toLowerCase();
-    const globals = globalMap[key] || [];
-    // merge globals + locally typed values for this attribute across rows (dedup)
-    const merged: Option[] = [...globals];
-    const seen = new Set(merged.map((o) => o.value.toLowerCase()));
-    for (const a of watchedAttrs) {
-      if (
-        String(a.name || "")
-          .trim()
-          .toLowerCase() !== key
-      )
-        continue;
-      for (const v of (a.values || []) as any[]) {
-        const opt = typeof v === "string" ? { label: v, value: v } : v;
-        if (!opt?.value) continue;
-        const lower = String(opt.value).toLowerCase();
-        if (!seen.has(lower)) {
-          seen.add(lower);
-          merged.push({ label: opt.label ?? opt.value, value: opt.value });
-        }
-      }
-    }
-    const currentLower = new Set(currentValues.map((v) => v.value.toLowerCase()));
-    return merged.filter((o) => !currentLower.has(o.value.toLowerCase()));
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="font-medium text-lg">{t("sidebar.attributes")}</span>
-      {fields.map((field, index) => {
-        const currentName = String((watchedAttrs[index] as any)?.name || "").trim();
-        const value = (form.watch(`variantAttributes.${index}.values`) as AttributeValueOption[]) || [];
-        const normalizedValue: AttributeValueOption[] = Array.isArray(value)
-          ? (value as any[])
-              .map((v: any) => (typeof v === "string" ? { label: v, value: v } : v))
-              .filter((v: any) => v?.value)
-          : [];
-        const suggestions = getValueSuggestions(currentName, normalizedValue);
-        return (
-          <div key={field.id} className="flex flex-col sm:flex-row gap-2 sm:items-end">
-            <div className="w-full sm:w-56 shrink-0">
-              <CreatableSelectInput
-                label={index === 0 ? t("product.attributeName") : undefined}
-                value={currentName || undefined}
-                options={attributeNameOptionsWithDisabled(index)}
-                placeholder="Chọn hoặc tạo thuộc tính"
-                onSelect={(val) => {
-                  // prevent duplicate names (unique per vendor)
-                  const lower = val.toLowerCase();
-                  const duplicate = watchedAttrs.some(
-                    (a, i) =>
-                      i !== index &&
-                      String(a.name || "")
-                        .trim()
-                        .toLowerCase() === lower,
-                  );
-                  if (duplicate) return;
-                  form.setValue(`variantAttributes.${index}.name` as const, val as any, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                }}
-                onCreate={(input) => {
-                  const lower = input.trim().toLowerCase();
-                  if (
-                    watchedAttrs.some(
-                      (a, i) =>
-                        i !== index &&
-                        String(a.name || "")
-                          .trim()
-                          .toLowerCase() === lower,
-                    )
-                  )
-                    return;
-                  const trimmed = input.trim();
-                  form.setValue(`variantAttributes.${index}.name` as const, trimmed as any, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                  // Persist vendor-global attribute instantly
-                  const exists = vendorAttrs.some((a) => a.name.trim().toLowerCase() === lower);
-                  if (!exists && trimmed) {
-                    createAttrFetcher.submit(
-                      { data: JSON.stringify({ name: trimmed, values: [] }) },
-                      { method: "POST", action: "/products/attributes/add" },
-                    );
-                  }
-                }}
-              />
-            </div>
-            <div className="flex-1">
-              <CreatableTagInput
-                label={index === 0 ? t("product.attributeValuesHint") : undefined}
-                value={normalizedValue}
-                options={suggestions}
-                onChange={(next, createOption) => {
-                  form.setValue(`variantAttributes.${index}.values` as const, next as any, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                  // Persist new values instantly for existing vendor attribute
-                  const key = currentName.trim().toLowerCase();
-                  const attr = vendorAttrs.find((a) => a.name.trim().toLowerCase() === key);
-                  if (attr && next.length > normalizedValue.length) {
-                    const existingLower = new Set((globalMap[key] || []).map((o) => o.value.toLowerCase()));
-                    const prevLower = new Set(normalizedValue.map((v) => v.value.toLowerCase()));
-                    const toCreate = next.filter(
-                      (o) => !existingLower.has(o.value.toLowerCase()) && !prevLower.has(o.value.toLowerCase()),
-                    );
-                    if (toCreate.length && createOption) {
-                      // Optimistically merge the new value into the local
-                      // suggestion map so it stays visible even before the
-                      // loader revalidation lands.
-                      globalMap[key] = [
-                        ...(globalMap[key] || []),
-                        {
-                          label: createOption.label ?? createOption.value,
-                          value: createOption.value,
-                        },
-                      ];
-                      submit(
-                        { values: createOption.value, intent: "createValue" },
-                        {
-                          method: "POST",
-                          action: `/products/attributes/${attr.id}`,
-                        },
-                      );
+      {isProductVariant && (
+        <div className="sticky bottom-0 grid grid-cols-2 gap-2 bg-white pt-2">
+          <TMButton
+            type="button"
+            disabled={!usableAttrs.length}
+            onClick={generateVariant}
+            className="flex flex-col items-center justify-center gap-1 py-2 border border-dashed border-slate-400 rounded bg-slate-100 text-slate-600 hover:border-indigo-500 hover:text-primary disabled:opacity-40 transition-colors cursor-pointer"
+          >
+            {/* <Icon name="plus" fontSize={16} /> */}
+            <span className="text-xs">{t("product.generateAllVariants")}</span>
+          </TMButton>
+          <TMButton
+            type="button"
+            onClick={addNewVariant}
+            className="flex flex-col items-center justify-center gap-1 py-2 border border-dashed border-slate-400 rounded bg-slate-100 text-slate-600 hover:border-indigo-500 hover:text-primary transition-colors cursor-pointer"
+          >
+            {/* <Icon name="plus" fontSize={16} /> */}
+            <span className="text-xs">{t("product.addVariant")}</span>
+          </TMButton>
+        </div>
+      )}
+      <TMModal open={bulkOpen} close={() => setBulkOpen(false)} width={560} title="Cập nhật hàng loạt">
+        <div className="flex w-full flex-col gap-4">
+          <p className="text-sm text-slate-500">Chọn trường và giá trị muốn áp dụng cho tất cả biến thể hiện tại.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              ["regularPrice", "Giá bán lẻ"],
+              ["costPrice", "Giá gốc"],
+              ["wholeSalePrice", "Giá sỉ"],
+              ["salePrice", "Giá khuyến mãi"],
+              ["quantity", "Tồn kho"],
+              ["isActive", "Trạng thái"],
+            ].map(([key, label]) => (
+              <label
+                key={key}
+                className="flex items-center gap-2 rounded border border-slate-200 p-2 dark:border-slate-700"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!bulk[key]?.enabled}
+                  onChange={(e) => setBulk((old) => ({ ...old, [key]: { ...old[key], enabled: e.target.checked } }))}
+                />
+                <span className="flex-1 text-sm">{label}</span>
+                {key === "isActive" ? (
+                  <SwitchInput
+                    checked={!!bulk[key]?.value}
+                    onChange={(e: any) =>
+                      setBulk((old) => ({ ...old, [key]: { ...old[key], value: e.target.checked } }))
                     }
-                  }
-                }}
-                placeholder={currentName ? `Giá trị cho ${currentName} — Enter để tạo` : "Chọn thuộc tính trước"}
-              />
-            </div>
-            <TMButton
-              size="xs"
-              onClick={() => remove(index)}
-              className="py-2 px-2 mb-0.5 bg-danger/10 text-danger hover:bg-danger/20"
-            >
-              <Icon name="trash-2" fontSize={14} />
+                  />
+                ) : (
+                  <input
+                    className="w-24 rounded border border-slate-300 px-2 py-1 text-sm"
+                    type="number"
+                    value={bulk[key]?.value ?? ""}
+                    onChange={(e) => setBulk((old) => ({ ...old, [key]: { ...old[key], value: e.target.value } }))}
+                  />
+                )}
+              </label>
+            ))}{" "}
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-3">
+            <TMButton type="button" variant="ghost" onClick={() => setBulkOpen(false)}>
+              Hủy
+            </TMButton>
+            <TMButton type="button" onClick={applyBulk}>
+              Áp dụng
             </TMButton>
           </div>
-        );
-      })}
-      <div>
-        <TMButton
-          size="sm"
-          variant="outline"
-          type="button"
-          onClick={() => append({ name: "", values: [] } as any)}
-          className="border-dashed"
-        >
-          {t("product.addAttribute")}
-        </TMButton>
-      </div>
+        </div>
+      </TMModal>
     </div>
   );
 };
 
-const Label = ({ children, required = false }: { children: React.ReactNode; required?: boolean }) => {
+const BarcodeManager = ({ index, rows, units, moneyStep, setVariant, skuCode, setSkuCode, quantity, setQuantity, VAT, setVAT }: BarCodeManagerProps) => {
+  const update = (rowIndex: number, key: keyof IProductBarcode, value: unknown) => {
+    const next = rows.map((row, current) =>
+      current === rowIndex
+        ? { ...row, [key]: value, isBaseUnit: key === "conversionRate" ? Number(value) === 1 : row.isBaseUnit }
+        : row,
+    );
+    setVariant(index, "barcodes", next);
+  };
+  const row = rows[0];
+  if (!row) return null;
   return (
-    <div className="flex gap-1">
-      {children}
-      {required && <span className="text-danger">*</span>}{" "}
+    <div className="col-span-full">
+      <div className="grid grid-cols-1 gap-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <TextInput label="SKU" value={skuCode} onChange={(event: any) => setSkuCode(event.target.value)} />
+            <TextInput label="Barcode" value={row.barcode} onChange={(event: any) => update(0, "barcode", event.target.value)} />
+            <NumberStepper label="Tồn kho" value={quantity} step={1} onValueChange={(value) => setQuantity(value.float)} />
+            <SelectInput label="Đơn vị" value={row.unitId} options={units.map((unit) => ({ label: unit.name, value: unit.id }))} onSelect={(value: any) => update(0, "unitId", value)} />
+            <NumberStepper label="Quy đổi đơn vị gốc" value={row.conversionRate} step={1} onValueChange={(value) => update(0, "conversionRate", value.float)} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <NumberStepper label="Giá vốn" value={row.costPrice} step={moneyStep} onValueChange={(value) => update(0, "costPrice", value.float)} />
+            <NumberStepper label="Giá bán lẻ" value={row.retailPrice} step={moneyStep} onValueChange={(value) => update(0, "retailPrice", value.float)} />
+            <NumberStepper label="Giá bán sỉ" value={row.wholesalePrice} step={moneyStep} onValueChange={(value) => update(0, "wholesalePrice", value.float)} />
+            <NumberStepper label="Giá khuyến mãi" value={row.promoPrice ?? undefined} step={moneyStep} onValueChange={(value) => update(0, "promoPrice", value.float)} />
+            <NumberStepper label="VAT (%)" value={VAT ?? undefined} step={1} onValueChange={(value) => setVAT(value.float)} />
+          </div>
+      </div>
     </div>
   );
 };

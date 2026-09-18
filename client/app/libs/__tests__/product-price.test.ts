@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  getBarcodeRetailPrice,
   getEffectiveProductPrice,
+  getVariantCostPrice,
+  getVariantRetailPrice,
   getProductPriceLabel,
   getProductPriceValues,
   mapProductListRow,
@@ -27,6 +30,39 @@ describe("getEffectiveProductPrice", () => {
     expect(getEffectiveProductPrice({ salePrice: 0, regularPrice: -5, costPrice: "abc" } as any)).toBe(0);
     expect(getEffectiveProductPrice({ salePrice: "150" } as any)).toBe(150);
     expect(getEffectiveProductPrice({} as any)).toBe(0);
+  });
+});
+
+describe("barcode-backed variant prices", () => {
+  const baseBarcode = {
+    barcode: "893000000001",
+    unitId: 1,
+    conversionRate: 1,
+    costPrice: 70,
+    retailPrice: 120,
+    wholesalePrice: 90,
+    isBaseUnit: true,
+  };
+
+  it("uses the base barcode prices instead of obsolete variant fields", () => {
+    const variant = { salePrice: 999, costPrice: 888, barcodes: [baseBarcode] } as any;
+    expect(getVariantRetailPrice(variant)).toBe(120);
+    expect(getVariantCostPrice(variant)).toBe(70);
+    expect(getEffectiveProductPrice(variant)).toBe(120);
+  });
+
+  it("uses an active promotion and ignores expired promotions", () => {
+    expect(
+      getBarcodeRetailPrice({
+        ...baseBarcode,
+        promoPrice: 100,
+        promoStartAt: new Date(Date.now() - 1_000).toISOString(),
+        promoEndAt: new Date(Date.now() + 1_000).toISOString(),
+      }),
+    ).toBe(100);
+    expect(
+      getBarcodeRetailPrice({ ...baseBarcode, promoPrice: 100, promoEndAt: new Date(Date.now() - 1_000).toISOString() }),
+    ).toBe(120);
   });
 });
 

@@ -240,6 +240,7 @@
     "category": "Category",
     "amount": "Amount",
     "note": "Note",
+    "description": "Description",
     "date": "Date",
     "addVoucher": "New voucher",
     "report": "Tax report",

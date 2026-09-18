@@ -6,6 +6,7 @@ import { TMTable } from "~/components/tm-table";
 import { useTranslation } from "~/i18n";
 import { IProduct, IProductVariant } from "~/types/product";
 import { cn } from "~/libs/utils";
+import { getVariantRetailPrice } from "~/libs/product-price";
 
 interface Props {
   show: boolean;
@@ -86,7 +87,7 @@ export const VariantPickerModal = ({ show, close, product, variants, loading, on
                 dataIndex: "salePrice",
                 render: (r: IProductVariant) => (
                   <NumericFormat
-                    value={Number(r.salePrice ?? product?.regularPrice ?? 0)}
+                    value={Number(getVariantRetailPrice(r) ?? product?.regularPrice ?? 0)}
                     thousandSeparator=","
                     displayType="text"
                   />

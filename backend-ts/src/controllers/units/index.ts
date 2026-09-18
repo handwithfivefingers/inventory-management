@@ -17,11 +17,10 @@ export class UnitsController {
   async getById(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      if (!req.params.id) throw new Error('id is required')
       const { id } = req.params
-      const vendor = getRequestedVendorId(req as IRequestLocal)
-      console.log('req.params', req.params)
-      const resp = await new UnitsService().getById({ vendor: vendor as string, id })
+      if (!id) throw new Error('id is required')
+      const vendorId = req.activeVendorId
+      const resp = await new UnitsService().getById({ vendorId: vendorId as string, id })
       res.status(200).json({
         data: resp
       })
@@ -34,7 +33,8 @@ export class UnitsController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new UnitsService().create(req.body)
+      const vendorId = req.activeVendorId
+      const resp = await new UnitsService().create({ ...req.body, vendorId })
       res.status(200).json({
         data: resp
       })
@@ -46,8 +46,10 @@ export class UnitsController {
   async update(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      if (!req.body.id) throw new Error('id is required')
-      const resp = await new UnitsService().update(req.body)
+      const { id } = req.params
+      if (!id) throw new Error('id is required')
+      const vendorId = req.activeVendorId
+      const resp = await new UnitsService().update({ ...req.body, id, vendorId })
       res.status(200).json({
         data: resp
       })

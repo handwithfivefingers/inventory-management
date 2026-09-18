@@ -10,16 +10,13 @@ import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
-import { productSchema } from "~/constants/schema/product";
-import { ITagSchema } from "~/constants/schema/tag";
-import { parseCookieFromRequest } from "~/sessions";
+import { ITagSchema, tagSchema } from "~/constants/schema/tag";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
-  const resp = await tagsService.getById({ id: id as string, vendorId, cookie });
+  const resp = await tagsService.getById(id as string);
   return resp.data?.data;
-};
+}
 
 export const meta: MetaFunction = () => {
   return [{ title: "Thành phần" }];
@@ -87,7 +84,7 @@ const EditForm = ({ name, id, onCancel }: { name: string; id: Partial<string | n
       name,
       id,
     },
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(tagSchema),
   });
 
   const handleError = (errors: any) => {
@@ -139,19 +136,18 @@ const EditForm = ({ name, id, onCancel }: { name: string; id: Partial<string | n
   );
 };
 
-export const action = async ({ request, params }: any) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export async function action({ request, params }: any) {
   const { id } = params;
   const formData = await request.formData();
   const data = await formData.get("data");
   const dataJson = JSON.parse(data);
   const bodyData = { ...dataJson.data, id };
-  const resp = await tagsService.update({ ...bodyData, vendorId, cookie } as any);
+  const resp = await tagsService.update(bodyData);
   if (resp.status === 200) {
     return redirect(`/tags`, 302);
   }
   return resp;
-};
+}
 export function ErrorBoundary() {
   return <ErrorComponent />;
 }

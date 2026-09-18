@@ -11,11 +11,11 @@ import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { getSimpleVariant, mapSimpleVariantToProductForm, ProductForm } from "~/components/form/product-form";
 import { IVariantDraft, VariantEditor } from "~/components/form/variant-editor";
+import { HistoryList } from "~/components/history";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { Tab } from "~/components/tab";
 import { TMButton } from "~/components/tm-button";
-import { TMTimeline } from "~/components/tm-timeline";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { ResponseError } from "~/http/index.server";
@@ -52,10 +52,9 @@ export default function ProductItem() {
   const { data, history } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
   const { t } = useTranslation();
-  const variantTransitionBlocked = Boolean((data as any)?.variantTransitionBlocked);
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-      <div className="w-full mx-auto">
+      <div className="max-w-5xl w-full mx-auto">
         <CardItem
           title={
             <div className="flex gap-3">
@@ -80,7 +79,14 @@ export default function ProductItem() {
             </TMButton>
           }
         >
-          <Tab
+          {edit ? (
+            <EditForm />
+          ) : (
+            <div className="py-2 text-sm text-slate-600 dark:text-slate-300">
+              {data?.description || t("product.detailHint")}
+            </div>
+          )}
+          {/* <Tab
             active="overview"
             items={[
               {
@@ -100,25 +106,6 @@ export default function ProductItem() {
               {
                 label: (
                   <div className="flex gap-1">
-                    <Icon name="sliders" fontSize={16} />
-                    {t("product.variantsTab")}
-                  </div>
-                ),
-                value: "variants",
-                content: variantTransitionBlocked ? (
-                  <VariantTransitionNotice reason={(data as any)?.variantTransitionBlockReason} />
-                ) : (
-                  <VariantsManager
-                    productId={data?.id}
-                    attributes={(data?.attributes || []) as IProductAttribute[]}
-                    variants={(data?.variants || []) as IProductVariant[]}
-                    productType={Number(data?.type ?? 0)}
-                  />
-                ),
-              },
-              {
-                label: (
-                  <div className="flex gap-1">
                     <Icon name="clock" fontSize={16} />
                     {t("product.historyTab")}
                   </div>
@@ -131,7 +118,7 @@ export default function ProductItem() {
                 ),
               },
             ]}
-          />
+          /> */}
         </CardItem>
       </div>
     </div>
@@ -143,11 +130,13 @@ const VariantsManager = ({
   attributes: serverAttributes,
   variants: serverVariants,
   productType,
+  units,
 }: {
   productId?: number | string;
   attributes: IProductAttribute[];
   variants: IProductVariant[];
   productType: number;
+  units?: { id: number | string; name: string }[];
 }) => {
   const { submit, isLoading } = useSubmitPromise();
   const { t } = useTranslation();
@@ -163,10 +152,7 @@ const VariantsManager = ({
   const defaultVariantValues = defaultVariant
     ? {
         quantity: invSum(defaultVariant),
-        costPrice: defaultVariant.costPrice ?? "",
-        regularPrice: defaultVariant.regularPrice ?? "",
-        salePrice: defaultVariant.salePrice ?? "",
-        wholeSalePrice: defaultVariant.wholeSalePrice ?? "",
+        barcodes: defaultVariant.barcodes || [],
         VAT: defaultVariant.VAT ?? null,
         isNegative: !!defaultVariant.isNegative,
       }
@@ -252,8 +238,8 @@ const VariantsManager = ({
     }
     const list = v.variants || [];
     const variantsPayload = list
-      .filter((m: any) => m?.options && Object.keys(m.options).length > 0)
-      .map(({ variantId, options, code, ...fields }: any) => {
+      .filter((m: any) => m?.barcodes?.length)
+      .map(({ variantId, options, ...fields }: any) => {
         const attributeIds: number[] = [];
         const attributeValueIds: number[] = [];
         for (const [name, val] of Object.entries(options as Record<string, string>)) {
@@ -267,7 +253,6 @@ const VariantsManager = ({
           variantId,
           id: variantId,
           ...fields,
-          ...(code !== undefined ? { code: String(code ?? "").trim() } : {}),
           options,
           attributes: attributeIds,
           attributeValues: attributeValueIds,
@@ -300,7 +285,7 @@ const VariantsManager = ({
           data: JSON.stringify({
             data: {
               // Preserve combo products (server ignores variants for type 2).
-              type: (loaderData as any)?.data?.type === 2 ? 2 : 1,
+              type: (loaderData as any)?.data?.type === 2 ? 2 : productType,
               variants: variantsPayload,
               removedVariantIds,
             },
@@ -309,14 +294,14 @@ const VariantsManager = ({
         { method: "POST" },
       );
       const body = response?.data ?? response;
-      const error = body?.error || body?.message || response?.error;
-      if (error || (response?.status && response.status !== 200)) {
-        toast.danger({
-          title: t("common.error"),
-          message: String(error || t("common.tryAgain")),
-        });
-        return;
-      }
+      // const error = body?.error || body?.message || response?.error;
+      // if (error || (response?.status && response.status !== 200)) {
+      //   toast.danger({
+      //     title: t("common.error"),
+      //     message: String(error || t("common.tryAgain")),
+      //   });
+      //   return;
+      // }
       toast.success({
         title: t("common.success"),
         message: t("product.updateSuccess", {
@@ -335,23 +320,25 @@ const VariantsManager = ({
 
   return (
     <FormProvider {...formMethods}>
-      <form onSubmit={formMethods.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
+      <div className="flex flex-col gap-5 mt-2">
         <div className="p-1">
           <VariantEditor
             seed={productType === 0 ? (defaultVariantValues as Partial<IVariantDraft>) : undefined}
             protectFirstVariant={productType === 0}
+            units={units || []}
+            type={productType as 0 | 1 | 2}
           />
         </div>
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
-          <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
+          <TMButton type="button" variant="ghost" size="sm" component={Link} to="..">
             {t("common.cancel")}
           </TMButton>
-          <TMButton htmlType="submit" loading={isLoading} size="sm">
+          <TMButton type="button" onClick={formMethods.handleSubmit(onSubmit)} loading={isLoading} size="sm">
             <Icon name="save" fontSize={16} />
             {t("common.save")}
           </TMButton>
         </div>
-      </form>
+      </div>
     </FormProvider>
   );
 };
@@ -371,6 +358,7 @@ const EditForm = () => {
   const { t } = useTranslation();
   const productType = Number((data as any)?.type ?? 0);
   const hasVariants = productType === 1;
+  const variantTransitionBlocked = Boolean((data as any)?.variantTransitionBlocked);
   const product = data as IProduct;
   const simpleVariant = productType === 0 ? getSimpleVariant(product) : undefined;
   const simpleVariantFields: Partial<ProductSchemaType> =
@@ -379,18 +367,13 @@ const EditForm = () => {
   const formMethods = useForm<ProductSchemaType>({
     defaultValues: {
       name: data?.name ?? "",
-      code: simpleVariantFields.code ?? data?.code ?? "",
       skuCode: simpleVariantFields.skuCode ?? data?.skuCode ?? "",
-      type: productType as any,
+      type: productType,
       quantity: (simpleVariantFields.quantity as number) ?? undefined,
-      unit: (data as any)?.unitId || undefined,
+      unit: data?.unitId || undefined,
       categories: ((data?.categories as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
-      tags: (((data as any)?.tags as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
+      tags: ((data?.tags as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
       description: data?.description ?? "",
-      costPrice: (simpleVariantFields.costPrice ?? data?.costPrice ?? undefined) as any,
-      regularPrice: (simpleVariantFields.regularPrice ?? data?.regularPrice ?? undefined) as any,
-      salePrice: (simpleVariantFields.salePrice ?? data?.salePrice ?? undefined) as any,
-      wholeSalePrice: (simpleVariantFields.wholeSalePrice ?? data?.wholeSalePrice ?? undefined) as any,
       VAT: simpleVariantFields.VAT ?? (data as any)?.VAT ?? 0,
       image: simpleVariantFields.image,
       isNegative: simpleVariantFields.isNegative,
@@ -417,8 +400,6 @@ const EditForm = () => {
     loadUnits("/units");
     loadTags("/tags");
   }, []);
-  console.log("data", data);
-
   const onSubmit = async (v: ProductSchemaType) => {
     try {
       const { unit, quantity, ...rest } = v as any;
@@ -445,10 +426,7 @@ const EditForm = () => {
           message: "Update product success",
         });
       }
-      return toast.danger({
-        title: t("common.error"),
-        message: String(responseBody?.error || responseBody?.message || "Update product failed"),
-      });
+      throw responseBody;
     } catch (error) {
       toast.danger({
         title: t("common.error"),
@@ -462,14 +440,24 @@ const EditForm = () => {
         className="flex flex-col gap-5 mt-2"
         onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
       >
-        <ProductForm
-          barcode={productType === 0 ? (simpleVariantFields.code as string) : data?.code}
-          variantMode={hasVariants}
-          categories={categories?.data || []}
-          tags={tags?.data || []}
-          units={units?.data || []}
-        />
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+        <ProductForm categories={categories?.data || []} tags={tags?.data || []} />
+        {(hasVariants || productType === 0) &&
+          (variantTransitionBlocked ? (
+            <VariantTransitionNotice reason={(data as any)?.variantTransitionBlockReason} />
+          ) : (
+            <div className="border-t border-slate-200 pt-5 dark:border-slate-700">
+              <VariantsManager
+                productId={data?.id}
+                attributes={(data?.attributes || []) as IProductAttribute[]}
+                variants={(data?.variants || []) as IProductVariant[]}
+                productType={productType}
+                units={(units?.data || [])
+                  .filter((unit: any) => unit.id != null)
+                  .map((unit: any) => ({ id: unit.id, name: unit.name }))}
+              />
+            </div>
+          ))}
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
           <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
             {t("common.cancel")}
           </TMButton>
@@ -480,30 +468,6 @@ const EditForm = () => {
         </div>
       </form>
     </FormProvider>
-  );
-};
-
-const HistoryList = ({ history }: { history: IProduct[] }) => {
-  return (
-    <div className="w-full flex flex-col gap-2">
-      <TMTimeline
-        items={
-          history.map((item: any) => ({
-            title: item.type == 0 ? `Nhập Kho  - SL:${item.quantity}` : `Xuất kho  - SL:${item.quantity}`,
-            description: (
-              <span>
-                SKU:{" "}
-                <span className="bg-slate-100 dark:bg-slate-700 border border-slate-200/50 dark:border-slate-600 px-2 py-0.5 rounded">
-                  {item.variant?.skuCode || item?.skuCode}
-                </span>
-              </span>
-            ),
-            date: item?.updatedAt,
-            variant: item.type == 0 ? "success" : "danger",
-          })) || []
-        }
-      />
-    </div>
   );
 };
 

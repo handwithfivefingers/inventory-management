@@ -12,7 +12,8 @@ const db = vi.hoisted(() => {
     'findByPk',
     'count',
     'bulkCreate',
-    'findOrCreate'
+    'findOrCreate',
+    'decrement'
   ]
   const makeModelMock = () => {
     const m: any = {}
@@ -45,6 +46,7 @@ const db = vi.hoisted(() => {
     'user_role',
     'role_permission',
     'productVariant',
+    'productBarcode',
     'productAttribute',
     'productAttributeValue',
     'sequence'
@@ -68,8 +70,15 @@ vi.mock('#/database/models/category', () => ({ default: db.category, Category: d
 vi.mock('#/database/models/tag', () => ({ default: db.tag, Tag: db.tag }))
 vi.mock('#/database/models/units', () => ({ default: db.units, Unit: db.units }))
 vi.mock('#/database/models/productVariant', () => ({ default: db.productVariant, ProductVariant: db.productVariant }))
-vi.mock('#/database/models/productAttribute', () => ({ default: db.productAttribute, ProductAttribute: db.productAttribute }))
-vi.mock('#/database/models/productAttributeValue', () => ({ default: db.productAttributeValue, ProductAttributeValue: db.productAttributeValue }))
+vi.mock('#/database/models/productBarcode', () => ({ default: db.productBarcode, ProductBarcode: db.productBarcode }))
+vi.mock('#/database/models/productAttribute', () => ({
+  default: db.productAttribute,
+  ProductAttribute: db.productAttribute
+}))
+vi.mock('#/database/models/productAttributeValue', () => ({
+  default: db.productAttributeValue,
+  ProductAttributeValue: db.productAttributeValue
+}))
 vi.mock('#/database/models/transfer', () => ({ default: db.transfer, Transfer: db.transfer }))
 vi.mock('#/database/models/order', () => ({ default: db.order, Order: db.order }))
 vi.mock('#/database/models/orderDetail', () => ({ default: db.orderDetail, OrderDetail: db.orderDetail }))

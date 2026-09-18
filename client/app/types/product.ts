@@ -18,13 +18,19 @@ export interface IProductAttribute {
 export interface IProductVariant {
   id: number;
   productId: number;
-  /** Per-variant barcode, extended from the parent product barcode */
-  code?: string | null;
+  /** Selling units and their barcode-specific prices. */
+  barcodes?: IProductBarcode[];
   skuCode: string;
-  salePrice?: number | null;
-  regularPrice?: number | null;
-  wholeSalePrice?: number | null;
-  costPrice?: number | null;
+  /** Legacy API responses can still expose the primary barcode as `code`. */
+  code?: string;
+  /**
+   * Compatibility fields returned by some legacy endpoints. New barcode-aware
+   * UI should derive these from `barcodes` with the helpers in product-price.
+   */
+  salePrice?: number;
+  regularPrice?: number;
+  wholeSalePrice?: number;
+  costPrice?: number;
   VAT?: number | null;
   imageUrl?: string | null;
   isNegative?: boolean;
@@ -33,6 +39,22 @@ export interface IProductVariant {
   quantity?: number;
   attributeValues?: IProductAttributeValue[];
   inventories?: { id: number; warehouseId: number; quantity: number }[];
+}
+
+export interface IProductBarcode {
+  id?: number;
+  variantId?: number;
+  barcode: string;
+  unitId: number | string;
+  conversionRate: number;
+  costPrice: number;
+  retailPrice: number;
+  wholesalePrice: number;
+  promoPrice?: number | null;
+  promoStartAt?: string | null;
+  promoEndAt?: string | null;
+  isBaseUnit: boolean;
+  unit?: { id: number; name: string };
 }
 
 /** Input shape when creating a product with an attribute matrix */
