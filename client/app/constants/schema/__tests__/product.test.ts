@@ -12,7 +12,6 @@ const variant = {
       costPrice: 0,
       retailPrice: 0,
       wholesalePrice: 0,
-      isBaseUnit: true,
     },
   ],
 };
@@ -22,11 +21,11 @@ describe("productSchema", () => {
     expect(productSchema.safeParse({ name: "Sản phẩm mới", quantity: 0, variants: [variant] }).success).toBe(true);
   });
 
-  it("still requires exactly one base-unit row per variant", () => {
+  it("requires exactly one conversion-rate-one base-unit row per variant", () => {
     expect(
       productSchema.safeParse({
         name: "Sản phẩm mới",
-        variants: [{ ...variant, barcodes: [...variant.barcodes, { ...variant.barcodes[0], barcode: "893000000002" }] }],
+        variants: [{ ...variant, barcodes: [...variant.barcodes, { ...variant.barcodes[0], barcode: "893000000002", unitId: 2 }] }],
       }).success,
     ).toBe(false);
   });

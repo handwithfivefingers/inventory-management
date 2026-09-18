@@ -1,6 +1,10 @@
 import ProductAttribute from '#/database/models/productAttribute'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
+import Inventory from '#/database/models/inventory'
+import OrderDetail from '#/database/models/orderDetail'
+import ProductBarcode from '#/database/models/productBarcode'
 import ProductVariant from '#/database/models/productVariant'
+import Transfer from '#/database/models/transfer'
 import { ApiError } from '#/response'
 import { assertUniqueVariantSku, assertValidSku, normalizeSku } from '#/utils/sku'
 import { buildVariantSkuWithTemplate } from '#/utils/variant'
@@ -89,6 +93,21 @@ export interface CreateVariantsContext {
 }
 
 /**
+ * A variant with an order line is historical data and must remain addressable.
+ * Keep this check separate from the diff coordinator so every removal path can
+ * apply the same policy. The caller's transaction makes the decision and the
+ * following mutation atomic.
+ */
+export const canDeleteVariant = async (variantId: number, transaction?: Transaction): Promise<boolean> => {
+  const orderDetail = await OrderDetail.findOne({ where: { variantId }, transaction })
+  return !orderDetail
+}
+
+export interface VariantSyncResult {
+  softDeletedVariantIds: number[]
+}
+
+/**
  * Create all variant rows (+ their opening stock) for a brand-new
  * `PRODUCT_TYPE.VARIANT` product. Used by `ProductService.create`.
  */
@@ -162,19 +181,19 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
 
     const quantity = Number(variant.quantity ?? 0)
     const stock = await createOpeningStock({ productId, variantId: variantRow.id, warehouseId, quantity, transaction })
-    console.log(`stock`, stock)
-    console.log(`{ productId, variantId: variantRow.id, warehouseId, quantity, transaction }`, {
-      productId,
-      variantId: variantRow.id,
-      warehouseId,
-      quantity,
-      transaction
-    })
     created.push(stock ? { ...variantRow.dataValues, inventory: stock.inventory.dataValues } : variantRow.dataValues)
   }
 
   return created
 }
+
+/** Creates the one sellable row required for a simple product.  The barcode
+ * synchronizer supplies the vendor's `Cái` row and createVariants creates the
+ * zero opening inventory row, all within the caller's transaction. */
+export const ensureDefaultVariant = async (
+  variant: VariantInput,
+  ctx: CreateVariantsContext
+) => createVariants([{ ...variant, attributeValues: [] }], ctx)
 
 /** id/name lookup tables for a vendor's attribute values, used to resolve variant payloads. */
 const buildValueLookups = (values: any[]) => {
@@ -220,7 +239,7 @@ export const applyVariantSync = async (
   warehouseId: number | null,
   transaction?: Transaction,
   protectedVariantId?: number
-): Promise<void> => {
+): Promise<VariantSyncResult> => {
   if (protectedVariantId !== undefined) {
     const present = variants.some((variant) => Number(variant.id ?? variant.variantId) === protectedVariantId)
     if (!present) throw new Error('The original simple variant must remain as the first variant.')
@@ -233,12 +252,27 @@ export const applyVariantSync = async (
   }
   const productId = Number(product.id ?? product.get?.('id'))
 
+  const softDeletedVariantIds: number[] = []
   for (const rawId of removedVariantIds || []) {
     const variant = await ProductVariant.findByPk(Number(rawId), { transaction })
     if (!variant) continue
     if (Number(variant.productId ?? variant.get?.('productId')) !== productId) continue
-    // Paranoid soft-delete: keep inventory/order history, hide variant from sales.
-    await variant.destroy({ transaction })
+    const variantId = Number(variant.get?.('id') ?? variant.id)
+    if (!(await canDeleteVariant(variantId, transaction))) {
+      // Safe default for sold variants: INACTIVE means hidden from new sales
+      // while preserving order, barcode and inventory history.
+      await variant.update({ isActive: false }, { transaction })
+      softDeletedVariantIds.push(variantId)
+      continue
+    }
+
+    // This is a true hard delete only when no order references the variant.
+    // Delete dependent rows explicitly because legacy databases may still use
+    // RESTRICT foreign keys rather than the current cascade constraints.
+    await ProductBarcode.destroy({ where: { variantId }, transaction, force: true })
+    await Inventory.destroy({ where: { variantId }, transaction, force: true })
+    await Transfer.destroy({ where: { variantId }, transaction, force: true })
+    await variant.destroy({ transaction, force: true })
   }
 
   const currentVariants: any[] = await ProductVariant.findAll({
@@ -389,8 +423,10 @@ export const applyVariantSync = async (
     )
 
     const quantity = Number(v.quantity ?? 0)
-    if (quantity && warehouseId) {
+    if (warehouseId) {
       await createOpeningStock({ productId, variantId: variantRow.get('id'), warehouseId, quantity, transaction })
     }
   }
+
+  return { softDeletedVariantIds }
 }

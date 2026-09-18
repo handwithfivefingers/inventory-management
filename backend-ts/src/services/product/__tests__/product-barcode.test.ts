@@ -17,7 +17,7 @@ describe('syncVariantBarcodes', () => {
     const transaction: any = {}
     nextSequence.mockResolvedValue(42)
     ;(ProductBarcode.findOne as any).mockResolvedValue(null)
-    ;(ProductBarcode.findAll as any).mockResolvedValue([])
+    ;(ProductBarcode.findAll as any).mockResolvedValueOnce([]).mockResolvedValueOnce([{}])
     ;(ProductBarcode.create as any).mockResolvedValue({})
     ;(Unit.findAll as any).mockResolvedValue([{ id: 7 }])
 
@@ -39,7 +39,7 @@ describe('syncVariantBarcodes', () => {
     const transaction: any = {}
     nextSequence.mockResolvedValue(43)
     ;(ProductBarcode.findOne as any).mockResolvedValue(null)
-    ;(ProductBarcode.findAll as any).mockResolvedValue([])
+    ;(ProductBarcode.findAll as any).mockResolvedValueOnce([]).mockResolvedValueOnce([{}])
     ;(ProductBarcode.create as any).mockResolvedValue({})
     ;(Unit.findOne as any).mockResolvedValue({ id: 9 })
     ;(Unit.findAll as any).mockResolvedValue([{ id: 9 }])
@@ -57,5 +57,19 @@ describe('syncVariantBarcodes', () => {
       }),
       { transaction }
     )
+  })
+
+  it('rejects invalid price ordering before writing a barcode row', async () => {
+    await expect(syncVariantBarcodes(3, 2, [
+      { barcode: 'BAD-PRICE', unitId: 7, conversionRate: 1, costPrice: 20, retailPrice: 10, wholesalePrice: 9 }
+    ], {} as any)).rejects.toMatchObject({ status: 400 })
+    expect(ProductBarcode.create).not.toHaveBeenCalled()
+  })
+
+  it('requires exactly one conversion-rate-one barcode', async () => {
+    await expect(syncVariantBarcodes(3, 2, [
+      { barcode: 'BASE-A', unitId: 7, conversionRate: 1, costPrice: 0, retailPrice: 1, wholesalePrice: 1 },
+      { barcode: 'BASE-B', unitId: 8, conversionRate: 1, costPrice: 0, retailPrice: 1, wholesalePrice: 1 }
+    ], {} as any)).rejects.toMatchObject({ code: 'VALIDATION_ERROR', status: 400 })
   })
 })

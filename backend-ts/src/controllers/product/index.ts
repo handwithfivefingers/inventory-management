@@ -152,6 +152,27 @@ export class ProductController {
     }
   }
 
+  async getProductFull(req: Request, res: Response, next: NextFunction) {
+    try {
+      const scope = (req as any).tenant.scope
+      const vendorId = getRequestedVendorId(req) as string
+      const warehouseId = getRequestedWarehouseId(req) as string
+      assertVendorAccess(scope, Number(vendorId), 'Unauthorized vendor filter')
+      const data = await new ProductService().getProductFull({ id: req.params.id, warehouseId, vendorId })
+      res.status(200).json({ data })
+    } catch (error) { next(error) }
+  }
+
+  async adjustStockByBarcode(req: IRequestLocal, res: Response, next: NextFunction) {
+    try {
+      const warehouseId = getRequestedWarehouseId(req as any)
+      await assertWarehouseAccess(warehouseId, req.tenant.scope)
+      if (!warehouseId) throw ApiError.forbidden('warehouseId is required', { code: 'FORBIDDEN' })
+      const data = await new ProductService().adjustStockByBarcode({ ...req.body, warehouseId: Number(warehouseId) })
+      res.status(200).json({ data })
+    } catch (error) { next(error) }
+  }
+
   async getProductVariants(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']

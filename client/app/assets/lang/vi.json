@@ -369,7 +369,15 @@
     "newVariant": "Biến thể mới",
     "barcode": "Mã vạch",
     "isActive": "Hoạt động",
-    "VAT": "VAT"
+    "VAT": "VAT",
+    "pricingUnits": "Giá & đơn vị",
+    "conversionRate": "Tỷ lệ quy đổi",
+    "baseUnit": "Đơn vị gốc",
+    "baseUnitRequired": "Cần đúng một dòng đơn vị gốc với tỷ lệ 1.",
+    "configurePricing": "Cấu hình Giá & Đơn vị",
+    "addConversion": "Thêm quy cách",
+    "wholesalePrice": "Giá sỉ",
+    "outOfStock": "Hết hàng"
   },
   "settings": {
     "moneyStep": "Bước nhảy tiền tệ (+/-)",

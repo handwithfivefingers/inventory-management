@@ -35,7 +35,7 @@ describe("ApiError", () => {
     });
     const err = new ApiError(sequelizeErr as any, 409);
     expect(err.status).toBe(409);
-    expect(err.code).toBe("ER_DUP_ENTRY");
+    expect(err.code).toBe("DATABASE_CONFLICT");
     expect(err.fields).toEqual({ email: "a@b.com" });
   });
 
@@ -47,9 +47,9 @@ describe("ApiError", () => {
       fields: { email: "a@b.com" },
     });
     const err = new ApiError(sequelizeErr as any);
-    expect(err.code).toBe("ER_DUP_ENTRY");
+    expect(err.code).toBe("DATABASE_CONFLICT");
     expect(err.fields).toEqual({ email: "a@b.com" });
-    expect(err.message).toBe("Duplicate entry");
+    expect(err.message).toBe("A record with the same value already exists");
   });
 
   it("leaves code/fields undefined for non-Sequelize errors", () => {
@@ -85,7 +85,7 @@ describe("handleErrors", () => {
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(captureException).toHaveBeenCalledWith(error);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(json).toHaveBeenCalledWith({ error: "fail", status: 400 });
+    expect(json).toHaveBeenCalledWith({ success: false, code: "VALIDATION_ERROR", message: "fail" });
   });
 
   it("captures the error via Sentry even when the error has no message", () => {
@@ -93,7 +93,7 @@ describe("handleErrors", () => {
     const res = { status: vi.fn(() => ({ json })) } as any;
     response.handleErrors({} as Request, res, {} as Error);
     expect(captureException).toHaveBeenCalledTimes(1);
-    expect(json).toHaveBeenCalledWith({ error: "Internal Server Error", status: 400 });
+    expect(json).toHaveBeenCalledWith({ success: false, code: "VALIDATION_ERROR", message: "Internal Server Error" });
   });
 
   it("respects ApiError status and serializes via toJSON", () => {
@@ -104,13 +104,13 @@ describe("handleErrors", () => {
     const resLegacy = { status: vi.fn(() => ({ json: jsonLegacy })) } as any;
     response.handleErrors({} as Request, resLegacy, apiErr as unknown as Error);
     expect(resLegacy.status).toHaveBeenCalledWith(404);
-    expect(jsonLegacy).toHaveBeenCalledWith({ error: "not found", status: 404 });
+    expect(jsonLegacy).toHaveBeenCalledWith({ success: false, code: "NOT_FOUND", message: "not found" });
 
     // standard Express signature (err, req, res, next)
     const json2 = vi.fn();
     const res2 = { status: vi.fn(() => ({ json: json2 })) } as any;
     response.handleErrors(apiErr, {} as Request, res2, (() => {}) as any);
-    expect(json2).toHaveBeenCalledWith({ error: "not found", status: 404 });
+    expect(json2).toHaveBeenCalledWith({ success: false, code: "NOT_FOUND", message: "not found" });
   });
 
   it("returns generic message for 500 server errors", () => {
@@ -121,6 +121,6 @@ describe("handleErrors", () => {
     response.handleErrors(err, {} as Request, res, (() => {}) as any);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(json).toHaveBeenCalledWith({ error: "Internal Server Error", status: 500 });
+    expect(json).toHaveBeenCalledWith({ success: false, code: "INTERNAL_ERROR", message: "Internal Server Error" });
   });
 });

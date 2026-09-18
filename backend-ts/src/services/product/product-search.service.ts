@@ -101,7 +101,8 @@ const effectiveBarcodePrice = (barcode: any): number => {
 const variantPrice = (variant: any): number => {
   const get = (k: string) => (typeof variant.get === 'function' ? variant.get(k) : variant[k])
   const barcodes = get('barcodes') ?? []
-  const base = barcodes.find((row: any) => Number(row.get?.('conversionRate') ?? row.conversionRate) === 1) ?? barcodes[0]
+  const base =
+    barcodes.find((row: any) => Number(row.get?.('conversionRate') ?? row.conversionRate) === 1) ?? barcodes[0]
   return effectiveBarcodePrice(base)
 }
 
@@ -122,7 +123,10 @@ const toExactItem = (variant: any, stockQuantity: number): ExactMatchItem => {
   const sku = String(get('skuCode') ?? get('sku') ?? '')
   const productName = String(productGet('name') ?? '')
   const barcodes = get('barcodes') ?? []
-  const selectedBarcode = get('matchedBarcode') ?? barcodes.find((row: any) => Number(row.get?.('conversionRate') ?? row.conversionRate) === 1) ?? barcodes[0]
+  const selectedBarcode =
+    get('matchedBarcode') ??
+    barcodes.find((row: any) => Number(row.get?.('conversionRate') ?? row.conversionRate) === 1) ??
+    barcodes[0]
   return {
     variant_id: Number(get('id')),
     product_id: Number(get('productId') ?? productGet('id')),
@@ -220,18 +224,20 @@ const tryExactMatch = async (
   }
   const or: Record<string, unknown>[] = [{ skuCode: query }]
   if (queryUpper !== query) or.push({ skuCode: queryUpper })
-  return (ProductVariant as any).findOne({
-    where: { isActive: true, [Op.or]: or },
-    include: [
-      { model: ProductBarcode, as: 'barcodes', required: false, include: [{ model: Unit, as: 'unit' }] },
-      {
-        model: Product,
-        required: true,
-        where: { ...productVendorWhere },
-        attributes: ['id', 'name', 'vendorId']
-      }
-    ]
-  }).then((variant: any) => variant)
+  return (ProductVariant as any)
+    .findOne({
+      where: { isActive: true, [Op.or]: or },
+      include: [
+        { model: ProductBarcode, as: 'barcodes', required: false, include: [{ model: Unit, as: 'unit' }] },
+        {
+          model: Product,
+          required: true,
+          where: { ...productVendorWhere },
+          attributes: ['id', 'name', 'vendorId']
+        }
+      ]
+    })
+    .then((variant: any) => variant)
 }
 
 /** Stock for an exact hit: single-warehouse level, or summed across warehouses for Admin. */
@@ -267,7 +273,7 @@ const searchPos = async (args: FallbackArgs): Promise<Extract<ProductSearchResul
   if (hasQuery) {
     ;(variantWhere as any)[Op.or] = [
       { skuCode: { [Op.like]: like } },
-      { '$barcodes.barcode$': { [Op.like]: like } },
+      // { '$barcodes.barcode$': { [Op.like]: like } },
       // `$product.name$` reaches into the joined product row.
       { '$product.name$': { [Op.like]: like } }
     ]
@@ -373,10 +379,11 @@ const searchAdmin = async (args: FallbackArgs): Promise<Extract<ProductSearchRes
       ? Number(typeof firstCategory.get === 'function' ? firstCategory.get('id') : firstCategory.id)
       : null
     const isActive = get('isActive')
-    const variants = (get('variants') as any[] | undefined)?.filter((variant) => {
-      const variantGet = (key: string) => (typeof variant.get === 'function' ? variant.get(key) : variant[key])
-      return variantGet('isActive') !== false
-    }) ?? []
+    const variants =
+      (get('variants') as any[] | undefined)?.filter((variant) => {
+        const variantGet = (key: string) => (typeof variant.get === 'function' ? variant.get(key) : variant[key])
+        return variantGet('isActive') !== false
+      }) ?? []
     const prices = variants.map(variantPrice)
     return {
       product_id: Number(get('id')),

@@ -17,7 +17,6 @@ const barcodeRowSchema = z.object({
   promoPrice: StrOrNum.nullable().optional(),
   promoStartAt: z.string().nullable().optional(),
   promoEndAt: z.string().nullable().optional(),
-  isBaseUnit: z.boolean(),
 });
 
 const variantAttributeSchema = z.object({
@@ -42,16 +41,38 @@ const variantAttributeSchema = z.object({
 });
 
 /** Fields supported on each generated/selected variant - new schema uses ID arrays */
+const barcodeRowsSchema = z.array(barcodeRowSchema).min(1).superRefine((rows, ctx) => {
+  if (rows.filter((row) => Number(row.conversionRate) === 1).length !== 1) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Each variant needs exactly one base unit (rate 1)" });
+  }
+  rows.forEach((row, index) => {
+    const conversionRate = Number(row.conversionRate);
+    if (!Number.isInteger(conversionRate) || conversionRate <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "conversionRate"], message: "Conversion rate must be a positive integer" });
+    }
+    const duplicateUnitAt = rows.findIndex((candidate, candidateIndex) => candidateIndex < index && String(candidate.unitId) === String(row.unitId));
+    if (row.unitId != null && duplicateUnitAt !== -1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "unitId"], message: "This unit is already used in this variant" });
+    }
+    const barcode = String(row.barcode || "").trim().toUpperCase();
+    const duplicateBarcodeAt = barcode ? rows.findIndex((candidate, candidateIndex) => candidateIndex < index && String(candidate.barcode || "").trim().toUpperCase() === barcode) : -1;
+    if (duplicateBarcodeAt !== -1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "barcode"], message: "Barcode is duplicated in this product payload" });
+    }
+    const cost = Number(row.costPrice);
+    const retail = Number(row.retailPrice);
+    const wholesale = Number(row.wholesalePrice);
+    if (Number.isFinite(cost) && Number.isFinite(retail) && retail < cost)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "retailPrice"], message: "Retail price must be at least cost price" });
+    if (Number.isFinite(wholesale) && Number.isFinite(retail) && wholesale > retail)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "wholesalePrice"], message: "Wholesale price cannot exceed retail price" });
+  });
+});
+
 const variantOverrideSchema = z.object({
   skuCode: StrOrNum.optional(),
   quantity: StrOrNum.optional(),
-  barcodes: z
-    .array(barcodeRowSchema)
-    .min(1)
-    .refine(
-      (rows) => rows.filter((row) => row.isBaseUnit).length === 1,
-      "Each variant must have exactly one base unit barcode",
-    ),
+  barcodes: barcodeRowsSchema,
   VAT: StrOrNum.nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   /** Allow negative stock for this specific combination (required choice) */
@@ -87,6 +108,18 @@ const productSchema = z.object({
       }),
     )
     .optional(),
+}).superRefine((product, ctx) => {
+  const seen = new Set<string>();
+  (product.variants || []).forEach((variant, variantIndex) => {
+    (variant.barcodes || []).forEach((row, barcodeIndex) => {
+      const barcode = String(row.barcode || "").trim().toUpperCase();
+      if (!barcode) return;
+      if (seen.has(barcode)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["variants", variantIndex, "barcodes", barcodeIndex, "barcode"], message: "Barcode is duplicated in this product payload" });
+      }
+      seen.add(barcode);
+    });
+  });
 });
 export type ProductSchemaType = z.infer<typeof productSchema>;
 export { productSchema };

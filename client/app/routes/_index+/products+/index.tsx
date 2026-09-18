@@ -397,12 +397,12 @@ export async function action({ request }: ActionFunctionArgs) {
   return namedAction(form, {
     delete: async () => {
       const id = form.get("id");
-      if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
+      if (!id) return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Missing id" }, { status: 400 });
       try {
         await productService.deleteProduct(String(id));
         return Response.json({ success: true });
       } catch (error: any) {
-        return Response.json({ error: error?.message || "Delete failed" }, { status: 400 });
+        return Response.json({ success: false, code: error?.code || "VALIDATION_ERROR", message: error?.message || "Delete failed" }, { status: 400 });
       }
     },
     search: async () => {
@@ -435,12 +435,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (form.get("intent") === "delete") {
     const id = form.get("id");
-    if (!id) return json({ error: "Missing id" }, { status: 400 });
+    if (!id) return json({ success: false, code: "VALIDATION_ERROR", message: "Missing id" }, { status: 400 });
     try {
       await productService.deleteProduct(String(id));
       return json({ success: true });
     } catch (error: any) {
-      return json({ error: error?.message || "Delete failed" }, { status: 400 });
+      return json({ success: false, code: error?.code || "VALIDATION_ERROR", message: error?.message || "Delete failed" }, { status: 400 });
     }
   }
   // Variant listing for the order flow: POST /products with variantOf=<productId>

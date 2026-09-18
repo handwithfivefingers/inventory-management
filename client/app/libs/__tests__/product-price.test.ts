@@ -41,7 +41,6 @@ describe("barcode-backed variant prices", () => {
     costPrice: 70,
     retailPrice: 120,
     wholesalePrice: 90,
-    isBaseUnit: true,
   };
 
   it("uses the base barcode prices instead of obsolete variant fields", () => {

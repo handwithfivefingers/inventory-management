@@ -50,21 +50,16 @@ const sampleProduct = {
   description: "Sản phẩm 1",
   variants: [
     {
-      quantity: "4",
+      quantity: 0,
       isNegative: false,
       options: {},
       attributes: [],
       attributeValues: [],
-      skuCode: "123456",
+      skuCode: null,
       barcodes: [
         {
           barcode: null,
-          unitId: 2,
           conversionRate: 1,
-          costPrice: "15",
-          retailPrice: "15",
-          wholesalePrice: "15",
-          isBaseUnit: true,
         },
       ],
     },
@@ -96,33 +91,32 @@ export default function ProductItem() {
   const { suggestedAttributes, categories, units, tags } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
   const formMethods = useForm<ProductSchemaType>({
-    defaultValues: sampleProduct,
-    // defaultValues: {
-    //   name: "",
-    //   skuCode: "",
-    //   description: undefined,
-    //   categories: undefined,
-    //   tags: undefined,
-    //   expiredAt: undefined,
-    //   type: 0,
-    //   variantAttributes: [],
-    //   variants: [
-    //     {
-    //       options: {},
-    //       barcodes: [
-    //         {
-    //           barcode: null,
-    //           unitId: null,
-    //           conversionRate: 1,
-    //           costPrice: 0,
-    //           retailPrice: 0,
-    //           wholesalePrice: 0,
-    //           isBaseUnit: true,
-    //         },
-    //       ],
-    //     },
-    //   ],
-    // },
+    // defaultValues: sampleProduct,
+    defaultValues: {
+      name: "",
+      skuCode: "",
+      description: undefined,
+      categories: undefined,
+      tags: undefined,
+      expiredAt: undefined,
+      type: 0,
+      variantAttributes: [],
+      variants: [
+        {
+          options: {},
+          barcodes: [
+            {
+              barcode: null,
+              unitId: null,
+              conversionRate: 1,
+              costPrice: 0,
+              retailPrice: 0,
+              wholesalePrice: 0,
+            },
+          ],
+        },
+      ],
+    },
     resolver: zodResolver(productSchema),
   });
   const productType = formMethods.watch("type") ?? 0;
@@ -130,7 +124,7 @@ export default function ProductItem() {
   const variantSeed = {
     quantity: formMethods.watch("quantity"),
     isNegative: formMethods.watch("isNegative"),
-    barcodes: [],
+    barcodes: [{ barcode: null, unitId: null, conversionRate: 1, costPrice: 0, retailPrice: 0, wholesalePrice: 0 }],
   };
 
   const onSubmit = async (v: ProductSchemaType) => {
@@ -186,7 +180,6 @@ export default function ProductItem() {
     delete payload.variantAttributes;
     // for (const key of ["code", "costPrice", "regularPrice", "salePrice", "wholeSalePrice"]) delete payload[key];
     console.log("payload", payload);
-    return;
     try {
       const response: any = await submit({ data: JSON.stringify(payload) }, { method: "POST" });
       const body = response?.data ?? response;
@@ -286,7 +279,7 @@ export async function action({ request }: any) {
   try {
     const formData = await request.formData();
     const data = formData.get("data");
-    if (!data) return Response.json({ error: "Missing data" }, { status: 400 });
+    if (!data) return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Missing data" }, { status: 400 });
     const dataJson = JSON.parse(data);
     const resp = await productService.createProduct(dataJson);
     if (resp.status === 200) {
@@ -295,10 +288,7 @@ export async function action({ request }: any) {
     throw resp;
   } catch (error) {
     return Response.json(
-      {
-        ...(error as Error),
-        message: error instanceof Error ? error.message : "Create product failed",
-      },
+      { success: false, code: (error as any)?.code || "VALIDATION_ERROR", message: error instanceof Error ? error.message : "Create product failed" },
       { status: 400 },
     );
   }

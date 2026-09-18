@@ -52,6 +52,7 @@ const db = vi.hoisted(() => {
     "financialRecord",
     "setting",
     "productVariant",
+    "productBarcode",
     "productAttribute",
     "productAttributeValue",
     "sequence",
@@ -74,6 +75,7 @@ vi.mock("#/database", () => ({ default: db }));
 // separate mock instance and assertions on `database.*` never observe calls).
 vi.mock("#/database/models/product", () => ({ default: db.product, Product: db.product }));
 vi.mock("#/database/models/productVariant", () => ({ default: db.productVariant, ProductVariant: db.productVariant }));
+vi.mock("#/database/models/productBarcode", () => ({ default: db.productBarcode, ProductBarcode: db.productBarcode }));
 vi.mock("#/database/models/productAttribute", () => ({ default: db.productAttribute, ProductAttribute: db.productAttribute }));
 vi.mock("#/database/models/productAttributeValue", () => ({
   default: db.productAttributeValue,
@@ -161,18 +163,30 @@ describe("ProductService", () => {
     database.productAttributeValue.findAll.mockResolvedValue([]);
     database.orderDetail.findOne.mockResolvedValue(null);
     database.setting.findOne.mockResolvedValue({ skuTemplate: "{CODE}" });
+    database.inventory.create.mockImplementation((data: any) => {
+      const row: any = { dataValues: { ...data } };
+      row.save = vi.fn().mockResolvedValue(row);
+      row.update = vi.fn().mockResolvedValue(row);
+      return row;
+    });
     database.inventory.build.mockImplementation((data: any) => {
       const row: any = { dataValues: { ...data } };
       row.save = vi.fn().mockResolvedValue(row);
-      row.update = vi.fn().mockResolvedValue(row);
       return row;
     });
-    database.transfer.build.mockImplementation((data: any) => {
+    database.transfer.create.mockImplementation((data: any) => {
       const row: any = { dataValues: { ...data } };
       row.save = vi.fn().mockResolvedValue(row);
       row.update = vi.fn().mockResolvedValue(row);
       return row;
     });
+    database.productBarcode.findAll.mockImplementation((options: any) =>
+      options?.where?.conversionRate === 1 ? [{ get: () => 1 }] : []
+    );
+    database.productBarcode.findOne.mockResolvedValue(null);
+    database.productBarcode.create.mockResolvedValue({});
+    database.units.findOne.mockResolvedValue({ id: 1 });
+    database.units.findAll.mockResolvedValue([{ id: 1 }]);
   });
 
   describe("create", () => {

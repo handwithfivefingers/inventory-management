@@ -7,3 +7,9 @@ node_modules
 yarn.lock
 pack-lock.json
 coverage
+
+# Playwright E2E (owns e2e/**/*.spec.ts — never run via Vitest)
+/playwright-report
+/blob-report
+/test-results
+e2e/.auth.json

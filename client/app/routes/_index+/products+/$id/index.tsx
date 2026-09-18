@@ -27,14 +27,10 @@ import { IProduct, IProductAttribute, IProductAttributeValue, IProductVariant } 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
   if (!id) throw new Error("Không tìm thấy sản phẩm");
-  const resp = await productService.getProductById(id);
+  const resp = await productService.getProductFull(id);
   if (resp.status !== 200) throw new Error("Không tìm thấy sản phẩm");
-  const variantsResp = await productService.getProductVariants({ id });
   const productData = resp.data?.data;
-  const data = {
-    ...productData,
-    variants: variantsResp.data?.data?.length ? variantsResp.data.data : productData?.variants,
-  };
+  const data = productData;
 
   const history = await historyService.getProductHistory(id);
   const suggestedAttributes = await productService.getAttributes().catch(() => ({ data: { data: [] } } as any));
@@ -140,14 +136,14 @@ const VariantsManager = ({
 
   const suggestedAttributes: any[] = loaderData?.suggestedAttributes || [];
 
-  const invSum = (variant: IProductVariant) => {
-    return (variant.inventories || []).reduce((sum, inv) => sum + Number(inv.quantity || 0), 0);
-  };
+  // `/full` is warehouse-scoped by the server. Never sum `inventories` here:
+  // legacy responses contained every warehouse and produced incorrect edits.
+  const baseQuantityOf = (variant: IProductVariant) => Number((variant as any).baseQuantity ?? 0);
   const defaultVariant = productType === 0 ? getSimpleVariant({ variants: serverVariants }) : undefined;
   console.log(`productType`, productType);
   const defaultVariantValues = defaultVariant
     ? {
-        quantity: invSum(defaultVariant),
+        quantity: baseQuantityOf(defaultVariant),
         barcodes: defaultVariant.barcodes || [],
         VAT: defaultVariant.VAT ?? null,
         isNegative: !!defaultVariant.isNegative,
@@ -170,7 +166,7 @@ const VariantsManager = ({
     const variants = editableVariants.map((v) => ({
       variantId: v.id,
       ...v,
-      quantity: invSum(v),
+      quantity: baseQuantityOf(v),
       options: Object.fromEntries(
         ((v.attributeValues || []) as any[]).map((av: any) => [
           av.attribute?.name || av.productAttribute?.name || "",
@@ -484,21 +480,21 @@ const EditForm = () => {
 export async function action({ request, params }: ActionFunctionArgs) {
   try {
     const { id } = params;
-    if (!id) return Response.json({ error: "Không tìm thấy sản phẩm" }, { status: 400 });
+    if (!id) return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Không tìm thấy sản phẩm" }, { status: 400 });
     const formData = await request.formData();
     return namedAction(formData, {
       updateProduct: async () => {
         const raw = formData.get("data");
-        if (!raw) return Response.json({ error: "Missing data" }, { status: 400 });
+        if (!raw) return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Missing data" }, { status: 400 });
         let data: any;
         try {
           data = JSON.parse(String(raw));
         } catch {
-          return Response.json({ error: "Invalid JSON" }, { status: 400 });
+          return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Invalid JSON" }, { status: 400 });
         }
         const payload = data?.data ?? data;
         if (typeof payload !== "object" || payload === null) {
-          return Response.json({ error: "Invalid product payload" }, { status: 400 });
+          return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Invalid product payload" }, { status: 400 });
         }
         const response = await productService.updateProduct({ id, ...payload });
         return Response.json(response);
@@ -507,7 +503,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String((error as any)?.error || "Update product failed");
     const status = error instanceof ResponseError ? error.status : Number((error as any)?.status) || 400;
-    return Response.json({ error: message, status }, { status });
+    return Response.json({ success: false, code: (error as any)?.code || "VALIDATION_ERROR", message }, { status });
   }
 }
 

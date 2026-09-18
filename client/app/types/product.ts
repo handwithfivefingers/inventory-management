@@ -53,7 +53,7 @@ export interface IProductBarcode {
   promoPrice?: number | null;
   promoStartAt?: string | null;
   promoEndAt?: string | null;
-  isBaseUnit: boolean;
+  /** The base selling unit is the row whose conversionRate is exactly 1. */
   unit?: { id: number; name: string };
 }
 

@@ -14,7 +14,12 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["app/**/*.{test,spec}.{ts,tsx}"],
+    // Vitest owns unit/component tests only: `*.test.ts(x)`.
+    // Playwright owns E2E tests: `e2e/**/*.spec.ts` (see playwright.config.ts).
+    // Keeping these patterns disjoint prevents double-running / import errors
+    // (Playwright specs import `@playwright/test`, which jsdom cannot execute).
+    include: ["app/**/*.test.{ts,tsx}"],
+    exclude: ["**/node_modules/**", "**/e2e/**", "**/*.spec.{ts,tsx}", "**/build/**"],
     css: false,
     coverage: {
       provider: "v8",

@@ -10,6 +10,7 @@ import database from './database'
 import cors from 'cors'
 import swaggerUi from 'swagger-ui-express'
 import fs from 'fs'
+import { handleErrors } from '#/response'
 
 const swaggerDocument = JSON.parse(fs.readFileSync('./swagger-output.json', 'utf8'))
 
@@ -62,21 +63,7 @@ class App {
   }
 
   debugSentry() {
-    const errorHandler = (err: Error & { status?: number }, req: Request, res: Response, next: NextFunction) => {
-      if (res.headersSent) {
-        return next(err)
-      }
-      captureException(err)
-      // SECURITY: 5xx responses must not leak internals (stack, SQL, ...).
-      // Client errors keep their message; server failures return a generic
-      // body and default to 500 so monitoring sees real fault rates.
-      const status = err?.status && Number.isFinite(err.status) ? err.status : 500
-      const isClientError = status >= 400 && status < 500
-      return res.status(status).json({
-        error: isClientError ? err.message : 'Internal Server Error'
-      })
-    }
-    this.app.use(errorHandler as any)
+    this.app.use(handleErrors as any)
     if (process.env.NODE_ENV !== 'production') {
       this.app.get('/debug-sentry', function mainHandler(req, res) {
         throw new Error('My first Sentry error!')

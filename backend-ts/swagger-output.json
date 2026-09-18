@@ -830,6 +830,16 @@
         ]
       }
     },
+    "/api/products/stock/by-barcode": {
+      "post": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/products/attributes": {
       "get": {
         "tags": [
@@ -1219,6 +1229,24 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/api/products/{id}/full": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/products/{id}": {

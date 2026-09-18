@@ -22,6 +22,7 @@ const db = vi.hoisted(() => {
     sequelize: { transaction: vi.fn() }
   }
 })
+const syncVariantBarcodesMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
 vi.mock('#/database', () => ({ default: db }))
 vi.mock('#/database/models/productAttribute', () => ({
@@ -45,6 +46,7 @@ vi.mock('#/utils/entity-cache', () => ({
   setCachedEntity: vi.fn(),
   evictCachedEntity: vi.fn()
 }))
+vi.mock('../product-barcode', () => ({ syncVariantBarcodes: syncVariantBarcodesMock }))
 
 import { assertNoProcessingOrders } from '../index'
 import { applyVariantSync, createVariants } from '../product-variant'
@@ -74,14 +76,8 @@ describe('variant transitions', () => {
     db.productAttributeValue.findAll.mockResolvedValueOnce([value]).mockResolvedValueOnce([value])
     const created = row({ id: 20 })
     db.productVariant.create.mockResolvedValue(created)
-    db.inventory.build.mockImplementation((data: any) => {
-      const value = { dataValues: data }
-      return { ...value, save: vi.fn().mockResolvedValue(value) }
-    })
-    db.transfer.build.mockImplementation((data: any) => {
-      const value = { dataValues: data }
-      return { ...value, save: vi.fn().mockResolvedValue(value) }
-    })
+    db.inventory.create.mockImplementation((data: any) => ({ dataValues: data }))
+    db.transfer.create.mockImplementation((data: any) => ({ dataValues: data }))
 
     await createVariants(
       [{ options: { Color: 'Red' }, code: '123456789012', skuCode: 'red-shirt', quantity: 4, VAT: 10, imageUrl: 'x' }],
@@ -99,7 +95,6 @@ describe('variant transitions', () => {
     expect(db.productVariant.create).toHaveBeenCalledWith(
       expect.objectContaining({
         productId: 7,
-        code: '123456789012',
         skuCode: 'RED-SHIRT',
         VAT: 10,
         imageUrl: 'x'
@@ -130,7 +125,6 @@ describe('variant transitions', () => {
     expect(old.update).toHaveBeenCalled()
     expect(old.$set).toHaveBeenCalledWith('attributeValues', [11], { transaction: tx })
     expect(old.get('skuCode')).toBe('BASE-SKU')
-    expect(old.get('code')).toBe('123456789013')
   })
 
   it('fails instead of silently creating a type-1 product without attribute links', async () => {
@@ -165,7 +159,6 @@ describe('variant transitions', () => {
     expect(db.productVariant.build).toHaveBeenCalledWith(
       expect.objectContaining({
         skuCode: 'BASE-SKU-RED',
-        code: '123456789014'
       })
     )
   })
@@ -188,8 +181,23 @@ describe('variant transitions', () => {
         null,
         tx
       )
-    ).resolves.toBeUndefined()
+    ).resolves.toEqual({ softDeletedVariantIds: [] })
     expect(existing.update).toHaveBeenCalled()
+  })
+
+  it('soft-deletes a removed variant with order history and returns it as a warning candidate', async () => {
+    const sold = row({ id: 9, productId: 7, skuCode: 'SOLD-RED' })
+    db.productVariant.findByPk.mockResolvedValue(sold)
+    db.orderDetail.findOne.mockResolvedValue({ id: 101, variantId: 9 })
+    db.productVariant.findAll
+      .mockResolvedValueOnce([sold])
+      .mockResolvedValueOnce([])
+
+    const result = await applyVariantSync({ id: 7 }, 1, [], [9], 2, tx)
+
+    expect(sold.update).toHaveBeenCalledWith({ isActive: false }, { transaction: tx })
+    expect(sold.destroy).not.toHaveBeenCalled()
+    expect(result.softDeletedVariantIds).toEqual([9])
   })
 
   it('blocks conversion when the product has an order still being processed', async () => {

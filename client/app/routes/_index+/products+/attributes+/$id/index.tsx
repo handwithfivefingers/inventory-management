@@ -308,7 +308,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   return namedAction(formData, {
     updateAttribute: async () => {
       const name = (formData.get("name") as string)?.trim();
-      if (!name) return json({ success: false, error: "Tên không được trống", status: 400 }, { status: 400 });
+      if (!name) return json({ success: false, code: "VALIDATION_ERROR", message: "Tên không được trống" }, { status: 400 });
       const resp = await productAttributeService.updateAttribute({ attributeId: id, name });
       return json({ success: true, data: resp.data, status: resp.status }, { status: resp.status });
     },
@@ -331,7 +331,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         }
       }
       if (!values.length) {
-        return Response.json({ success: false, error: "Giá trị không được trống", status: 400 }, { status: 400 });
+        return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Giá trị không được trống" }, { status: 400 });
       }
       const resp = await productAttributeService.createAttributeValues({ attributeId: id, values });
       return Response.json(
@@ -343,14 +343,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       console.log("updateValue action called");
       const valueId = formData.get("valueId") as string;
       const value = (formData.get("value") as string)?.trim();
-      if (!valueId) return json({ success: false, error: "Thiếu valueId", status: 400 }, { status: 400 });
-      if (!value) return json({ success: false, error: "Giá trị không được trống", status: 400 }, { status: 400 });
+      if (!valueId) return json({ success: false, code: "VALIDATION_ERROR", message: "Thiếu valueId" }, { status: 400 });
+      if (!value) return json({ success: false, code: "VALIDATION_ERROR", message: "Giá trị không được trống" }, { status: 400 });
       const resp = await productAttributeService.updateAttributeValue({ valueId, value });
       return json({ success: true, data: resp.data, status: resp.status }, { status: resp.status });
     },
     deleteValue: async () => {
       const valueId = formData.get("valueId") as string;
-      if (!valueId) return json({ success: false, error: "Thiếu valueId", status: 400 }, { status: 400 });
+      if (!valueId) return json({ success: false, code: "VALIDATION_ERROR", message: "Thiếu valueId" }, { status: 400 });
       const resp = await productAttributeService.deleteAttributeValue({ valueId });
       return json({ success: true, data: resp.data, status: resp.status }, { status: resp.status });
     },

@@ -118,7 +118,7 @@ export async function action({ request }: any) {
     if (resp.status === 200) return Response.json(resp, { status: 200 });
     throw resp;
   } catch (error) {
-    return Response.json({ error, status: 400 }, { status: 400 });
+    return Response.json({ success: false, code: "VALIDATION_ERROR", message: error instanceof Error ? error.message : "Create attribute failed" }, { status: 400 });
   }
 }
 

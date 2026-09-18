@@ -29,25 +29,27 @@ const generateBarcode = async (transaction: Transaction): Promise<string> => {
   throw ApiError.conflict('Unable to generate a unique barcode')
 }
 
-const globalBaseUnitId = async (transaction: Transaction): Promise<number> => {
+const defaultUnitId = async (vendorId: number, transaction: Transaction): Promise<number> => {
   const unit: any = await Unit.findOne({
-    where: { name: 'Base unit', vendorId: null },
+    where: { name: 'Cái', vendorId },
     order: [['id', 'ASC']],
     transaction
   })
   const id = Number(unit?.get?.('id') ?? unit?.id)
-  if (!Number.isSafeInteger(id) || id < 1) {
-    throw ApiError.badRequest('Global Base unit is unavailable; run database migrations')
-  }
-  return id
+  if (Number.isSafeInteger(id) && id > 0) return id
+  const created: any = await Unit.create({ name: 'Cái', vendorId }, { transaction })
+  return Number(created.get('id'))
 }
 
-const normalize = async (input: BarcodeInput, transaction: Transaction, fallbackUnitId?: number | string | null) => {
+const normalize = async (input: BarcodeInput, vendorId: number, transaction: Transaction, fallbackUnitId?: number | string | null) => {
   // A null/omitted identifier asks the server to allocate one. Any supplied
   // value, including an empty string, remains a manual value and is validated.
   const barcode = input.barcode == null ? await generateBarcode(transaction) : String(input.barcode).trim()
   if (!barcode || barcode.length > 64) throw ApiError.badRequest('barcodes[].barcode must be 1 to 64 characters')
-  const unitId = input.unitId ?? fallbackUnitId ?? (await globalBaseUnitId(transaction))
+  // Default variants always use the vendor's `Cái` unit. A supplied unit is
+  // retained for existing/explicit pricing rows; the old product.unitId is
+  // deliberately not used as an implicit base-unit substitute.
+  const unitId = input.unitId ?? (await defaultUnitId(vendorId, transaction))
   const conversionRate = Number(input.conversionRate ?? 1)
   if (!Number.isInteger(conversionRate) || conversionRate <= 0) {
     throw ApiError.badRequest('barcodes[].conversionRate must be a positive integer')
@@ -80,12 +82,21 @@ export const syncVariantBarcodes = async (
   fallbackUnitId?: number | string | null
 ): Promise<void> => {
   const payload = Array.isArray(input) && input.length ? input : ([{}] as BarcodeInput[])
-  const rows = await Promise.all(payload.map((row) => normalize(row, transaction, fallbackUnitId)))
+  const rows = await Promise.all(payload.map((row) => normalize(row, vendorId, transaction, fallbackUnitId)))
   if (new Set(rows.map((row) => row.barcode.toUpperCase())).size !== rows.length) {
-    throw ApiError.conflict('Barcode values must be unique within a variant')
+    throw ApiError.conflict('Barcode values must be unique within a variant', { code: 'BARCODE_DUPLICATE' })
+  }
+  if (rows.filter((row) => row.conversionRate === 1).length !== 1) {
+    throw ApiError.badRequest('Each variant must have exactly one base unit (conversionRate = 1)', { code: 'VALIDATION_ERROR' })
   }
   const unitIds = rows.map((row) => Number(row.unitId))
   if (unitIds.some((id) => !Number.isSafeInteger(id) || id < 1)) throw ApiError.badRequest('barcodes[].unitId is invalid')
+  const duplicateUnitId = unitIds.find((unitId, index) => unitIds.indexOf(unitId) !== index)
+  if (duplicateUnitId !== undefined) {
+    const unit: any = await Unit.findByPk(duplicateUnitId, { transaction })
+    const unitName = unit?.get?.('name') ?? unit?.name ?? String(duplicateUnitId)
+    throw ApiError.badRequest(`Unit '${unitName}' is duplicated in this variant`, { code: 'VALIDATION_ERROR' })
+  }
   const units: any[] = await Unit.findAll({
     where: { id: unitIds, [Op.or]: [{ vendorId }, { vendorId: null }] },
     transaction
@@ -109,9 +120,13 @@ export const syncVariantBarcodes = async (
       if (hasSales && Number(current.get('conversionRate')) !== row.conversionRate) {
         throw ApiError.conflict('Cannot change conversionRate after a barcode has been sold')
       }
+      const duplicate: any = await ProductBarcode.findOne({ where: { barcode: row.barcode }, transaction })
+      if (duplicate && Number(duplicate.get('id')) !== id) throw ApiError.conflict('Barcode already exists', { code: 'BARCODE_DUPLICATE' })
       await current.update(attributes, { transaction })
       kept.add(id)
     } else {
+      const duplicate = await ProductBarcode.findOne({ where: { barcode: row.barcode }, transaction })
+      if (duplicate) throw ApiError.conflict('Barcode already exists', { code: 'BARCODE_DUPLICATE' })
       await ProductBarcode.create(attributes, { transaction })
     }
   }
@@ -122,5 +137,18 @@ export const syncVariantBarcodes = async (
       throw ApiError.conflict('Cannot remove a barcode referenced by an order')
     }
     await row.destroy({ transaction })
+  }
+
+  // Re-read under the caller's transaction lock after every insert/update/delete.
+  // This enforces the lower bound even if the payload handling changes later.
+  const baseRows = await ProductBarcode.findAll({
+    where: { variantId, conversionRate: 1 },
+    transaction,
+    ...(transaction.LOCK?.UPDATE && { lock: transaction.LOCK.UPDATE })
+  })
+  if (baseRows.length === 0) {
+    throw ApiError.badRequest('Each variant must have at least 1 base unit (conversionRate = 1)', {
+      code: 'VALIDATION_ERROR'
+    })
   }
 }

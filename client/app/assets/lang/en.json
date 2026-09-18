@@ -367,7 +367,15 @@
     "newVariant": "New variant",
     "barcode": "Barcode",
     "isActive": "Active",
-    "VAT": "VAT"
+    "VAT": "VAT",
+    "pricingUnits": "Pricing & units",
+    "conversionRate": "Conversion rate",
+    "baseUnit": "Base unit",
+    "baseUnitRequired": "Exactly one base row with rate 1 is required.",
+    "configurePricing": "Configure pricing & units",
+    "addConversion": "Add selling unit",
+    "wholesalePrice": "Wholesale price",
+    "outOfStock": "Out of stock"
   },
   "settings": {
     "moneyStep": "Money step (+/-)",

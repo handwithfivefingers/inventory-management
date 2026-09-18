@@ -36,9 +36,9 @@ import { ProductExcelService } from './product-excel.service'
 import { searchProducts, ProductSearchParams } from './product-search.service'
 import { resolveStringField, toVat } from './helper'
 import { syncVariantBarcodes } from './product-barcode'
-import { adjustStock } from './product-stock'
+import { adjustStock, adjustStockByBarcode } from './product-stock'
 import { CreateProductParams, PRODUCT_TYPE, ProductType, UpdateProductParams } from './product.types'
-import { applyVariantSync, createVariants } from './product-variant'
+import { applyVariantSync, createVariants, ensureDefaultVariant } from './product-variant'
 
 export { PRODUCT_TYPE }
 
@@ -252,7 +252,12 @@ export class ProductService {
     const { product, type, variants, warehouseId, vendorId, settings, defaultVariant, transaction } = args
 
     if (Number(type) === PRODUCT_TYPE.VARIANT) {
-      const created = await createVariants(variants || [], {
+      const hasConfiguredAttributes = (variants || []).some(
+        (variant) =>
+          (variant.attributeValues?.length ?? 0) > 0 ||
+          Object.keys(variant.options || variant.optionValues || {}).length > 0
+      )
+      const variantContext = {
         productId: product.id,
         vendorId,
         warehouseId,
@@ -260,23 +265,29 @@ export class ProductService {
         skuTemplate: settings?.skuTemplate,
         defaultUnitId: product.get?.('unitId') ?? product.unitId,
         transaction
-      })
+      }
+      // A product is never allowed to be created without a sellable row.
+      // Empty/no-attribute payloads are simple products represented by the
+      // standard default variant, even when an older client sends type=VARIANT.
+      const created = hasConfiguredAttributes
+        ? await createVariants(variants || [], variantContext)
+        : await ensureDefaultVariant(
+            { barcodes: variants?.[0]?.barcodes, quantity: variants?.[0]?.quantity ?? 0 },
+            variantContext
+          )
       return { variants: created }
     }
 
     // Simple products are represented by exactly one default variant.
 
-    const created = await createVariants(
-      [
-        {
-          skuCode: defaultVariant.skuCode,
-          barcodes: variants?.[0]?.barcodes,
-          VAT: defaultVariant.VAT,
-          imageUrl: defaultVariant.imageUrl ?? defaultVariant.image ?? null,
-          isNegative: defaultVariant.isNegative,
-          quantity: variants?.[0]?.quantity || 0
-        }
-      ],
+    const created = await ensureDefaultVariant(
+      {
+        barcodes: variants?.[0]?.barcodes,
+        VAT: defaultVariant.VAT,
+        imageUrl: defaultVariant.imageUrl ?? defaultVariant.image ?? null,
+        isNegative: defaultVariant.isNegative,
+        quantity: variants?.[0]?.quantity || 0
+      },
       {
         productId: product.id,
         vendorId,
@@ -452,6 +463,41 @@ export class ProductService {
     }
   }
 
+  /** Detail contract for product editing. Stock is warehouse-scoped and each
+   * selling unit gets a precomputed quotient/remainder display value. */
+  async getProductFull({ id, warehouseId, vendorId }: { id: string; warehouseId: string | number; vendorId: string | number }) {
+    if (!warehouseId) throw ApiError.forbidden('warehouseId is required', { code: 'FORBIDDEN' })
+    const product: any = await this.getProductById({ id, warehouseId, vendorId })
+    if (!product) throw ApiError.notFound('Product not found', { code: 'NOT_FOUND' })
+    const plain = product.get({ plain: true })
+    plain.variants = (plain.variants || []).map((variant: any) => {
+      const baseQuantity = Number((variant.inventories || []).find((row: any) => Number(row.warehouseId) === Number(warehouseId))?.quantity ?? 0)
+      const barcodes = [...(variant.barcodes || [])]
+        .sort((a: any, b: any) => Number(a.conversionRate) - Number(b.conversionRate))
+        .map((row: any) => {
+          const rate = Number(row.conversionRate)
+          return { ...row, stock: { baseQuantity, quantity: Math.floor(baseQuantity / rate), remainder: baseQuantity % rate } }
+        })
+      // The edit contract intentionally excludes raw inventory rows: exposing
+      // every warehouse here made clients accidentally sum stock across sites.
+      const { inventories: _inventories, ...variantWithoutInventories } = variant
+      return { ...variantWithoutInventories, baseQuantity, barcodes }
+    })
+    return plain
+  }
+
+  async adjustStockByBarcode(params: { barcode: string; quantity: number; type: 'IN' | 'OUT'; warehouseId: number }) {
+    const t = await this.sequelize.transaction()
+    try {
+      const result = await adjustStockByBarcode({ ...params, transaction: t })
+      await t.commit()
+      return result
+    } catch (error) {
+      await t.rollback()
+      throw ApiError.from(error, (error as any)?.status ?? 400)
+    }
+  }
+
   /**
    * List variants of a product with their attribute combination and,
    * optionally, per-warehouse stock. GET /products/:id/variants?warehouseId=1
@@ -586,7 +632,20 @@ export class ProductService {
       if (nextType === PRODUCT_TYPE.SIMPLE) {
         await this.switchToSimple(params, existingVariantCount, t)
       } else if (nextType === PRODUCT_TYPE.VARIANT) {
-        await this.syncVariants(product, vendorId, params, t, storedType === PRODUCT_TYPE.SIMPLE)
+        const variantSync = await this.syncVariants(product, vendorId, params, t, storedType === PRODUCT_TYPE.SIMPLE)
+        await t.commit()
+        // A removal of sold data is intentionally non-fatal. The client can
+        // notify the user that those variants were deactivated instead.
+        await evictCachedEntity('product', params.id)
+        return {
+          success: true,
+          softDeletedVariantIds: variantSync.softDeletedVariantIds,
+          warnings: variantSync.softDeletedVariantIds.map((id) => ({
+            code: 'VARIANT_SOFT_DELETED',
+            variantId: id,
+            message: `Variant ${id} has order history and was set to INACTIVE instead of deleted.`
+          }))
+        }
       }
       // Combo (2): base fields only; variant payload intentionally ignored.
 
@@ -696,14 +755,14 @@ export class ProductService {
     params: UpdateProductParams,
     t: Transaction,
     convertingFromSimple = false
-  ) {
+  ): Promise<{ softDeletedVariantIds: number[] }> {
     const { variants, removedVariantIds = [] } = params
-    if (variants === undefined && removedVariantIds.length === 0) return
+    if (variants === undefined && removedVariantIds.length === 0) return { softDeletedVariantIds: [] }
     if (!Array.isArray(variants ?? [])) throw new Error('variants must be an array')
     const defaultVariant = convertingFromSimple
       ? await ProductVariant.findOne({ where: { productId: params.id }, order: [['id', 'ASC']], transaction: t })
       : null
-    await applyVariantSync(
+    const syncResult = await applyVariantSync(
       product,
       vendorId,
       variants || [],
@@ -712,6 +771,23 @@ export class ProductService {
       t,
       defaultVariant ? Number(defaultVariant.get('id')) : undefined
     )
+    const remaining = await ProductVariant.count({ where: { productId: params.id }, transaction: t })
+    if (remaining === 0) {
+      const settings = await this.tryLoadSettings(vendorId)
+      await ensureDefaultVariant(
+        { skuCode: `P-${params.id}-DEFAULT`, quantity: 0 },
+        {
+          productId: Number(params.id),
+          vendorId,
+          warehouseId: Number(params.warehouseId),
+          baseSku: String(params.id),
+          skuTemplate: settings?.skuTemplate,
+          defaultUnitId: product.get?.('unitId') ?? product.unitId,
+          transaction: t
+        }
+      )
+    }
+    return syncResult
   }
 
   /* ------------------------------------------------------------------ */

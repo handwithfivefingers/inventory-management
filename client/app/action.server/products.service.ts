@@ -72,6 +72,12 @@ const productService = {
   getProductById: (id: string | number) => {
     return http.get<{ data: IProduct }>(API_PATH.products + "/" + id);
   },
+  getProductFull: (id: string | number) => {
+    return http.get<{ data: IProduct }>(`${API_PATH.products}/${id}/full`);
+  },
+  adjustStockByBarcode: (params: { barcode: string; quantity: number; type: "IN" | "OUT" }) => {
+    return http.post(`${API_PATH.products}/stock/by-barcode`, params);
+  },
   /**
    * Unified product query for POS/Sell and Admin views.
    * Tenant context (cookie / X-Vendor / X-Warehouse) is forwarded by the

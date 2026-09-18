@@ -1,5 +1,8 @@
 import Inventory from '#/database/models/inventory'
+import ProductBarcode from '#/database/models/productBarcode'
+import ProductVariant from '#/database/models/productVariant'
 import Transfer from '#/database/models/transfer'
+import { ApiError } from '#/response'
 import { Transaction } from 'sequelize'
 
 export interface AdjustStockParams {
@@ -63,7 +66,9 @@ export interface CreateOpeningStockParams {
 
 /**
  * Create the opening Inventory + Transfer('0') pair for a brand-new
- * product/variant. No-op (returns null) when quantity is 0 — nothing to record.
+ * product/variant. A zero row is still created, so the warehouse scope is
+ * explicit from the moment a sellable variant is created; zero does not create
+ * a transfer audit record.
  */
 export const createOpeningStock = async ({
   productId,
@@ -73,8 +78,6 @@ export const createOpeningStock = async ({
   transaction
 }: CreateOpeningStockParams) => {
   if (variantId === undefined || variantId === null || variantId === '') throw new Error('variantId is required')
-  if (!quantity) return null
-
   const inventory: any = await Inventory.create(
     {
       warehouseId,
@@ -85,7 +88,7 @@ export const createOpeningStock = async ({
     { transaction }
   )
 
-  const transfer: any = await Transfer.create(
+  const transfer: any = quantity ? await Transfer.create(
     {
       fromWarehouseId: warehouseId,
       quantity,
@@ -94,7 +97,67 @@ export const createOpeningStock = async ({
       type: '0'
     },
     { transaction }
-  )
+  ) : null
 
   return { inventory, transfer }
+}
+
+/** Adjust stock by a scanned selling barcode. Quantities in inventories remain
+ * base-unit quantities; barcode conversion is applied only at this boundary. */
+export const adjustStockByBarcode = async ({
+  barcode,
+  quantity,
+  type,
+  warehouseId,
+  transaction
+}: {
+  barcode: string
+  quantity: number
+  type: 'IN' | 'OUT'
+  warehouseId: number
+  transaction: Transaction
+}) => {
+  if (type !== 'IN' && type !== 'OUT') {
+    throw ApiError.badRequest('type must be IN or OUT', { code: 'VALIDATION_ERROR' })
+  }
+  if (!String(barcode || '').trim()) {
+    throw ApiError.badRequest('barcode is required', { code: 'VALIDATION_ERROR' })
+  }
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    throw ApiError.badRequest('quantity must be a positive integer', { code: 'VALIDATION_ERROR' })
+  }
+  const barcodeRow: any = await ProductBarcode.findOne({
+    where: { barcode },
+    include: [{ model: ProductVariant, required: true }],
+    transaction,
+    lock: transaction.LOCK.UPDATE
+  })
+  if (!barcodeRow) throw ApiError.notFound('Barcode not found', { code: 'NOT_FOUND' })
+  const variant: any = barcodeRow.get('productVariant')
+  const variantId = Number(barcodeRow.get('variantId'))
+  const productId = Number(variant.get('productId'))
+  const baseQuantity = quantity * Number(barcodeRow.get('conversionRate'))
+  let inventory: any = await Inventory.findOne({
+    where: { variantId, warehouseId },
+    transaction,
+    lock: transaction.LOCK.UPDATE
+  })
+  const current = Number(inventory?.get('quantity') ?? 0)
+  const next = type === 'IN' ? current + baseQuantity : current - baseQuantity
+  if (type === 'OUT' && next < 0 && !Boolean(variant.get('isNegative'))) {
+    throw ApiError.badRequest(
+      `Insufficient stock: ${current} base units available; requested ${quantity} × ${barcodeRow.get('conversionRate')} = ${baseQuantity}`,
+      { code: 'INSUFFICIENT_STOCK' }
+    )
+  }
+  if (inventory) await inventory.update({ quantity: next }, { transaction })
+  else inventory = await Inventory.create({ productId, variantId, warehouseId, quantity: next }, { transaction })
+  await Transfer.create({
+    fromWarehouseId: warehouseId,
+    productId,
+    variantId,
+    quantity: baseQuantity,
+    type: type === 'IN' ? '0' : '1'
+  }, { transaction })
+  return { inventory, baseQuantity, quantity: next, variantId, productId }
 }

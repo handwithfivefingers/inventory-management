@@ -9,7 +9,7 @@ import { ProductVariant } from './productVariant'
   timestamps: true,
   indexes: [
     // Unified search joins stock per (variant, warehouse) for POS exact/scan reads.
-    { fields: ['variantId', 'warehouseId'] },
+    { unique: true, fields: ['variantId', 'warehouseId'], name: 'inventories_variant_warehouse_unique' },
     { fields: ['productId'] },
     { fields: ['warehouseId'] }
   ]

@@ -15,7 +15,7 @@ export const getEffectiveProductPrice = (item: Partial<IProduct> | Partial<IProd
   0;
 
 export const getBaseBarcode = (variant: Partial<IProductVariant>): IProductBarcode | undefined =>
-  variant.barcodes?.find((barcode) => barcode.isBaseUnit) ?? variant.barcodes?.[0];
+  variant.barcodes?.find((barcode) => Number(barcode.conversionRate) === 1) ?? variant.barcodes?.[0];
 
 export const getBarcodeRetailPrice = (barcode?: Partial<IProductBarcode>): number | undefined => {
   if (!barcode) return undefined;

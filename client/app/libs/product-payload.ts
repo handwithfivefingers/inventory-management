@@ -13,7 +13,6 @@ const BARCODE_FIELDS = [
   "promoPrice",
   "promoStartAt",
   "promoEndAt",
-  "isBaseUnit",
 ] as const;
 
 const VARIANT_FIELDS = [

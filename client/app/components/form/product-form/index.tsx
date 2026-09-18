@@ -21,12 +21,9 @@ export const mapSimpleVariantToProductForm = (
   product: IProduct,
   variant = getSimpleVariant(product)
 ) => {
-  const quantity = variant?.inventories?.length
-    ? variant.inventories.reduce(
-        (sum, inventory) => sum + Number(inventory.quantity || 0),
-        0
-      )
-    : variant?.quantity ?? product.quantity;
+  // Product detail is warehouse-scoped; `baseQuantity` is already calculated
+  // by the API and must not be recomputed from raw inventory rows.
+  const quantity = (variant as any)?.baseQuantity ?? variant?.quantity ?? product.quantity;
 
   return {
     skuCode: variant?.skuCode ?? product.skuCode ?? "",

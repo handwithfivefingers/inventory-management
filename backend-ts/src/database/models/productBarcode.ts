@@ -18,7 +18,12 @@ import { Unit } from './units'
   tableName: 'product_barcodes',
   modelName: 'productBarcode',
   timestamps: true,
-  indexes: [{ unique: true, fields: ['barcode'] }, { fields: ['variantId'] }, { fields: ['unitId'] }]
+  indexes: [
+    { unique: true, fields: ['barcode'] },
+    { fields: ['variantId'] },
+    { fields: ['unitId'] },
+    { unique: true, fields: ['variantId', 'unitId'], name: 'product_barcodes_variant_unit_unique' }
+  ]
 })
 export class ProductBarcode extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })

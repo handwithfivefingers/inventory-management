@@ -30,7 +30,6 @@ export const BarcodeManager = ({ index, units }: BarcodeManagerProps) => {
             retailPrice: 0,
             wholesalePrice: 0,
             promoPrice: null,
-            isBaseUnit: true,
           },
         ],
         { shouldDirty: true },
@@ -47,7 +46,6 @@ export const BarcodeManager = ({ index, units }: BarcodeManagerProps) => {
       retailPrice: 0,
       wholesalePrice: 0,
       promoPrice: null,
-      isBaseUnit: true,
     });
   };
 
@@ -83,6 +81,7 @@ export const BarcodeManager = ({ index, units }: BarcodeManagerProps) => {
                       label="Quy đổi đơn vị"
                       value={field.value}
                       step={1}
+                      disabled={Number(field.value) === 1}
                       onValueChange={(value) => field.onChange(value.value)}
                     />
                   )}

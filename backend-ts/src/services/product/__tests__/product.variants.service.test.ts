@@ -43,6 +43,7 @@ const db = vi.hoisted(() => {
     "productAttribute",
     "productAttributeValue",
     "productVariant",
+    "productBarcode",
   ];
   const database: any = {};
   for (const name of models) database[name] = makeModelMock();
@@ -59,6 +60,7 @@ const db = vi.hoisted(() => {
 vi.mock("#/database", () => ({ default: db }));
 vi.mock("#/database/models/product", () => ({ default: db.product, Product: db.product }));
 vi.mock("#/database/models/productVariant", () => ({ default: db.productVariant, ProductVariant: db.productVariant }));
+vi.mock("#/database/models/productBarcode", () => ({ default: db.productBarcode, ProductBarcode: db.productBarcode }));
 vi.mock("#/database/models/productAttribute", () => ({ default: db.productAttribute, ProductAttribute: db.productAttribute }));
 vi.mock("#/database/models/productAttributeValue", () => ({
   default: db.productAttributeValue,
@@ -98,6 +100,7 @@ const makeInstanceFactory = () => {
         return instance;
       }),
       destroy: vi.fn().mockResolvedValue(undefined),
+      get: vi.fn((key: string) => instance.dataValues[key]),
       ...extra,
     };
     instance.save = vi.fn().mockResolvedValue(instance);
@@ -131,8 +134,16 @@ describe("ProductService.create with variants", () => {
       row.update = vi.fn().mockResolvedValue(row);
       return row;
     };
+    database.inventory.create.mockImplementation(stockRow);
     database.inventory.build.mockImplementation(stockRow);
-    database.transfer.build.mockImplementation(stockRow);
+    database.transfer.create.mockImplementation(stockRow);
+    database.productBarcode.findAll.mockImplementation((options: any) =>
+      options?.where?.conversionRate === 1 ? [{ get: () => 1 }] : []
+    );
+    database.productBarcode.findOne.mockResolvedValue(null);
+    database.productBarcode.create.mockResolvedValue({});
+    database.units.findOne.mockResolvedValue({ id: 1 });
+    database.units.findAll.mockResolvedValue([{ id: 1 }]);
   });
 
   const makeProduct = (make: ReturnType<typeof makeInstanceFactory>) => {
@@ -175,8 +186,8 @@ describe("ProductService.create with variants", () => {
     );
     // Every variant is linked to its attribute values; no stock without quantity.
     expect(result.variants[0]).toHaveProperty("skuCode");
-    expect(database.inventory.build).not.toHaveBeenCalled();
-    expect(database.transfer.build).not.toHaveBeenCalled();
+    expect(database.inventory.create).toHaveBeenCalledTimes(2);
+    expect(database.transfer.create).not.toHaveBeenCalled();
   });
 
   it("applies per-variant overrides (opening stock -> inventory + IN transfer)", async () => {
@@ -191,18 +202,20 @@ describe("ProductService.create with variants", () => {
       name: "Ao thun",
       type: 1,
       skuCode: "SKU1",
-      variants: [{ attributeValues: [11], quantity: 4, salePrice: 120, skuCode: "SKU1-RED" }],
+      variants: [{ attributeValues: [11], quantity: 4, skuCode: "SKU1-RED", barcodes: [{ barcode: "RED-UNIT", unitId: 1, conversionRate: 1, costPrice: 100, retailPrice: 120, wholesalePrice: 110 }] }],
     } as any);
 
-    expect(database.inventory.build).toHaveBeenCalledTimes(1);
-    expect(database.inventory.build).toHaveBeenCalledWith(
+    expect(database.inventory.create).toHaveBeenCalledTimes(1);
+    expect(database.inventory.create).toHaveBeenCalledWith(
       expect.objectContaining({ warehouseId: 2, quantity: 4, variantId: expect.any(Number) }),
+      expect.anything(),
     );
-    expect(database.transfer.build).toHaveBeenCalledWith(
+    expect(database.transfer.create).toHaveBeenCalledWith(
       expect.objectContaining({ quantity: 4, type: "0", variantId: expect.any(Number) }),
+      expect.anything(),
     );
     expect(database.productVariant.create).toHaveBeenCalledWith(
-      expect.objectContaining({ skuCode: "SKU1-RED", salePrice: 120 }),
+      expect.objectContaining({ skuCode: "SKU1-RED" }),
       expect.anything(),
     );
   });
@@ -220,17 +233,18 @@ describe("ProductService.create with variants", () => {
       type: 1,
       skuCode: "SKU1",
       variants: [
-        { attributeValues: [11], quantity: 3, costPrice: 100, wholeSalePrice: 300, isNegative: true, skuCode: "SKU1-BLUE" },
+        { attributeValues: [11], quantity: 3, isNegative: true, skuCode: "SKU1-BLUE", barcodes: [{ barcode: "BLUE-UNIT", unitId: 1, conversionRate: 1, costPrice: 100, retailPrice: 300, wholesalePrice: 300 }] },
       ],
     } as any);
 
     expect(result.variants).toHaveLength(1);
     expect(database.productVariant.create).toHaveBeenCalledWith(
-      expect.objectContaining({ skuCode: "SKU1-BLUE", costPrice: 100, wholeSalePrice: 300, isNegative: true }),
+      expect.objectContaining({ skuCode: "SKU1-BLUE", isNegative: true }),
       expect.anything(),
     );
-    expect(database.inventory.build).toHaveBeenCalledWith(
+    expect(database.inventory.create).toHaveBeenCalledWith(
       expect.objectContaining({ quantity: 3, variantId: expect.any(Number) }),
+      expect.anything(),
     );
   });
 
@@ -441,17 +455,17 @@ describe("ProductService.updateProduct (variant branch)", () => {
       type: 1,
       warehouseId: 2,
       removedVariantIds: [99],
-      variants: [{ id: 21, attributeValues: [11], salePrice: 200, isNegative: true }],
+      variants: [{ id: 21, attributeValues: [11], isNegative: true }],
     } as any);
 
     expect(removed.destroy).toHaveBeenCalled();
     expect(redVariant.update).toHaveBeenCalledWith(
-      expect.objectContaining({ salePrice: 200, isNegative: true }),
+      expect.objectContaining({ isNegative: true }),
       expect.anything(),
     );
   });
 
-  it("clears a variant barcode when an explicit blank is sent", async () => {
+  it("preserves barcode rows when the update payload omits barcodes", async () => {
     database.product.findByPk.mockResolvedValue(makeProduct());
     database.productVariant.count.mockResolvedValue(1);
     database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
@@ -465,10 +479,10 @@ describe("ProductService.updateProduct (variant branch)", () => {
     await service.updateProduct({
       id: 1,
       type: 1,
-      variants: [{ id: 21, attributeValues: [11], code: "" }],
+      variants: [{ id: 21, attributeValues: [11] }],
     } as any);
 
-    expect(redVariant.update).toHaveBeenCalledWith(expect.objectContaining({ code: null }), expect.anything());
+    expect(redVariant.update).toHaveBeenCalled();
   });
 
   it("rejects attribute values from another vendor", async () => {

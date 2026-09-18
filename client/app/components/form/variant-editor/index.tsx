@@ -22,6 +22,7 @@ import { buildCombos, filterVariantOptionsByAttributes, hasVariantOptionsChanged
 import { FormControl } from "../form-control";
 import { TextInput } from "../text-input";
 import { NumberStepper } from "../number-stepper";
+import { VariantMasterGrid } from "./variant-master-grid";
 
 export type {
   AttributeValueOption,
@@ -53,7 +54,7 @@ const getUsableAttributes = (attributes: IVariantAttributeDraft[]) =>
     }))
     .filter((attribute) => attribute.name && attribute.values.length > 0);
 
-export const VariantEditor = (
+const LegacyVariantEditor = (
   { seed, protectFirstVariant = false, units = [], type }: VariantEditorProps = { type: 0 },
 ) => {
   const { settings } = useOutletContext<{ settings: IVendorSettings }>();
@@ -182,7 +183,7 @@ export const VariantEditor = (
           const variant = variants[index] || ({} as IVariantDraft);
           const isLocked = type === 0 || (protectFirstVariant && index === 0 && Boolean(variant.variantId));
           const isExpanded = type !== 1 || expandedIndex === index;
-          const baseBarcode = variant.barcodes?.find((row) => row.isBaseUnit);
+          const baseBarcode = variant.barcodes?.find((row) => Number(row.conversionRate) === 1);
           console.log("field", field);
           return (
             <div key={field.id} className="border-b border-slate-200 last:border-b-0 dark:border-slate-700">
@@ -368,4 +369,38 @@ export const VariantEditor = (
       />
     </div>
   );
+};
+
+/** Product edit surface: attributes remain above the compact master grid;
+ * unit-specific editing is deliberately isolated in PricingUnitDrawer. */
+export const VariantEditor = ({ seed, units = [], type }: VariantEditorProps = { type: 0 }) => {
+  const form = useFormContext<ProductSchemaType>();
+  const { t } = useTranslation();
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'variants' });
+  const attributes = (useWatch({ control: form.control, name: 'variantAttributes' }) || []) as IVariantAttributeDraft[];
+  const variants = (useWatch({ control: form.control, name: 'variants' }) || []) as IVariantDraft[];
+  const usable = getUsableAttributes(attributes);
+
+  const generate = () => {
+    if (!usable.length) return;
+    const existing = new Set(variants.map((variant) => optionKeyOf(variant.options)));
+    const additions = buildCombos(usable).filter((options) => !existing.has(optionKeyOf(options))).map((options) => ({
+      ...(seed || { quantity: 0, isNegative: false, barcodes: [] }), options
+    }));
+    if (additions.length) {
+      form.setValue('type', 1, { shouldDirty: true });
+      additions.forEach((variant) => append(variant as any));
+    }
+  };
+  const add = () => {
+    form.setValue('type', 1, { shouldDirty: true });
+    append(({ ...(seed || {}), options: {}, quantity: seed?.quantity ?? 0, isNegative: seed?.isNegative ?? false, barcodes: seed?.barcodes || [] }) as any);
+  };
+  return <div className="flex h-full flex-col gap-3">
+    {type === 1 && <><AttributeVariant /><div className="flex justify-end gap-2">
+      <TMButton type="button" size="sm" variant="outline" disabled={!usable.length} onClick={generate}>{t('product.generateAllVariants')}</TMButton>
+      <TMButton type="button" size="sm" onClick={add}>{t('product.addVariant')}</TMButton>
+    </div></>}
+    <VariantMasterGrid fields={fields as any} units={units} type={type} attributes={attributes} onRemove={remove} />
+  </div>;
 };

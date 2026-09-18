@@ -37,6 +37,19 @@ function resolveStatus(explicit: number | undefined, fallback: number | undefine
   return defaultStatus
 }
 
+function databaseConflictMessage(error: SequelizeLikeError): string {
+  const field = Object.keys(error.fields ?? {})[0]?.toLowerCase()
+  if (field?.includes('barcode')) return 'Barcode already exists'
+  if (field?.includes('sku')) return 'SKU already exists'
+  if (field?.includes('unit')) return 'Unit is already in use for this variant'
+  if (error.name === 'SequelizeForeignKeyConstraintError') return 'This record is referenced by existing data'
+  return 'A record with the same value already exists'
+}
+
+function isDatabaseConflict(error: SequelizeLikeError | null): boolean {
+  return Boolean(error && ['SequelizeUniqueConstraintError', 'SequelizeForeignKeyConstraintError'].includes(error.name ?? ''))
+}
+
 export class ApiError extends Error {
   public readonly status: number
   public readonly code?: string
@@ -53,7 +66,9 @@ export class ApiError extends Error {
 
     const derivedMessage = isStringInput
       ? (arg1 as string)
-      : sequelizeError?.sqlMessage || causeAsError?.message || 'Internal Server Error'
+      : isDatabaseConflict(sequelizeError)
+        ? databaseConflictMessage(sequelizeError!)
+        : sequelizeError?.sqlMessage || causeAsError?.message || 'Internal Server Error'
 
     super(derivedMessage, causeAsError ? ({ cause: causeAsError } as any) : undefined)
     Object.setPrototypeOf(this, ApiError.prototype)
@@ -61,9 +76,9 @@ export class ApiError extends Error {
     this.name = (causeAsError as any)?.name ?? (isStringInput ? 'ApiError' : 'Error')
 
     const explicitStatus = Number.isFinite(status) ? status : options.status
-    this.status = resolveStatus(explicitStatus, undefined, 400)
+    this.status = isDatabaseConflict(sequelizeError) ? 409 : resolveStatus(explicitStatus, undefined, 400)
 
-    this.code = options.code ?? sequelizeError?.code ?? (causeAsError as any)?.code
+    this.code = options.code ?? (isDatabaseConflict(sequelizeError) ? 'DATABASE_CONFLICT' : sequelizeError?.code ?? (causeAsError as any)?.code)
     this.fields = options.fields ?? sequelizeError?.fields ?? (causeAsError as any)?.fields
 
     if (cause && !(this as any).cause) {
@@ -73,9 +88,9 @@ export class ApiError extends Error {
 
   toJSON(): Record<string, unknown> {
     return {
-      error: this.message,
-      status: this.status,
-      ...(this.code !== undefined && { code: this.code }),
+      success: false,
+      code: this.code ?? (this.status === 404 ? 'NOT_FOUND' : this.status === 403 ? 'FORBIDDEN' : 'VALIDATION_ERROR'),
+      message: this.message,
       ...(this.fields !== undefined && { fields: this.fields })
     }
   }
@@ -161,7 +176,7 @@ export function handleErrors(a: unknown, b: unknown, c: unknown, d?: unknown): v
   const status = Number.isFinite(rawStatus) ? rawStatus : 500
   const isClientError = status >= 400 && status < 500
 
-  const body = isClientError ? apiError.toJSON() : { error: 'Internal Server Error', status }
+  const body = isClientError ? apiError.toJSON() : { success: false, code: 'INTERNAL_ERROR', message: 'Internal Server Error' }
 
   // Ensure status reflects apiError for client errors but allow err.status override for 5xx generic
   // Use computed status so monitoring sees real fault rates (mirrors src/index.ts:68)

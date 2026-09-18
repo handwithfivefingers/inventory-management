@@ -80,6 +80,7 @@ Router.post(
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { query: { type: 'string' }, context: { type: 'string', enum: ['POS', 'ADMIN'] }, warehouse_id: { type: 'integer' }, page: { type: 'integer', default: 1 }, limit: { type: 'integer', default: 20 } }, required: ['context'] } } */
   new ProductController().search
 )
+Router.post('/stock/by-barcode', new ProductController().adjustStockByBarcode as any)
 // NOTE: must be registered before '/:id' so "attributes" is not captured as an id
 Router.get(
   '/attributes',
@@ -165,6 +166,11 @@ Router.get(
   new ProductAttributeController().listProducts
 )
 
+Router.get(
+  '/:id/full',
+  productIdValidation as any,
+  new ProductController().getProductFull
+)
 Router.get(
   '/:id',
   productIdValidation as any,
