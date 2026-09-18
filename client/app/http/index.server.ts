@@ -22,13 +22,20 @@ export interface IHTTPService {
 export class ResponseError extends Error {
   status: number;
   constructor(error: { error: string; status: number } | Error) {
-    const { error: message, status } = error as { error: string; status: number };
+    const { error: message, status } = error as {
+      error: string;
+      status: number;
+    };
     super(message);
     this.status = status;
   }
 }
 
-function logger(target: HTTPService, propertyKey: string, descriptor: PropertyDescriptor) {
+function logger(
+  target: HTTPService,
+  propertyKey: string,
+  descriptor: PropertyDescriptor
+) {
   const originalMethod = descriptor.value;
   const keyName = propertyKey.toUpperCase();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,7 +51,11 @@ function logger(target: HTTPService, propertyKey: string, descriptor: PropertyDe
       const result = await originalMethod.apply(this, args);
       return result;
     } catch (error) {
-      debugLogger && console.error(`\x1b[31m[Logger] Error in ${keyName}:`, JSON.stringify(error, null, 2));
+      debugLogger &&
+        console.error(
+          `\x1b[31m[Logger] Error in ${keyName}:`,
+          JSON.stringify(error, null, 2)
+        );
       debugLogger && console.log("\x1b[0m");
       throw error;
     }
@@ -67,7 +78,11 @@ class HTTPService {
     this.BASE_URL = props?.BASE_URL || import.meta.env.VITE_API_PATH;
   }
 
-  private send = async <T, Body extends {} = never>(url: string, options?: Record<string, string>, body?: Body) => {
+  private send = async <T, Body extends {} = never>(
+    url: string,
+    options?: Record<string, string>,
+    body?: Body
+  ) => {
     const response: {
       data: T;
       status: number;
@@ -123,15 +138,25 @@ class HTTPService {
   }
 
   @logger
-  async get<T>(params: IGetParams, options?: Record<string, string>): Promise<IResponse<T | undefined>> {
+  async get<T>(
+    params: IGetParams,
+    options?: Record<string, string>
+  ): Promise<IResponse<T | undefined>> {
     return this.send<T>(params, { method: "GET", ...options });
   }
 
   @logger
-  async post<R, T extends {}>(apiPath: string, params?: T, options?: Record<string, string>): Promise<IResponse<R>> {
+  async post<R, T extends {}>(
+    apiPath: string,
+    params?: T,
+    options?: Record<string, string>
+  ): Promise<IResponse<R>> {
     return this.send<R, T>(apiPath, { method: "POST", ...options }, params);
   }
-  postUpload = async <R>(apiPath: string, params: IPostParams<FormData>): Promise<IResponse<R>> => {
+  postUpload = async <R>(
+    apiPath: string,
+    params: IPostParams<FormData>
+  ): Promise<IResponse<R>> => {
     try {
       const response = await fetch(this.BASE_URL + apiPath, {
         headers: { ...this.tenantHeaders() },
@@ -141,14 +166,19 @@ class HTTPService {
         body: params.data,
       });
       const data = await response.json();
-      if (response.status !== 200) throw { message: data.message, status: response.status, ...data };
+      if (response.status !== 200)
+        throw { message: data.message, status: response.status, ...data };
       return { data: data, status: response.status };
     } catch (error) {
       console.log("error", error);
       throw { error: error, message: error?.toString(), status: 400 };
     }
   };
-  put = async <R, T>(apiPath: string, params: T, options?: Record<string, string>): Promise<IResponse<R>> => {
+  put = async <R, T>(
+    apiPath: string,
+    params: T,
+    options?: Record<string, string>
+  ): Promise<IResponse<R>> => {
     try {
       const response = await fetch(this.BASE_URL + apiPath, {
         headers: { ...this.headers, ...this.tenantHeaders(), ...options },
@@ -161,12 +191,25 @@ class HTTPService {
       return { status: response.status };
     } catch (error) {
       console.log(JSON.stringify(error, null, 2));
-      const apiError = error as { error?: string; message?: string; status?: number };
-      const message = apiError?.error || apiError?.message || (error instanceof Error ? error.message : String(error));
-      throw new ResponseError({ error: message, status: Number(apiError?.status) || 400 });
+      const apiError = error as {
+        error?: string;
+        message?: string;
+        status?: number;
+      };
+      const message =
+        apiError?.error ||
+        apiError?.message ||
+        (error instanceof Error ? error.message : String(error));
+      throw new ResponseError({
+        error: message,
+        status: Number(apiError?.status) || 400,
+      });
     }
   };
-  delete = async <R>(apiPath: string, options?: Record<string, string>): Promise<IResponse<R>> => {
+  delete = async <R>(
+    apiPath: string,
+    options?: Record<string, string>
+  ): Promise<IResponse<R>> => {
     try {
       const response = await fetch(this.BASE_URL + apiPath, {
         headers: { ...this.headers, ...this.tenantHeaders(), ...options },
@@ -174,10 +217,22 @@ class HTTPService {
         credentials: "include",
         method: "DELETE",
       });
-      if (response.status !== 200) throw new Error("Delete failed");
+      if (!response.ok) throw await response.json();
       return { status: response.status };
     } catch (error) {
-      throw { message: error?.toString(), status: 400 };
+      const apiError = error as {
+        error?: string;
+        message?: string;
+        status?: number;
+      };
+      const message =
+        apiError?.error ||
+        apiError?.message ||
+        (error instanceof Error ? error.message : "Delete failed");
+      throw new ResponseError({
+        error: message,
+        status: Number(apiError?.status) || 400,
+      });
     }
   };
 

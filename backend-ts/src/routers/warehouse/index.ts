@@ -56,5 +56,13 @@ route.put(
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/WarehouseBody' } } */
   new WarehouseController().update as any
 )
+route.delete(
+  '/:id',
+  warehouseIdValidation as any,
+  // #swagger.tags = ['Warehouses']
+  // #swagger.summary = 'Soft-delete a non-main warehouse with no inventory or unfinished orders'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  new WarehouseController().delete as any
+)
 
 export default route

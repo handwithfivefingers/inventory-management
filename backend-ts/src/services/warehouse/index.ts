@@ -142,6 +142,55 @@ export class WarehouseService {
   }
 
   /**
+   * Soft-delete a warehouse only after it is safe to take out of operation.
+   * Historical records remain intact because Warehouse is a paranoid model.
+   */
+  async delete({ id, vendorId }: { id: number | string; vendorId?: number | string }) {
+    const t = await this.sequelize.transaction()
+    try {
+      const warehouse = await this.warehouse.findOne({
+        where: { id, vendorId },
+        transaction: t
+      })
+      if (!warehouse) throw ApiError.notFound('Warehouse not found')
+      if ((warehouse as any).isMain) {
+        throw ApiError.conflict('Main warehouse cannot be deleted')
+      }
+
+      const quantity = Number(
+        await database.inventory.sum('quantity', {
+          where: { warehouseId: Number(id) },
+          transaction: t
+        })
+      )
+      if (Number.isFinite(quantity) && quantity > 0) {
+        throw ApiError.conflict('Warehouse still has inventory. Transfer stock before deleting it')
+      }
+
+      // `draft` is the only current unfinished order state. Using a final-state
+      // allow-list keeps this safeguard correct if more in-progress states are added.
+      const unfinishedOrderCount = await database.order.count({
+        where: {
+          warehouseId: Number(id),
+          status: { [Op.notIn]: ['completed', 'partially_returned', 'returned'] }
+        },
+        transaction: t
+      })
+      if (unfinishedOrderCount > 0) {
+        throw ApiError.conflict('Warehouse is linked to unfinished orders')
+      }
+
+      await (warehouse as any).destroy({ transaction: t })
+      await t.commit()
+      await evictCachedEntity('warehouse', Number(id))
+      return true
+    } catch (error) {
+      await t.rollback()
+      throw ApiError.from(error)
+    }
+  }
+
+  /**
    * Stock transfer between two warehouses of the same vendor.
    * Items: [{ productId, variantId?, quantity }].
    * Decrements stock at the source, increments at the destination, and

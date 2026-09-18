@@ -5,6 +5,7 @@ export interface IWareHouse {
   email?: string;
   address?: string;
   isMain: boolean;
+  quantity?: number;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -20,7 +20,7 @@ const warehouseService = {
   getWareHouses: (params: IWarehouseParams) => {
     const qs = new URLSearchParams(params as any);
     return HTTPService.getInstance().get<{ data: IWareHouse[]; total: number }>(
-      API_PATH.warehouse + `?${qs.toString()}`,
+      API_PATH.warehouse + `?${qs.toString()}`
     );
   },
   // ???
@@ -30,13 +30,21 @@ const warehouseService = {
   //   return HTTPService.getInstance().get(API_PATH.inventory + "?" + params.toString());
   // },
   getWareHouseById: (id: string | number) => {
-    return HTTPService.getInstance().get<{ data: IWareHouse }>(API_PATH.warehouse + "/" + id);
+    return HTTPService.getInstance().get<{ data: IWareHouse }>(
+      API_PATH.warehouse + "/" + id
+    );
   },
   createWarehouse: (params: Partial<IWareHouse>) => {
     return HTTPService.getInstance().post(API_PATH.warehouse, params);
   },
-  updateWarehouse: ({ id, ...params }: Partial<IWareHouse> & { id: string | number }) => {
+  updateWarehouse: ({
+    id,
+    ...params
+  }: Partial<IWareHouse> & { id: string | number }) => {
     return HTTPService.getInstance().put(API_PATH.warehouse + "/" + id, params);
+  },
+  deleteWarehouse: (id: string | number) => {
+    return HTTPService.getInstance().delete(API_PATH.warehouse + "/" + id);
   },
 };
 

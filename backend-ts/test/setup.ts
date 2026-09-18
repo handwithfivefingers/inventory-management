@@ -13,7 +13,8 @@ const db = vi.hoisted(() => {
     'count',
     'bulkCreate',
     'findOrCreate',
-    'decrement'
+    'decrement',
+    'sum'
   ]
   const makeModelMock = () => {
     const m: any = {}

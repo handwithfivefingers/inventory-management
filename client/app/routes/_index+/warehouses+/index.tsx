@@ -1,4 +1,8 @@
-import type { MetaFunction } from "@remix-run/node";
+import {
+  json,
+  type ActionFunctionArgs,
+  type MetaFunction,
+} from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { LoaderFunctionArgs } from "react-router";
 import { warehouseService } from "~/action.server/warehouse.service";
@@ -16,6 +20,8 @@ import { getLoaderRequestQuery } from "~/libs/utils";
 import { IWareHouse } from "~/types/warehouse";
 import { Icon } from "~/components/icon";
 import { MODULE_ENUM } from "~/constants/modules";
+import { toast } from "~/components/notification";
+import { useSubmitPromise } from "~/hooks";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { page, pageSize } = getLoaderRequestQuery(request);
@@ -29,17 +35,68 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export const meta: MetaFunction = () => {
-  return [{ title: "Kho bãi" }, { name: "description", content: "Quản lý kho bãi" }];
+  return [
+    { title: "Kho bãi" },
+    { name: "description", content: "Quản lý kho bãi" },
+  ];
 };
+
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const id = formData.get("id");
+  if (!id)
+    return json(
+      { status: 400, error: "Missing warehouse id" },
+      { status: 400 }
+    );
+
+  try {
+    const response = await warehouseService.deleteWarehouse(id.toString());
+    return json({ status: response.status });
+  } catch (error: any) {
+    return json(
+      {
+        status: error?.status ?? 400,
+        error: error?.message ?? "Delete failed",
+      },
+      { status: error?.status ?? 400 }
+    );
+  }
+}
 
 export default function WareHouses() {
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  console.log(`{ data, total, page, pageSize }`, { data, total, page, pageSize });
+  const { submit: deleteWarehouse, isLoading: isDeleting } = useSubmitPromise();
+
+  const handleDelete = async (warehouse: IWareHouse) => {
+    if (!confirm(t("warehouses.deleteConfirm"))) return;
+    try {
+      const response = await deleteWarehouse<{
+        status: number;
+        error?: string;
+      }>({ id: String(warehouse.id) }, { method: "post" });
+      if (Number(response?.status) >= 400)
+        throw new Error(response.error || t("warehouses.deleteFailed"));
+      toast.success({
+        title: t("common.success"),
+        message: t("warehouses.deleteSuccess"),
+      });
+    } catch (error) {
+      toast.danger({
+        title: t("common.error"),
+        message: (error as Error).message,
+      });
+    }
+  };
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
-      <PermissionGuard permission="READ" module={MODULE_ENUM.warehouse} requireAdmin>
+      <PermissionGuard
+        permission="READ"
+        module={MODULE_ENUM.warehouse}
+        requireAdmin
+      >
         <CreateFab to="./add" label={t("common.add")} />
       </PermissionGuard>
       <CardItem
@@ -67,14 +124,27 @@ export default function WareHouses() {
             <TextInput placeholder={t("warehouses.searchPlaceholder")} />
             <div className="ml-auto block my-auto">
               <div className="flex gap-2 flex-wrap flex-row">
-                <PermissionGuard permission="UPDATE" module={MODULE_ENUM.warehouse} requireAdmin>
+                <PermissionGuard
+                  permission="UPDATE"
+                  module={MODULE_ENUM.warehouse}
+                  requireAdmin
+                >
                   <TMButton component={Link} to={"./transfer"} size="sm">
                     <Icon name="repeat" fontSize={16} />
                     <span>Chuyển kho</span>
                   </TMButton>
                 </PermissionGuard>
-                <PermissionGuard permission="READ" module={MODULE_ENUM.warehouse} requireAdmin>
-                  <TMButton component={Link} to={"./add"} size="sm" className="hidden sm:inline-flex">
+                <PermissionGuard
+                  permission="READ"
+                  module={MODULE_ENUM.warehouse}
+                  requireAdmin
+                >
+                  <TMButton
+                    component={Link}
+                    to={"./add"}
+                    size="sm"
+                    className="hidden sm:inline-flex"
+                  >
                     <Icon name="plus" fontSize={16} />
                     <span>{t("common.add")}</span>
                   </TMButton>
@@ -107,11 +177,42 @@ export default function WareHouses() {
                 {
                   title: t("common.createdAt"),
                   dataIndex: "createdAt",
-                  render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
+                  render: (record) =>
+                    dayjs(record.createdAt).format("DD/MM/YYYY"),
+                },
+                {
+                  title: t("common.actions"),
+                  dataIndex: "actions",
+                  width: 76,
+                  render: (warehouse: IWareHouse) => (
+                    <PermissionGuard
+                      permission="DELETE"
+                      module={MODULE_ENUM.warehouse}
+                      requireAdmin
+                    >
+                      <TMButton
+                        size="sm"
+                        loading={isDeleting}
+                        disabled={warehouse.isMain}
+                        title={
+                          warehouse.isMain
+                            ? t("warehouses.mainCannotDelete")
+                            : t("common.delete")
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleDelete(warehouse);
+                        }}
+                        className="py-2 text-red-500 bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Icon name="trash" fontSize={12} />
+                      </TMButton>
+                    </PermissionGuard>
+                  ),
                 },
               ]}
-              data={data as IWareHouse[]}
-              rowKey={"documentId"}
+              data={(data || []) as IWareHouse[]}
+              rowKey={"id"}
               onRow={{
                 onClick: (record) => {
                   navigate(`./${record.id}`);

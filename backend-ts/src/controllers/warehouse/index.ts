@@ -69,13 +69,29 @@ export class WarehouseController {
       const { name, email, address, phone, isMain } = req.body
       const resp = await new WarehouseService().update({
         id,
-        vendorId: vendorId ? Number(vendorId) as any : undefined,
+        vendorId: vendorId ? (Number(vendorId) as any) : undefined,
         name,
         email,
         address,
         phone,
         isMain
       } as any)
+      res.status(200).json({ data: resp })
+      return
+    } catch (error) {
+      next(error)
+    }
+  }
+  async delete(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      const id = req.params.id as string
+      if (!id) throw new Error('id is required')
+      const vendorId = getRequestedVendorId(req as IRequestLocal) || (req as any).vendorId
+      const resp = await new WarehouseService().delete({
+        id,
+        vendorId: vendorId ? Number(vendorId) : undefined
+      })
       res.status(200).json({ data: resp })
       return
     } catch (error) {
