@@ -58,4 +58,20 @@ export class UnitsController {
       next(error)
     }
   }
+  async delete(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      const { id } = req.params
+      const vendorId = req.activeVendorId
+      if (!id) throw new Error('id is required')
+      const resp = await new UnitsService().delete(Number(id), Number(vendorId))
+      res.status(200).json({
+        data: resp
+      })
+      return
+    } catch (error) {
+      console.warn('error', error)
+      next(error)
+    }
+  }
 }

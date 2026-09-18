@@ -21,7 +21,8 @@
     "noData": "No data",
     "apply": "Apply",
     "reset": "Reset",
-    "error": "Error"
+    "error": "Error",
+    "conversionRate": "Conversion Rate"
   },
   "sidebar": {
     "groupSale": "Sales",

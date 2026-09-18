@@ -4,7 +4,12 @@ import { ProductService } from '#/services/product'
 import { IRequestLocal } from '#/types/common'
 import multer from 'multer'
 import { Request, Response, NextFunction } from 'express'
-import { assertWarehouseAccess, getRequestedVendorId, getRequestedWarehouseId } from '#/utils/tenant'
+import {
+  assertVendorAccess,
+  assertWarehouseAccess,
+  getRequestedVendorId,
+  getRequestedWarehouseId
+} from '#/utils/tenant'
 import { ApiError } from '#/response'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
@@ -136,7 +141,8 @@ export class ProductController {
       const scope = (req as any).tenant.scope
       const vendorId = getRequestedVendorId(req) as string
       const warehouseId = getRequestedWarehouseId(req) as string
-      const resp = await new ProductService().getProductById({ id: req.params.id, warehouseId, vendorId }, scope)
+      assertVendorAccess(scope, Number(vendorId), 'Unauthorized vendor filter')
+      const resp = await new ProductService().getProductById({ id: req.params.id, warehouseId, vendorId })
       res.status(200).json({
         data: resp
       })

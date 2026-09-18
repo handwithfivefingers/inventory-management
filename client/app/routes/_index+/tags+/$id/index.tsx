@@ -9,10 +9,13 @@ import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
+import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { ITagSchema, tagSchema } from "~/constants/schema/tag";
+import { useSubmitPromise } from "~/hooks";
+import { useTranslation } from "~/i18n";
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
+export async function loader({ params }: LoaderFunctionArgs) {
   const { id } = params;
   const resp = await tagsService.getById(id as string);
   return resp.data?.data;
@@ -24,7 +27,7 @@ export const meta: MetaFunction = () => {
 
 export default function ProductItem() {
   const data = useLoaderData<typeof loader>();
-  const [edit, setEdit] = useState<boolean>(false);
+  const { t } = useTranslation();
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
       <div className="max-w-3xl w-full mx-auto">
@@ -38,67 +41,52 @@ export default function ProductItem() {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold leading-6 text-slate-900 dark:text-white">
-                      {edit ? "Chỉnh sửa" : "Thành phần"}
+                      {t("common.edit") + " " + data?.name}
                     </h2>
                     <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
-                      {edit ? "Cập nhật thông tin thành phần" : "Chi tiết thành phần"}
+                      Cập nhật thông tin thành phần
                     </p>
                   </div>
                 </div>
-                <TMButton variant="ghost" size="xs" onClick={() => setEdit(!edit)}>
-                  {edit ? "Hủy" : "Sửa"}
-                </TMButton>
               </div>
             }
             className="p-5 sm:p-6"
           >
-            {!edit ? <Detail /> : null}
-
-            {edit ? (
-              <EditForm
-                {...(data as Omit<ITagSchema, "id"> & { id: string | number })}
-                onCancel={() => setEdit(false)}
-              />
-            ) : null}
+            <EditForm />
           </CardItem>
         )}
       </div>
     </div>
   );
 }
-const Detail = () => {
+
+const EditForm = () => {
   const data = useLoaderData<typeof loader>();
-  return (
-    <div className="w-full flex flex-col gap-4 mt-2">
-      <div className="w-full text-sm text-slate-700 dark:text-slate-200">Thẻ: {data?.name}</div>
-      <div className="bg-slate-700 h-full rounded p-2">
-        <h3>Relate Product</h3>
-      </div>
-    </div>
-  );
-};
-const EditForm = ({ name, id, onCancel }: { name: string; id: Partial<string | number>; onCancel?: () => void }) => {
-  const fetcher = useFetcher();
   const formMethods = useForm({
-    values: {
-      name,
-      id,
-    },
+    defaultValues: data,
     resolver: zodResolver(tagSchema),
   });
 
   const handleError = (errors: any) => {
     console.log("errors", errors);
   };
-  const onSubmit = (v: any): void => {
-    fetcher.submit(
-      {
-        data: JSON.stringify({
-          data: v,
-        }),
-      },
-      { method: "POST", action: `/tags/${id}` },
-    );
+  const { submit, isLoading } = useSubmitPromise();
+
+  const onSubmit = async (v: { name: string }) => {
+    try {
+      const resp = await submit<{ status: number }>(
+        {
+          data: JSON.stringify({
+            data: v,
+          }),
+        },
+        { method: "POST", action: `/tags/${data?.id}` },
+      );
+      if (resp.status !== 200) throw resp;
+      toast.success({ title: "Created", message: "Tạo đơn vị thành công" });
+    } catch (error) {
+      toast.danger({ title: "Error", message: (error as any)?.data?.error || (error as Error).message });
+    }
   };
 
   return (
@@ -123,10 +111,7 @@ const EditForm = ({ name, id, onCancel }: { name: string; id: Partial<string | n
           }}
         </FormControl>
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
-          <TMButton variant="ghost" size="sm" type="button" onClick={onCancel}>
-            Hủy
-          </TMButton>
-          <TMButton htmlType="submit" size="sm">
+          <TMButton htmlType="submit" size="sm" loading={isLoading}>
             <Icon name="save" fontSize={16} />
             Lưu
           </TMButton>

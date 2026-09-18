@@ -56,17 +56,12 @@ export class ProductBarcode extends Model {
   @Column({ type: DataType.DATE, allowNull: true })
   declare promoEndAt: Date | null
 
-  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
-  declare isBaseUnit: boolean
-
   @CreatedAt
   declare createdAt: Date
 
   @UpdatedAt
   declare updatedAt: Date
 
-  // `baseVariantId` is a stored generated column derived from `variantId`.
-  // MySQL does not allow ON UPDATE CASCADE for this foreign-key column.
   @BelongsTo(() => ProductVariant, { onDelete: 'RESTRICT', onUpdate: 'RESTRICT' })
   declare variant: ProductVariant
 

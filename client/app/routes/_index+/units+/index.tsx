@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { withContext } from "~/action.server/context.server";
 import { unitsService } from "~/action.server/units.service";
@@ -7,12 +7,18 @@ import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { CreateFab } from "~/components/layouts/create-fab";
+import PermissionGuard from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { MODULE_ENUM } from "~/constants/modules";
+import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
-
+import { IUnit } from "~/types/unit";
+export const meta: MetaFunction = () => {
+  return [{ title: "Đơn vị tính" }];
+};
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const params = url.searchParams;
@@ -30,14 +36,31 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 }
 
-export const meta: MetaFunction = () => {
-  return [{ title: "Đơn vị tính" }];
-};
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const id = Number(formData.get("id"));
+  try {
+    await unitsService.delete(id);
+    return new Response(null, { status: 200 });
+  } catch (error: any) {
+    return { error: error.message || "Delete failed" };
+  }
+}
 
 export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
+
+  const { submit, isLoading } = useSubmitPromise();
+  const handleDelete = async (id: number) => {
+    if (!confirm(t("common.confirmDelete"))) {
+      return;
+    }
+    const response = await submit({ id: String(id) }, { method: "post" });
+    console.log(`response`, response);
+  };
+
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CreateFab to="./add" label={t("common.add")} />
@@ -72,6 +95,7 @@ export default function Products() {
           <div className="flex flex-1 gap-2 flex-col items-end overflow-hidden">
             <TMTable
               scrollable
+              loading={isLoading}
               columns={[
                 {
                   title: t("units.unit"),
@@ -84,8 +108,29 @@ export default function Products() {
                   hideOnMobile: true,
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
                 },
+                {
+                  title: t("common.actions"),
+                  dataIndex: "actions",
+                  width: 40,
+                  render: (item) => (
+                    <div className="flex gap-1 justify-center">
+                      <PermissionGuard permission="DELETE" module={MODULE_ENUM.unit}>
+                        <TMButton
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(item.id as number);
+                          }}
+                          className="py-2 text-red-500 bg-red-500/20"
+                        >
+                          <Icon name="trash" fontSize={12} />
+                        </TMButton>
+                      </PermissionGuard>
+                    </div>
+                  ),
+                },
               ]}
-              data={data || []}
+              data={(data || []) as IUnit[]}
               rowKey={"id"}
               onRow={{
                 onClick: (record) => {

@@ -7,9 +7,13 @@ const warehouseIdValidation = validate([idParam('id'), vendorIdQuery('vendorId')
 
 const warehouseCreateValidation = validate([
   body('name').notEmpty().withMessage('name is required').bail().isString().withMessage('name must be a string').trim(),
-  body('address').optional().isString().withMessage('address must be a string'),
-  body('phone').optional().isString().withMessage('phone must be a string'),
-  body('email').optional().isEmail().withMessage('email must be valid').normalizeEmail(),
+  body('address').optional({ nullable: true, checkFalsy: true }).isString().withMessage('address must be a string'),
+  body('phone').optional({ nullable: true, checkFalsy: true }).isString().withMessage('phone must be a string'),
+  body('email')
+    .optional({ nullable: true, checkFalsy: true })
+    .isEmail()
+    .withMessage('email must be valid')
+    .normalizeEmail(),
   body('isMain').optional().isBoolean().withMessage('isMain must be a boolean').toBoolean(),
   body('vendorId').optional().isInt({ min: 1 }).withMessage('vendorId must be a positive integer').toInt()
 ])
@@ -52,7 +56,11 @@ const warehouseTransferValidation = validate([
     .isInt({ min: 1 })
     .withMessage('items[].productId must be a positive integer')
     .toInt(),
-  body('items.*.variantId').optional().isInt({ min: 1 }).withMessage('items[].variantId must be a positive integer').toInt(),
+  body('items.*.variantId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('items[].variantId must be a positive integer')
+    .toInt(),
   body('items.*.quantity')
     .notEmpty()
     .withMessage('items[].quantity is required')

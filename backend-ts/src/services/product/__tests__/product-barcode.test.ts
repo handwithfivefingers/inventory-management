@@ -1,10 +1,61 @@
-import { describe, expect, it } from 'vitest'
-import { isBaseUnitConversion } from '../product-barcode'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-describe('isBaseUnitConversion', () => {
-  it('marks only conversion rate 1 as the base unit', () => {
-    expect(isBaseUnitConversion(1)).toBe(true)
-    expect(isBaseUnitConversion(2)).toBe(false)
-    expect(isBaseUnitConversion(24)).toBe(false)
+const nextSequence = vi.hoisted(() => vi.fn())
+
+vi.mock('#/utils/sequence', () => ({ nextSequence }))
+
+import ProductBarcode from '#/database/models/productBarcode'
+import Unit from '#/database/models/units'
+import { syncVariantBarcodes } from '../product-barcode'
+
+describe('syncVariantBarcodes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('generates a base barcode when the submitted barcode is null', async () => {
+    const transaction: any = {}
+    nextSequence.mockResolvedValue(42)
+    ;(ProductBarcode.findOne as any).mockResolvedValue(null)
+    ;(ProductBarcode.findAll as any).mockResolvedValue([])
+    ;(ProductBarcode.create as any).mockResolvedValue({})
+    ;(Unit.findAll as any).mockResolvedValue([{ id: 7 }])
+
+    await syncVariantBarcodes(
+      3,
+      2,
+      [{ barcode: null, unitId: 7, conversionRate: 1, costPrice: 10, retailPrice: 15, wholesalePrice: 12 }],
+      transaction
+    )
+
+    expect(nextSequence).toHaveBeenCalledWith('product-barcode', null, { transaction })
+    expect(ProductBarcode.create).toHaveBeenCalledWith(
+      expect.objectContaining({ barcode: '000000000042', unitId: 7 }),
+      { transaction }
+    )
+  })
+
+  it('creates a complete base barcode from the global Base unit when no barcode payload is sent', async () => {
+    const transaction: any = {}
+    nextSequence.mockResolvedValue(43)
+    ;(ProductBarcode.findOne as any).mockResolvedValue(null)
+    ;(ProductBarcode.findAll as any).mockResolvedValue([])
+    ;(ProductBarcode.create as any).mockResolvedValue({})
+    ;(Unit.findOne as any).mockResolvedValue({ id: 9 })
+    ;(Unit.findAll as any).mockResolvedValue([{ id: 9 }])
+
+    await syncVariantBarcodes(3, 2, undefined, transaction)
+
+    expect(ProductBarcode.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        barcode: '000000000043',
+        unitId: 9,
+        conversionRate: 1,
+        costPrice: 0,
+        retailPrice: 0,
+        wholesalePrice: 0
+      }),
+      { transaction }
+    )
   })
 })

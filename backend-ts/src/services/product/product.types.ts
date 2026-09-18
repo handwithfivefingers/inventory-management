@@ -28,16 +28,16 @@ export type VariantInput = {
 
 export type BarcodeInput = {
   id?: number | string
-  barcode: string
-  unitId: number | string
-  conversionRate: number | string
-  costPrice: number | string
-  retailPrice: number | string
-  wholesalePrice: number | string
+  /** Omit or set to null to have the server assign the next numeric barcode. */
+  barcode?: string | null
+  unitId?: number | string | null
+  conversionRate?: number | string
+  costPrice?: number | string
+  retailPrice?: number | string
+  wholesalePrice?: number | string
   promoPrice?: number | string | null
   promoStartAt?: string | Date | null
   promoEndAt?: string | Date | null
-  isBaseUnit: boolean
 }
 
 export type CreateProductParams = Omit<Product, 'id'> & {

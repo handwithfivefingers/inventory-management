@@ -3,6 +3,7 @@ import Inventory from '#/database/models/inventory'
 import OrderDetail from '#/database/models/orderDetail'
 import ProductBarcode from '#/database/models/productBarcode'
 import ProductVariant from '#/database/models/productVariant'
+import Unit from '#/database/models/units'
 import { ApiError } from '#/response'
 import { Op, Transaction } from 'sequelize'
 
@@ -26,7 +27,7 @@ export class BarcodeService {
   async scanBarcode(barcode: string, customerType: CustomerType, warehouseId?: number) {
     const scanned: any = await ProductBarcode.findOne({
       where: { barcode },
-      include: [{ model: ProductVariant, include: [{ association: 'product' }] }]
+      include: [{ model: Unit, as: 'unit' }, { model: ProductVariant, include: [{ association: 'product' }] }]
     })
     if (!scanned) throw new ApiError('Barcode not found', 404, { code: 'BARCODE_NOT_FOUND' })
 
@@ -76,7 +77,11 @@ export class BarcodeService {
       if (!barcode)
         throw new ApiError('Barcode does not belong to this variant', 400, { code: 'BARCODE_VARIANT_MISMATCH' })
 
-      const quantityToDeduct = quantityScanned * Number(valueOf(barcode, 'conversionRate'))
+      const conversionRate = Number(valueOf(barcode, 'conversionRate'))
+      if (!Number.isInteger(conversionRate) || conversionRate < 1) {
+        throw ApiError.badRequest('Barcode unit has an invalid conversionRate', { code: 'INVALID_CONVERSION_RATE' })
+      }
+      const quantityToDeduct = quantityScanned * conversionRate
       const where = { variantId, warehouseId, quantity: { [Op.gte]: quantityToDeduct } } as any
       const affected = affectedCount(
         await Inventory.decrement('quantity', { by: quantityToDeduct, where, transaction })
@@ -92,10 +97,7 @@ export class BarcodeService {
   async updateBarcode(barcodeId: number, changes: Partial<ProductBarcode>) {
     const barcode: any = await ProductBarcode.findByPk(barcodeId)
     if (!barcode) throw new ApiError('Barcode not found', 404, { code: 'BARCODE_NOT_FOUND' })
-    if (
-      changes.conversionRate !== undefined &&
-      Number(changes.conversionRate) !== Number(valueOf(barcode, 'conversionRate'))
-    ) {
+    if (changes.conversionRate !== undefined && Number(changes.conversionRate) !== Number(valueOf(barcode, 'conversionRate'))) {
       await this.assertConversionRateMutable(barcodeId)
     }
     await barcode.update(changes)

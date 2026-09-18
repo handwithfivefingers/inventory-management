@@ -10,14 +10,9 @@ import { ICategoryModel } from '#/types/category'
 import { applyCodeFormat, getCodeFormat, padSeq } from '#/utils/code-generator'
 import { Optional, Sequelize } from 'sequelize'
 import { SettingService } from '../setting'
-import {
-  buildCategoryDetailQuery,
-  buildCategoryListQuery,
-  ICategoryCreateInput,
-  ICategoryListQuery,
-  ICategoryUpdateInput,
-  validateCategoryCreateInput
-} from './types'
+import { ICategoryCreateInput, ICategoryListQuery, ICategoryUpdateInput, validateCategoryCreateInput } from './types'
+import Category from '#/database/models/category'
+import { ApiError } from '#/response'
 
 export class CategoriesService {
   sequelize: Sequelize = database.sequelize
@@ -57,7 +52,7 @@ export class CategoriesService {
     }
   }
 
-  async update(params: ICategoryUpdateInput) {
+  async update(params: ICategoryUpdateInput, vendorId: number) {
     try {
       const instance = await database.category.update(
         {
@@ -65,7 +60,8 @@ export class CategoriesService {
         },
         {
           where: {
-            id: (params as ICategoryUpdateInput).id
+            id: (params as ICategoryUpdateInput).id,
+            vendorId
           }
         }
       )
@@ -77,33 +73,34 @@ export class CategoriesService {
 
   async getCategories({ limit, offset, vendorId }: ICategoryListQuery) {
     try {
-      const queryParams = buildCategoryListQuery({ limit, offset, vendorId })
-      const resp = await database.category.findAndCountAll(queryParams)
-      console.log('resp', resp)
+      const resp = await Category.findAndCountAll({
+        where: { vendorId },
+        offset,
+        limit,
+        raw: true
+      })
       return resp
     } catch (error) {
       throw error
     }
   }
 
-  async getById(id: string | number) {
+  async getById(id: string | number, vendorId: number) {
     try {
-      const resp = await database.category.findOne(buildCategoryDetailQuery(id, database.product))
+      const resp = await Category.findOne({
+        where: { id, vendorId }
+      })
       return resp
     } catch (error) {
       throw error
     }
   }
 
-  async deleteById(id: string | number) {
-    const t = await this.sequelize.transaction()
-    try {
-      const resp = await database.category.destroy({ where: { id: id } })
-      await t.commit()
-      return resp
-    } catch (error) {
-      await t.rollback()
-      throw error
-    }
+  async deleteById(id: string | number, vendorId: number) {
+    const _cate = await Category.findByPk(id)
+    if (!_cate) throw ApiError.notFound('Unit not found')
+    if (_cate.vendorId !== vendorId) throw ApiError.notFound('Unit not found')
+    await _cate.destroy()
+    return true
   }
 }

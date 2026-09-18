@@ -13,10 +13,13 @@ const categoryService = {
     return HTTPService.getInstance().post(API_PATH.categories, params);
   },
   getById: (id: string | number) => {
-    return HTTPService.getInstance().get<ICategory>(`${API_PATH.categories}/${id}`);
+    return HTTPService.getInstance().get<{ data: ICategory }>(`${API_PATH.categories}/${id}`);
   },
   update: (id: string | number, params: ICategory) => {
     return HTTPService.getInstance().post(`${API_PATH.categories}/${id}`, params);
+  },
+  delete: (id: string | number) => {
+    return HTTPService.getInstance().delete(API_PATH.categories + "/" + id);
   },
 };
 

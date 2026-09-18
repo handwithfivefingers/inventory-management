@@ -22,7 +22,8 @@
     "noData": "Không có dữ liệu",
     "apply": "Áp dụng",
     "reset": "Đặt lại",
-    "error": "Lỗi"
+    "error": "Lỗi",
+    "conversionRate": "Tỉ lệ chuyển đổi"
   },
   "sidebar": {
     "groupSale": "Bán hàng",

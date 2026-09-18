@@ -84,6 +84,7 @@ export interface CreateVariantsContext {
   warehouseId: number
   baseSku: string
   skuTemplate: string | undefined
+  defaultUnitId?: number | string | null
   transaction?: Transaction
 }
 
@@ -92,16 +93,20 @@ export interface CreateVariantsContext {
  * `PRODUCT_TYPE.VARIANT` product. Used by `ProductService.create`.
  */
 export const createVariants = async (variants: VariantInput[], ctx: CreateVariantsContext) => {
-  const { productId, vendorId, warehouseId, baseSku, skuTemplate, transaction } = ctx
-  // Seed with the normalized base so in-batch dedupe is case-insensitive.
+  const { productId, vendorId, warehouseId, baseSku, skuTemplate, defaultUnitId, transaction } = ctx
+
   const takenSkus = new Set<string>([normalizeSku(baseSku)].filter(Boolean))
+
   const created: any[] = []
+
   const optionVariants = variants.filter(
     (variant) => Object.keys((variant as any).options || (variant as any).optionValues || {}).length
   )
+
   const catalogAttributes: any[] = optionVariants.length
     ? (await ProductAttribute.findAll({ where: { vendorId }, transaction })) || []
     : []
+
   const catalogValues: any[] = optionVariants.length
     ? await ProductAttributeValue.findAll({
         where: { attributeId: catalogAttributes.map((a: any) => a.id) },
@@ -109,6 +114,7 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
         transaction
       })
     : []
+
   const catalogLookup = buildValueLookups(catalogValues).byName
 
   for (const variant of variants) {
@@ -152,10 +158,18 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
     )
 
     if (valIds.length) await variantRow.$set('attributeValues', valIds, { transaction })
-    await syncVariantBarcodes(Number(variantRow.id), vendorId, variant.barcodes, transaction!)
+    await syncVariantBarcodes(Number(variantRow.id), vendorId, variant.barcodes, transaction!, defaultUnitId)
 
     const quantity = Number(variant.quantity ?? 0)
     const stock = await createOpeningStock({ productId, variantId: variantRow.id, warehouseId, quantity, transaction })
+    console.log(`stock`, stock)
+    console.log(`{ productId, variantId: variantRow.id, warehouseId, quantity, transaction }`, {
+      productId,
+      variantId: variantRow.id,
+      warehouseId,
+      quantity,
+      transaction
+    })
     created.push(stock ? { ...variantRow.dataValues, inventory: stock.inventory.dataValues } : variantRow.dataValues)
   }
 
@@ -328,7 +342,15 @@ export const applyVariantSync = async (
       }
       await existing.update(fields, { transaction })
       if (valIds.length) await existing.$set('attributeValues', valIds, { transaction })
-      await syncVariantBarcodes(Number(existing.get('id')), vendorId, v.barcodes, transaction!)
+      if (v.barcodes !== undefined) {
+        await syncVariantBarcodes(
+          Number(existing.get('id')),
+          vendorId,
+          v.barcodes,
+          transaction!,
+          product.get?.('unitId') ?? product.unitId
+        )
+      }
       if (v.quantity !== undefined && v.quantity !== null && v.quantity !== '' && warehouseId) {
         await adjustStock({
           productId,
@@ -358,7 +380,13 @@ export const applyVariantSync = async (
 
     const variantRow: any = await ProductVariant.build({ productId, skuCode, ...fields }).save({ transaction })
     if (valIds.length) await variantRow.$set('attributeValues', valIds, { transaction })
-    await syncVariantBarcodes(Number(variantRow.get('id')), vendorId, v.barcodes, transaction!)
+    await syncVariantBarcodes(
+      Number(variantRow.get('id')),
+      vendorId,
+      v.barcodes,
+      transaction!,
+      product.get?.('unitId') ?? product.unitId
+    )
 
     const quantity = Number(v.quantity ?? 0)
     if (quantity && warehouseId) {

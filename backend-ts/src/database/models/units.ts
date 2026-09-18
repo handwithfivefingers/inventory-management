@@ -21,6 +21,7 @@ export class Unit extends Model {
 
   @BelongsTo(() => Vendor, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
   declare vendor: Vendor
+
 }
 
 export default Unit

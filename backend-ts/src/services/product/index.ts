@@ -98,7 +98,10 @@ export class ProductService {
 
   private rejectLegacyBarcodePriceFields(payload: Record<string, any>) {
     const legacy = ['code', 'salePrice', 'regularPrice', 'wholeSalePrice', 'costPrice']
-    const found = legacy.find((field) => payload[field] !== undefined) || payload.variants?.find?.((variant: any) => legacy.some((field) => variant[field] !== undefined)) && 'variants[].legacy field'
+    const found =
+      legacy.find((field) => payload[field] !== undefined) ||
+      (payload.variants?.find?.((variant: any) => legacy.some((field) => variant[field] !== undefined)) &&
+        'variants[].legacy field')
     if (found) throw ApiError.badRequest(`Legacy ${found} is no longer accepted; use variants[].barcodes`)
   }
 
@@ -135,26 +138,13 @@ export class ProductService {
     const t = await this.sequelize.transaction()
     try {
       this.rejectLegacyBarcodePriceFields(params as any)
-      const {
-        warehouseId,
-        vendorId,
-        variants,
-        categories,
-        tags,
-        quantity,
-        type = PRODUCT_TYPE.SIMPLE,
-        ...rest
-      } = params
+
+      const { warehouseId, vendorId, variants, categories, tags, type = PRODUCT_TYPE.SIMPLE, ...rest } = params
+
+      console.log(`params`, params)
 
       const productParams: Record<string, any> = { ...rest, type }
 
-
-      // Strict SKU rule for the parent product code: accept `sku` alias,
-      // normalize trim+uppercase, then enforce ^[A-Z0-9_-]{3,30}$.
-      if (productParams.sku !== undefined && productParams.skuCode === undefined) {
-        productParams.skuCode = productParams.sku
-      }
-      delete productParams.sku
       if (productParams.skuCode !== undefined && productParams.skuCode !== null) {
         const raw = String(productParams.skuCode).trim()
         if (raw === '') {
@@ -168,9 +158,11 @@ export class ProductService {
         skuCode: productParams.skuCode || null,
         vendorId
       })
+
       if (isExist) throw ApiError.conflict('Product already exists or code/skuCode is duplicated')
 
       const settings = await this.tryLoadSettings(vendorId)
+
       await this.assignProductCodes(productParams, settings, t)
 
       const product = await Product.create(this.buildProductFields(productParams, vendorId), { transaction: t })
@@ -182,7 +174,6 @@ export class ProductService {
         product,
         type,
         variants,
-        quantity,
         warehouseId,
         vendorId,
         settings,
@@ -218,7 +209,7 @@ export class ProductService {
   }
 
   /** Auto-generate `code`/`skuCode` from vendor settings when the caller didn't supply them. */
-  private async assignProductCodes(productParams: Record<string, any>, settings: any, t?: Transaction) {
+  private async assignProductCodes(productParams: Record<string, any>, settings: any, t?: Transaction, seqLength = 12) {
     if (productParams.skuCode) return
 
     const seq = await nextSequence('product', new Date().getFullYear(), {
@@ -227,7 +218,7 @@ export class ProductService {
     })
     // Barcodes are numeric and limited to 12 characters. Vendor barcode
     // prefixes/suffixes are no longer applied to this field.
-    const seq12 = padSeq(seq, 12)
+    const seq12 = padSeq(seq, seqLength)
 
     if (!productParams.skuCode) {
       const baseCode = seq12
@@ -252,14 +243,13 @@ export class ProductService {
     product: any
     type: ProductType
     variants: CreateProductParams['variants']
-    quantity: unknown
     warehouseId: number
     vendorId: number
     settings: any
     defaultVariant: Record<string, any>
     transaction: Transaction
   }) {
-    const { product, type, variants, quantity, warehouseId, vendorId, settings, defaultVariant, transaction } = args
+    const { product, type, variants, warehouseId, vendorId, settings, defaultVariant, transaction } = args
 
     if (Number(type) === PRODUCT_TYPE.VARIANT) {
       const created = await createVariants(variants || [], {
@@ -268,16 +258,14 @@ export class ProductService {
         warehouseId,
         baseSku: defaultVariant.skuCode || String(product.id),
         skuTemplate: settings?.skuTemplate,
+        defaultUnitId: product.get?.('unitId') ?? product.unitId,
         transaction
       })
       return { variants: created }
     }
 
     // Simple products are represented by exactly one default variant.
-    const qty = Number(quantity)
-    if (quantity !== undefined && quantity !== null && quantity !== '' && (!Number.isFinite(qty) || qty <= 0)) {
-      throw new Error('Invalid quantity')
-    }
+
     const created = await createVariants(
       [
         {
@@ -286,7 +274,7 @@ export class ProductService {
           VAT: defaultVariant.VAT,
           imageUrl: defaultVariant.imageUrl ?? defaultVariant.image ?? null,
           isNegative: defaultVariant.isNegative,
-          quantity: qty || 0
+          quantity: variants?.[0]?.quantity || 0
         }
       ],
       {
@@ -295,6 +283,7 @@ export class ProductService {
         warehouseId,
         baseSku: String(product.id),
         skuTemplate: settings?.skuTemplate,
+        defaultUnitId: product.get?.('unitId') ?? product.unitId,
         transaction
       }
     )
@@ -330,7 +319,7 @@ export class ProductService {
             required: false,
             // attributes: [],
             include: [
-              { model: ProductBarcode, as: 'barcodes' },
+              { model: ProductBarcode, as: 'barcodes', include: [{ model: Unit, as: 'unit' }] },
               { model: Inventory, attributes: ['id', 'warehouseId', 'quantity', 'variantId'] },
               {
                 model: ProductAttributeValue,
@@ -377,12 +366,15 @@ export class ProductService {
         ]
         const barcodeMatches: any[] = await ProductBarcode.findAll({
           where: { barcode: { [Op.startsWith]: s } },
-          attributes: ['variantId'], raw: true
+          attributes: ['variantId'],
+          raw: true
         })
         const barcodeVariantIds = barcodeMatches.map((row: any) => Number(row.variantId)).filter(Boolean)
         if (barcodeVariantIds.length) {
           const barcodeVariants: any[] = await ProductVariant.findAll({
-            where: { id: { [Op.in]: barcodeVariantIds } }, attributes: ['productId'], raw: true
+            where: { id: { [Op.in]: barcodeVariantIds } },
+            attributes: ['productId'],
+            raw: true
           })
           variantMatchedProductIds.push(...barcodeVariants.map((row: any) => Number(row.productId)).filter(Boolean))
         }
@@ -402,17 +394,8 @@ export class ProductService {
     }
   }
 
-  async getProductById(
-    { id, vendorId }: { id: string; warehouseId: string | number; vendorId: string | number },
-    vendorScope: TVendorScope
-  ) {
+  async getProductById({ id, vendorId }: { id: string; warehouseId: string | number; vendorId: string | number }) {
     try {
-      assertVendorAccess(vendorScope, Number(vendorId), 'Unauthorized vendor filter')
-      // Option A: no read-through cache here. Stock (`inventories.quantity`),
-      // variants and associations mutate from many services (orders, stocktake,
-      // excel import), so a 24h `product:<id>` entry goes stale and leaks
-      // cross-warehouse quantities. Always read fresh from DB; the POS/Sell
-      // list path (`getProducts`) is likewise uncached.
       const product = await Product.findOne({
         where: { id },
         include: [
@@ -424,7 +407,8 @@ export class ProductService {
             model: ProductVariant,
             as: 'variants',
             include: [
-              { model: ProductBarcode, as: 'barcodes' },
+              { model: ProductBarcode, as: 'barcodes', include: [{ model: Unit, as: 'unit' }] },
+              { model: Inventory },
               {
                 model: ProductAttributeValue,
                 as: 'attributeValues',
@@ -452,10 +436,11 @@ export class ProductService {
       if (!product) return product
 
       const productVendorId = Number((product as any).vendorId ?? product.get?.('vendorId'))
-      assertVendorAccess(vendorScope, productVendorId, 'Unauthorized to view this product')
+
       if (vendorId != null && String(vendorId).trim() !== '' && productVendorId !== Number(vendorId)) {
         throw Object.assign(new Error('Unauthorized to view this product'), { status: 403 })
       }
+
       if (Number((product as any).type ?? product.get?.('type')) === PRODUCT_TYPE.SIMPLE) {
         const variantTransitionBlockReason = await getVariantTransitionBlockReason(Number(id))
         product.setDataValue('variantTransitionBlocked', Boolean(variantTransitionBlockReason))
@@ -519,10 +504,19 @@ export class ProductService {
     assertVendorAccess(getVendorScope(req), Number(product.get('vendorId')), 'Unauthorized to view this product')
     return ProductBarcode.findAll({
       include: [
-        { model: ProductVariant, required: true, where: { productId }, attributes: ['id', 'skuCode', 'VAT', 'isActive'] },
+        {
+          model: ProductVariant,
+          required: true,
+          where: { productId },
+          attributes: ['id', 'skuCode', 'VAT', 'isActive']
+        },
         { model: Unit, attributes: ['id', 'name'] }
       ],
-      order: [['variantId', 'ASC'], ['isBaseUnit', 'DESC'], ['id', 'ASC']]
+      order: [
+        ['variantId', 'ASC'],
+        ['conversionRate', 'ASC'],
+        ['id', 'ASC']
+      ]
     })
   }
 
@@ -673,7 +667,13 @@ export class ProductService {
     if (Object.keys(fields).length) await defaultVariant.update(fields, { transaction: t })
     if (params.variants?.[0]?.barcodes) {
       const product: any = await Product.findByPk(params.id, { transaction: t })
-      await syncVariantBarcodes(Number(defaultVariant.get('id')), Number(product.get('vendorId')), params.variants[0].barcodes, t)
+      await syncVariantBarcodes(
+        Number(defaultVariant.get('id')),
+        Number(product.get('vendorId')),
+        params.variants[0].barcodes,
+        t,
+        product.get('unitId')
+      )
     }
 
     for (const row of rows.slice(1)) await row.destroy({ transaction: t })

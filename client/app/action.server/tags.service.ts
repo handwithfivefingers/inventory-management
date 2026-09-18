@@ -19,6 +19,9 @@ const tagsService = {
   getById: (id: Partial<string | number>) => {
     return HTTPService.getInstance().get<{ data: ITag }>(API_PATH.tags + "/" + id);
   },
+  delete: (id: Partial<string | number>) => {
+    return HTTPService.getInstance().delete(API_PATH.tags + "/" + id);
+  },
 };
 
 export { tagsService };

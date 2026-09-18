@@ -220,6 +220,7 @@ export default class OrderService {
       const quantity = Number(line.quantity)
       if (!Number.isFinite(quantity) || quantity <= 0) throw ApiError.badRequest('orderDetails[].quantity must be positive')
       const conversionRate = Number(barcode.get('conversionRate'))
+      if (!Number.isInteger(conversionRate) || conversionRate < 1) throw ApiError.badRequest('Barcode unit has an invalid conversionRate')
       return {
         ...line,
         barcodeId,

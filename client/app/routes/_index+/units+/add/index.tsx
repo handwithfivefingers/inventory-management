@@ -7,11 +7,12 @@ import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { FormControl } from "~/components/form/form-control";
+import { NumberStepper } from "~/components/form/number-stepper";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
-import { unitSchema } from "~/constants/schema/units";
+import { IUnitSchema, unitSchema } from "~/constants/schema/units";
 import { useSubmitPromise } from "~/hooks";
 export const meta: MetaFunction = () => {
   return [{ title: "Unit - Đơn vị" }];
@@ -45,55 +46,42 @@ export default function UnitItem() {
 }
 
 const UnitForm = () => {
-  const fetcher = useFetcher<{ status: boolean; data: any }>({ key: "units-add" });
   const { submit, isLoading } = useSubmitPromise();
-  const formMethods = useForm({
+  const formMethods = useForm<IUnitSchema>({
     defaultValues: {
       name: "",
     },
     resolver: zodResolver(unitSchema),
   });
 
-  const handleError = (errors: any) => {
-    console.log("errors", errors);
-  };
   const onSubmit = async (v: any) => {
     try {
       const resp = await submit({ data: JSON.stringify(v) }, { method: "POST" });
-      console.log("resp", resp);
       toast.success({ title: "Created", message: "Tạo đơn vị thành công" });
     } catch (error) {
       toast.danger({ title: "Error", message: (error as Error).message });
     }
   };
-
-  useEffect(() => {
-    if (fetcher.state === "loading" && fetcher.data?.data) {
-      fetcher.data = undefined;
-      toast.success({ message: "Thêm đơn vị thành công" });
-    }
-  }, [fetcher.state]);
   return (
     <FormProvider {...formMethods}>
       <form onSubmit={formMethods.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
-        <FormControl name="name">
-          {(field) => {
-            return (
-              <TextInput
-                label="Tên đơn vị"
-                placeholder="Nhập tên đơn vị"
-                required
-                prefix={<Icon name="dollar-sign" fontSize={16} className="text-slate-400" />}
-                value={field.value as any}
-                onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
-              />
-            );
-          }}
-        </FormControl>
+        <div className="flex gap-4">
+          <FormControl name="name" className="flex-1">
+            {(field) => {
+              return (
+                <TextInput
+                  label="Tên đơn vị"
+                  placeholder="Nhập tên đơn vị"
+                  required
+                  prefix={<Icon name="dollar-sign" fontSize={16} className="text-slate-400" />}
+                  value={field.value as any}
+                  onChange={(e: EventTarget | MouseEvent | any) => field.onChange(e.target.value)}
+                />
+              );
+            }}
+          </FormControl>
+        </div>
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
-          <TMButton variant="ghost" size="sm" component={Link} to="/units" type="button" loading={isLoading}>
-            Hủy
-          </TMButton>
           <TMButton htmlType="submit" size="sm" loading={isLoading}>
             <Icon name="save" fontSize={16} />
             Thêm

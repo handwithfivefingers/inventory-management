@@ -1,9 +1,6 @@
-// import { ILoginParams } from "~/action.client/auth.service";
-// import { IResponse } from "~/types/common";
 import { HTTPService } from "~/http/index.server";
-import { ILoginResponse, IRegisterParams, IRegisterResponse } from "~/types/authenticate";
+import { ILoginResponse, IRegisterParams } from "~/types/authenticate";
 import { IUser } from "~/types/user";
-
 const API_PATH = {
   login: "/auth/login",
   register: "/auth/register",

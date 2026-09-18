@@ -24,10 +24,10 @@ export default function WarehouseAdd() {
   const { t } = useTranslation();
   const formMethods = useForm<WarehouseSchema>({
     defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
+      name: undefined,
+      email: undefined,
+      phone: undefined,
+      address: undefined,
       isMain: false,
     },
     resolver: zodResolver(warehouseSchema),

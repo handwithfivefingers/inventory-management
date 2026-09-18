@@ -20,7 +20,9 @@ export interface ICategoryListQuery {
 }
 
 /** Validate create input; returns the normalized name/vendorId. */
-export const validateCategoryCreateInput = (params: ICategoryCreateInput): { name: string; vendorId: number | string } => {
+export const validateCategoryCreateInput = (
+  params: ICategoryCreateInput
+): { name: string; vendorId: number | string } => {
   if (!params?.name) throw new Error('Category name is required')
   if (!params?.vendorId) throw new Error('Vendor is required')
   return { name: params.name, vendorId: params.vendorId }
@@ -36,9 +38,3 @@ export const buildCategoryListQuery = ({ limit, offset, vendorId }: ICategoryLis
     raw: true
   }
 }
-
-/** Build the findOne query for a category detail lookup. */
-export const buildCategoryDetailQuery = (id: string | number, productModel: unknown) => ({
-  where: { id },
-  include: productModel
-})

@@ -45,11 +45,7 @@ function Login() {
       if (resp.success) {
         return (window.location.href = "/");
       }
-      toast.danger({
-        title: "Đăng nhập thất bại",
-        message: "Không có dữ liệu phản hồi",
-      });
-      return;
+      throw resp;
     } catch (error) {
       const err = error as ResponseError;
       toast.danger({
@@ -105,7 +101,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const data = await request.formData();
     const json = JSON.parse(data.get("data") as string);
     const resp = await AuthService.login(json);
-    if (resp.status !== 200) throw resp;
+    if (resp.status !== 200) return Response.json({ message: (resp.data as any)?.error }, { status: resp.status });
     const session = await getSession(request.headers.get("cookie"));
     const loginData = resp.data?.data as IUser & {
       token?: string;
@@ -132,10 +128,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     );
   } catch (error) {
-    console.log("error", error);
-    return {
-      message: ((error as any)?.error as any)?.error as string,
-    };
+    return Response.json(
+      {
+        message: ((error as any)?.error as any)?.error as string,
+      },
+      {
+        status: 401,
+      },
+    );
   }
 };
 

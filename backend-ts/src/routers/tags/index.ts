@@ -39,4 +39,14 @@ route.post(
   new TagsController().update as any
 )
 
+route.delete(
+  '/:id',
+  tagIdValidation as any,
+  // #swagger.tags = ['Tags']
+  // #swagger.summary = 'Update tag'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { id: { type: 'integer' }, name: { type: 'string' } }, required: ['id'] } } */
+  new TagsController().delete as any
+)
+
 export default route

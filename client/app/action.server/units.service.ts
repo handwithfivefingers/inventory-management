@@ -19,6 +19,9 @@ const unitsService = {
   update: ({ id, ...params }: IUnitParams) => {
     return HTTPService.getInstance().post(`${API_PATH.units}/${id}`, params);
   },
+  delete: (id: string | number) => {
+    return HTTPService.getInstance().delete<{ data: IUnit }>(API_PATH.units + "/" + id);
+  },
 };
 
 export { unitsService };

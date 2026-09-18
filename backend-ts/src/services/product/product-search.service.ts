@@ -5,6 +5,7 @@ import ProductAttribute from '#/database/models/productAttribute'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductVariant from '#/database/models/productVariant'
 import ProductBarcode from '#/database/models/productBarcode'
+import Unit from '#/database/models/units'
 import { ApiError } from '#/response'
 import { assertVendorAccess, assertWarehouseAccess, TVendorScope } from '#/utils/tenant'
 import { Op } from 'sequelize'
@@ -100,7 +101,7 @@ const effectiveBarcodePrice = (barcode: any): number => {
 const variantPrice = (variant: any): number => {
   const get = (k: string) => (typeof variant.get === 'function' ? variant.get(k) : variant[k])
   const barcodes = get('barcodes') ?? []
-  const base = barcodes.find((row: any) => Boolean(row.get?.('isBaseUnit') ?? row.isBaseUnit)) ?? barcodes[0]
+  const base = barcodes.find((row: any) => Number(row.get?.('conversionRate') ?? row.conversionRate) === 1) ?? barcodes[0]
   return effectiveBarcodePrice(base)
 }
 
@@ -120,6 +121,8 @@ const toExactItem = (variant: any, stockQuantity: number): ExactMatchItem => {
     typeof product?.get === 'function' ? product.get(k) : product ? product[k] : undefined
   const sku = String(get('skuCode') ?? get('sku') ?? '')
   const productName = String(productGet('name') ?? '')
+  const barcodes = get('barcodes') ?? []
+  const selectedBarcode = get('matchedBarcode') ?? barcodes.find((row: any) => Number(row.get?.('conversionRate') ?? row.conversionRate) === 1) ?? barcodes[0]
   return {
     variant_id: Number(get('id')),
     product_id: Number(get('productId') ?? productGet('id')),
@@ -127,10 +130,10 @@ const toExactItem = (variant: any, stockQuantity: number): ExactMatchItem => {
     variant_name: sku,
     display_name: sku ? `${productName} - ${sku}` : productName,
     sku,
-    barcode: ((get('matchedBarcode') ?? get('barcodes')?.find((row: any) => row.get?.('isBaseUnit') ?? row.isBaseUnit) ?? get('barcodes')?.[0])?.get?.('barcode') ?? (get('matchedBarcode') ?? get('barcodes')?.[0])?.barcode ?? null) as string | null,
-    barcode_id: Number((get('matchedBarcode') ?? get('barcodes')?.find((row: any) => row.get?.('isBaseUnit') ?? row.isBaseUnit) ?? get('barcodes')?.[0])?.get?.('id') ?? 0) || null,
+    barcode: (selectedBarcode?.get?.('barcode') ?? selectedBarcode?.barcode ?? null) as string | null,
+    barcode_id: Number(selectedBarcode?.get?.('id') ?? selectedBarcode?.id ?? 0) || null,
     price: variantPrice(variant),
-    costPrice: Number((get('matchedBarcode') ?? get('barcodes')?.find((row: any) => row.get?.('isBaseUnit') ?? row.isBaseUnit) ?? get('barcodes')?.[0])?.get?.('costPrice') ?? 0),
+    costPrice: Number(selectedBarcode?.get?.('costPrice') ?? selectedBarcode?.costPrice ?? 0),
     stock_quantity: stockQuantity,
     VAT: get('VAT') == null ? null : Number(get('VAT')),
     imageUrl: get('imageUrl') ?? null,
@@ -208,7 +211,7 @@ const tryExactMatch = async (
     const variant: any = await (ProductVariant as any).findOne({
       where: { id: Number(matchedBarcode.get('variantId')), isActive: true },
       include: [
-        { model: ProductBarcode, as: 'barcodes', required: false },
+        { model: ProductBarcode, as: 'barcodes', required: false, include: [{ model: Unit, as: 'unit' }] },
         { model: Product, required: true, where: { ...productVendorWhere }, attributes: ['id', 'name', 'vendorId'] }
       ]
     })
@@ -220,7 +223,7 @@ const tryExactMatch = async (
   return (ProductVariant as any).findOne({
     where: { isActive: true, [Op.or]: or },
     include: [
-      { model: ProductBarcode, as: 'barcodes', required: false },
+      { model: ProductBarcode, as: 'barcodes', required: false, include: [{ model: Unit, as: 'unit' }] },
       {
         model: Product,
         required: true,
@@ -280,7 +283,7 @@ const searchPos = async (args: FallbackArgs): Promise<Extract<ProductSearchResul
   const { rows, count } = await (ProductVariant as any).findAndCountAll({
     where: variantWhere,
     include: [
-      { model: ProductBarcode, as: 'barcodes', required: false },
+      { model: ProductBarcode, as: 'barcodes', required: false, include: [{ model: Unit, as: 'unit' }] },
       { model: Product, as: 'product', required: true, where: { ...productVendorWhere }, attributes: ['id', 'name'] },
       {
         model: ProductAttributeValue,
@@ -342,7 +345,7 @@ const searchAdmin = async (args: FallbackArgs): Promise<Extract<ProductSearchRes
         as: 'variants',
         required: false,
         attributes: ['id', 'skuCode', 'isActive'],
-        include: [{ model: ProductBarcode, as: 'barcodes', required: false }]
+        include: [{ model: ProductBarcode, as: 'barcodes', required: false, include: [{ model: Unit, as: 'unit' }] }]
       }
     ],
     attributes: {

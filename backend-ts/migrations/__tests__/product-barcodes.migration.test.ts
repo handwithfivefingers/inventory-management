@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const migration = require('../20260918000002-create-product-barcodes')
 const removalMigration = require('../20260918000004-remove-legacy-variant-barcode-prices')
+const globalBaseUnitMigration = require('../20260918000005-create-global-base-unit')
+const unitMetadataMigration = require('../20260918000006-remove-product-barcode-base-unit')
 
 const queryInterface = (validation: Record<string, number>) => {
   const query = vi.fn(async (sql: string) => {
@@ -57,5 +59,38 @@ describe('remove legacy variant barcode/prices migration', () => {
     await removalMigration.up(qi)
     expect(qi.removeIndex).toHaveBeenCalledWith('productVariants', 'code')
     expect(qi.removeColumn).toHaveBeenCalledTimes(5)
+  })
+})
+
+describe('create global Base unit migration', () => {
+  it('creates the shared fallback unit only when it is absent', async () => {
+    const qi: any = { sequelize: { query: vi.fn().mockResolvedValue([[]]) }, bulkInsert: vi.fn() }
+    await globalBaseUnitMigration.up(qi)
+    expect(qi.bulkInsert).toHaveBeenCalledWith(
+      'units',
+      [expect.objectContaining({ name: 'Base unit', vendorId: null })]
+    )
+  })
+
+  it('does not duplicate an existing shared fallback unit', async () => {
+    const qi: any = { sequelize: { query: vi.fn().mockResolvedValue([[{ id: 1 }]]) }, bulkInsert: vi.fn() }
+    await globalBaseUnitMigration.up(qi)
+    expect(qi.bulkInsert).not.toHaveBeenCalled()
+  })
+})
+
+describe('remove barcode base-unit flag migration', () => {
+  const migrationQueryInterface = () => ({
+    showIndex: vi.fn().mockResolvedValue([{ name: 'product_barcodes_one_base_per_variant' }]),
+    removeIndex: vi.fn(),
+    describeTable: vi.fn().mockResolvedValue({ baseVariantId: {}, conversionRate: {}, isBaseUnit: {} }),
+    removeColumn: vi.fn()
+  })
+
+  it('keeps conversion rates and removes only the generated base flag/index', async () => {
+    const qi: any = migrationQueryInterface()
+    await unitMetadataMigration.up(qi)
+    expect(qi.removeIndex).toHaveBeenCalledWith('product_barcodes', 'product_barcodes_one_base_per_variant')
+    expect(qi.removeColumn.mock.calls.map((call: any[]) => call[1])).toEqual(['baseVariantId', 'isBaseUnit'])
   })
 })

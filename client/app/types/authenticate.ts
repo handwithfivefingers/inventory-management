@@ -8,9 +8,18 @@ export interface ILoginParams {
   password: string;
 }
 
-export interface ILoginResponse {
+type LoginSuccess = {
+  status: 200;
   data: IUser & { token: string };
-}
+};
+type LoginError = {
+  // Liệt kê các mã lỗi cụ thể ở đây
+  status: 400 | 401 | 403 | 404 | 500;
+  data: {
+    error: string;
+  };
+};
+export type ILoginResponse = LoginSuccess | LoginError;
 
 export interface IRegisterParams {
   email: string;

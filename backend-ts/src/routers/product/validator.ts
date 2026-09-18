@@ -16,13 +16,12 @@ const skuRule = (field: string) =>
 
 const barcodeRules = [
   body('variants.*.barcodes').optional().isArray({ min: 1 }).withMessage('variants[].barcodes must be a non-empty array'),
-  body('variants.*.barcodes.*.barcode').optional().isString().trim().notEmpty().isLength({ max: 64 }),
+  body('variants.*.barcodes.*.barcode').optional({ nullable: true }).isString().trim().notEmpty().isLength({ max: 64 }),
   body('variants.*.barcodes.*.unitId').optional().isInt({ min: 1 }).toInt(),
   body('variants.*.barcodes.*.conversionRate').optional().isInt({ min: 1 }).toInt(),
   body('variants.*.barcodes.*.costPrice').optional().isFloat({ min: 0 }).toFloat(),
   body('variants.*.barcodes.*.retailPrice').optional().isFloat({ min: 0 }).toFloat(),
   body('variants.*.barcodes.*.wholesalePrice').optional().isFloat({ min: 0 }).toFloat(),
-  body('variants.*.barcodes.*.isBaseUnit').optional().isBoolean().toBoolean()
 ]
 
 const legacyFieldRejections = [

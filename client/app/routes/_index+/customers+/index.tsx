@@ -9,7 +9,6 @@ import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
 import { PermissionGuard } from "~/components/permission-guard";
-import { getSession } from "~/sessions";
 import { ICustomer } from "~/types/customer";
 import { useTranslation } from "~/i18n";
 import { Icon } from "~/components/icon";
@@ -19,16 +18,12 @@ interface IFilter {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const url = new URL(request.url);
   const params = url.searchParams;
   const page = params.get("page") || "1";
   const pageSize = params.get("pageSize") || "10";
   const search = params.get("s") || "";
-
   const resp = await customerService.getCustomers({
-    // vendorId,
-    // cookie,
     page,
     pageSize,
     search,
@@ -44,10 +39,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  // const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
   const formData = await request.formData();
   const id = Number(formData.get("id"));
-
   try {
     await customerService.deleteCustomer(id);
     return new Response(null, { status: 200 });

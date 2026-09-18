@@ -1,4 +1,5 @@
 import database from '#/database'
+import FinancialRecord from '#/database/models/financialRecord'
 import { IFinancialRecordStatic } from '#/types/financialRecord'
 import { IOrderStatic } from '#/types/order'
 import { ITransferStatic } from '#/types/transfer'
@@ -77,7 +78,7 @@ export class FinancialService {
     try {
       const { offset, limit } = query
       const where = buildVoucherWhere(query)
-      const resp = await this.financialRecord.findAndCountAll({
+      const resp = await FinancialRecord.findAndCountAll({
         where,
         include: [{ model: database.staff }, { model: database.warehouse }],
         offset: Number(offset),

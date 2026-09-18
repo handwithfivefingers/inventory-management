@@ -12,7 +12,6 @@ import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { TMButton } from "~/components/tm-button";
 import { useSubmitPromise } from "~/hooks";
-import { parseCookieFromRequest } from "~/sessions";
 export const meta: MetaFunction = () => {
   return [{ title: "New Remix App" }, { name: "description", content: "Welcome to Remix!" }];
 };

@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { withContext } from "~/action.server/context.server";
 import { tagsService } from "~/action.server/tags.service";
@@ -7,9 +7,13 @@ import { ErrorComponent } from "~/components/error-component";
 import { TextInput } from "~/components/form/text-input";
 import { Icon } from "~/components/icon";
 import { CreateFab } from "~/components/layouts/create-fab";
+import { toast } from "~/components/notification";
+import PermissionGuard from "~/components/permission-guard";
 import { TMButton } from "~/components/tm-button";
 import { TMPagination } from "~/components/tm-pagination";
 import { TMTable } from "~/components/tm-table";
+import { MODULE_ENUM } from "~/constants/modules";
+import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 
@@ -33,11 +37,33 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export const meta: MetaFunction = () => {
   return [{ title: "Tags" }];
 };
-
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const id = Number(formData.get("id"));
+  try {
+    await tagsService.delete(id);
+    return new Response(null, { status: 200 });
+  } catch (error: any) {
+    return { error: error.message || "Delete failed" };
+  }
+}
 export default function Products() {
   const navigate = useNavigate();
   const { data, total, page, pageSize } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
+  const { submit, isLoading } = useSubmitPromise();
+  const handleDelete = async (id: number) => {
+    try {
+      if (!confirm(t("common.confirmDelete"))) {
+        return;
+      }
+      const resp = await submit<{ status: number }>({ id: String(id) }, { method: "post" });
+      if (resp.status !== 200) throw resp;
+      toast.success({ title: "Created", message: "Xóa thành công" });
+    } catch (error) {
+      toast.danger({ title: "Error", message: (error as any)?.data?.error || (error as Error).message });
+    }
+  };
   return (
     <div className=" w-full flex flex-col p-2 gap-2 overflow-hidden h-full">
       <CreateFab to="./add" label={t("common.add")} />
@@ -71,6 +97,8 @@ export default function Products() {
           </div>
           <div className="flex flex-1 gap-2 flex-col items-end overflow-hidden">
             <TMTable
+              scrollable
+              loading={isLoading}
               columns={[
                 {
                   title: t("tags.tag"),
@@ -82,6 +110,27 @@ export default function Products() {
                   dataIndex: "createdAt",
                   hideOnMobile: true,
                   render: (record) => dayjs(record.createdAt).format("DD/MM/YYYY"),
+                },
+                {
+                  title: t("common.actions"),
+                  dataIndex: "actions",
+                  width: 40,
+                  render: (item) => (
+                    <div className="flex gap-1 justify-center">
+                      <PermissionGuard permission="DELETE" module={MODULE_ENUM.tag}>
+                        <TMButton
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(item.id as number);
+                          }}
+                          className="py-2 text-red-500 bg-red-500/20"
+                        >
+                          <Icon name="trash" fontSize={12} />
+                        </TMButton>
+                      </PermissionGuard>
+                    </div>
+                  ),
                 },
               ]}
               data={data || []}

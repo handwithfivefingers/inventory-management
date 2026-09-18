@@ -1,11 +1,21 @@
-import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany } from 'sequelize-typescript'
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  CreatedAt,
+  UpdatedAt,
+  ForeignKey,
+  BelongsTo,
+  HasMany
+} from 'sequelize-typescript'
 import { Vendor } from './vendor'
 import { Inventory } from './inventory'
 import { OrderDetail } from './orderDetail'
 import { Transfer } from './transfer'
 import { Order } from './order'
 
-@Table({ tableName: 'warehouses', modelName: 'warehouse', timestamps: true })
+@Table({ tableName: 'warehouses', modelName: 'warehouse', timestamps: true, paranoid: true })
 export class Warehouse extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
   declare id: number

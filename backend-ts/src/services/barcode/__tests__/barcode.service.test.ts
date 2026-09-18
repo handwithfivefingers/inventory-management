@@ -1,5 +1,4 @@
 import Inventory from '#/database/models/inventory'
-import OrderDetail from '#/database/models/orderDetail'
 import ProductBarcode from '#/database/models/productBarcode'
 import BarcodeService from '..'
 import database from '#/database'
@@ -62,11 +61,12 @@ describe('BarcodeService', () => {
     expect(remaining).toBe(0)
   })
 
-  it('prevents conversion-rate edits after an order references the barcode', async () => {
-    OrderDetail.count = vi.fn().mockResolvedValue(1) as any
-    await expect(new BarcodeService().assertConversionRateMutable(10)).rejects.toMatchObject({
-      code: 'CONVERSION_RATE_LOCKED',
-      status: 409
+  it('serializes conversion rate from the barcode', async () => {
+    ProductBarcode.findOne = vi.fn().mockResolvedValue(barcode({ conversionRate: 6 })) as any
+    ProductBarcode.findAll = vi.fn().mockResolvedValue([{ conversionRate: 6, unit: { name: 'pack' } }]) as any
+    Inventory.findAll = vi.fn().mockResolvedValue([{ quantity: 6 }]) as any
+    await expect(new BarcodeService().scanBarcode('893000000001', 'retail', 1)).resolves.toMatchObject({
+      barcode: { conversionRate: 6 }
     })
   })
 })

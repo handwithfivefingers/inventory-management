@@ -4,6 +4,9 @@
  */
 
 import database from '#/database'
+import Product from '#/database/models/product'
+import Tag from '#/database/models/tag'
+import { ApiError } from '#/response'
 import { ITagModel, ITagStatic } from '#/types/tag'
 import { Optional } from 'sequelize'
 
@@ -17,9 +20,9 @@ export class TagsService {
       throw error
     }
   }
-  async update({ id, ...params }: ITagModel) {
+  async update({ id, vendorId, ...params }: ITagModel) {
     try {
-      const resp = await this.tag.update(params, { where: { id: id } })
+      const resp = await this.tag.update(params, { where: { id: id, vendorId } })
       return resp
     } catch (error) {
       throw error
@@ -28,12 +31,12 @@ export class TagsService {
 
   async getTags({ vendorId }: { vendorId: string }) {
     try {
-      const queryParams = {
+      const resp = await this.tag.findAndCountAll({
         where: {
           vendorId
-        }
-      }
-      const resp = await this.tag.findAndCountAll(queryParams)
+        },
+        order: [['id', 'desc']]
+      })
       return resp
     } catch (error) {
       throw error
@@ -42,16 +45,24 @@ export class TagsService {
 
   async getById({ id, vendorId }: { id: string; vendorId: string }) {
     try {
-      const resp = await this.tag.findOne({
+      const resp = await Tag.findOne({
         where: {
           id,
           vendorId
         },
-        include: database.product
+        include: Product
       })
       return resp
     } catch (error) {
       throw error
     }
+  }
+
+  async delete(id: string | number, vendorId: number) {
+    const _tag = await Tag.findByPk(id)
+    if (!_tag) throw ApiError.notFound('Unit not found')
+    if (_tag.vendorId !== vendorId) throw ApiError.notFound('Unit not found')
+    await _tag.destroy()
+    return true
   }
 }

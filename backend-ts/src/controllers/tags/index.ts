@@ -56,4 +56,18 @@ export class TagsController {
       next(error)
     }
   }
+  async delete(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      const { id } = req.params
+      const vendorId = req.activeVendorId
+      if (!id) throw new Error('id is required')
+      const resp = await new TagsService().delete(Number(id), Number(vendorId))
+      return res.status(200).json({
+        data: resp
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
 }

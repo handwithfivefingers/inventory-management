@@ -121,7 +121,7 @@ export class ProductExcelService {
       include: [
         { model: Category, through: { attributes: [] } },
         { model: Unit, attributes: ['name'] },
-        { model: ProductVariant, as: 'variants', limit: 1, order: [['id', 'ASC']], include: [{ model: ProductBarcode, as: 'barcodes' }] }
+        { model: ProductVariant, as: 'variants', limit: 1, order: [['id', 'ASC']], include: [{ model: ProductBarcode, as: 'barcodes', include: [{ model: Unit, as: 'unit' }] }] }
       ],
       order: [['id', 'DESC']],
       limit: 5000
@@ -129,7 +129,7 @@ export class ProductExcelService {
 
     const rows = products.map((p) => {
       const variant = (p.get('variants') || [])[0]
-      const barcode = (variant?.get('barcodes') || []).find((row: any) => row.get('isBaseUnit')) || (variant?.get('barcodes') || [])[0]
+      const barcode = (variant?.get('barcodes') || []).find((row: any) => Number(row.get('conversionRate')) === 1) || (variant?.get('barcodes') || [])[0]
       return {
         name: p.get('name'),
         code: barcode?.get('barcode') ?? '',
@@ -379,7 +379,7 @@ export class ProductExcelService {
       },
       { transaction: t }
     )
-    const barcode: any = await ProductBarcode.findOne({ where: { variantId: Number(match.get('id')), isBaseUnit: true }, transaction: t })
+    const barcode: any = await ProductBarcode.findOne({ where: { variantId: Number(match.get('id')), conversionRate: 1 }, transaction: t })
     if (!barcode) throw new Error('Variant is missing its base barcode')
     await barcode.update({
       ...(fields.code !== undefined ? { barcode: fields.code } : {}),
@@ -461,7 +461,7 @@ export class ProductExcelService {
     await ProductBarcode.create({
       variantId: variant.get('id'), unitId, barcode: code || skuCode, conversionRate: 1,
       costPrice: costPrice ?? 0, retailPrice: salePrice ?? regularPrice ?? 0,
-      wholesalePrice: wholeSalePrice ?? salePrice ?? regularPrice ?? 0, isBaseUnit: true
+      wholesalePrice: wholeSalePrice ?? salePrice ?? regularPrice ?? 0
     }, { transaction: t })
     if (quantity) {
       await createOpeningStock({

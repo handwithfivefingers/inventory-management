@@ -3,25 +3,34 @@
  * @DESCRIPTION: Middle table - Connection Between Product and Warehouse
  */
 
-import database from '#/database'
+import Unit from '#/database/models/units'
 import { ApiError } from '#/response'
-import { IUnitModel, IUnitStatic } from '#/types/unit'
-import { Optional } from 'sequelize'
+import { IUnitModel } from '#/types/unit'
+import { Op, Optional } from 'sequelize'
 
 export class UnitsService {
-  unit: IUnitStatic = database.unit
   async create(params: Optional<IUnitModel, 'id'>) {
     try {
-      const _unit = await this.unit.create(params)
+      const { name, vendorId } = params
+      const _unit = await Unit.create({ name, vendorId })
       return _unit
     } catch (error) {
       throw ApiError.from(error)
     }
   }
-  async update({ id, ...params }: IUnitModel) {
+  async update({ id, ...params }: Unit) {
     try {
-      const resp = await this.unit.update(params, { where: { id: id } })
-      return resp
+      const _unit = await Unit.findByPk(id)
+
+      if (!_unit) throw ApiError.notFound('Unit not found')
+
+      const body: Partial<Unit> = {}
+
+      if (params.name) body.name = params.name
+
+      await _unit.update(body)
+
+      return true
     } catch (error) {
       throw ApiError.from(error)
     }
@@ -29,13 +38,13 @@ export class UnitsService {
 
   async getUnits(vendorId: string) {
     try {
-      // Retrieve all units
-      const queryParams = {
+      const resp = await Unit.findAndCountAll({
         where: {
-          vendorId
-        }
-      }
-      const resp = await this.unit.findAndCountAll(queryParams)
+          [Op.or]: [{ vendorId }, { vendorId: null }]
+        },
+        distinct: true,
+        order: [['id', 'DESC']]
+      })
       return resp
     } catch (error) {
       throw ApiError.from(error)
@@ -44,15 +53,23 @@ export class UnitsService {
 
   async getById({ id, vendorId }: { id: string; vendorId: string }) {
     try {
-      const resp = await this.unit.findOne({
+      const resp = await Unit.findOne({
         where: {
           id,
-          vendorId
+          [Op.or]: [{ vendorId }, { vendorId: null }]
         }
       })
       return resp
     } catch (error) {
       throw ApiError.from(error)
     }
+  }
+
+  async delete(id: number, vendorId: number) {
+    const _unit = await Unit.findByPk(id)
+    if (!_unit) throw ApiError.notFound('Unit not found')
+    if (_unit.vendorId !== vendorId) throw ApiError.notFound('Unit not found')
+    await _unit.destroy()
+    return true
   }
 }

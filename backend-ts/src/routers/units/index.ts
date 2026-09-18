@@ -39,5 +39,14 @@ route.post(
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { id: { type: 'integer' }, name: { type: 'string' } }, required: ['id'] } } */
   new UnitsController().update as any
 )
+route.delete(
+  '/:id',
+  unitIdValidation as any,
+  // #swagger.tags = ['Units']
+  // #swagger.summary = 'Update unit'
+  // #swagger.security = [{ "bearerAuth": [] }]
+  /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { id: { type: 'integer' }, name: { type: 'string' } }, required: ['id'] } } */
+  new UnitsController().delete as any
+)
 
 export default route

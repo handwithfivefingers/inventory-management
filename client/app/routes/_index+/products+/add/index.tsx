@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FieldErrors, FormProvider, useForm } from "react-hook-form";
 import { categoryService } from "~/action.server/category.service";
 import { productAttributeService } from "~/action.server/productAttribute.service";
 import { productService } from "~/action.server/products.service";
@@ -17,6 +17,7 @@ import { TMButton } from "~/components/tm-button";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { useTranslation } from "~/i18n";
+import { serializeProductVariant } from "~/libs/product-payload";
 import { cn } from "~/libs/utils";
 
 export const meta: MetaFunction = () => {
@@ -40,7 +41,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
     suggestedAttributes: (suggestedAttributes as any)?.data?.data || (suggestedAttributes as any)?.data || [],
   };
 }
-
+const sampleProduct = {
+  name: "Sản phẩm 1",
+  skuCode: "",
+  type: 0,
+  categories: [1],
+  tags: [2],
+  description: "Sản phẩm 1",
+  variants: [
+    {
+      quantity: "4",
+      isNegative: false,
+      options: {},
+      attributes: [],
+      attributeValues: [],
+      skuCode: "123456",
+      barcodes: [
+        {
+          barcode: null,
+          unitId: 2,
+          conversionRate: 1,
+          costPrice: "15",
+          retailPrice: "15",
+          wholesalePrice: "15",
+          isBaseUnit: true,
+        },
+      ],
+    },
+  ],
+};
 const Title = () => {
   const { t } = useTranslation();
   return (
@@ -67,36 +96,33 @@ export default function ProductItem() {
   const { suggestedAttributes, categories, units, tags } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
   const formMethods = useForm<ProductSchemaType>({
-    defaultValues: {
-      name: "",
-      skuCode: "",
-      quantity: 0,
-      unit: undefined,
-      categories: undefined,
-      description: undefined,
-      tags: undefined,
-      VAT: 0,
-      expiredAt: undefined,
-      isNegative: false,
-      variantAttributes: [],
-      variants: [
-        {
-          options: {},
-          barcodes: [
-            {
-              barcode: "",
-              unitId: "",
-              conversionRate: 1,
-              costPrice: 0,
-              retailPrice: 0,
-              wholesalePrice: 0,
-              isBaseUnit: true,
-            },
-          ],
-        },
-      ],
-      type: 0,
-    },
+    defaultValues: sampleProduct,
+    // defaultValues: {
+    //   name: "",
+    //   skuCode: "",
+    //   description: undefined,
+    //   categories: undefined,
+    //   tags: undefined,
+    //   expiredAt: undefined,
+    //   type: 0,
+    //   variantAttributes: [],
+    //   variants: [
+    //     {
+    //       options: {},
+    //       barcodes: [
+    //         {
+    //           barcode: null,
+    //           unitId: null,
+    //           conversionRate: 1,
+    //           costPrice: 0,
+    //           retailPrice: 0,
+    //           wholesalePrice: 0,
+    //           isBaseUnit: true,
+    //         },
+    //       ],
+    //     },
+    //   ],
+    // },
     resolver: zodResolver(productSchema),
   });
   const productType = formMethods.watch("type") ?? 0;
@@ -136,7 +162,7 @@ export default function ProductItem() {
           const vid = valByAttrAndValue.get(`${k}::${String(val).trim().toLowerCase()}`);
           if (vid) attributeValueIds.push(vid);
         }
-        return {
+        return serializeProductVariant({
           skuCode: m.skuCode,
           quantity: m.quantity,
           barcodes: m.barcodes,
@@ -147,7 +173,7 @@ export default function ProductItem() {
           options: opts,
           attributes: attributeIds,
           attributeValues: attributeValueIds,
-        };
+        });
       });
     if (variantsPayload.length > 0) {
       payload.variants = variantsPayload;
@@ -158,8 +184,9 @@ export default function ProductItem() {
       delete payload.variants;
     }
     delete payload.variantAttributes;
-    for (const key of ["code", "costPrice", "regularPrice", "salePrice", "wholeSalePrice"]) delete payload[key];
-
+    // for (const key of ["code", "costPrice", "regularPrice", "salePrice", "wholeSalePrice"]) delete payload[key];
+    console.log("payload", payload);
+    return;
     try {
       const response: any = await submit({ data: JSON.stringify(payload) }, { method: "POST" });
       const body = response?.data ?? response;
@@ -183,17 +210,18 @@ export default function ProductItem() {
       });
     }
   };
-
+  const onError = (errors: FieldErrors<ProductSchemaType>) => {
+    console.log(errors);
+    toast.danger({
+      title: t("product.createFailed"),
+      message: Object.values(errors)[0]?.message || t("common.tryAgain"),
+    });
+  };
   return (
     <FormProvider {...formMethods}>
       <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
         <div className="max-w-5xl w-full mx-auto">
-          <form
-            onSubmit={formMethods.handleSubmit(
-              (v) => onSubmit({ ...v }),
-              () => toast.danger({ title: t("product.createFailed"), message: t("common.tryAgain") }),
-            )}
-          >
+          <form onSubmit={formMethods.handleSubmit(onSubmit, onError)}>
             <CardItem
               title={<Title />}
               action={
@@ -268,7 +296,8 @@ export async function action({ request }: any) {
   } catch (error) {
     return Response.json(
       {
-        error: error instanceof Error ? error.message : "Create product failed",
+        ...(error as Error),
+        message: error instanceof Error ? error.message : "Create product failed",
       },
       { status: 400 },
     );

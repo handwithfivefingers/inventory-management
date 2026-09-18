@@ -1,5 +1,5 @@
 import { CategoriesService } from '#/services/categories'
-import { IRequestHandler, IRequestLocal } from '#/types/common'
+import { IRequestHandler } from '#/types/common'
 import { getPagination } from '#/utils'
 
 export class CategoriesController {
@@ -8,7 +8,6 @@ export class CategoriesController {
     try {
       const warehouseId = req.headers['x-warehouse']
       const vendorId = req.headers['x-vendor']
-
       const params = {
         ...req.body,
         vendorId: vendorId
@@ -25,9 +24,8 @@ export class CategoriesController {
   async update(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      // #swagger.tags = ['Categories']
-
-      const resp = await new CategoriesService().update(req.body)
+      const vendorId = req.activeVendorId
+      const resp = await new CategoriesService().update(req.body, Number(vendorId))
       res.status(200).json({
         data: resp
       })
@@ -39,14 +37,13 @@ export class CategoriesController {
   async delete(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      // #swagger.tags = ['Categories']
-
-      if (!req.query?.id) throw new Error('id is required')
-      const resp = await new CategoriesService().deleteById(req.query.id as string)
-      res.status(200).json({
+      const { id } = req.params
+      const vendorId = req.activeVendorId
+      if (!id) throw new Error('id is required')
+      const resp = await new CategoriesService().deleteById(Number(id), Number(vendorId))
+      return res.status(200).json({
         data: resp
       })
-      return
     } catch (error) {
       next(error)
     }
@@ -54,7 +51,6 @@ export class CategoriesController {
   async get(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      // #swagger.tags = ['Categories']
       const warehouseId = req.headers['x-warehouse']
       const vendorId = req.headers['x-vendor'] as string
       const { limit, offset } = getPagination(req.query)
@@ -68,10 +64,10 @@ export class CategoriesController {
   async getById(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      // #swagger.tags = ['Categories']
-
-      // const resp = await new CategoriesService().getById({ params: req.params, query: req.query })
-      const resp = await new CategoriesService().getById(req.params.id)
+      const { id } = req.params
+      const vendorId = req.activeVendorId
+      if (!id) throw new Error('id is required')
+      const resp = await new CategoriesService().getById(Number(id), Number(vendorId))
       res.status(200).json({
         data: resp
       })

@@ -20,6 +20,7 @@ import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
 import { ResponseError } from "~/http/index.server";
 import { useTranslation } from "~/i18n";
+import { serializeProductVariant } from "~/libs/product-payload";
 import { ICategory } from "~/types/category";
 import { IProduct, IProductAttribute, IProductAttributeValue, IProductVariant } from "~/types/product";
 
@@ -79,13 +80,8 @@ export default function ProductItem() {
             </TMButton>
           }
         >
-          {edit ? (
-            <EditForm />
-          ) : (
-            <div className="py-2 text-sm text-slate-600 dark:text-slate-300">
-              {data?.description || t("product.detailHint")}
-            </div>
-          )}
+          <EditForm />
+
           {/* <Tab
             active="overview"
             items={[
@@ -249,14 +245,14 @@ const VariantsManager = ({
           const vid = valByAttrAndValue.get(`${k}::${String(val).trim().toLowerCase()}`);
           if (vid) attributeValueIds.push(vid);
         }
-        return {
+        return serializeProductVariant({
           variantId,
           id: variantId,
           ...fields,
           options,
           attributes: attributeIds,
           attributeValues: attributeValueIds,
-        };
+        });
       });
     const removedVariantIds = defaults.variantIds.filter(
       (id) =>
@@ -288,20 +284,29 @@ const VariantsManager = ({
               type: (loaderData as any)?.data?.type === 2 ? 2 : productType,
               variants: variantsPayload,
               removedVariantIds,
+              ...(productType === 0
+                ? {
+                    quantity: variantsPayload[0]?.quantity,
+                    skuCode: variantsPayload[0]?.skuCode,
+                    VAT: variantsPayload[0]?.VAT,
+                    isNegative: variantsPayload[0]?.isNegative,
+                    isActive: variantsPayload[0]?.isActive,
+                  }
+                : {}),
             },
           }),
         },
         { method: "POST" },
       );
       const body = response?.data ?? response;
-      // const error = body?.error || body?.message || response?.error;
-      // if (error || (response?.status && response.status !== 200)) {
-      //   toast.danger({
-      //     title: t("common.error"),
-      //     message: String(error || t("common.tryAgain")),
-      //   });
-      //   return;
-      // }
+      const error = body?.error || body?.message || response?.error;
+      if (error || (body?.status && body.status !== 200)) {
+        toast.danger({
+          title: t("common.error"),
+          message: String(error || t("common.tryAgain")),
+        });
+        return;
+      }
       toast.success({
         title: t("common.success"),
         message: t("product.updateSuccess", {
@@ -355,6 +360,7 @@ const VariantTransitionNotice = ({ reason }: { reason?: string | null }) => (
 
 const EditForm = () => {
   const { data } = useLoaderData<typeof loader>();
+  console.log(`data`, data);
   const { t } = useTranslation();
   const productType = Number((data as any)?.type ?? 0);
   const hasVariants = productType === 1;
@@ -384,6 +390,10 @@ const EditForm = () => {
 
   const handleError = (errors: any) => {
     console.log("errors", errors);
+    toast.danger({
+      title: t("common.error"),
+      message: (Object.values(errors)[0] as any)?.message || t("common.tryAgain"),
+    });
   };
 
   const { load, data: categories } = useFetcher<{ data: ICategory[] }>({
@@ -426,7 +436,7 @@ const EditForm = () => {
           message: "Update product success",
         });
       }
-      throw responseBody;
+      throw new Error(responseBody?.error || responseBody?.message || t("common.tryAgain"));
     } catch (error) {
       toast.danger({
         title: t("common.error"),

@@ -5,6 +5,7 @@ import styles from "./styles.module.scss";
 import { TMButton } from "../tm-button";
 import * as feather from "feather-icons";
 import { Icon } from "../icon";
+import { cn } from "~/libs/utils";
 
 export interface ITMModal extends BaseProps {
   open?: boolean;
@@ -12,9 +13,10 @@ export interface ITMModal extends BaseProps {
   maskOnClose?: boolean;
   width?: number | string;
   title?: React.ReactNode;
+  className?: string;
 }
 
-export const TMModal = ({ children, open = false, maskOnClose = true, close, width, title }: ITMModal) => {
+export const TMModal = ({ children, open = false, maskOnClose = true, close, width, title, className }: ITMModal) => {
   const onClose = () => {
     close?.();
   };
@@ -41,7 +43,7 @@ export const TMModal = ({ children, open = false, maskOnClose = true, close, wid
       <Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
           <div
-            className="flex flex-col gap-2 bg-white rounded-md min-w-60 shadow-md z-10 relative"
+            className={cn("flex flex-col gap-2 bg-white rounded-md min-w-60 shadow-md z-10 relative", className)}
             style={{
               width: width,
             }}

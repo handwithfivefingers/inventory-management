@@ -1,6 +1,11 @@
 import { CategoriesController } from '#/controllers/categories'
 import express from 'express'
-import { categoryCreateValidation, categoryIdValidation, categoryListValidation, categoryUpdateValidation } from './validator'
+import {
+  categoryCreateValidation,
+  categoryIdValidation,
+  categoryListValidation,
+  categoryUpdateValidation
+} from './validator'
 const route = express.Router()
 
 route.get(
@@ -12,7 +17,7 @@ route.get(
   /* #swagger.parameters['limit'] = { in: 'query', type: 'integer' } */
   /* #swagger.parameters['offset'] = { in: 'query', type: 'integer' } */
   /* #swagger.parameters['vendorId'] = { in: 'query', type: 'integer' } */
-  new CategoriesController().get
+  new CategoriesController().get as any
 )
 route.get(
   '/:id',
@@ -20,7 +25,7 @@ route.get(
   // #swagger.tags = ['Categories']
   // #swagger.summary = 'Get category by ID'
   // #swagger.security = [{ "bearerAuth": [] }]
-  new CategoriesController().getById
+  new CategoriesController().getById as any
 )
 route.post(
   '/',
@@ -30,7 +35,7 @@ route.post(
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['vendorId'] = { in: 'query', type: 'string', description: 'Vendor ID (query)' } */
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/CategoryBody' } } */
-  new CategoriesController().create
+  new CategoriesController().create as any
 )
 route.post(
   '/:id',
@@ -39,7 +44,7 @@ route.post(
   // #swagger.summary = 'Update category'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { properties: { name: { type: 'string' }, description: { type: 'string' } } } } */
-  new CategoriesController().update
+  new CategoriesController().update as any
 )
 route.delete(
   '/:id',
@@ -47,7 +52,7 @@ route.delete(
   // #swagger.tags = ['Categories']
   // #swagger.summary = 'Delete category'
   // #swagger.security = [{ "bearerAuth": [] }]
-  new CategoriesController().delete
+  new CategoriesController().delete as any
 )
 
 export default route

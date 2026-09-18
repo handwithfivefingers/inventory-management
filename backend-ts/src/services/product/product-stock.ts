@@ -75,20 +75,26 @@ export const createOpeningStock = async ({
   if (variantId === undefined || variantId === null || variantId === '') throw new Error('variantId is required')
   if (!quantity) return null
 
-  const inventory: any = await Inventory.build({
-    warehouseId,
-    quantity,
-    productId,
-    variantId
-  }).save({ transaction })
+  const inventory: any = await Inventory.create(
+    {
+      warehouseId,
+      quantity,
+      productId,
+      variantId
+    },
+    { transaction }
+  )
 
-  const transfer: any = await Transfer.build({
-    fromWarehouseId: warehouseId,
-    quantity,
-    productId,
-    variantId,
-    type: '0'
-  }).save({ transaction })
+  const transfer: any = await Transfer.create(
+    {
+      fromWarehouseId: warehouseId,
+      quantity,
+      productId,
+      variantId,
+      type: '0'
+    },
+    { transaction }
+  )
 
   return { inventory, transfer }
 }

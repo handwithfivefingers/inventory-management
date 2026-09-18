@@ -1,6 +1,6 @@
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { useTranslation } from "~/i18n";
-import type { IVariantAttributeDraft } from ".";
+import type { IVariantAttributeDraft } from "./types";
 import { useFetcher, useLoaderData, useRevalidator } from "@remix-run/react";
 import { useSubmitPromise } from "~/hooks";
 import { useEffect, useMemo, useRef } from "react";
@@ -17,11 +17,22 @@ interface AttributeRowProps {
   attributeNameOptions: Option[];
   attributeNameLabel?: string;
   attributeValuesLabel?: string;
-  getValueSuggestions: (attributeName: string, currentValues: Option[]) => Option[];
+  getValueSuggestions: (
+    attributeName: string,
+    currentValues: Option[]
+  ) => Option[];
   index: number;
-  isAttributeNameTaken: (attributeName: string, currentIndex: number) => boolean;
+  isAttributeNameTaken: (
+    attributeName: string,
+    currentIndex: number
+  ) => boolean;
   onCreateAttribute: (attributeName: string) => void;
-  onCreateValue: (attributeName: string, currentValues: Option[], nextValues: Option[], createdValue?: Option) => void;
+  onCreateValue: (
+    attributeName: string,
+    currentValues: Option[],
+    nextValues: Option[],
+    createdValue?: Option
+  ) => void;
   onRemove: (index: number) => void;
   updateAttribute: (index: number, attribute: IVariantAttributeDraft) => void;
 }
@@ -51,7 +62,9 @@ const AttributeRow = ({
   const currentName = String(attribute.name || "").trim();
   const normalizedValue: AttributeValueOption[] = Array.isArray(watchedValues)
     ? watchedValues
-        .map((value) => (typeof value === "string" ? { label: value, value } : value))
+        .map((value) =>
+          typeof value === "string" ? { label: value, value } : value
+        )
         .filter((value): value is AttributeValueOption => Boolean(value?.value))
     : [];
   const suggestions = getValueSuggestions(currentName, normalizedValue);
@@ -89,7 +102,11 @@ const AttributeRow = ({
             void form.trigger(`variantAttributes.${index}.values`);
             onCreateValue(currentName, normalizedValue, next, createdValue);
           }}
-          placeholder={currentName ? `Giá trị cho ${currentName} — Enter để tạo` : "Chọn thuộc tính trước"}
+          placeholder={
+            currentName
+              ? `Giá trị cho ${currentName} — Enter để tạo`
+              : "Chọn thuộc tính trước"
+          }
         />
       </div>
       <TMButton
@@ -150,7 +167,10 @@ export const AttributeVariant = () => {
   let globalMap: Record<string, Option[]> = {};
   try {
     const globalAttrs: any[] =
-      loaderData?.suggestedAttributes || loaderData?.attributesData || loaderData?.data?.attributes || [];
+      loaderData?.suggestedAttributes ||
+      loaderData?.attributesData ||
+      loaderData?.data?.attributes ||
+      [];
     if (Array.isArray(globalAttrs)) {
       // already deduped per vendor in backend listAttributes
       vendorAttrs = globalAttrs
@@ -191,8 +211,13 @@ export const AttributeVariant = () => {
       const k = n.toLowerCase();
       if (!map.has(k)) map.set(k, { label: n, value: n });
     }
-    return Array.from(map.values()).sort((x, y) => x.label.localeCompare(y.label));
-  }, [JSON.stringify(vendorAttrs), JSON.stringify(watchedAttrs.map((a) => a.name))]);
+    return Array.from(map.values()).sort((x, y) =>
+      x.label.localeCompare(y.label)
+    );
+  }, [
+    JSON.stringify(vendorAttrs),
+    JSON.stringify(watchedAttrs.map((a) => a.name)),
+  ]);
 
   // Disable duplicate attribute names across rows (unique per vendor)
   const usedNames = useMemo(() => {
@@ -216,11 +241,17 @@ export const AttributeVariant = () => {
       return { ...opt, disabled: isTakenElsewhere };
     });
 
-  const isAttributeNameTaken = (attributeName: string, currentIndex: number) => {
+  const isAttributeNameTaken = (
+    attributeName: string,
+    currentIndex: number
+  ) => {
     const lower = attributeName.trim().toLowerCase();
     return watchedAttrs.some(
       (attribute, index) =>
-        index !== currentIndex && String(attribute.name || "").trim().toLowerCase() === lower,
+        index !== currentIndex &&
+        String(attribute.name || "")
+          .trim()
+          .toLowerCase() === lower
     );
   };
 
@@ -250,7 +281,9 @@ export const AttributeVariant = () => {
         }
       }
     }
-    const currentLower = new Set(currentValues.map((v) => v.value.toLowerCase()));
+    const currentLower = new Set(
+      currentValues.map((v) => v.value.toLowerCase())
+    );
     return merged.filter((o) => !currentLower.has(o.value.toLowerCase()));
   };
 
@@ -258,45 +291,78 @@ export const AttributeVariant = () => {
     <div className="flex flex-col gap-2">
       <span className="font-medium text-lg">{t("sidebar.attributes")}</span>
       {fields.map((field, index) => {
-        const attribute = watchedAttrs[index] || ({ name: "", values: [] } as IVariantAttributeDraft);
+        const attribute =
+          watchedAttrs[index] ||
+          ({ name: "", values: [] } as IVariantAttributeDraft);
         return (
           <AttributeRow
             key={field.id}
             attribute={attribute}
-            attributeNameLabel={index === 0 ? t("product.attributeName") : undefined}
+            attributeNameLabel={
+              index === 0 ? t("product.attributeName") : undefined
+            }
             attributeNameOptions={attributeNameOptionsWithDisabled(index)}
-            attributeValuesLabel={index === 0 ? t("product.attributeValuesHint") : undefined}
+            attributeValuesLabel={
+              index === 0 ? t("product.attributeValuesHint") : undefined
+            }
             getValueSuggestions={getValueSuggestions}
             index={index}
             isAttributeNameTaken={isAttributeNameTaken}
             onCreateAttribute={(name) => {
               const lower = name.toLowerCase();
-              const exists = vendorAttrs.some((attribute) => attribute.name.trim().toLowerCase() === lower);
+              const exists = vendorAttrs.some(
+                (attribute) => attribute.name.trim().toLowerCase() === lower
+              );
               if (!exists) {
                 createAttrFetcher.submit(
                   { data: JSON.stringify({ name, values: [] }) },
-                  { method: "POST", action: "/products/attributes/add" },
+                  { method: "POST", action: "/products/attributes/add" }
                 );
               }
             }}
-            onCreateValue={(attributeName, currentValues, nextValues, createdValue) => {
+            onCreateValue={(
+              attributeName,
+              currentValues,
+              nextValues,
+              createdValue
+            ) => {
               const key = attributeName.trim().toLowerCase();
-              const attribute = vendorAttrs.find((item) => item.name.trim().toLowerCase() === key);
-              if (!attribute || nextValues.length <= currentValues.length || !createdValue) return;
-              const existingLower = new Set((globalMap[key] || []).map((option) => option.value.toLowerCase()));
-              const previousLower = new Set(currentValues.map((option) => option.value.toLowerCase()));
+              const attribute = vendorAttrs.find(
+                (item) => item.name.trim().toLowerCase() === key
+              );
+              if (
+                !attribute ||
+                nextValues.length <= currentValues.length ||
+                !createdValue
+              )
+                return;
+              const existingLower = new Set(
+                (globalMap[key] || []).map((option) =>
+                  option.value.toLowerCase()
+                )
+              );
+              const previousLower = new Set(
+                currentValues.map((option) => option.value.toLowerCase())
+              );
               const newValues = nextValues.filter(
-                (option) => !existingLower.has(option.value.toLowerCase()) && !previousLower.has(option.value.toLowerCase()),
+                (option) =>
+                  !existingLower.has(option.value.toLowerCase()) &&
+                  !previousLower.has(option.value.toLowerCase())
               );
               if (!newValues.length) return;
               globalMap[key] = [...(globalMap[key] || []), createdValue];
               submit(
                 { values: createdValue.value, intent: "createValue" },
-                { method: "POST", action: `/products/attributes/${attribute.id}` },
+                {
+                  method: "POST",
+                  action: `/products/attributes/${attribute.id}`,
+                }
               );
             }}
             onRemove={remove}
-            updateAttribute={(attributeIndex, nextAttribute) => update(attributeIndex, nextAttribute)}
+            updateAttribute={(attributeIndex, nextAttribute) =>
+              update(attributeIndex, nextAttribute)
+            }
           />
         );
       })}

@@ -99,7 +99,8 @@ const dedupeInvoiceIndexes = async () => {
   await dedupeTable('permissions', ['PRIMARY', 'name'], /^name/)
   await dedupeTable('staff_vendor', ['PRIMARY', 'staffId'], /^staffId/)
   await dedupeTable('productVariants', ['UNIQUE', 'productId', 'skuCode'], /^[productId|skuCode]/)
-  await dedupeTable('product_barcodes', ['UNIQUE', 'barcode', 'baseVariantId'], /^[barcode|baseVariantId]/)
+  await dedupeTable('product_barcodes', ['UNIQUE', 'barcode'], /^barcode/)
+  await dedupeTable('product_barcodes', ['INDEX', 'variantId', 'unitId'], /^[variantId|unitId]/)
 }
 
 const database: IDatabase = {
@@ -115,7 +116,7 @@ const database: IDatabase = {
       // alter: true keeps the schema in step with model changes in dev
       // (e.g. the per-variant isNegative column added to productVariants).
       try {
-        await sequelize.sync({ alter: true })
+        await sequelize.sync()
       } catch (e: any) {
         const msg = String(e?.message ?? '') + String(e?.parent?.message ?? '') + String(e?.original?.message ?? '')
         const code = e?.parent?.code || e?.original?.code
@@ -124,7 +125,7 @@ const database: IDatabase = {
         if (code === 'ER_TOO_MANY_KEYS' || msg.includes('Too many keys')) {
           console.log('sync hit Too many keys - retrying after dedupe')
           await dedupeInvoiceIndexes()
-          await sequelize.sync({ alter: true })
+          await sequelize.sync()
         } else if (
           code === 'ER_CANT_DROP_FIELD_OR_KEY' ||
           errno === 1091 ||
