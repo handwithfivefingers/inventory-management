@@ -338,7 +338,6 @@
     "historyTab": "History",
     "overviewTab": "Overview",
     "variant": "Variant",
-    "barcode": "Barcode",
     "openingStock": "Opening stock",
     "retailPrice": "Retail price",
     "attributeName": "Attribute (e.g. Color)",
@@ -359,7 +358,10 @@
     "inStock": "In stock",
     "sold": "Sold",
     "createdAt": "Created at",
-    "newVariant": "New variant"
+    "newVariant": "New variant",
+    "barcode": "Barcode",
+    "isActive": "Active",
+    "VAT": "VAT"
   },
   "settings": {
     "moneyStep": "Money step (+/-)",

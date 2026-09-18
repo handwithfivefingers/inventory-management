@@ -34,6 +34,7 @@ type Actions = {
     selectedWarehouseId?: string | number;
   }) => void;
   setVendor: (vendor: IVendor) => void;
+  updateVendor: (vendor: Partial<IVendor> & Pick<IVendor, "id">) => void;
   setWarehouse: (warehouse: IWareHouse) => void;
   reset: () => void;
 };
@@ -90,6 +91,14 @@ const useUser = create<IUserState & Actions>()(
         };
       }),
     setVendor: (vendor) => set(() => ({ activeVendor: vendor, activeWarehouse: pickDefaultWarehouse(vendor) })),
+    updateVendor: (vendor) =>
+      set((state) => {
+        const update = (current?: IVendor) => (current?.id === vendor.id ? { ...current, ...vendor } : current);
+        return {
+          activeVendor: update(state.activeVendor),
+          vendors: state.vendors?.map((current) => update(current) ?? current),
+        };
+      }),
     setWarehouse: (warehouse) => set(() => ({ activeWarehouse: warehouse })),
     reset: () => set(initialState),
   })),

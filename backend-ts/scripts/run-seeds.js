@@ -12,6 +12,9 @@
  *   node scripts/run-seeds.js up       # default: run all seeders in order
  *   node scripts/run-seeds.js down     # undo in reverse order
  *   node scripts/run-seeds.js up --env production
+ *
+ * Connection config comes from src/configs/database.json, overridden by the
+ * DB_* env vars (same precedence as src/configs/database.js).
  */
 
 const fs = require('fs')
@@ -23,7 +26,15 @@ const CONFIG_PATH = path.join(__dirname, '..', 'src', 'configs', 'database.json'
 
 const getConfig = (env) => {
   const configs = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'))
-  return configs[env] || configs.development
+  const base = configs[env] || configs.development
+  return {
+    database: process.env.DB_NAME || base.database,
+    username: process.env.DB_USER || base.username,
+    password: process.env.DB_PASSWORD || base.password,
+    host: process.env.DB_HOST || base.host,
+    port: Number(process.env.DB_PORT || base.port || 3306),
+    dialect: base.dialect
+  }
 }
 
 const listSeeders = () =>

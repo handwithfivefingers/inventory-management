@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, formatNumber } from "../format-currency";
+import { formatCurrency, formatNumber, formatWithUnit } from "../format-currency";
 
 describe("formatCurrency", () => {
   it("formats a number with the default VND currency", () => {
@@ -66,5 +66,28 @@ describe("formatNumber", () => {
 
   it("formats decimal numbers", () => {
     expect(formatNumber(1234.5)).toBe("1.234,5");
+  });
+});
+
+describe("formatWithUnit", () => {
+  it("suffixes the default VND unit", () => {
+    expect(formatWithUnit(150000)).toBe("150.000₫");
+  });
+
+  it("prefixes the unit when configured", () => {
+    expect(formatWithUnit(150000, { unit: "$", position: "prefix" })).toBe("$150.000");
+  });
+
+  it("suffixes an explicit unit", () => {
+    expect(formatWithUnit(150000, { unit: "đ", position: "suffix" })).toBe("150.000đ");
+  });
+
+  it("falls back to zero for missing values", () => {
+    expect(formatWithUnit(undefined)).toBe("0₫");
+    expect(formatWithUnit(null)).toBe("0₫");
+  });
+
+  it("formats string inputs", () => {
+    expect(formatWithUnit("2500", { unit: "$", position: "prefix" })).toBe("$2.500");
   });
 });

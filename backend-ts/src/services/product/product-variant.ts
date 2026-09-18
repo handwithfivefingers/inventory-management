@@ -97,9 +97,28 @@ export const createVariants = async (variants: VariantInput[], ctx: CreateVarian
   const takenSkus = new Set<string>([normalizeSku(baseSku)].filter(Boolean))
   const takenCodes = new Set<string>([String(baseCode ?? '').trim()].filter(Boolean))
   const created: any[] = []
+  const optionVariants = variants.filter(
+    (variant) => Object.keys((variant as any).options || (variant as any).optionValues || {}).length
+  )
+  const catalogAttributes: any[] = optionVariants.length
+    ? (await ProductAttribute.findAll({ where: { vendorId }, transaction })) || []
+    : []
+  const catalogValues: any[] = optionVariants.length
+    ? await ProductAttributeValue.findAll({
+        where: { attributeId: catalogAttributes.map((a: any) => a.id) },
+        include: [{ model: ProductAttribute, attributes: ['id', 'name', 'vendorId'] }],
+        transaction
+      })
+    : []
+  const catalogLookup = buildValueLookups(catalogValues).byName
 
   for (const variant of variants) {
-    const valIds = extractValueIds(variant)
+    const valIds = extractValueIds(variant).length ? extractValueIds(variant) : resolveValueIds(variant, catalogLookup)
+    if (!valIds.length && Object.keys((variant as any).options || (variant as any).optionValues || {}).length) {
+      throw new Error(
+        'Variant attribute values are not ready. Please wait for newly created attributes to finish saving and try again.'
+      )
+    }
     const attributeValues = await loadAndVerifyAttributeValues(valIds, vendorId, transaction)
 
     const rawSku = readInputSku(variant).trim()
@@ -201,8 +220,19 @@ export const applyVariantSync = async (
   variants: VariantInput[],
   removedVariantIds: (number | string)[],
   warehouseId: number | null,
-  transaction?: Transaction
+  transaction?: Transaction,
+  protectedVariantId?: number
 ): Promise<void> => {
+  if (protectedVariantId !== undefined) {
+    const present = variants.some((variant) => Number(variant.id ?? variant.variantId) === protectedVariantId)
+    if (!present) throw new Error('The original simple variant must remain as the first variant.')
+    if (Number(variants[0]?.id ?? variants[0]?.variantId) !== protectedVariantId) {
+      throw new Error('The original simple variant must remain as the first variant.')
+    }
+    if (removedVariantIds.some((id) => Number(id) === protectedVariantId)) {
+      throw new Error('The original simple variant cannot be removed.')
+    }
+  }
   const productId = Number(product.id ?? product.get?.('id'))
 
   for (const rawId of removedVariantIds || []) {
@@ -216,6 +246,7 @@ export const applyVariantSync = async (
   const currentVariants: any[] = await ProductVariant.findAll({
     where: { productId },
     include: [{ model: ProductAttributeValue, as: 'attributeValues', through: { attributes: [] } }],
+    order: [['id', 'ASC']],
     transaction
   })
   // Include soft-deleted SKUs/codes so auto-generation never violates the
@@ -229,8 +260,13 @@ export const applyVariantSync = async (
     })
   ).filter((r: any) => r.get?.('deletedAt'))
 
-  const productCode = null
-  const baseSku = String(productId)
+  // Product-level code/SKU no longer exists. Use the first existing variant as
+  // the stable base so update-generated values match create-generated values.
+  const sourceVariant = currentVariants[0] || deletedVariants[0]
+  const productCode = sourceVariant ? String(sourceVariant.get('code') ?? '').trim() || null : null
+  const baseSku = sourceVariant
+    ? String(sourceVariant.get('skuCode') ?? '').trim() || productCode || String(productId)
+    : String(productId)
 
   let skuTemplate: string | undefined
   try {
@@ -278,7 +314,14 @@ export const applyVariantSync = async (
 
   for (const v of variants || []) {
     const valIds = resolveValueIds(v, valueByName)
-    if (!valIds.length) continue
+    if (!valIds.length) {
+      if (Object.keys((v as any).options || (v as any).optionValues || {}).length) {
+        throw new Error(
+          'Variant attribute values are not ready. Please wait for newly created attributes to finish saving and try again.'
+        )
+      }
+      continue
+    }
 
     for (const vid of valIds) {
       const row = valueById.get(Number(vid))
@@ -298,11 +341,26 @@ export const applyVariantSync = async (
         throw new Error('Variant does not belong to product')
       if (rawSku) {
         const existingId = Number(existing.get?.('id') ?? existing.id)
+        if (existingId === protectedVariantId && normalizeSku(rawSku) !== normalizeSku(existing.get('skuCode'))) {
+          throw new Error('The original simple variant SKU cannot be changed.')
+        }
         const normalized = await validateManualSku(rawSku, transaction, existingId)
         fields.skuCode = normalized
         takenSkus.add(normalized)
       }
       if (v.code !== undefined) {
+        // `takenCodes` contains every current variant code. Remove this
+        // variant's old code before checking the incoming value so keeping an
+        // unchanged barcode is allowed while a barcode used by another
+        // variant still conflicts.
+        const currentCode = String(existing.get?.('code') ?? existing.code ?? '').trim()
+        if (currentCode) takenCodes.delete(currentCode)
+        if (
+          Number(existing.get?.('id') ?? existing.id) === protectedVariantId &&
+          String(v.code ?? '').trim() !== String(existing.get('code') ?? '').trim()
+        ) {
+          throw new Error('The original simple variant barcode cannot be changed.')
+        }
         const nextCode = resolveVariantCode(productCode, v.code, codeSegments, takenCodes, { allowBlankUpdate: false })
         if (nextCode !== undefined) fields.code = nextCode
       }

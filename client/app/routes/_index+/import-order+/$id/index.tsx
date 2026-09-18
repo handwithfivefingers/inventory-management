@@ -14,7 +14,6 @@ import { dayjs } from "~/libs/date";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
     const { id } = params;
-    // const { cookie, vendorId } = await import("~/sessions").then((m) => m.parseCookieFromRequest(request));
     const resp = await importOrderService.getOrderById(id as string);
     return {
       data: resp.data?.data ?? null,
@@ -31,11 +30,10 @@ export const meta: MetaFunction = () => {
 export default function ImportOrderDetail() {
   const { data } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
-  console.log("resp", data?.orderDetails);
   if (!data) return <div className="p-4">{t("common.noData")}</div>;
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-      <div className="max-w-5xl w-full mx-auto">
+      <div className="w-full mx-auto">
         <CardItem
           title={
             <div className="flex items-start justify-between gap-4">

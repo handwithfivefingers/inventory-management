@@ -361,7 +361,9 @@
     "sold": "Đã bán",
     "createdAt": "Ngày tạo",
     "newVariant": "Biến thể mới",
-    "barcode": "Mã vạch"
+    "barcode": "Mã vạch",
+    "isActive": "Hoạt động",
+    "VAT": "VAT"
   },
   "settings": {
     "moneyStep": "Bước nhảy tiền tệ (+/-)",

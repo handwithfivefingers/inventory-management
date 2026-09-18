@@ -37,6 +37,8 @@ interface Props {
   submitLabel?: string;
   /** When set (POS page), channel is fixed and the selector is hidden. */
   fixedChannel?: (typeof CHANNELS)[number];
+  /** Price shown in the product picker. The selected line price is supplied by the route. */
+  priceType?: "sale" | "cost";
 }
 export const OrderForm = ({
   onSubmit,
@@ -48,6 +50,7 @@ export const OrderForm = ({
   providers,
   submitLabel,
   fixedChannel,
+  priceType = "sale",
 }: Props) => {
   const { t } = useTranslation();
   const [canScan, setCanScan] = useState(true);
@@ -223,7 +226,7 @@ export const OrderForm = ({
             }}
             onBlur={() => setTimeout(() => setShowDropdown(false), 100)}
           />
-          <ProductDropdown open={showDropdown} products={filteredProducts} onSelect={selectProduct} />
+          <ProductDropdown open={showDropdown} products={filteredProducts} onSelect={selectProduct} priceType={priceType} />
         </div>
         <div className="flex gap-2 flex-col lg:flex-row">
           <div className="flex-1 min-w-0 bg-slate-200/30 rounded overflow-x-auto">
@@ -323,8 +326,9 @@ interface ProductDropdownProps {
   open: boolean;
   products: IProduct[];
   onSelect: (product: IProduct, variant?: IProductVariant) => void;
+  priceType: "sale" | "cost";
 }
-const ProductDropdown = ({ open, products, onSelect }: ProductDropdownProps) => {
+const ProductDropdown = ({ open, products, onSelect, priceType }: ProductDropdownProps) => {
   const variantLabel = (variant: IProductVariant) => {
     return (variant.attributeValues || [])
       .map((v: any) => v.value)
@@ -379,7 +383,11 @@ const ProductDropdown = ({ open, products, onSelect }: ProductDropdownProps) => 
                   <div className="text-xs text-slate-400">{product.skuCode || product.code || `#${product.id}`}</div>
                 </div>
                 <div className="w-24 shrink-0 text-right text-sm">
-                  {formatCurrency(product.salePrice ?? product.regularPrice ?? 0)}
+                  {formatCurrency(
+                    priceType === "cost"
+                      ? (product.costPrice ?? product.regularPrice ?? 0)
+                      : (product.salePrice ?? product.regularPrice ?? 0),
+                  )}
                 </div>
                 {hasVariants && <div className="text-xs text-primary shrink-0">Biến thể</div>}
               </div>

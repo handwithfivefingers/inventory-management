@@ -4,7 +4,8 @@ import { ProductService } from '#/services/product'
 import { IRequestLocal } from '#/types/common'
 import multer from 'multer'
 import { Request, Response, NextFunction } from 'express'
-import { getRequestedVendorId, getRequestedWarehouseId, getVendorScope } from '#/utils/tenant'
+import { assertWarehouseAccess, getRequestedVendorId, getRequestedWarehouseId } from '#/utils/tenant'
+import { ApiError } from '#/response'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
@@ -55,13 +56,15 @@ export class ProductController {
     }
   }
 
-  async create(req: Request, res: Response, next: NextFunction) {
+  async create(req: IRequestLocal, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
-      const scope = getVendorScope(req)
-      const vendorId = getRequestedVendorId(req as any)
+      const vendorId = req.activeVendorId
+      const vendorScope = req.tenant.scope
       const warehouseId = getRequestedWarehouseId(req as any)
-      const resp = await new ProductService().create({ ...req.body, warehouseId, vendorId }, scope)
+      await assertWarehouseAccess(warehouseId, vendorScope)
+      if (!warehouseId) throw ApiError.forbidden('warehouseId is required')
+      const resp = await new ProductService().create({ ...req.body, warehouseId, vendorId })
       res.status(200).json({
         data: resp
       })
@@ -96,7 +99,7 @@ export class ProductController {
     try {
       // #swagger.tags = ['Products']
       // #swagger.summary = 'Unified product query for POS/Sell and Admin (exact scan match + context fallback)'
-      const scope = getVendorScope(req)
+      const scope = (req as any).tenant.scope
       const vendorId = getRequestedVendorId(req as any)
       const headerWarehouseId = getRequestedWarehouseId(req as any)
       const result = await new ProductService().search(
@@ -130,7 +133,7 @@ export class ProductController {
   async getProductById(req: Request, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
-      const scope = getVendorScope(req)
+      const scope = (req as any).tenant.scope
       const vendorId = getRequestedVendorId(req) as string
       const warehouseId = getRequestedWarehouseId(req) as string
       const resp = await new ProductService().getProductById({ id: req.params.id, warehouseId, vendorId }, scope)
@@ -154,16 +157,15 @@ export class ProductController {
     }
   }
 
-  async updateProduct(req: Request, res: Response, next: NextFunction) {
+  async updateProduct(req: IRequestLocal, res: Response, next: NextFunction) {
     try {
       // #swagger.tags = ['Products']
-      const scope = getVendorScope(req)
-      const vendorId = getRequestedVendorId(req as any)
+      const vendorId = req.activeVendorId
+      const vendorScope = req.tenant.scope
       const warehouseId = getRequestedWarehouseId(req as any)
-      const resp = await new ProductService().updateProduct(
-        { id: req.params.id, ...req.body, warehouseId, vendorId },
-        scope
-      )
+      await assertWarehouseAccess(warehouseId, vendorScope)
+      if (!warehouseId) throw ApiError.forbidden('warehouseId is required')
+      const resp = await new ProductService().updateProduct({ id: req.params.id, ...req.body, warehouseId, vendorId })
       res.status(200).json({
         data: resp
       })

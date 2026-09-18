@@ -36,6 +36,7 @@ export const mapPosItemToRow = (item: IPosSearchItem): IProductSearchRow => {
     skuCode: item.sku,
     salePrice: item.price,
     regularPrice: item.price,
+    costPrice: item.costPrice,
     quantity: item.stock_quantity,
     VAT: item.VAT ?? null,
     imageUrl: item.imageUrl ?? null,
@@ -57,6 +58,7 @@ export const mapPosItemToRow = (item: IPosSearchItem): IProductSearchRow => {
     quantity: item.stock_quantity,
     salePrice: item.price,
     regularPrice: item.price,
+    costPrice: item.costPrice,
     variantCount: 0,
     variants: [variant],
     unifiedVariant: variant,
@@ -65,6 +67,8 @@ export const mapPosItemToRow = (item: IPosSearchItem): IProductSearchRow => {
 
 /** An ADMIN aggregate maps to a product row; price/sku fall back (see `unifiedAdmin`). */
 export const mapAdminItemToRow = (item: IAdminSearchItem): IProductSearchRow => {
+  const priceFrom = Number(item.price_from ?? 0);
+  const priceTo = Number(item.price_to ?? priceFrom);
   return {
     id: item.product_id,
     documentId: `admin-${item.product_id}`,
@@ -78,8 +82,10 @@ export const mapAdminItemToRow = (item: IAdminSearchItem): IProductSearchRow => 
     skuCode: "",
     updatedAt: "",
     quantity: item.total_stock,
-    salePrice: 0,
-    regularPrice: 0,
+    salePrice: priceFrom,
+    regularPrice: priceFrom,
+    priceFrom,
+    priceTo,
     variantCount: item.total_variants,
     unifiedAdmin: true,
   } as IProductSearchRow;

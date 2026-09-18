@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher, useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
 import React, { useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { namedAction } from "remix-utils/named-action";
@@ -11,7 +11,7 @@ import { ErrorComponent } from "~/components/error-component";
 import { OrderForm } from "~/components/form/order-form";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
-import { printInvoiceViaBrowser, ReceiptPrinter } from "~/components/receipt-printer";
+import { InvoicePrintPortal, printInvoiceViaBrowser } from "~/components/receipt-printer";
 import { TMButton } from "~/components/tm-button";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
@@ -20,7 +20,6 @@ import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
 import { clampLineQty, defaultSelection, deriveInvoiceType, lineRemaining } from "~/libs/invoice-lines";
 import { parseCookieFromRequest } from "~/sessions";
-import { IInvoice } from "~/types/invoice";
 import { IProduct, IProductSearchRow } from "~/types/product";
 
 export const meta: MetaFunction = () => {
@@ -29,7 +28,7 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id } = params;
-  const { cookie, warehouseId, vendorId } = await parseCookieFromRequest(request);
+  await parseCookieFromRequest(request);
   if (!id) throw new Error("Không tìm thấy đơn hàng");
   const response = await orderService.getOrderById({
     id,
@@ -63,7 +62,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         try {
           lines = rawLines ? JSON.parse(String(rawLines)) : [];
         } catch {
-          return Response.json({ error: "Invalid lines JSON" });
+          return Response.json({ error: "Invalid lines JSON" }, { status: 400 });
         }
         const resp: any = await orderService.createOrderInvoice({
           id: params.id as string,
@@ -90,7 +89,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
 export default function OrderItem() {
   const loaderData = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  const fetcher = useFetcher<typeof action>();
   const [searchParams, setSearchParams] = useSearchParams();
   const isEdit = searchParams.get("edit") === "1";
   const order: any = (loaderData as any)?.data ?? loaderData;
@@ -124,8 +122,6 @@ export default function OrderItem() {
   });
 
   const { submit, isLoading } = useSubmitPromise();
-  const invoiceFetcher = useFetcher({ key: "Invoice-Fetcher" });
-
   // Unified POS search for edit mode: exact scans auto-add a line, the
   // fallback list carries actionable variants (real-time stock per warehouse).
   const { rows: searchedRows, search: searchProducts } = useUnifiedProductSearch({
@@ -170,11 +166,12 @@ export default function OrderItem() {
   // opening /invoices/:id?print=true in a new tab (Way B) on failure so the
   // user never sees a blank preview.
   const fetchInvoiceDetail = async (invoiceId: number | string): Promise<any> => {
-    const response = await submit<{ invoice: IInvoice }>(
-      { id: invoiceId as string },
-      { method: "get", action: `/invoices/${invoiceId}` },
-    );
-    return response.invoice;
+    const response = await fetch(`/api/invoices/${encodeURIComponent(String(invoiceId))}`);
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.message || "Không thể tải chi tiết hóa đơn");
+    }
+    return payload?.data ?? payload;
   };
 
   const handlePrintSingle = async (summary: any) => {
@@ -206,28 +203,6 @@ export default function OrderItem() {
       setIsPrintFetching(false);
     }
   };
-
-  // After creating an invoice, stay on the page: loader revalidates so the
-  // per-line badges (đã xuất / còn lại) and the invoice list refresh.
-  // useEffect(() => {
-  //   if (fetcher.state === "idle" && fetcher.data && !("error" in (fetcher.data as any))) {
-  //     const result: any = fetcher.data;
-  //     if (result.invoiceId) {
-  //       toast.success({ title: "Success", message: "Đã tạo hóa đơn từ đơn hàng" });
-  //       setShowInvoiceModal(false);
-  //       setSelection({});
-  //     }
-  //     if ((result as any).error) {
-  //       toast.danger({ title: "Error", message: (result as any).error });
-  //     }
-  //     if (result.ok) {
-  //       toast.success({ title: "Success", message: "Cập nhật đơn hàng thành công" });
-  //       setSearchParams({}, { replace: true });
-  //       form.reset(form.getValues());
-  //     }
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [fetcher.state, fetcher.data]);
 
   const handleError = (errors: any) => {
     console.log("errors", errors);
@@ -337,12 +312,26 @@ export default function OrderItem() {
 
   const derivedType = useMemo(() => deriveInvoiceType(lines, selectedLines), [selectedLines, lines]);
 
-  const submitInvoiceModal = () => {
+  const submitInvoiceModal = async () => {
     if (selectedLines.length === 0) {
       toast.danger({ title: "Error", message: "Chọn ít nhất 1 dòng với số lượng > 0" });
       return;
     }
-    submit({ intent: "create-invoice", lines: JSON.stringify(selectedLines) }, { method: "post" });
+    try {
+      const result: any = await submit(
+        { intent: "create-invoice", lines: JSON.stringify(selectedLines) },
+        { method: "post" },
+      );
+      if (result?.error || !result?.invoiceId) {
+        toast.danger({ title: "Error", message: result?.error || "Tạo hóa đơn thất bại" });
+        return;
+      }
+      setShowInvoiceModal(false);
+      setSelection({});
+      toast.success({ title: "Success", message: "Đã tạo hóa đơn từ đơn hàng" });
+    } catch (error: any) {
+      toast.danger({ title: "Error", message: error?.message || "Tạo hóa đơn thất bại" });
+    }
   };
 
   // QZ Tray device printing is disabled — browser print only.
@@ -484,7 +473,7 @@ export default function OrderItem() {
                   <span className="hidden sm:inline">Trả hàng</span>
                 </TMButton>
               )}
-              <TMButton onClick={openInvoiceModal} loading={fetcher.state !== "idle"} size="sm">
+              <TMButton onClick={openInvoiceModal} loading={isLoading} size="sm">
                 <Icon name="plus" fontSize={16} />
                 <span className="hidden sm:inline">{t("orders.createInvoice")}</span>
               </TMButton>
@@ -732,28 +721,48 @@ export default function OrderItem() {
 
       {/* Create-invoice modal: pick lines + qty (max = remaining, disable when 0) */}
       {showInvoiceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3">
-          <div className="w-full max-w-2xl rounded-lg bg-white dark:bg-slate-800 shadow-xl p-5 max-h-[85vh] overflow-auto">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-3"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isLoading) setShowInvoiceModal(false);
+          }}
+        >
+          <div
+            className="w-full max-w-2xl rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl p-5 max-h-[85vh] overflow-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-invoice-title"
+          >
             <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <h3 className="text-base font-semibold">{t("orders.createInvoice")}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {t("orders.createInvoiceHint", {
-                    defaultValue: "Chọn dòng và số lượng đưa vào hóa đơn mới. Loại FULL/PARTIAL tự xác định.",
-                  })}
-                </p>
+              <div className="flex gap-3">
+                <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 items-center justify-center text-primary dark:text-slate-200 shrink-0">
+                  <Icon name="file-text" fontSize={20} />
+                </div>
+                <div>
+                  <h3 id="create-invoice-title" className="text-lg font-semibold text-slate-900 dark:text-white">
+                    {t("orders.createInvoice")}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {t("orders.createInvoiceHint", {
+                      defaultValue: "Chọn dòng và số lượng đưa vào hóa đơn mới. Loại FULL/PARTIAL tự xác định.",
+                    })}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowInvoiceModal(false)}
-                className="text-slate-400 hover:text-slate-600"
+                disabled={isLoading}
+                aria-label={t("common.close", { defaultValue: "Đóng" })}
+                className="text-slate-400 hover:text-slate-600 disabled:opacity-40"
               >
-                ✕
+                <Icon name="x" fontSize={18} />
               </button>
             </div>
-            <div className="border rounded overflow-x-auto">
-              <table className="w-full min-w-[480px] text-sm">
-                <thead className="bg-gray-50 dark:bg-slate-700/60">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm text-slate-700 dark:text-slate-200">
+                <thead className="bg-gray-50 dark:bg-slate-700/60 text-slate-500 dark:text-slate-300">
                   <tr>
                     <th className="p-2 w-10"></th>
                     <th className="p-2 text-left">{t("importOrder.product")}</th>
@@ -768,7 +777,7 @@ export default function OrderItem() {
                     const st = selection[id];
                     const disabled = rem <= 0;
                     return (
-                      <tr key={id} className="border-t">
+                      <tr key={id} className="border-t border-slate-100 dark:border-slate-700">
                         <td className="p-2 text-center">
                           <input
                             type="checkbox"
@@ -787,7 +796,7 @@ export default function OrderItem() {
                             disabled={disabled || !st?.checked}
                             value={st?.qty ?? rem}
                             onChange={(e) => changeLineQty(id, Number(e.target.value))}
-                            className="w-24 border rounded px-2 py-1 text-right disabled:opacity-40"
+                            className="w-24 border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-right bg-white dark:bg-slate-900 disabled:opacity-40"
                           />
                         </td>
                       </tr>
@@ -806,7 +815,7 @@ export default function OrderItem() {
                 <TMButton variant="ghost" size="sm" type="button" onClick={() => setShowInvoiceModal(false)}>
                   {t("common.cancel")}
                 </TMButton>
-                <TMButton size="sm" loading={fetcher.state !== "idle"} onClick={submitInvoiceModal}>
+                <TMButton size="sm" loading={isLoading} disabled={isLoading} onClick={submitInvoiceModal}>
                   {t("orders.createInvoice")}
                 </TMButton>
               </div>
@@ -815,7 +824,7 @@ export default function OrderItem() {
         </div>
       )}
 
-      {/* Print-only container: renders ONLY targeted invoice(s), one ReceiptPrinter each}.
+      {/* Print-only container: renders ONLY targeted invoice(s) in one portal.
        * This stays mounted until afterprint fires so the portal has DOM content
        * and the @media print styles are injected before window.print() snapshots.
        * The data is pre-fetched via fetchInvoiceDetail() so the print preview contains
@@ -823,15 +832,12 @@ export default function OrderItem() {
        */}
       {printInvoices && printInvoices.length > 0 && (
         <div style={{ display: "none" }}>
-          {printInvoices.map((inv: any, idx: number) => (
-            <ReceiptPrinter
-              key={inv.id}
-              invoice={inv}
-              orderCode={order?.code}
-              invoiceIndex={invoices.findIndex((v: any) => v.id === inv.id) + 1 || idx + 1}
-              invoiceTotal={invoices.length || printInvoices.length}
-            />
-          ))}
+          <InvoicePrintPortal
+            invoices={printInvoices}
+            orderCode={order?.code}
+            invoiceIndexOf={(id) => invoices.findIndex((v: any) => Number(v.id) === id) + 1}
+            invoiceTotal={invoices.length || printInvoices.length}
+          />
         </div>
       )}
 

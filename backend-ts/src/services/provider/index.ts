@@ -1,56 +1,30 @@
 import database from '#/database'
-import { IRequestLocal } from '#/types/common'
+import Provider from '#/database/models/provider'
+import { ApiError } from '#/response'
 import { IProviderStatic } from '#/types/provider'
 import { Sequelize } from 'sequelize'
 
-// const BaseCRUDService = require('@constant/base')
-// const { providerCacheItem } = require('./cache')
-// const { cacheKey, cacheSet } = require('@src/libs/redis')
-// const { retrieveFirstVendor } = require('@src/libs/utils')
 export class ProviderService {
   provider: IProviderStatic = database.provider
   sequelize: Sequelize = database.sequelize
-  async create(req: IRequestLocal) {
-    const t = await this.sequelize.transaction()
+  async create(body: Partial<Provider>) {
     try {
-      // const { ...params } = req.body
-      // const vendor = retrieveFirstVendor(req)
-      // const p = await this.createInstance(
-      //   { ...params, vendorId: vendor.id },
-      //   {
-      //     transaction: t
-      //   }
-      // )
-      const warehouseBuilder = this.provider.build(req.body)
-      const warehouse = await warehouseBuilder.save({ transaction: t })
-      await t.commit()
-      return {
-        warehouse: warehouse.dataValues
-      }
+      const _provider = await Provider.create(body)
+      return _provider.dataValues
     } catch (error) {
-      await t.rollback()
       throw error
     }
   }
-  // async update(req) {
-  //   const t = await this.sequelize.transaction()
-  //   try {
-  //     const vendor = retrieveFirstVendor(req)
-  //     const entry = await this.provider.findByPk(req.params.id)
-  //     const exclude = ['id', 'vendorId', 'createdAt', 'updatedAt']
-  //     for (let key in req.body) {
-  //       if (exclude.includes(key)) continue
-  //       entry[key] = req.body[key]
-  //     }
-  //     await entry.save({ transaction: t })
-  //     await t.commit()
-  //     await cacheSet(cacheKey('Provider', req.params.id, vendor.id), entry)
-  //     return entry
-  //   } catch (error) {
-  //     await t.rollback()
-  //     throw error
-  //   }
-  // }
+  async update(id: number, body: Partial<Provider>) {
+    try {
+      const entry = await Provider.findByPk(id)
+      if (!entry) throw new Error('Provider not found')
+      await entry.update(body)
+      return entry
+    } catch (error) {
+      throw ApiError.from(error)
+    }
+  }
   async getProvider({ offset, limit, vendorId }: { offset?: number; limit?: number; vendorId: number }) {
     try {
       const queryParams = {
@@ -61,19 +35,18 @@ export class ProviderService {
         offset: Number(offset),
         distinct: true
       }
-      const resp = await this.provider.findAndCountAll(queryParams)
+      const resp = await Provider.findAndCountAll(queryParams)
       return resp
     } catch (error) {
       throw error
     }
   }
-  async getProviderById({ id }: { id: string }) {
+  async getProviderById({ id, vendorId }: { id: string; vendorId: number }) {
     try {
-      // const vendor = retrieveFirstVendor(req)
-      const resp = await this.provider.findOne({
+      const resp = await Provider.findOne({
         where: {
-          id
-          // vendorId: vendor.id
+          id,
+          vendorId
         }
       })
       return resp

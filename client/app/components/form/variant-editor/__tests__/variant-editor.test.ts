@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCombos } from "../index";
+import { buildCombos, filterVariantOptionsByAttributes } from "../index";
 import { productSchema } from "~/constants/schema/product";
 
 describe("buildCombos (variant attribute matrix)", () => {
@@ -30,6 +30,26 @@ describe("buildCombos (variant attribute matrix)", () => {
   });
 });
 
+describe("filterVariantOptionsByAttributes", () => {
+  it("removes options whose attributes are no longer selected", () => {
+    expect(
+      filterVariantOptionsByAttributes(
+        { Color: "Red", Size: "M" },
+        [{ name: "Color", values: [{ label: "Red", value: "Red" }] }],
+      ),
+    ).toEqual({ Color: "Red" });
+  });
+
+  it("removes options when the selected attribute value is removed", () => {
+    expect(
+      filterVariantOptionsByAttributes(
+        { Color: "Red" },
+        [{ name: "Color", values: [] }],
+      ),
+    ).toEqual({});
+  });
+});
+
 describe("productSchema with variant fields", () => {
   it("accepts a variable-product payload with variantAttributes/overrides", () => {
     const result = productSchema.safeParse({
@@ -40,7 +60,15 @@ describe("productSchema with variant fields", () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.variantAttributes).toEqual([{ name: "Color", values: "Red, Blue" }]);
+      expect(result.data.variantAttributes).toEqual([
+        {
+          name: "Color",
+          values: [
+            { label: "Red", value: "Red" },
+            { label: "Blue", value: "Blue" },
+          ],
+        },
+      ]);
     }
   });
 
@@ -53,6 +81,6 @@ describe("productSchema with variant fields", () => {
   });
 
   it("keeps variant fields optional for simple products", () => {
-    expect(productSchema.safeParse({ name: "Cola" }).success).toBe(true);
+    expect(productSchema.safeParse({ name: "Cola", quantity: 1 }).success).toBe(true);
   });
 });

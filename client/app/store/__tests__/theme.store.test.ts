@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { useTheme, isTheme, THEMES, DEFAULT_THEME, resolveTheme, applyTheme } from "../theme.store";
+import { useTheme, isTheme, THEMES, DEFAULT_THEME, resolveTheme, applyTheme, initThemeSync } from "../theme.store";
 
 const setMatchMedia = (matches: boolean) => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -86,6 +86,58 @@ describe("useTheme store", () => {
   it("toggles the theme", () => {
     useTheme.getState().setTheme("light");
     useTheme.getState().toggleTheme();
+    expect(useTheme.getState().theme).toBe("dark");
+  });
+});
+
+describe("initThemeSync", () => {
+  beforeEach(() => {
+    useTheme.setState({ theme: "light" });
+    document.documentElement.classList.remove("dark");
+    localStorage.clear();
+  });
+
+  it("re-applies the theme when another tab persists a change", () => {
+    const cleanup = initThemeSync();
+    useTheme.getState().setTheme("dark");
+
+    window.dispatchEvent(new StorageEvent("storage", { key: "theme-storage" }));
+
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    cleanup();
+  });
+
+  it("ignores storage events for unrelated keys", () => {
+    const rehydrate = vi.spyOn(useTheme.persist, "rehydrate");
+    const cleanup = initThemeSync();
+
+    window.dispatchEvent(new StorageEvent("storage", { key: "other-key" }));
+
+    expect(rehydrate).not.toHaveBeenCalled();
+    cleanup();
+    rehydrate.mockRestore();
+  });
+
+  it("stops listening after cleanup", () => {
+    const rehydrate = vi.spyOn(useTheme.persist, "rehydrate");
+    const cleanup = initThemeSync();
+    cleanup();
+
+    window.dispatchEvent(new StorageEvent("storage", { key: "theme-storage" }));
+
+    expect(rehydrate).not.toHaveBeenCalled();
+    rehydrate.mockRestore();
+  });
+
+  it("falls back to the current theme when persisted state is invalid", async () => {
+    localStorage.setItem("theme-storage", JSON.stringify({ state: { theme: "neon" } }));
+    await useTheme.persist.rehydrate();
+    expect(useTheme.getState().theme).toBe("light");
+  });
+
+  it("hydrates a valid persisted theme", async () => {
+    localStorage.setItem("theme-storage", JSON.stringify({ state: { theme: "dark" } }));
+    await useTheme.persist.rehydrate();
     expect(useTheme.getState().theme).toBe("dark");
   });
 });

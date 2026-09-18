@@ -1,6 +1,7 @@
 import database from '#/database'
 import redisClient from '#/configs/redis'
 import { flattenRolePermissions } from '#/libs/permission'
+import { evictCachedEntity } from '#/utils/entity-cache'
 
 const { cacheGet, cacheSet } = redisClient
 
@@ -33,6 +34,7 @@ export const invalidateUserAuthCache = async (userId: number): Promise<void> => 
   } catch {
     // Cache invalidation is best-effort; the TTL bounds staleness anyway.
   }
+  await evictCachedEntity('user', userId)
 }
 
 export const invalidateUsersByRoleId = async (roleId: number): Promise<void> => {

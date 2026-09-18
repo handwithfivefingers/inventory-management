@@ -4,7 +4,6 @@ import "animate.css";
 import "feather-icons/dist/feather";
 import { domAnimation, LazyMotion, useIsomorphicLayoutEffect } from "motion/react";
 import { useEffect } from "react";
-import { withContext } from "~/action.server/context.server";
 import "~/assets/styles/index.scss";
 import "~/assets/styles/tailwind.css";
 import { useLocale } from "~/store/locale.store";
@@ -74,7 +73,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       const settingsVendorId = session?.get("vendorId") ?? vendorId ?? vendors[0]?.id;
       if (settingsVendorId) {
-        const res = await settingService.getSettings();
+        // The root loader is outside Remix route auto-context wrapping. Pass
+        // the authenticated request context explicitly so /settings receives
+        // both the session cookie and active vendor header.
+        const res = await settingService.getSettings({
+          cookie,
+          vendorId: settingsVendorId,
+          warehouseId: session?.get("warehouseId") ?? warehouseId,
+        });
         const fetched = (res as any)?.data?.data ?? (res as any)?.data;
         if (fetched && typeof fetched === "object") {
           settings = { ...DEFAULT_SETTINGS, ...fetched };

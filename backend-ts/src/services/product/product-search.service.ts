@@ -47,6 +47,7 @@ export interface ExactMatchItem {
   sku: string
   barcode: string | null
   price: number
+  costPrice: number
   stock_quantity: number
   VAT: number | null
   imageUrl: string | null
@@ -63,6 +64,8 @@ export interface AdminSearchItem {
   is_active: boolean
   total_variants: number
   total_stock: number
+  price_from: number
+  price_to: number
 }
 
 export type ProductSearchResult =
@@ -85,10 +88,11 @@ export type ProductSearchResult =
 const variantPrice = (variant: any): number => {
   const get = (k: string) => (typeof variant.get === 'function' ? variant.get(k) : variant[k])
   const sale = Number(get('salePrice') ?? get('price'))
-  if (Number.isFinite(sale)) return sale
+  if (Number.isFinite(sale) && sale > 0) return sale
   const regular = Number(get('regularPrice'))
-  if (Number.isFinite(regular)) return regular
-  return 0
+  if (Number.isFinite(regular) && regular > 0) return regular
+  const cost = Number(get('costPrice'))
+  return Number.isFinite(cost) && cost > 0 ? cost : 0
 }
 
 const variantStock = (variant: any): number => {
@@ -116,6 +120,7 @@ const toExactItem = (variant: any, stockQuantity: number): ExactMatchItem => {
     sku,
     barcode: (get('code') ?? get('barcode') ?? null) as string | null,
     price: variantPrice(variant),
+    costPrice: Number(get('costPrice') ?? 0),
     stock_quantity: stockQuantity,
     VAT: get('VAT') == null ? null : Number(get('VAT')),
     imageUrl: get('imageUrl') ?? null,
@@ -312,14 +317,14 @@ const searchAdmin = async (args: FallbackArgs): Promise<Extract<ProductSearchRes
         model: ProductVariant,
         as: 'variants',
         required: false,
-        attributes: ['id', 'skuCode', 'code', 'salePrice', 'isActive']
+        attributes: ['id', 'skuCode', 'code', 'salePrice', 'regularPrice', 'costPrice', 'isActive']
       }
     ],
     attributes: {
       include: [
         [
           database.sequelize.literal(
-            `SELECT COUNT(*) FROM productVariants AS variants WHERE variants.productId = product.id AND variants.deletedAt IS NULL`
+            `(SELECT COUNT(*) FROM productVariants AS variants WHERE variants.productId = product.id AND variants.deletedAt IS NULL)`
           ),
           'variantCount'
         ],
@@ -340,13 +345,20 @@ const searchAdmin = async (args: FallbackArgs): Promise<Extract<ProductSearchRes
       ? Number(typeof firstCategory.get === 'function' ? firstCategory.get('id') : firstCategory.id)
       : null
     const isActive = get('isActive')
+    const variants = (get('variants') as any[] | undefined)?.filter((variant) => {
+      const variantGet = (key: string) => (typeof variant.get === 'function' ? variant.get(key) : variant[key])
+      return variantGet('isActive') !== false
+    }) ?? []
+    const prices = variants.map(variantPrice)
     return {
       product_id: Number(get('id')),
       product_name: String(get('name') ?? ''),
       category_id: Number.isFinite(categoryId) ? categoryId : null,
       is_active: isActive === undefined || isActive === null ? true : Boolean(isActive),
       total_variants: Number(get('variantCount') ?? get('total_variants') ?? 0) || 0,
-      total_stock: Number(get('quantity') ?? get('total_stock') ?? 0) || 0
+      total_stock: Number(get('quantity') ?? get('total_stock') ?? 0) || 0,
+      price_from: prices.length ? Math.min(...prices) : 0,
+      price_to: prices.length ? Math.max(...prices) : 0
     }
   })
 

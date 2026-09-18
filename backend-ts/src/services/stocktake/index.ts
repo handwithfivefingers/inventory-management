@@ -231,7 +231,13 @@ export class StocktakeService {
       const id = Number((req.params as any).id)
       const session: any = await Stocktake.findByPk(id, {
         include: [
-          { model: StocktakeDetail as any, include: [{ model: Product, attributes: ['id', 'name', 'skuCode'], paranoid: false }, { model: ProductVariant, attributes: ['id', 'skuCode'], paranoid: false }] }
+          {
+            model: StocktakeDetail as any,
+            include: [
+              { model: Product, attributes: ['id', 'name'], paranoid: false },
+              { model: ProductVariant, attributes: ['id', 'skuCode'], paranoid: false }
+            ]
+          }
         ]
       })
       if (!session) throw new Error('Stocktake session not found')

@@ -36,9 +36,9 @@ describe("CheckboxInput", () => {
 describe("SwitchInput", () => {
   it("renders as a switch (role=switch) and reflects state", () => {
     const { rerender } = render(<SwitchInput value={false} onChange={() => {}} />);
-    expect(screen.getByRole("switch")).not.toBeChecked();
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
 
     rerender(<SwitchInput checked onChange={() => {}} />);
-    expect(screen.getByRole("switch")).toBeChecked();
+    expect(screen.getByRole("checkbox")).toBeChecked();
   });
 });

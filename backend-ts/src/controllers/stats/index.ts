@@ -1,5 +1,4 @@
 import { StatsService } from '#/services/stats'
-import { getVendorScope } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 
 export class StatsController {
@@ -17,7 +16,7 @@ export class StatsController {
         warehouseId: warehouseId as string,
         lowStockThreshold: lowStockThreshold as string,
         // S1: revenue/orders are scoped to the caller's vendors.
-        vendorScope: getVendorScope(req)
+        vendorScope: (req as any).tenant.scope
       })
       res.status(200).json({ data: resp })
       return

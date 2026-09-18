@@ -38,12 +38,16 @@ export class ProductVariant extends Model {
   declare productId: number
 
   @Column({
-    type: DataType.STRING,
+    type: DataType.STRING(12),
     allowNull: true,
     validate: {
       len: {
-        args: [12, 255],
-        msg: 'code must be at least 12 characters'
+        args: [1, 12],
+        msg: 'code must contain only letters, digits, and hyphens and be at most 12 characters'
+      },
+      is: {
+        args: /^[A-Za-z0-9-]+$/,
+        msg: 'code must contain only letters, digits, and hyphens'
       }
     }
   })

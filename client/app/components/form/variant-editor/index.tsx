@@ -35,6 +35,7 @@ export interface IVariantDraft {
   salePrice?: number | string;
   wholeSalePrice?: number | string;
   isNegative?: boolean;
+  VAT?: number | string | null;
 }
 
 const normalizeValues = (raw: any): string[] => {
@@ -73,9 +74,45 @@ export const buildCombos = (attributes: { name: string; values: any }[]): Record
   return combos;
 };
 
-type MoneyKey = "costPrice" | "regularPrice" | "salePrice" | "wholeSalePrice";
+type MoneyKey = "costPrice" | "regularPrice" | "salePrice" | "wholeSalePrice" | "VAT";
 
-export const VariantEditor = () => {
+interface VariantEditorProps {
+  /** Values copied from a simple product's type-0 default variant. */
+  seed?: Partial<IVariantDraft>;
+  protectFirstVariant?: boolean;
+}
+
+/** Keep variant options in sync with the attributes currently selected above. */
+export const filterVariantOptionsByAttributes = (
+  options: Record<string, string> | undefined,
+  attributes: IVariantAttributeDraft[],
+): Record<string, string> => {
+  const selected = new Map(
+    attributes
+      .map((attribute) => {
+        const name = String(attribute?.name || "").trim();
+        const values = Array.isArray(attribute?.values)
+          ? attribute.values
+              .map((value) => (typeof value === "string" ? value : value?.value))
+              .map((value) => String(value || "").trim().toLowerCase())
+              .filter(Boolean)
+          : [];
+        return [name.toLowerCase(), { name, values: new Set(values) }] as const;
+      })
+      .filter(([name, attribute]) => name && attribute.values.size > 0),
+  );
+
+  return Object.entries(options || {}).reduce<Record<string, string>>((result, [name, value]) => {
+    const selectedAttribute = selected.get(name.trim().toLowerCase());
+    const normalizedValue = String(value ?? "").trim();
+    if (selectedAttribute && selectedAttribute.values.has(normalizedValue.toLowerCase())) {
+      result[selectedAttribute.name] = normalizedValue;
+    }
+    return result;
+  }, {});
+};
+
+export const VariantEditor = ({ seed, protectFirstVariant = false }: VariantEditorProps = {}) => {
   const { settings } = useOutletContext<{ settings: IVendorSettings }>();
   const moneyStep = Number(settings?.moneyStep) > 0 ? Number(settings.moneyStep) : 1000;
   const { t } = useTranslation();
@@ -108,6 +145,22 @@ export const VariantEditor = () => {
     [JSON.stringify(watchedAttrs)],
   );
 
+  useEffect(() => {
+    const variants = form.getValues("variants") || [];
+    const filteredVariants = variants.map((variant: any) => {
+      const options = filterVariantOptionsByAttributes(variant?.options, watchedAttrs);
+      const currentOptions = variant?.options || {};
+      const hasChanged =
+        Object.keys(options).length !== Object.keys(currentOptions).length ||
+        Object.entries(options).some(([name, value]) => currentOptions[name] !== value);
+      return hasChanged ? { ...variant, options } : variant;
+    });
+
+    if (filteredVariants.some((variant: any, index) => variant !== variants[index])) {
+      form.setValue("variants", filteredVariants as any, { shouldDirty: true });
+    }
+  }, [form, JSON.stringify(watchedAttrs)]);
+
   const optionKeyOf = (options: Record<string, string> | undefined) =>
     Object.entries(options || {})
       .filter(([, v]) => String(v ?? "").trim() !== "")
@@ -123,24 +176,39 @@ export const VariantEditor = () => {
   const generateVariant = useCallback(() => {
     if (!usableAttrs.length) return;
     const current = form.getValues("variants") || [];
+    const combos = buildCombos(usableAttrs as any);
+    const protectedIndex = protectFirstVariant
+      ? current.findIndex((v: any) => v?.variantId && Object.keys(v?.options || {}).length === 0)
+      : -1;
+    if (protectedIndex >= 0 && combos.length > 0) {
+      current[protectedIndex] = {
+        ...current[protectedIndex],
+        options: combos[0],
+      };
+      form.setValue("variants", current as any, { shouldDirty: true });
+    }
     const currentKeys = new Set(current.map((v: any) => optionKeyOf(v?.options)));
-    const fresh = buildCombos(usableAttrs as any)
+    const fresh = combos
       .filter((options) => !currentKeys.has(optionKeyOf(options)))
-      .map((options) => ({ options, quantity: "", isNegative: false }));
+      .map((options) => ({ ...seed, options }));
     if (!fresh.length) return;
+    form.setValue("type", 1, { shouldDirty: true });
     form.setValue("variants", [...current, ...fresh] as any);
-  }, [JSON.stringify(usableAttrs)]);
+  }, [JSON.stringify(usableAttrs), JSON.stringify(seed)]);
 
   const addNewVariant = () => {
     const base = form.getValues();
+    form.setValue("type", 1, { shouldDirty: true });
     append({
       options: {},
-      quantity: base.quantity,
-      isNegative: base.isNegative,
-      costPrice: base?.costPrice,
-      regularPrice: base?.regularPrice,
-      salePrice: base?.salePrice,
-      wholeSalePrice: base?.wholeSalePrice,
+      ...(seed || {
+        quantity: base.quantity,
+        isNegative: base.isNegative,
+        costPrice: base?.costPrice,
+        regularPrice: base?.regularPrice,
+        salePrice: base?.salePrice,
+        wholeSalePrice: base?.wholeSalePrice,
+      }),
     });
   };
 
@@ -167,10 +235,9 @@ export const VariantEditor = () => {
       render: (r: any) => {
         const rowIdx: number = r.index;
         const rowOptions: Record<string, string> = watchedVariants[rowIdx]?.options || {};
+        const isProtectedRow = protectFirstVariant && rowIdx === 0 && !!watchedVariants[rowIdx]?.variantId;
         if (usableAttrs.length === 0) {
-          if (Object.keys(rowOptions).length === 0)
-            return <span className="text-slate-400 text-xs">{t("product.newVariant")}</span>;
-          return <span className="text-xs">{JSON.stringify(rowOptions)}</span>;
+          return <span className="text-slate-400 text-xs">{t("product.newVariant")}</span>;
         }
         return (
           <div className="flex flex-col gap-1 min-w-[220px]">
@@ -182,10 +249,13 @@ export const VariantEditor = () => {
                   <span className="text-xs text-slate-500 w-16 shrink-0 truncate">{a.name}:</span>
                   <div className="flex-1 min-w-[120px]">
                     <SelectInput
+                      disabled={isProtectedRow}
                       value={val}
-                      options={opts.map((o) => ({ ...o, disabled: isOptionDisabled(a.name, o.value, rowIdx) }))}
+                      options={opts.map((o) => ({
+                        ...o,
+                        disabled: isOptionDisabled(a.name, o.value, rowIdx),
+                      }))}
                       placeholder="---"
-                      inputSize="xs"
                       onSelect={(v: any) => {
                         const next = { ...(rowOptions || {}) };
                         if (!v) delete next[a.name];
@@ -207,8 +277,17 @@ export const VariantEditor = () => {
       dataIndex: "code",
       render: (r: any) => (
         <TextInput
+          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
+          maxLength={12}
+          inputMode="text"
+          pattern="[A-Za-z0-9-]*"
           value={(form.watch(`variants.${r.index}.code`) as string) || ""}
-          onChange={(e: any) => form.setValue(`variants.${r.index}.code`, e.target.value as any)}
+          onChange={(e: any) =>
+            form.setValue(
+              `variants.${r.index}.code`,
+              String(e.target.value).replace(/[^A-Za-z0-9-]/g, "").slice(0, 12) as any,
+            )
+          }
         />
       ),
       className: "w-40",
@@ -218,6 +297,7 @@ export const VariantEditor = () => {
       dataIndex: "skuCode",
       render: (r: any) => (
         <TextInput
+          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
           value={(form.watch(`variants.${r.index}.skuCode`) as string) || ""}
           onChange={(e: any) => form.setValue(`variants.${r.index}.skuCode`, e.target.value as any)}
         />
@@ -229,6 +309,7 @@ export const VariantEditor = () => {
       dataIndex: "quantity",
       render: (r: any) => (
         <NumberStepper
+          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
           value={form.watch(`variants.${r.index}.quantity`)}
           step={1}
           onValueChange={(v) => form.setValue(`variants.${r.index}.quantity`, v.value as any)}
@@ -241,12 +322,13 @@ export const VariantEditor = () => {
       dataIndex: "isNegative",
       render: (r: any) => (
         <SwitchInput
+          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
           value={!!form.watch(`variants.${r.index}.isNegative`)}
           onChange={(e: any) => form.setValue(`variants.${r.index}.isNegative`, e.target.checked)}
         />
       ),
     },
-    ...(["costPrice", "regularPrice", "salePrice", "wholeSalePrice"] as MoneyKey[]).map((key) => ({
+    ...(["costPrice", "regularPrice", "salePrice", "wholeSalePrice", "VAT"] as MoneyKey[]).map((key) => ({
       title:
         key === "costPrice" ? (
           <Label required>{t("product.costPrice")}</Label>
@@ -254,13 +336,16 @@ export const VariantEditor = () => {
           <Label required>{t("product.regularPrice")}</Label>
         ) : key === "salePrice" ? (
           <Label>{t("product.salePrice")}</Label>
-        ) : (
+        ) : key === "wholeSalePrice" ? (
           <Label>{t("product.wholeSalePrice")}</Label>
+        ) : (
+          <Label>{t("product.VAT")}</Label>
         ),
       dataIndex: key,
       render: (r: any) => (
         <NumberStepper
-          value={form.watch(`variants.${r.index}.${key}`)}
+          disabled={key === "VAT" && protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
+          value={(form.watch(`variants.${r.index}.${key}`) as number | string | null | undefined) ?? undefined}
           step={moneyStep}
           onValueChange={(v) => form.setValue(`variants.${r.index}.${key}`, v.float as any)}
         />
@@ -268,16 +353,30 @@ export const VariantEditor = () => {
       className: "w-60",
     })),
     {
-      title: "",
-      dataIndex: "remove",
+      title: t("product.isActive"),
+      dataIndex: "isActive",
       render: (r: any) => (
-        <TMButton variant="ghost" size="xs" onClick={() => remove(r.index)}>
-          <Icon name="trash-2" fontSize={14} />
-        </TMButton>
+        <SwitchInput
+          disabled={protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId}
+          value={!!form.watch(`variants.${r.index}.isActive`)}
+          onChange={(e: any) => form.setValue(`variants.${r.index}.isActive`, e.target.checked)}
+        />
       ),
     },
+    {
+      title: "",
+      dataIndex: "remove",
+      render: (r: any) => {
+        const isProtectedRow = protectFirstVariant && r.index === 0 && !!watchedVariants[r.index]?.variantId;
+        if (isProtectedRow) return null;
+        return (
+          <TMButton variant="ghost" size="xs" onClick={() => remove(r.index)}>
+            <Icon name="trash-2" fontSize={14} />
+          </TMButton>
+        );
+      },
+    },
   ];
-
   return (
     <div className="flex flex-col gap-2 h-full">
       <AttributeVariant />
@@ -361,7 +460,11 @@ const AttributeVariant = () => {
   }, [isLoading, revalidator.revalidate]);
 
   // Vendor-global attribute catalog: unique per vendor (Size {sm,md,lg}, Color {red,green})
-  let vendorAttrs: { id: number | string; name: string; values: { id: number | string; value: string }[] }[] = [];
+  let vendorAttrs: {
+    id: number | string;
+    name: string;
+    values: { id: number | string; value: string }[];
+  }[] = [];
   let globalMap: Record<string, Option[]> = {};
   try {
     const loaderData: any = useLoaderData();
@@ -374,14 +477,20 @@ const AttributeVariant = () => {
           id: g.id,
           name: String(g.name || "").trim(),
           values: (g.values || [])
-            .map((v: any) => ({ id: v.id, value: String(v.value ?? v.label ?? "").trim() }))
+            .map((v: any) => ({
+              id: v.id,
+              value: String(v.value ?? v.label ?? "").trim(),
+            }))
             .filter((v: any) => v.value),
         }))
         .filter((a: any) => a.name);
       for (const g of vendorAttrs) {
         const key = g.name.trim().toLowerCase();
         if (!key) continue;
-        globalMap[key] = g.values.map((v) => ({ label: v.value, value: v.value }));
+        globalMap[key] = g.values.map((v) => ({
+          label: v.value,
+          value: v.value,
+        }));
       }
     }
   } catch {
@@ -545,11 +654,17 @@ const AttributeVariant = () => {
                       // loader revalidation lands.
                       globalMap[key] = [
                         ...(globalMap[key] || []),
-                        { label: createOption.label ?? createOption.value, value: createOption.value },
+                        {
+                          label: createOption.label ?? createOption.value,
+                          value: createOption.value,
+                        },
                       ];
                       submit(
                         { values: createOption.value, intent: "createValue" },
-                        { method: "POST", action: `/products/attributes/${attr.id}` },
+                        {
+                          method: "POST",
+                          action: `/products/attributes/${attr.id}`,
+                        },
                       );
                     }
                   }

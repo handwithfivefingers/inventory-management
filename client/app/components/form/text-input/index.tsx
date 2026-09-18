@@ -65,6 +65,9 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
           <div
             className={cn(
               "relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600",
+              {
+                ["mt-1"]: !!label,
+              },
             )}
           >
             <textarea
@@ -74,6 +77,7 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
                 "block w-full bg-transparent rounded-md text-xs",
                 "ring-2 ring-transparent transition-all focus:ring-indigo-400/30 outline-none",
                 "text-slate-700 dark:text-slate-300 placeholder:text-gray-400",
+
                 SizeClass[inputSize || "sm"],
                 styles.input,
                 className,
@@ -98,7 +102,11 @@ export const TextInput = forwardRef<HTMLInputElement, ITextInput>(
     return (
       <div className={cn(styles.inputWrapper)}>
         <InputLabel name={name} label={label} required={required} />
-        <div className={cn("relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700")}>
+        <div
+          className={cn("relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700", {
+            ["mt-1"]: !!label,
+          })}
+        >
           <InputPrefix prefix={prefix} prefixRef={prefixRef} className={"left-1 pl-1"} />
           <input
             name={name}

@@ -23,11 +23,7 @@ interface ILocalsLike {
 
 /** Resolve the request's vendor scope: null = platform admin, [] = deny all. */
 export const getVendorScope = (req: ILocalsLike): TVendorScope => {
-  const raw =
-    (req as any)?.user?.vendorIds ??
-    (req as any)?.locals?.vendorIds ??
-    (req as any)?.vendorIds ??
-    null
+  const raw = (req as any)?.user?.vendorIds ?? (req as any)?.locals?.vendorIds ?? (req as any)?.vendorIds ?? null
   if (Array.isArray(raw)) {
     return raw.map(Number).filter((id) => Number.isFinite(id))
   }
@@ -72,15 +68,7 @@ const readHeader = (req: ILocalsLike, name: string): string | number | undefined
 
 /** Active vendor id: `x-vendor` header first, then legacy query/body. */
 export const getRequestedVendorId = (req: ILocalsLike): string | number | undefined => {
-  const query: any = (req as any)?.query ?? {}
-  const body: any = (req as any)?.body ?? {}
-  return firstPresent(
-    readHeader(req, 'x-vendor'),
-    query.vendorId,
-    query.vendor,
-    body.vendorId,
-    body.vendor
-  )
+  return firstPresent(readHeader(req, 'x-vendor'))
 }
 
 /**

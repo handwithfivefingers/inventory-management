@@ -30,6 +30,7 @@ export const Tab = (props: Props) => {
           {props.items.map((tab, index) => {
             return (
               <button
+                key={`tab-${tab.value}-${index}`}
                 type="button"
                 className={cn(
                   "px-3 sm:px-4 transition-all py-1.5 text-sm cursor-pointer active:translate-y-0.25 active:shadow-inner whitespace-nowrap",

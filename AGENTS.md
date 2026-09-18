@@ -24,7 +24,10 @@ npm run dev           # backend + swagger-gen concurrently
 npm run test:run -- src/services/<name>/__tests__/<file>.test.ts
 npm run type-check    # tsc --noEmit
 npm run build         # tsc + tsc-alias (alias rewrite required for dist)
-npm run db:migrate / npm run seed:all
+npm run db:setup    # first install: create DB + migrate + seed + fix ONLY_FULL_GROUP_BY
+npm run db:init     # create DB + migrate only
+npm run db:create   # create DB only
+npm run db:migrate / npm run db:migrate:undo / npm run seed:all
 
 # client (yarn)
 yarn dev              # Vite port 3333 (not 3000)
@@ -42,4 +45,5 @@ yarn test:run app/hooks/__tests__/use-permission.test.tsx
 - **Backend tests never touch a DB.** `test/setup.ts` mocks `#/database` and direct model imports (`product`, `inventory`, `category`, `tag`, `units`, `productVariant`, `productAttribute`, `productAttributeValue`, `transfer`). New services importing other models directly must add a mock line there or tests hit real Sequelize.
 - **Coverage gates differ:** backend thresholds are 30% (`vitest.config.js`); client coverage only `include`s `libs/**`, `constants/schema/**`, `i18n/**`, `store/**`, `use-permission.ts`, `permission-guard.tsx` at 80% — tests elsewhere don't move the gate.
 - **Lint:** backend is eslint-9 flat + `perfectionist/recommended-natural` (import sort enforced) + `strictTypeChecked`; client is eslint-8. Fix import order instead of disabling.
+- **First install flow:** `npm run db:setup` wraps `scripts/init-db.js` (creates the DB, runs `sequelize-cli db:migrate`, then seeders) — see `document/database-init.md`. `scripts/init-db.js` and `scripts/run-seeds.js` read `DB_*` env with `database.json` fallback (same as `src/configs/database.js`). Seeder `20260820000001-seed-workspace.js` covers baseline demo data (demo login `seed-staff@example.com` / `password123`); later seeders resolve the demo vendor via it, so **keep its timestamp earliest**.
 - `README.md` still says Strapi v5 — stale; real backend is `backend-ts` Express.

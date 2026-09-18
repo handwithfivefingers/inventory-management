@@ -40,13 +40,13 @@ export const sanitizeCodeSegment = (value: string): string =>
     .replace(/[^A-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-/** Make `candidate` unique against `taken` by appending `-2`, `-3`, ... Mutates `taken`. */
+/** Make a numeric `candidate` unique against `taken` by incrementing it. */
 const dedupe = (candidate: string, taken: Set<string>): string => {
   let result = candidate
-  let n = 2
   while (taken.has(result)) {
-    result = `${candidate}-${n}`
-    n += 1
+    const next = BigInt(result) + 1n
+    result = next.toString().padStart(candidate.length, '0')
+    if (result.length > 12) throw ApiError.badRequest('Unable to generate a unique barcode of at most 12 digits')
   }
   taken.add(result)
   return result
@@ -59,10 +59,10 @@ export interface ResolveVariantCodeOptions {
 
 /**
  * Resolve a variant barcode (`code`).
- * - Manual value wins (trimmed, must be >= 12 chars when non-blank).
+ * - Manual value wins (trimmed, must contain only digits and be <= 12 chars).
  *   Empty string clears to null so blank is allowed.
- * - Missing/undefined on create falls back to `{productCode}-{segments}` when the
- *   parent has a barcode; otherwise stays null (manual entry before General
+ * - Missing/undefined on create falls back to the numeric parent barcode and
+ *   increments it when needed; otherwise stays null (manual entry before General
  *   settings are switched on).
  * - Missing/undefined on update with `allowBlankUpdate` returns undefined,
  *   meaning "don't touch the existing value".
@@ -84,7 +84,9 @@ export const resolveVariantCode = (
     } catch (error) {
       throw ApiError.badRequest((error as Error).message)
     }
-    return dedupe(trimmed, taken)
+    if (taken.has(trimmed)) throw ApiError.conflict(`Barcode '${trimmed}' is already in use by another variant.`)
+    taken.add(trimmed)
+    return trimmed
   }
 
   if (opts.allowBlankUpdate) return undefined
@@ -92,8 +94,10 @@ export const resolveVariantCode = (
   const base = String(productCode ?? '').trim()
   if (!base) return null
 
-  const suffix = segments.map(sanitizeCodeSegment).filter(Boolean).join('-')
-  return dedupe(suffix ? `${base}-${suffix}` : base, taken)
+  // Attribute names are intentionally not encoded: automatically generated
+  // barcodes remain numeric while variant attributes stay in relation data.
+  const numericBase = /^\d+$/.test(base) ? base : (base.match(/\d+/g)?.join('').slice(-12) || '1')
+  return dedupe(numericBase, taken)
 }
 
 /**

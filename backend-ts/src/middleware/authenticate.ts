@@ -35,6 +35,12 @@ const auth: any = async (req: IRequestLocal, res: Response, next: NextFunction) 
       roles: context.roles,
       vendorId: context.vendorIds[0] ?? null
     }
+    // Normalize the authenticated scope once. Downstream middleware and
+    // handlers consume this trusted context instead of re-reading it.
+    req.tenant = {
+      scope: context.vendorIds.length > 0 ? context.vendorIds : null,
+      vendorId: null
+    }
     next()
   } catch (error) {
     console.log('---------- Auth Guard Middleware catched')

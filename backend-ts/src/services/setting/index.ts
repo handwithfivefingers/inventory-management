@@ -6,6 +6,7 @@ import { evictCachedEntity, getCachedEntity, setCachedEntity } from '#/utils/ent
 import { assertVendorAccess, getActiveWorkspaceVendorId, getRequestedVendorId, getVendorScope } from '#/utils/tenant'
 import { Sequelize } from 'sequelize'
 import Vendor from '#/database/models/vendor'
+import { invalidateUsersByVendorId } from '#/services/authenticate/userAuth'
 
 const DEFAULT_CODE_FORMAT = { order: '', customer: '', product: '', category: '' }
 const DEFAULT_SHIP_DELIVERY = { enabled: false, fee: 0 }
@@ -334,6 +335,9 @@ export class SettingService {
       }
 
       await t.commit()
+      // auth/me caches the vendor list inside the user payload. Evict it so
+      // the next login/request immediately sees the renamed vendor.
+      await invalidateUsersByVendorId(target)
       const reloaded: any = await database.vendor.findByPk(target)
       const ownerEmail = await this.resolveOwnerEmail(reloaded)
       const plain = reloaded?.get ? reloaded.get({ plain: true }) : { ...(reloaded ?? {}) }

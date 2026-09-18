@@ -58,7 +58,7 @@ describe('StaffService', () => {
       })
 
       const where = database.staff.findAndCountAll.mock.calls[0][0].where
-      expect(where.vendorId).toBe(5)
+      expect(where.vendorId).toEqual(expect.objectContaining({ [require('sequelize').Op.in]: [5] }))
       expect(where.roleId).toBe(2)
       expect(where.status).toBe('active')
       expect(where.fullName).toEqual({ [require('sequelize').Op.like]: '%abc%' })

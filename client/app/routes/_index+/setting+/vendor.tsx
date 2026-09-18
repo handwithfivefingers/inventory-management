@@ -13,6 +13,8 @@ import { TMButton } from "~/components/tm-button";
 import { usePermission } from "~/hooks/use-permission";
 import { useTranslation } from "~/i18n";
 import { cn } from "~/libs/utils";
+import { useUser } from "~/store/user.store";
+import { useSubmitPromise } from "~/hooks";
 
 export const meta: MetaFunction = () => {
   return [
@@ -54,8 +56,9 @@ export async function action({ request }: ActionFunctionArgs) {
     const payload = JSON.parse((formData.get("payload") as string) || "{}");
 
     await vendorSettingService.updateVendorSettings(payload);
-
-    return { success: true, message: "Đã lưu hồ sơ cửa hàng" };
+    const response = await vendorSettingService.getVendorSettings();
+    const profile = response?.data?.data;
+    return { success: true, message: "Đã lưu hồ sơ cửa hàng", data: profile };
   } catch (error: any) {
     return Response.json({
       success: false,
@@ -71,20 +74,23 @@ const isValidPrefix = (value: string) => /^[A-Za-z0-9-]{1,20}$/.test(value.trim(
 
 export default function VendorSettings() {
   const { data } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<typeof action>();
+  const { submit, isLoading } = useSubmitPromise();
   const { t } = useTranslation();
+  const updateVendor = useUser((state) => state.updateVendor);
   const [form, setForm] = useState<IVendorProfile>(data?.profile || DEFAULT_VENDOR_PROFILE);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const canUpdate = usePermission("UPDATE", "setting");
 
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.success) {
-      toast.success({ title: "Thành công", message: "Đã lưu hồ sơ cửa hàng" });
-      setErrors({});
-    } else if (fetcher.state === "idle" && fetcher.data && !fetcher.data.success) {
-      toast.danger({ title: "Lỗi", message: (fetcher.data as any)?.message || "Lưu hồ sơ cửa hàng thất bại" });
-    }
-  }, [fetcher.state, fetcher.data]);
+  // useEffect(() => {
+  //   if (fetcher.state === "idle" && fetcher.data?.success) {
+  //     toast.success({ title: "Thành công", message: "Đã lưu hồ sơ cửa hàng" });
+  //     const profile = (fetcher.data as any)?.data?.profile as (IVendorProfile & { id?: number }) | undefined;
+  //     if (profile?.id) updateVendor({ id: profile.id, name: profile.name || "" });
+  //     setErrors({});
+  //   } else if (fetcher.state === "idle" && fetcher.data && !fetcher.data.success) {
+  //     toast.danger({ title: "Lỗi", message: (fetcher.data as any)?.message || "Lưu hồ sơ cửa hàng thất bại" });
+  //   }
+  // }, [fetcher.state, fetcher.data, updateVendor]);
 
   const update = (key: keyof IVendorProfile, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -110,20 +116,30 @@ export default function VendorSettings() {
     return Object.keys(next).length === 0;
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!validate()) return;
     // Empty strings become null server-side (clears the field); drop undefined.
-    const payload: Record<string, unknown> = {};
-    (["name", "legal_name", "tax_number", "address", "email", "phone", "invoice_series_prefix"] as const).forEach(
-      (key) => {
-        const value = (form as any)[key];
-        if (value !== undefined) payload[key] = value;
-      },
-    );
-    fetcher.submit({ payload: JSON.stringify(payload) }, { method: "PUT" });
+    try {
+      const payload: Record<string, unknown> = {};
+      (["name", "legal_name", "tax_number", "address", "email", "phone", "invoice_series_prefix"] as const).forEach(
+        (key) => {
+          const value = (form as any)[key];
+          if (value !== undefined) payload[key] = value;
+        },
+      );
+      const response = await submit<{ success: boolean; profile: IVendorProfile }>(
+        { payload: JSON.stringify(payload) },
+        { method: "PUT" },
+      );
+      if (response.success) {
+        if (response.profile?.id) updateVendor({ id: response.profile.id, name: response.profile.name || "" });
+        toast.success({ title: "Thành công", message: "Đã lưu hồ sơ cửa hàng" });
+      } else throw response;
+    } catch (error) {
+      toast.danger({ title: "Lỗi", message: "Lưu hồ sơ cửa hàng thất bại" });
+    }
   };
 
-  const isLoading = fetcher.state !== "idle";
   const readOnly = !canUpdate;
 
   return (

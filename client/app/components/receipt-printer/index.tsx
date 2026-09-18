@@ -310,8 +310,8 @@ export const ReceiptPrinter = ({ invoice, temporal, orderCode, invoiceIndex, inv
   };
 
   return (
-    <div className="flex relative flex-col gap-4 bg-slate-100 rounded py-2">
-      <div className="flex gap-1 justify-center flex-wrap no-print">
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2 justify-center flex-wrap no-print">
         <div className="w-44">
           <SelectInput
             label="Printer model"
@@ -324,10 +324,6 @@ export const ReceiptPrinter = ({ invoice, temporal, orderCode, invoiceIndex, inv
           />
         </div>
         <div className="w-32">
-          {/* Independent paper-size selector: overrides the model preset so
-              thermal (K58/K80) and A5/A4 sheets are switchable without
-              changing the printer model itself. Persisted with the rest of
-              the printer settings through the same localStorage record. */}
           <SelectInput
             label="Paper size"
             options={PAPER_SIZE_OPTIONS}
@@ -356,17 +352,19 @@ export const ReceiptPrinter = ({ invoice, temporal, orderCode, invoiceIndex, inv
           onChange={(e) => updatePrinter({ letterSpacing: Number(e.target.value) })}
         />
       </div>
-      <div className={`invoice-print mx-auto bg-white shadow ${isThermal ? "font-mono" : ""}`} style={contentStyle}>
-        {receiptBody}
-      </div>
-      {/* Body-level print copy: hidden on screen, sole visible node in print. */}
-      <Portal>
-        <div className="invoice-print-root invoice-print-portal printable-invoice">
-          <div className={isThermal ? "font-mono" : ""} style={contentStyle}>
-            {receiptBody}
-          </div>
+      <div className="flex relative flex-col gap-4 bg-slate-100 rounded py-2">
+        <div className={`invoice-print mx-auto bg-white shadow ${isThermal ? "font-mono" : ""}`} style={contentStyle}>
+          {receiptBody}
         </div>
-      </Portal>
+        {/* Body-level print copy: hidden on screen, sole visible node in print. */}
+        <Portal>
+          <div className="invoice-print-root invoice-print-portal printable-invoice">
+            <div className={isThermal ? "font-mono" : ""} style={contentStyle}>
+              {receiptBody}
+            </div>
+          </div>
+        </Portal>
+      </div>
     </div>
   );
 };

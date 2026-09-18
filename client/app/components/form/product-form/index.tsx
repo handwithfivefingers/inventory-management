@@ -12,20 +12,68 @@ import { MultiSelectInput } from "../multi-select-input";
 import { NumberInput } from "../number-input";
 import { BarCode } from "~/components/barcode";
 import { ProductSchemaType } from "~/constants/schema/product";
+import { IProduct, IProductVariant } from "~/types/product";
+
+/** Simple products keep their sellable fields on their single default variant. */
+export const getSimpleVariant = (
+  product: Pick<IProduct, "variants">
+): IProductVariant | undefined => {
+  const variants = product.variants || [];
+  return (variants.find((variant) => Number((variant as any).type) === 0) ||
+    variants[0]) as IProductVariant | undefined;
+};
+
+export const mapSimpleVariantToProductForm = (
+  product: IProduct,
+  variant = getSimpleVariant(product)
+) => {
+  const quantity = variant?.inventories?.length
+    ? variant.inventories.reduce(
+        (sum, inventory) => sum + Number(inventory.quantity || 0),
+        0
+      )
+    : variant?.quantity ?? product.quantity;
+
+  return {
+    code: variant?.code ?? product.code ?? "",
+    skuCode: variant?.skuCode ?? product.skuCode ?? "",
+    quantity,
+    costPrice: variant?.costPrice ?? product.costPrice,
+    regularPrice: variant?.regularPrice ?? product.regularPrice,
+    salePrice: variant?.salePrice ?? product.salePrice,
+    wholeSalePrice: variant?.wholeSalePrice ?? product.wholeSalePrice,
+    VAT: variant?.VAT ?? product.VAT ?? 0,
+    image: variant?.imageUrl ?? product.image ?? undefined,
+    isNegative: variant?.isNegative ?? product.isNegative ?? false,
+  } satisfies Partial<ProductSchemaType>;
+};
 
 interface Props {
   categories: ICategory[];
   units: ICategory[];
   tags: ICategory[];
   barcode?: string;
+  variantMode?: boolean;
 }
-export const ProductForm = ({ categories, units, tags, barcode }: Props) => {
+export const ProductForm = ({
+  categories,
+  units,
+  tags,
+  barcode,
+  variantMode = false,
+}: Props) => {
   const { t } = useTranslation();
   const form = useFormContext<ProductSchemaType>();
   const watchedAttrs = (form.watch("variantAttributes") || []) as any[];
-  const hasVariantAttrs = watchedAttrs.some(
-    (a) => (a?.name || "").trim() && (Array.isArray(a?.values) ? a.values.length > 0 : String(a?.values || "").trim()),
-  );
+  const hasVariantAttrs =
+    variantMode ||
+    watchedAttrs.some(
+      (a) =>
+        (a?.name || "").trim() &&
+        (Array.isArray(a?.values)
+          ? a.values.length > 0
+          : String(a?.values || "").trim())
+    );
   return (
     <div className="w-full flex flex-col md:flex-row gap-4">
       {/* Image column */}
@@ -51,14 +99,21 @@ export const ProductForm = ({ categories, units, tags, barcode }: Props) => {
             <TextInput
               label={t("product.name")}
               required
-              prefix={<Icon name="package" fontSize={16} className="text-slate-400" />}
+              prefix={
+                <Icon name="package" fontSize={16} className="text-slate-400" />
+              }
             />
           </FormControl>
           <FormControl name="code" className="col-span-12 sm:col-span-6">
             <TextInput
               label={t("product.code")}
               placeholder={`Barcode`}
-              prefix={<Icon name="hash" fontSize={16} className="text-slate-400" />}
+              maxLength={12}
+              inputMode="text"
+              pattern="[A-Za-z0-9-]*"
+              prefix={
+                <Icon name="hash" fontSize={16} className="text-slate-400" />
+              }
             />
           </FormControl>
           <FormControl name="skuCode" className="col-span-12 sm:col-span-6">
@@ -69,9 +124,13 @@ export const ProductForm = ({ categories, units, tags, barcode }: Props) => {
                   value={(field.value as string) || ""}
                   onChange={(e: any) => field.onChange(e.target.value)}
                   //   placeholder={settings?.skuTemplate ? `{CODE} → ${settings.skuTemplate}` : undefined}
-                  prefix={<Icon name="tag" fontSize={16} className="text-slate-400" />}
+                  prefix={
+                    <Icon name="tag" fontSize={16} className="text-slate-400" />
+                  }
                 />
-                <p className="text-xs text-gray-500 mt-1">{t("product.skuAutoHint")}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {t("product.skuAutoHint")}
+                </p>
               </>
             )}
           </FormControl>
@@ -80,7 +139,12 @@ export const ProductForm = ({ categories, units, tags, barcode }: Props) => {
             {(field) => {
               return (
                 <MultiSelectInput
-                  options={categories?.map((cate: any) => ({ label: cate.name, value: cate.id })) || []}
+                  options={
+                    categories?.map((cate: any) => ({
+                      label: cate.name,
+                      value: cate.id,
+                    })) || []
+                  }
                   label={t("product.categories")}
                   {...field}
                   onSelect={(v) => field.onChange(v)}
@@ -92,7 +156,12 @@ export const ProductForm = ({ categories, units, tags, barcode }: Props) => {
             {(field) => {
               return (
                 <MultiSelectInput
-                  options={tags?.map((tag: any) => ({ label: tag.name, value: tag.id })) || []}
+                  options={
+                    tags?.map((tag: any) => ({
+                      label: tag.name,
+                      value: tag.id,
+                    })) || []
+                  }
                   label={t("product.tags")}
                   {...field}
                   onSelect={(v) => field.onChange(v)}
@@ -105,7 +174,12 @@ export const ProductForm = ({ categories, units, tags, barcode }: Props) => {
             {(field) => {
               return (
                 <SelectInput
-                  options={units?.map((unit: any) => ({ label: unit.name, value: unit.id })) || []}
+                  options={
+                    units?.map((unit: any) => ({
+                      label: unit.name,
+                      value: unit.id,
+                    })) || []
+                  }
                   label={t("product.unit")}
                   {...field}
                   onSelect={(v) => field.onChange(v)}

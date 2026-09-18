@@ -5,7 +5,11 @@ export class ProviderController {
   async create(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new ProviderService().create(req as IRequestLocal)
+      const params = {
+        ...req.body,
+        vendorId: req.activeVendorId
+      }
+      const resp = await new ProviderService().create(params)
       res.status(200).json({
         data: resp
       })
@@ -18,7 +22,7 @@ export class ProviderController {
     const [req, res, next] = arg
     try {
       const { limit = 10, offset = 0 } = req.query
-      const vendorId = getRequestedVendorId(req as IRequestLocal)
+      const vendorId = req.activeVendorId
       const { count, rows } = await new ProviderService().getProvider({
         limit: Number(limit),
         offset: Number(offset),
@@ -34,7 +38,8 @@ export class ProviderController {
   async getId(...arg: IRequestHandler) {
     const [req, res, next] = arg
     try {
-      const resp = await new ProviderService().getProviderById({ id: req.params.id })
+      const vendorId = req.activeVendorId as number
+      const resp = await new ProviderService().getProviderById({ id: req.params.id, vendorId })
       res.status(200).json({
         data: resp
       })
@@ -43,15 +48,16 @@ export class ProviderController {
       next(error)
     }
   }
-  // async update(...arg: IRequestHandler) {
-  //   const [req, res, next] = arg
-  //   try {
-  //     const resp = await new ProviderService().update(req as IRequestLocal)
-  //     return res.status(200).json({
-  //       data: resp
-  //     })
-  //   } catch (error) {
-  //     next(error)
-  //   }
-  // }
+  async update(...arg: IRequestHandler) {
+    const [req, res, next] = arg
+    try {
+      const id = req.params.id
+      const resp = await new ProviderService().update(Number(id), req.body)
+      return res.status(200).json({
+        data: resp
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
 }

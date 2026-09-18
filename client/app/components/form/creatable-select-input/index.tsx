@@ -126,12 +126,26 @@ export const CreatableSelectInput: React.FC<Props> = ({
       <div
         ref={wrapper}
         onClick={() => setIsFocus(true)}
-        className={cn("relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700 cursor-pointer", className)}
+        className={cn(
+          "relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700 cursor-pointer",
+          {
+            ["mt-1"]: !!label,
+          },
+          className,
+        )}
       >
         {/* display selected or input */}
-        <div className={cn("relative flex items-center w-full", SizeClass[inputSize || "sm"])} style={{ minHeight: 32 }}>
+        <div
+          className={cn("relative flex items-center w-full", SizeClass[inputSize || "sm"])}
+          style={{ minHeight: 30 }}
+        >
           {!isFocus ? (
-            <span className={cn("text-sm truncate", selectedOption ? "text-slate-700 dark:text-slate-300" : "text-gray-400")}>
+            <span
+              className={cn(
+                "text-sm truncate",
+                selectedOption ? "text-slate-700 dark:text-slate-300" : "text-gray-400",
+              )}
+            >
               {selectedOption?.label || placeholder}
             </span>
           ) : (
@@ -153,7 +167,13 @@ export const CreatableSelectInput: React.FC<Props> = ({
 
       <Portal>
         {isFocus && (
-          <m.div ref={dropdown} className={DROPDOWN_PANEL_CLASS} initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+          <m.div
+            ref={dropdown}
+            className={DROPDOWN_PANEL_CLASS}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <ul className="max-h-[300px] overflow-y-auto p-1 flex flex-col gap-1">
               {filtered.map((item: any, idx: number) => (
                 <li
@@ -164,7 +184,7 @@ export const CreatableSelectInput: React.FC<Props> = ({
                     "px-2 py-1.5 rounded text-sm flex justify-between items-center",
                     item.disabled
                       ? "opacity-40 cursor-not-allowed bg-slate-50 dark:bg-slate-800"
-                      : "cursor-pointer bg-white hover:bg-slate-100 text-neutral-700 hover:text-neutral-900 dark:bg-transparent dark:hover:bg-slate-500 dark:text-slate-300"
+                      : "cursor-pointer bg-white hover:bg-slate-100 text-neutral-700 hover:text-neutral-900 dark:bg-transparent dark:hover:bg-slate-500 dark:text-slate-300",
                   )}
                 >
                   <span>{item.label}</span>

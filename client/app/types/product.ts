@@ -77,6 +77,8 @@ export interface IProduct {
   tags?: string | ICategory[];
   /** Number of variants (0 = simple product) */
   variantCount?: number;
+  priceFrom?: number;
+  priceTo?: number;
   /** 0 = simple, 1 = variant, 2 = combo */
   type?: number;
   /** @deprecated Use variants[0].isNegative / unifiedVariant.isNegative. */
@@ -119,6 +121,7 @@ export interface IPosSearchItem {
   sku: string;
   barcode: string | null;
   price: number;
+  costPrice: number;
   stock_quantity: number;
   VAT?: number | null;
   imageUrl?: string | null;
@@ -134,6 +137,8 @@ export interface IAdminSearchItem {
   is_active: boolean;
   total_variants: number;
   total_stock: number;
+  price_from?: number;
+  price_to?: number;
 }
 
 export type IUnifiedSearchResponse =

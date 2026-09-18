@@ -196,10 +196,12 @@ export class StatsService {
         revenue: Number(row.revenue) || 0
       }))
 
-      // Low stock alerts (product-level rows only; variant rows are aggregated separately)
+      // Low stock alerts are stored per variant. Product-level inventory rows
+      // from older databases are still included for a safe migration path, but
+      // sellable identifiers must come from productVariants: products.code was
+      // removed by the variant-only-products migration.
       const inventoryWhere: any = {
-        quantity: { [Op.lte]: threshold },
-        variantId: { [Op.eq]: null }
+        quantity: { [Op.lte]: threshold }
       }
       if (warehouseId) inventoryWhere.warehouseId = Number(warehouseId)
 
@@ -208,7 +210,8 @@ export class StatsService {
         where: inventoryWhere,
         attributes: ['id', 'quantity'],
         include: [
-          { model: database.product, attributes: ['id', 'name', 'code'] },
+          { model: database.product, attributes: ['id', 'name'] },
+          { model: database.productVariant, attributes: ['id', 'code', 'skuCode'], required: false },
           { model: database.warehouse, attributes: ['id', 'name'] }
         ],
         order: [['quantity', 'ASC']],

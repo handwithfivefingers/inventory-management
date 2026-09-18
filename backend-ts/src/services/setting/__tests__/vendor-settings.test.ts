@@ -37,8 +37,12 @@ vi.mock('#/utils/caching', () => ({
   cacheDel: vi.fn(),
   cacheItem: vi.fn()
 }))
+vi.mock('#/services/authenticate/userAuth', () => ({
+  invalidateUsersByVendorId: vi.fn()
+}))
 
 import database from '#/database'
+import { invalidateUsersByVendorId } from '#/services/authenticate/userAuth'
 import { SettingService } from '../index'
 
 const makeTx = () => ({ commit: vi.fn(), rollback: vi.fn() })
@@ -58,7 +62,9 @@ const activeReq = (overrides: Record<string, any> = {}) =>
   ({
     query: {},
     body: {},
+    headers: { 'x-vendor': '1' },
     user: { id: 9, email: 'owner@x.test', vendorIds: [1, 2], vendorId: 1 },
+    tenant: { scope: [1, 2], vendorId: 1 },
     ...overrides
   }) as any
 
@@ -125,6 +131,7 @@ describe('SettingService vendor settings', () => {
         expect.anything()
       )
       expect(result.displayName).toBe('Legal Co')
+      expect(invalidateUsersByVendorId).toHaveBeenCalledWith(1)
     })
 
     it('rejects cross-vendor updates even when the id is inside the caller scope', async () => {
@@ -172,7 +179,7 @@ describe('SettingService vendor settings', () => {
     })
 
     it('rejects out-of-scope vendors', async () => {
-      await expect(service.getVendorSettings(activeReq({ query: { vendorId: '99' } }))).rejects.toMatchObject({
+      await expect(service.getVendorSettings(activeReq({ headers: { 'x-vendor': '99' }, query: { vendorId: '99' } }))).rejects.toMatchObject({
         status: 403
       })
     })

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Self-contained Sequelize/database mock following the project's test pattern.
+// Matches the variant-only ProductService (HEAD c000eb6):
+// create() takes flat CreateProductParams (no { body, user } wrapper, no
+// vendorScope arg) and variant rows are created via ProductVariant.create
+// (not .build). Variant payloads reference attribute values by id
+// (`attributeValues: [11]`) or by `{attrName: value}` maps
+// (`optionValues`/`options`); the old { name, values } matrix + generateAll
+// API no longer exists.
 const db = vi.hoisted(() => {
   const MODEL_METHODS = [
     "findOne",
@@ -12,9 +18,8 @@ const db = vi.hoisted(() => {
     "destroy",
     "findByPk",
     "count",
-    "increment",
-    "decrement",
     "bulkCreate",
+    "restore",
   ];
   const makeModelMock = () => {
     const m: any = {};
@@ -29,7 +34,12 @@ const db = vi.hoisted(() => {
     "category",
     "tag",
     "unit",
+    "units",
     "warehouse",
+    "order",
+    "orderDetail",
+    "invoice",
+    "invoiceDetail",
     "productAttribute",
     "productAttributeValue",
     "productVariant",
@@ -40,6 +50,8 @@ const db = vi.hoisted(() => {
     transaction: vi.fn(),
     literal: vi.fn((v: any) => v),
     col: vi.fn((v: any) => v),
+    fn: vi.fn((f: string, v: any) => ({ f, v })),
+    query: vi.fn().mockResolvedValue([[{ seq: 1 }], []]),
   };
   return database;
 });
@@ -53,11 +65,15 @@ vi.mock("#/database/models/productAttributeValue", () => ({
   ProductAttributeValue: db.productAttributeValue,
 }));
 vi.mock("#/database/models/inventory", () => ({ default: db.inventory, Inventory: db.inventory }));
+vi.mock("#/database/models/transfer", () => ({ default: db.transfer, Transfer: db.transfer }));
 vi.mock("#/database/models/category", () => ({ default: db.category, Category: db.category }));
 vi.mock("#/database/models/tag", () => ({ default: db.tag, Tag: db.tag }));
 vi.mock("#/database/models/units", () => ({ default: db.units, Unit: db.units }));
+vi.mock("#/database/models/order", () => ({ default: db.order, Order: db.order }));
+vi.mock("#/database/models/orderDetail", () => ({ default: db.orderDetail, OrderDetail: db.orderDetail }));
+vi.mock("#/database/models/invoice", () => ({ default: db.invoice, Invoice: db.invoice }));
+vi.mock("#/database/models/invoiceDetail", () => ({ default: db.invoiceDetail, InvoiceDetail: db.invoiceDetail }));
 vi.mock("#/database/models/setting", () => ({ default: db.setting, Setting: db.setting }));
-// Bypass Redis: run cache loaders inline so results stay deterministic.
 vi.mock("#/utils/entity-cache", () => ({
   getCachedEntity: vi.fn((_model: string, _id: unknown, loader: () => Promise<unknown>) => loader()),
   setCachedEntity: vi.fn(),
@@ -68,149 +84,116 @@ import { ProductService } from "../index";
 
 const makeTx = () => ({ commit: vi.fn(), rollback: vi.fn() });
 
-/** Build helper: instances returned by model.build() auto-increment their id */
 const makeInstanceFactory = () => {
-  let seq = 0;
+  let seq = 100;
   return (dataValues: Record<string, unknown>, extra: any = {}) => {
     seq += 1;
     const instance: any = {
       id: seq,
       dataValues: { id: seq, ...dataValues },
-      setCategories: vi.fn(),
-      setTags: vi.fn(),
       $set: vi.fn().mockResolvedValue(undefined),
       setAttributeValues: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockImplementation(async (patch: any) => {
+        Object.assign(instance.dataValues, patch);
+        return instance;
+      }),
+      destroy: vi.fn().mockResolvedValue(undefined),
       ...extra,
     };
-    // Real Sequelize save()/update() resolve to the instance itself
     instance.save = vi.fn().mockResolvedValue(instance);
-    instance.update = vi.fn().mockResolvedValue(instance);
     return instance;
   };
 };
 
+const attrValueRow = (id: number, attributeId: number, value: string, vendorId = 1) => ({
+  id,
+  attributeId,
+  value,
+  attribute: { vendorId },
+});
+
 describe("ProductService.create with variants", () => {
   let service: ProductService;
-  // Registry of materialized attribute values (by auto-assigned id) so the
-  // vendor-validation reads in create() echo realistic rows.
-  const valueById = new Map<number, any>();
-  const trackBuiltValue = (row: any) => {
-    valueById.set(Number(row.id), row);
-    return row;
-  };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    valueById.clear();
     service = new ProductService();
     database.sequelize.transaction.mockResolvedValue(makeTx());
-    database.setting.findOne.mockResolvedValue(null);
+    database.setting.findOne.mockResolvedValue({ skuTemplate: "{CODE}" });
     database.product.count.mockResolvedValue(0);
     database.product.findOne.mockResolvedValue(null);
-    // S1: tenant checks resolve the warehouse (platform-admin scope here).
-    database.warehouse.findByPk.mockResolvedValue({ vendorId: 1 });
-    // Matrix materialization always creates fresh rows in these tests.
-    database.productAttribute.findOne.mockResolvedValue(null);
-    database.productAttributeValue.findOne.mockResolvedValue(null);
-    database.productAttributeValue.findAll.mockImplementation(async (opts: any) => {
-      const raw = opts?.where?.id;
-      const ids = (Array.isArray(raw) ? raw : raw !== undefined ? [raw] : []).map(Number);
-      return ids
-        .map((id: number) => valueById.get(id))
-        .filter(Boolean)
-        .map((row: any) => ({
-          id: row.id,
-          attributeId: row.dataValues.attributeId,
-          value: row.dataValues.value,
-          attribute: { vendorId: 1 },
-        }));
-    });
+    // Global SKU uniqueness defaults to free.
+    database.productVariant.findOne.mockResolvedValue(null);
+    database.orderDetail.findOne.mockResolvedValue(null);
+    const stockRow = (data: any) => {
+      const row: any = { dataValues: { ...data } };
+      row.save = vi.fn().mockResolvedValue(row);
+      row.update = vi.fn().mockResolvedValue(row);
+      return row;
+    };
+    database.inventory.build.mockImplementation(stockRow);
+    database.transfer.build.mockImplementation(stockRow);
   });
 
-  const makeProduct = () => {
-    const make = makeInstanceFactory();
-    const prod = make({ name: "Áo thun", code: "A1", skuCode: "SKU1" });
-    database.product.build.mockReturnValue(prod);
+  const makeProduct = (make: ReturnType<typeof makeInstanceFactory>) => {
+    const prod = make({ name: "Ao thun", type: 1, vendorId: 1 });
+    database.product.create.mockResolvedValue(prod);
     return prod;
   };
 
-  it("creates one variant per attribute combination with generated SKUs", async () => {
-    const prod = makeProduct();
+  const mockCatalog = (values: ReturnType<typeof attrValueRow>[]) => {
+    database.productAttributeValue.findAll.mockImplementation(async (opts: any) => {
+      const raw = opts?.where?.id;
+      if (raw === undefined) return values;
+      const ids = (Array.isArray(raw) ? raw : [raw]).map(Number);
+      return values.filter((v) => ids.includes(Number(v.id)));
+    });
+  };
+
+  it("creates one variant per payload entry with generated SKUs", async () => {
     const make = makeInstanceFactory();
-    // Attribute rows: Color(id after product) then Size
-    database.productAttribute.build.mockImplementation(({ name }: any) => make({ name }));
-    database.productAttributeValue.build.mockImplementation((data: any) =>
-      trackBuiltValue(make({ ...data })),
-    );
-    database.productVariant.build.mockImplementation(({ skuCode }: any) =>
-      make({ skuCode }, {
-        setAttributeValues: vi.fn().mockResolvedValue(undefined),
-      }),
-    );
-    database.inventory.build.mockImplementation((data: any) => make(data));
-    database.transfer.build.mockImplementation((data: any) => make(data));
+    const prod = makeProduct(make);
+    mockCatalog([attrValueRow(11, 5, "Red"), attrValueRow(12, 5, "Blue")]);
+    database.productVariant.create.mockImplementation(async (fields: any) => make({ ...fields }));
 
-    const req: any = {
-      body: {
-        warehouseId: 1,
-        quantity: 5,
-        name: "Áo thun",
-        code: "A1",
-        skuCode: "SKU1",
-        attributes: [
-          { name: "Color", values: ["Red", "Blue"] },
-          { name: "Size", values: ["M"] },
-        ],
-        variants: [],
-      },
-      user: { vendorIds: [1] },
-    };
-
-    const result = await service.create(req);
+    const result = await service.create({
+      vendorId: 1,
+      warehouseId: 1,
+      name: "Ao thun",
+      type: 1,
+      skuCode: "SKU1",
+      variants: [{ attributeValues: [11] }, { attributeValues: [12] }],
+    } as any);
 
     expect(result.variants).toHaveLength(2);
-    expect(database.productVariant.build).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: prod.id, skuCode: "SKU1-RED-M" }),
+    const skus = database.productVariant.create.mock.calls.map(([arg]: any) => arg.skuCode);
+    expect(new Set(skus).size).toBe(2);
+    expect(skus[0]).toContain("SKU1");
+    expect(database.productVariant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ productId: prod.id }),
+      expect.anything(),
     );
-    expect(database.productVariant.build).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: prod.id, skuCode: "SKU1-BLUE-M" }),
-    );
-    // Every variant is linked to its attribute values
-    expect(database.productVariant.build.mock.results.length).toBe(2);
-    // No product-level stock rows for variable products
+    // Every variant is linked to its attribute values; no stock without quantity.
+    expect(result.variants[0]).toHaveProperty("skuCode");
     expect(database.inventory.build).not.toHaveBeenCalled();
     expect(database.transfer.build).not.toHaveBeenCalled();
   });
 
-  it("applies per-combination overrides (opening stock -> inventory + IN transfer)", async () => {
-    makeProduct();
+  it("applies per-variant overrides (opening stock -> inventory + IN transfer)", async () => {
     const make = makeInstanceFactory();
-    database.productAttribute.build.mockImplementation(({ name }: any) => make({ name }));
-    database.productAttributeValue.build.mockImplementation((data: any) =>
-      trackBuiltValue(make({ ...data })),
-    );
-    database.productVariant.build.mockImplementation(({ skuCode }: any) =>
-      make({ skuCode }, {
-        setAttributeValues: vi.fn().mockResolvedValue(undefined),
-      }),
-    );
-    database.inventory.build.mockImplementation((data: any) => make(data));
-    database.transfer.build.mockImplementation((data: any) => make(data));
+    makeProduct(make);
+    mockCatalog([attrValueRow(11, 5, "Red"), attrValueRow(12, 5, "Blue")]);
+    database.productVariant.create.mockImplementation(async (fields: any) => make({ ...fields }));
 
     await service.create({
-      body: {
-        warehouseId: 2,
-        quantity: 9,
-        name: "Áo thun",
-        code: "A1",
-        skuCode: "SKU1",
-        attributes: [{ name: "Color", values: ["Red", "Blue"] }],
-        variants: [{ optionValues: { Color: "Red" }, quantity: 4, salePrice: 120 }],
-      },
-      user: { vendorIds: [1] },
+      vendorId: 1,
+      warehouseId: 2,
+      name: "Ao thun",
+      type: 1,
+      skuCode: "SKU1",
+      variants: [{ attributeValues: [11], quantity: 4, salePrice: 120, skuCode: "SKU1-RED" }],
     } as any);
 
-    // Only the overridden combination gets opening stock
     expect(database.inventory.build).toHaveBeenCalledTimes(1);
     expect(database.inventory.build).toHaveBeenCalledWith(
       expect.objectContaining({ warehouseId: 2, quantity: 4, variantId: expect.any(Number) }),
@@ -218,105 +201,150 @@ describe("ProductService.create with variants", () => {
     expect(database.transfer.build).toHaveBeenCalledWith(
       expect.objectContaining({ quantity: 4, type: "0", variantId: expect.any(Number) }),
     );
-    // Override price lands on the variant row
-    const firstVariantCall = database.productVariant.build.mock.calls.find(
-      ([arg]: any) => arg.skuCode === "SKU1-RED",
+    expect(database.productVariant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ skuCode: "SKU1-RED", salePrice: 120 }),
+      expect.anything(),
     );
-    expect(firstVariantCall?.[0]).toEqual(expect.objectContaining({ salePrice: 120 }));
   });
 
-  it("manual mode (generateAll: false) creates only the picked combinations", async () => {
-    makeProduct();
+  it("accepts explicit manual SKUs and validates their format", async () => {
     const make = makeInstanceFactory();
-    database.productAttribute.build.mockImplementation(({ name }: any) => make({ name }));
-    database.productAttributeValue.build.mockImplementation((data: any) =>
-      trackBuiltValue(make({ ...data })),
-    );
-    database.productVariant.build.mockImplementation(({ skuCode }: any) =>
-      make({ skuCode }, {
-        setAttributeValues: vi.fn().mockResolvedValue(undefined),
-      }),
-    );
-    database.inventory.build.mockImplementation((data: any) => make(data));
-    database.transfer.build.mockImplementation((data: any) => make(data));
+    makeProduct(make);
+    mockCatalog([attrValueRow(11, 5, "Blue")]);
+    database.productVariant.create.mockImplementation(async (fields: any) => make({ ...fields }));
 
     const result = await service.create({
-      body: {
-        warehouseId: 1,
-        quantity: 0,
-        name: "Áo thun",
-        code: "A1",
-        skuCode: "SKU1",
-        generateAll: false,
-        attributes: [{ name: "Color", values: ["Red", "Blue"] }],
-        // Only the Blue combination was manually picked
-        variants: [
-          {
-            optionValues: { Color: "Blue" },
-            quantity: 3,
-            costPrice: 100,
-            wholeSalePrice: 300,
-            isNegative: true,
-          },
-        ],
-      },
-      user: { vendorIds: [1] },
+      vendorId: 1,
+      warehouseId: 1,
+      name: "Ao thun",
+      type: 1,
+      skuCode: "SKU1",
+      variants: [
+        { attributeValues: [11], quantity: 3, costPrice: 100, wholeSalePrice: 300, isNegative: true, skuCode: "SKU1-BLUE" },
+      ],
     } as any);
 
     expect(result.variants).toHaveLength(1);
-    expect(database.productVariant.build).toHaveBeenCalledTimes(1);
-    // Full override field set lands on the variant row
-    expect(database.productVariant.build).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skuCode: "SKU1-BLUE",
-        costPrice: 100,
-        wholeSalePrice: 300,
-        isNegative: true,
-      }),
+    expect(database.productVariant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ skuCode: "SKU1-BLUE", costPrice: 100, wholeSalePrice: 300, isNegative: true }),
+      expect.anything(),
     );
-    // ...and its opening stock still flows into inventory + IN transfer
     expect(database.inventory.build).toHaveBeenCalledWith(
       expect.objectContaining({ quantity: 3, variantId: expect.any(Number) }),
     );
   });
 
-  it("keeps legacy behaviour (single stock row + transfer) for simple products", async () => {
-    const prod = makeProduct();
+  it("rejects a duplicate manual SKU (409)", async () => {
     const make = makeInstanceFactory();
-    database.inventory.build.mockImplementation((data: any) => make(data));
-    database.transfer.build.mockImplementation((data: any) => make(data));
+    makeProduct(make);
+    mockCatalog([attrValueRow(11, 5, "Red")]);
+    database.productVariant.findOne.mockResolvedValue({ id: 999 });
+
+    await expect(
+      service.create({
+        vendorId: 1,
+        warehouseId: 1,
+        name: "Ao thun",
+        type: 1,
+        skuCode: "SKU1",
+        variants: [{ attributeValues: [11], skuCode: "TAKEN-001" }],
+      } as any),
+    ).rejects.toThrow("already in use by another variant");
+  });
+
+  it("resolves optionValues maps through the vendor catalog", async () => {
+    const make = makeInstanceFactory();
+    makeProduct(make);
+    database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
+    database.productAttributeValue.findAll.mockResolvedValue([
+      { id: 11, attributeId: 5, value: "Red", attribute: { name: "Color", vendorId: 1 } },
+    ]);
+    database.productVariant.create.mockImplementation(async (fields: any) => make({ ...fields }));
 
     const result = await service.create({
-      body: { warehouseId: 1, quantity: 7, name: "Cola", code: "C1" },
-      user: { vendorIds: [1] },
+      vendorId: 1,
+      warehouseId: 1,
+      name: "Ao thun",
+      type: 1,
+      skuCode: "SKU1",
+      variants: [{ optionValues: { Color: "Red" }, quantity: 1 }],
     } as any);
 
-    expect(result.variants).toBeUndefined();
-    expect(database.productVariant.build).not.toHaveBeenCalled();
-    expect(database.inventory.build).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: prod.id, quantity: 7 }),
+    expect(result.variants).toHaveLength(1);
+    expect(database.productVariant.create).toHaveBeenCalledWith(
+      expect.objectContaining({ productId: expect.any(Number) }),
+      expect.anything(),
     );
-    expect(result.inventory).toEqual(expect.objectContaining({ quantity: 7 }));
+  });
+
+  it("throws when optionValues reference unknown catalog values", async () => {
+    const make = makeInstanceFactory();
+    makeProduct(make);
+    database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
+    database.productAttributeValue.findAll.mockResolvedValue([]);
+
+    await expect(
+      service.create({
+        vendorId: 1,
+        warehouseId: 1,
+        name: "Ao thun",
+        type: 1,
+        skuCode: "SKU1",
+        variants: [{ optionValues: { Color: "Magenta" } }],
+      } as any),
+    ).rejects.toThrow("not ready");
+  });
+
+  it("rejects unknown attributeValue ids", async () => {
+    const make = makeInstanceFactory();
+    makeProduct(make);
+    mockCatalog([attrValueRow(11, 5, "Red")]);
+
+    await expect(
+      service.create({
+        vendorId: 1,
+        warehouseId: 1,
+        name: "Ao thun",
+        type: 1,
+        skuCode: "SKU1",
+        variants: [{ attributeValues: [999] }],
+      } as any),
+    ).rejects.toThrow("Invalid attributeValues");
+  });
+
+  it("rejects attribute values from another vendor", async () => {
+    const make = makeInstanceFactory();
+    makeProduct(make);
+    mockCatalog([attrValueRow(11, 5, "Red", 9)]);
+
+    await expect(
+      service.create({
+        vendorId: 1,
+        warehouseId: 1,
+        name: "Ao thun",
+        type: 1,
+        skuCode: "SKU1",
+        variants: [{ attributeValues: [11] }],
+      } as any),
+    ).rejects.toThrow("Attribute value vendor mismatch");
   });
 
   it("rolls back when variant persistence fails", async () => {
     const tx = makeTx();
     database.sequelize.transaction.mockResolvedValue(tx);
-    makeProduct();
     const make = makeInstanceFactory();
-    database.productAttribute.build.mockImplementation(({ name }: any) => make({ name }));
-    database.productAttributeValue.build.mockRejectedValue(new Error("db down"));
+    makeProduct(make);
+    mockCatalog([attrValueRow(11, 5, "Red")]);
+    database.productVariant.create.mockRejectedValue(new Error("db down"));
 
     await expect(
       service.create({
-        body: {
-          warehouseId: 1,
-          quantity: 5,
-          name: "Áo thun",
-          code: "A1",
-          attributes: [{ name: "Color", values: ["Red"] }],
-        },
-        user: { vendorIds: [1] },
+        vendorId: 1,
+        warehouseId: 1,
+        name: "Ao thun",
+        type: 1,
+        skuCode: "SKU1",
+        variants: [{ attributeValues: [11] }],
       } as any),
     ).rejects.toThrow("db down");
     expect(tx.rollback).toHaveBeenCalled();
@@ -324,71 +352,75 @@ describe("ProductService.create with variants", () => {
   });
 });
 
-describe("ProductService.create validation (shared with variants flow)", () => {
+describe("ProductService.create validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    database.sequelize.transaction.mockResolvedValue(makeTx());
+    database.setting.findOne.mockResolvedValue({ skuTemplate: "{CODE}" });
+    database.product.count.mockResolvedValue(0);
+    database.product.findOne.mockResolvedValue(null);
+    database.productVariant.findOne.mockResolvedValue(null);
   });
 
-  it("still requires warehouseId even when attributes are provided", async () => {
+  it("rejects an invalid parent barcode", async () => {
     const service = new ProductService();
     await expect(
-      service.create({
-        body: { vendorId: 1, quantity: 5, attributes: [{ name: "Color", values: ["Red"] }] },
-        user: { vendorIds: [1] },
-      } as any),
-    ).rejects.toThrow("warehouseId is required");
+      service.create({ vendorId: 1, warehouseId: 1, name: "X", code: "!!!", type: 1, variants: [] } as any),
+    ).rejects.toThrow();
+  });
+
+  it("rejects an invalid parent SKU", async () => {
+    const service = new ProductService();
+    await expect(
+      service.create({ vendorId: 1, warehouseId: 1, name: "X", skuCode: "bad sku!", type: 1, variants: [] } as any),
+    ).rejects.toThrow();
   });
 });
 
 describe("ProductService.updateProduct (variant branch)", () => {
   let service: ProductService;
-  const makeTx2 = () => ({ commit: vi.fn(), rollback: vi.fn() });
 
   beforeEach(() => {
     vi.clearAllMocks();
     service = new ProductService();
-    database.sequelize.transaction.mockResolvedValue(makeTx2());
-    database.setting.findOne.mockResolvedValue(null);
-    database.warehouse.findByPk.mockResolvedValue({ vendorId: 1 });
+    database.sequelize.transaction.mockResolvedValue(makeTx());
+    database.setting.findOne.mockResolvedValue({ skuTemplate: "{CODE}" });
+    database.productVariant.findOne.mockResolvedValue(null);
+    database.orderDetail.findOne.mockResolvedValue(null);
   });
 
   const makeVariantInstance = (id: number, extra: any = {}) => ({
     id,
     productId: 1,
     get: (key: string) => {
-      if (key === "id") return id;
-      if (key === "productId") return 1;
-      if (key === "skuCode") return `SKU1-V${id}`;
-      if (key === "code") return `P1-V${id}`;
-      if (key === "attributeValues") return [];
-      return (extra as any)[key] ?? null;
+      const map: any = { id, productId: 1, skuCode: `SKU1-V${id}`, code: `P1-V${id}`, attributeValues: [], ...extra };
+      return map[key] ?? null;
     },
     update: vi.fn().mockResolvedValue(undefined),
     destroy: vi.fn().mockResolvedValue(undefined),
     $set: vi.fn().mockResolvedValue(undefined),
-    save: vi.fn().mockImplementation(function (this: any) { return Promise.resolve(this); }),
+    save: vi.fn().mockImplementation(function (this: any) {
+      return Promise.resolve(this);
+    }),
     ...extra,
   });
 
   const makeProduct = (overrides: any = {}) => {
-    const data: any = { id: 1, vendorId: 1, code: "P1", skuCode: "SKU1", type: 1, ...overrides };
+    const data: any = { id: 1, vendorId: 1, type: 1, ...overrides };
     return {
       ...data,
-      id: 1,
       get: (key: string) => (data as any)[key] ?? null,
-      update: vi.fn().mockImplementation(function (this: any, fields: any) {
+      update: vi.fn().mockImplementation(async function (this: any, fields: any) {
         Object.assign(data, fields);
-        return Promise.resolve(this);
+        return this;
       }),
       $set: vi.fn().mockResolvedValue(undefined),
     };
   };
 
-  it("removes deleted variants and upserts the rest with barcodes", async () => {
-    const product = makeProduct();
-    database.product.findByPk.mockResolvedValue(product);
+  it("removes deleted variants and upserts the rest", async () => {
+    database.product.findByPk.mockResolvedValue(makeProduct());
     database.productVariant.count.mockResolvedValue(2);
-    database.product.findOne.mockResolvedValue(null); // no code/sku clash
     database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
     database.productAttributeValue.findAll.mockResolvedValue([
       { id: 11, value: "Red", attributeId: 5, attribute: { vendorId: 1 } },
@@ -403,55 +435,25 @@ describe("ProductService.updateProduct (variant branch)", () => {
       return null;
     });
     database.productVariant.findAll.mockResolvedValue([redVariant]);
-    database.inventory.destroy.mockResolvedValue(1);
-    database.product.findOne
-      .mockResolvedValueOnce(null) // duplicate guard
-      .mockResolvedValueOnce({ id: 1 }); // refreshed product
-
-    let seq = 30;
-    database.productVariant.build.mockImplementation((data: any) => makeVariantInstance(++seq, data));
-    const stockRow = (data: any) => ({ dataValues: data, save: vi.fn().mockResolvedValue(undefined) });
-    database.inventory.build.mockImplementation((data: any) => stockRow(data));
-    database.transfer.build.mockImplementation((data: any) => stockRow(data));
 
     await service.updateProduct({
-      params: { id: "1" },
-      body: {
-        type: 1,
-        name: "Ao thun",
-        removedVariantIds: [99],
-        variants: [
-          { variantId: 21, attributeValues: [11], code: "P1-RED", salePrice: 200, isNegative: true },
-          { attributeValues: [12], quantity: 4 },
-        ],
-      },
-      query: { warehouseId: "2" },
-      user: { vendorIds: [1] },
+      id: 1,
+      type: 1,
+      warehouseId: 2,
+      removedVariantIds: [99],
+      variants: [{ id: 21, attributeValues: [11], salePrice: 200, isNegative: true }],
     } as any);
 
-    // Removed variant soft-deleted (paranoid); inventory history is kept
     expect(removed.destroy).toHaveBeenCalled();
-    expect(database.inventory.destroy).not.toHaveBeenCalledWith(
-      expect.objectContaining({ where: { variantId: 99 } }),
-    );
-
-    // Existing variant updated with manual barcode kept
     expect(redVariant.update).toHaveBeenCalledWith(
-      expect.objectContaining({ code: "P1-RED", salePrice: 200, isNegative: true }),
+      expect.objectContaining({ salePrice: 200, isNegative: true }),
       expect.anything(),
-    );
-
-    // New Blue variant auto-extends the parent barcode (P1-...)
-    expect(database.productVariant.build).toHaveBeenCalledWith(
-      expect.objectContaining({ productId: 1, code: expect.stringMatching(/^P1-/) }),
     );
   });
 
   it("clears a variant barcode when an explicit blank is sent", async () => {
-    const product = makeProduct();
-    database.product.findByPk.mockResolvedValue(product);
+    database.product.findByPk.mockResolvedValue(makeProduct());
     database.productVariant.count.mockResolvedValue(1);
-    database.product.findOne.mockResolvedValue(null);
     database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
     database.productAttributeValue.findAll.mockResolvedValue([
       { id: 11, value: "Red", attributeId: 5, attribute: { vendorId: 1 } },
@@ -459,25 +461,19 @@ describe("ProductService.updateProduct (variant branch)", () => {
     const redVariant = makeVariantInstance(21);
     database.productVariant.findByPk.mockResolvedValue(redVariant);
     database.productVariant.findAll.mockResolvedValue([redVariant]);
-    database.product.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 1 });
 
     await service.updateProduct({
-      params: { id: "1" },
-      body: { type: 1, variants: [{ variantId: 21, attributeValues: [11], code: "" }] },
-      user: { vendorIds: [1] },
+      id: 1,
+      type: 1,
+      variants: [{ id: 21, attributeValues: [11], code: "" }],
     } as any);
 
-    expect(redVariant.update).toHaveBeenCalledWith(
-      expect.objectContaining({ code: null }),
-      expect.anything(),
-    );
+    expect(redVariant.update).toHaveBeenCalledWith(expect.objectContaining({ code: null }), expect.anything());
   });
 
   it("rejects attribute values from another vendor", async () => {
-    const product = makeProduct();
-    database.product.findByPk.mockResolvedValue(product);
+    database.product.findByPk.mockResolvedValue(makeProduct());
     database.productVariant.count.mockResolvedValue(0);
-    database.product.findOne.mockResolvedValue(null);
     database.productAttribute.findAll.mockResolvedValue([{ id: 5, name: "Color" }]);
     database.productAttributeValue.findAll.mockResolvedValue([
       { id: 11, value: "Red", attributeId: 5, attribute: { vendorId: 9 } },
@@ -485,11 +481,17 @@ describe("ProductService.updateProduct (variant branch)", () => {
     database.productVariant.findAll.mockResolvedValue([]);
 
     await expect(
-      service.updateProduct({
-        params: { id: "1" },
-        body: { type: 1, variants: [{ attributeValues: [11] }] },
-        user: { vendorIds: [1] },
-      } as any),
+      service.updateProduct({ id: 1, type: 1, variants: [{ attributeValues: [11] }] } as any),
     ).rejects.toThrow("Attribute value vendor mismatch");
+  });
+
+  it("blocks simple-to-variant conversion while a draft order exists", async () => {
+    database.product.findByPk.mockResolvedValue(makeProduct({ type: 0 }));
+    database.productVariant.count.mockResolvedValue(0);
+    database.orderDetail.findOne.mockResolvedValue({ id: 1 });
+
+    await expect(service.updateProduct({ id: 1, type: 1, variants: [] } as any)).rejects.toThrow(
+      "being processed",
+    );
   });
 });

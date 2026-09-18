@@ -1,12 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import { Link, redirect, useLoaderData, useOutletContext } from "@remix-run/react";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { categoryService } from "~/action.server/category.service";
-import { withContext } from "~/action.server/context.server";
 import { productAttributeService } from "~/action.server/productAttribute.service";
 import { productService } from "~/action.server/products.service";
-import type { IVendorSettings } from "~/types/setting";
 import { tagsService } from "~/action.server/tags.service";
 import { unitsService } from "~/action.server/units.service";
 import { CardItem } from "~/components/card-item";
@@ -45,9 +43,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function ProductItem() {
   const { submit, isLoading } = useSubmitPromise();
-  const { settings } = useOutletContext<{ settings: IVendorSettings }>();
+  const navigate = useNavigate();
   const { suggestedAttributes, categories, units, tags } = useLoaderData<typeof loader>();
-  const moneyStep = Number(settings?.moneyStep) > 0 ? Number(settings.moneyStep) : 1000;
   const { t } = useTranslation();
   const formMethods = useForm<ProductSchemaType>({
     defaultValues: {
@@ -85,7 +82,10 @@ export default function ProductItem() {
     };
     const messages = collect(errors);
     if (messages.length > 0) {
-      toast.danger({ title: "Dữ liệu chưa hợp lệ", message: messages.join("; ") });
+      toast.danger({
+        title: "Dữ liệu chưa hợp lệ",
+        message: messages.join("; "),
+      });
     }
     console.log("errors", errors);
   };
@@ -120,6 +120,7 @@ export default function ProductItem() {
           if (vid) attributeValueIds.push(vid);
         }
         return {
+          code: m.code,
           skuCode: m.skuCode,
           quantity: m.quantity,
           costPrice: m.costPrice,
@@ -127,6 +128,10 @@ export default function ProductItem() {
           salePrice: m.salePrice,
           wholeSalePrice: m.wholeSalePrice,
           isNegative: !!m.isNegative,
+          VAT: m.VAT,
+          imageUrl: m.imageUrl,
+          isActive: m.isActive,
+          options: opts,
           attributes: attributeIds,
           attributeValues: attributeValueIds,
         };
@@ -139,31 +144,28 @@ export default function ProductItem() {
     }
     delete payload.variantAttributes;
 
-    console.log(`payload`, payload);
-
-    return;
-
-    const response: any = await submit(
-      {
-        data: JSON.stringify(payload),
-      },
-      { method: "POST" },
-    );
-    // HTTPService never throws: server errors arrive as normal responses,
-    // so inspect the body before claiming success.
-    const bodyError =
-      response?.data?.error ||
-      response?.data?.message ||
-      (typeof response?.data === "string" && /failed|exists|required/i.test(response.data) ? response.data : null);
-    if (bodyError || (response?.status && response.status !== 200)) {
+    try {
+      const response: any = await submit({ data: JSON.stringify(payload) }, { method: "POST" });
+      const body = response?.data ?? response;
+      const bodyError = body?.error || body?.message || response?.error;
+      if (bodyError || (response?.status && response.status !== 200)) {
+        toast.danger({
+          title: t("product.createFailed"),
+          message: String(bodyError || t("common.tryAgain")),
+        });
+        return;
+      }
+      toast.success({
+        title: t("common.success"),
+        message: t("product.createSuccess"),
+      });
+      navigate("/products");
+    } catch (error) {
       toast.danger({
         title: t("product.createFailed"),
-        message: String(bodyError || t("common.tryAgain")),
+        message: error instanceof Error ? error.message : t("common.tryAgain"),
       });
-      return;
     }
-    toast.success({ title: t("common.success"), message: t("product.createSuccess") });
-    console.log("response", response);
   };
 
   return (
@@ -188,7 +190,9 @@ export default function ProductItem() {
                         {t("sidebar.products")}
                       </h2>
                       <p className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1">
-                        {t("product.formHint", { defaultValue: "Thêm sản phẩm mới" })}
+                        {t("product.formHint", {
+                          defaultValue: "Thêm sản phẩm mới",
+                        })}
                       </p>
                     </div>
                   </div>
@@ -228,7 +232,6 @@ export default function ProductItem() {
                         categories={categories?.data || []}
                         tags={tags?.data || []}
                         units={units?.data || []}
-                        moneyStep={moneyStep}
                       />
                     ),
                     value: "info",
@@ -258,15 +261,21 @@ export default function ProductItem() {
 export async function action({ request }: any) {
   try {
     const formData = await request.formData();
-    const data = await formData.get("data");
+    const data = formData.get("data");
+    if (!data) return Response.json({ error: "Missing data" }, { status: 400 });
     const dataJson = JSON.parse(data);
     const resp = await productService.createProduct(dataJson);
     if (resp.status === 200) {
-      return redirect("/products");
+      return Response.json({ success: true, data: resp.data });
     }
     throw resp;
   } catch (error) {
-    return Response.json({ error, status: 400 }, { status: 400 });
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : "Create product failed",
+      },
+      { status: 400 },
+    );
   }
 }
 

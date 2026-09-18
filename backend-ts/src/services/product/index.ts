@@ -1446,13 +1446,17 @@ import Product from '#/database/models/product'
 import ProductAttribute from '#/database/models/productAttribute'
 import ProductAttributeValue from '#/database/models/productAttributeValue'
 import ProductVariant from '#/database/models/productVariant'
+import Order from '#/database/models/order'
+import OrderDetail from '#/database/models/orderDetail'
+import Invoice from '#/database/models/invoice'
+import InvoiceDetail from '#/database/models/invoiceDetail'
 import Tag from '#/database/models/tag'
 import Unit from '#/database/models/units'
 import { ApiError } from '#/response'
 import { IRequestLocal } from '#/types/common'
 import { getPagination } from '#/utils'
 import { assertValidBarcode, normalizeBarcode } from '#/utils/barcode'
-import { applyCodeFormat, generateSkuFromTemplate, getCodeFormat, padSeq } from '#/utils/code-generator'
+import { generateSkuFromTemplate, padSeq } from '#/utils/code-generator'
 // Option A: product detail reads are uncached (fresh DB). `evictCachedEntity`
 // stays only to purge legacy `product:<id>` keys written before this change.
 import { evictCachedEntity } from '#/utils/entity-cache'
@@ -1477,6 +1481,54 @@ import { CreateProductParams, PRICE_FIELDS, PRODUCT_TYPE, ProductType, UpdatePro
 import { applyVariantSync, createVariants } from './product-variant'
 
 export { PRODUCT_TYPE }
+
+export const getVariantTransitionBlockReason = async (
+  productId: number,
+  transaction?: Transaction
+): Promise<string | null> => {
+  const order = await OrderDetail.findOne({
+    where: { productId },
+    include: [{ model: Order, as: 'order', where: { status: 'draft' }, attributes: ['id'] }],
+    transaction
+  })
+  if (order) {
+    return 'Cannot change a simple product to variants while an order for this product is being processed.'
+  }
+
+  // A completed order status alone is not enough: wholesale/online orders can
+  // be marked completed before their invoice is issued. Keep the product
+  // simple until the order line has a finalized (issued or paid) invoice.
+  const uncompletedInvoiceLine = await OrderDetail.findOne({
+    where: { productId },
+    include: [
+      {
+        model: InvoiceDetail,
+        as: 'invoiceDetails',
+        required: false,
+        include: [
+          {
+            model: Invoice,
+            as: 'invoice',
+            required: false,
+            where: { status: { [Op.in]: ['issued', 'paid'] } },
+            attributes: ['id']
+          }
+        ]
+      }
+    ],
+    transaction
+  })
+
+  if (uncompletedInvoiceLine && !(uncompletedInvoiceLine as any).invoiceDetails?.length) {
+    return 'Cannot change a simple product to variants until the order has a completed invoice.'
+  }
+  return null
+}
+
+export const assertNoProcessingOrders = async (productId: number, transaction?: Transaction): Promise<void> => {
+  const reason = await getVariantTransitionBlockReason(productId, transaction)
+  if (reason) throw ApiError.conflict(reason)
+}
 
 export class ProductService {
   sequelize: Sequelize = database.sequelize
@@ -1520,7 +1572,7 @@ export class ProductService {
   /* Create                                                              */
   /* ------------------------------------------------------------------ */
 
-  async create(params: CreateProductParams, vendorScope: TVendorScope) {
+  async create(params: CreateProductParams) {
     const t = await this.sequelize.transaction()
     try {
       const {
@@ -1533,16 +1585,12 @@ export class ProductService {
         type = PRODUCT_TYPE.SIMPLE,
         ...rest
       } = params
-      const productParams: Record<string, any> = { ...rest }
-
-      assertVendorAccess(vendorScope, vendorId, 'Unauthorized to create product for this vendor')
-      if (!warehouseId) throw new Error('warehouseId is required')
-      await assertWarehouseAccess(warehouseId, vendorScope)
+      const productParams: Record<string, any> = { ...rest, type }
 
       for (const f of PRICE_FIELDS) productParams[f] = toPrice(productParams[f], f)
       if (productParams.VAT !== undefined) productParams.VAT = toVat(productParams.VAT)
 
-      // Global barcode rule: non-blank `code` must be >= 12 chars (CODE128).
+      // Global barcode rule: non-blank `code` must contain only digits and be <= 12 chars.
       // Blank on create means "auto-generate below", so normalize '' -> undefined.
       if (productParams.code !== undefined && productParams.code !== null) {
         const normalized = normalizeBarcode(productParams.code)
@@ -1630,29 +1678,19 @@ export class ProductService {
       transaction: t,
       initial: (await Product.count()) + 1
     })
-    // 8-digit padding keeps generated barcodes >= 12 chars with typical
-    // prefix/suffix configs (e.g. "SP-00000005-V1" = 14 chars).
-    const seq8 = padSeq(seq, 8)
+    // Barcodes are numeric and limited to 12 characters. Vendor barcode
+    // prefixes/suffixes are no longer applied to this field.
+    const seq12 = padSeq(seq, 12)
 
     if (!productParams.code) {
-      if (settings) {
-        const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
-        productParams.code = applyCodeFormat(seq8, prefix, suffix)
-      } else {
-        productParams.code = `PRD-${seq8}`
-      }
-      // Safety net: a minimal prefix/suffix config could still yield < 12
-      // chars (e.g. no prefix/suffix -> 8 chars); extend the padding then.
-      if (String(productParams.code).length < 12) {
-        productParams.code = `PRD-${padSeq(seq, 10)}`
-      }
+      productParams.code = seq12
     }
     if (!productParams.skuCode) {
-      const baseCode = productParams.code || seq8
+      const baseCode = productParams.code || seq12
       productParams.skuCode = settings
         ? generateSkuFromTemplate(
             settings.skuTemplate,
-            { CODE: baseCode, SEQ: seq8, YYYY: String(new Date().getFullYear()) },
+            { CODE: baseCode, SEQ: seq12, YYYY: String(new Date().getFullYear()) },
             baseCode
           )
         : baseCode
@@ -1679,7 +1717,7 @@ export class ProductService {
   }) {
     const { product, type, variants, quantity, warehouseId, vendorId, settings, defaultVariant, transaction } = args
 
-    if (type === PRODUCT_TYPE.VARIANT) {
+    if (Number(type) === PRODUCT_TYPE.VARIANT) {
       const created = await createVariants(variants || [], {
         productId: product.id,
         vendorId,
@@ -1767,14 +1805,11 @@ export class ProductService {
         ],
         attributes: {
           include: [
-            [database.sequelize.literal('(SELECT COALESCE(SUM(sold), 0) FROM productVariants WHERE productVariants.productId = product.id)'), 'sold'],
             [
-              database.sequelize.literal(`(
-                SELECT COUNT(*)
-                FROM productVariants AS variants
-                WHERE variants.productId = product.id AND variants.deletedAt is NULL
-              )`),
-              'variantCount'
+              database.sequelize.literal(
+                '(SELECT COALESCE(SUM(sold), 0) FROM productVariants WHERE productVariants.productId = product.id)'
+              ),
+              'sold'
             ],
             [
               database.sequelize.literal(`(
@@ -1853,7 +1888,12 @@ export class ProductService {
         ],
         attributes: {
           include: [
-            [database.sequelize.literal('(SELECT COALESCE(SUM(sold), 0) FROM productVariants WHERE productVariants.productId = product.id)'), 'sold'],
+            [
+              database.sequelize.literal(
+                '(SELECT COALESCE(SUM(sold), 0) FROM productVariants WHERE productVariants.productId = product.id)'
+              ),
+              'sold'
+            ],
             [database.sequelize.col('inventories.quantity'), 'quantity'],
             [database.sequelize.col('unit.id'), 'unitId'],
             [database.sequelize.col('unit.name'), 'unitName']
@@ -1866,6 +1906,11 @@ export class ProductService {
       assertVendorAccess(vendorScope, productVendorId, 'Unauthorized to view this product')
       if (vendorId != null && String(vendorId).trim() !== '' && productVendorId !== Number(vendorId)) {
         throw Object.assign(new Error('Unauthorized to view this product'), { status: 403 })
+      }
+      if (Number((product as any).type ?? product.get?.('type')) === PRODUCT_TYPE.SIMPLE) {
+        const variantTransitionBlockReason = await getVariantTransitionBlockReason(Number(id))
+        product.setDataValue('variantTransitionBlocked', Boolean(variantTransitionBlockReason))
+        product.setDataValue('variantTransitionBlockReason', variantTransitionBlockReason)
       }
       return product
     } catch (error) {
@@ -1948,26 +1993,31 @@ export class ProductService {
    *   ignored) and syncs `variants`/`removedVariantIds` in the same txn.
    * - Combo (2): base fields only for now; variant payload is ignored.
    */
-  async updateProduct(params: UpdateProductParams, vendorScope: TVendorScope) {
+  async updateProduct(params: UpdateProductParams) {
     const t = await this.sequelize.transaction()
     try {
       const product = await Product.findByPk(params.id, { transaction: t })
       if (!product) throw new Error(`Product ${params.id} not found`)
       const vendorId = Number(product.vendorId ?? product.get?.('vendorId'))
-      assertVendorAccess(vendorScope, vendorId, 'Unauthorized to update this product')
 
       const existingVariantCount = await ProductVariant.count({ where: { productId: params.id }, transaction: t })
+
       const storedType = Number(product.type ?? product.get?.('type') ?? (existingVariantCount > 0 ? 1 : 0))
+
       const nextType = (
         params.type !== undefined && params.type !== null && String(params.type) !== ''
           ? Number(params.type)
           : storedType
       ) as ProductType
+
       if (![0, 1, 2].includes(nextType)) throw new Error('Invalid type: must be 0 (simple), 1 (variant) or 2 (combo)')
 
-      if (params.warehouseId) await assertWarehouseAccess(params.warehouseId, vendorScope)
+      if (storedType === PRODUCT_TYPE.SIMPLE && nextType === PRODUCT_TYPE.VARIANT) {
+        await assertNoProcessingOrders(Number(params.id), t)
+      }
 
       const base = this.buildUpdateFields(params, nextType)
+
       await product.update(base, { transaction: t })
 
       if (params.categories !== undefined) await product.$set('categories', params.categories || [], { transaction: t })
@@ -1976,7 +2026,7 @@ export class ProductService {
       if (nextType === PRODUCT_TYPE.SIMPLE) {
         await this.switchToSimple(params, existingVariantCount, t)
       } else if (nextType === PRODUCT_TYPE.VARIANT) {
-        await this.syncVariants(product, vendorId, params, t)
+        await this.syncVariants(product, vendorId, params, t, storedType === PRODUCT_TYPE.SIMPLE)
       }
       // Combo (2): base fields only; variant payload intentionally ignored.
 
@@ -2037,7 +2087,11 @@ export class ProductService {
 
   /** Switching (back) to simple keeps one default variant as the stock/price source of truth. */
   private async switchToSimple(params: UpdateProductParams, existingVariantCount: number, t: Transaction) {
-    const rows: any[] = await ProductVariant.findAll({ where: { productId: params.id }, order: [['id', 'ASC']], transaction: t })
+    const rows: any[] = await ProductVariant.findAll({
+      where: { productId: params.id },
+      order: [['id', 'ASC']],
+      transaction: t
+    })
     let defaultVariant = rows[0]
 
     if (!defaultVariant) {
@@ -2073,11 +2127,28 @@ export class ProductService {
     }
   }
 
-  private async syncVariants(product: any, vendorId: number, params: UpdateProductParams, t: Transaction) {
+  private async syncVariants(
+    product: any,
+    vendorId: number,
+    params: UpdateProductParams,
+    t: Transaction,
+    convertingFromSimple = false
+  ) {
     const { variants, removedVariantIds = [] } = params
     if (variants === undefined && removedVariantIds.length === 0) return
     if (!Array.isArray(variants ?? [])) throw new Error('variants must be an array')
-    await applyVariantSync(product, vendorId, variants || [], removedVariantIds, params.warehouseId ?? null, t)
+    const defaultVariant = convertingFromSimple
+      ? await ProductVariant.findOne({ where: { productId: params.id }, order: [['id', 'ASC']], transaction: t })
+      : null
+    await applyVariantSync(
+      product,
+      vendorId,
+      variants || [],
+      removedVariantIds,
+      params.warehouseId ?? null,
+      t,
+      defaultVariant ? Number(defaultVariant.get('id')) : undefined
+    )
   }
 
   /* ------------------------------------------------------------------ */

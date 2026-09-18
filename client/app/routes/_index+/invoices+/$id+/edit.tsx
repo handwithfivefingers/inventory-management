@@ -10,20 +10,16 @@ import { Icon } from "~/components/icon";
 import { TMButton } from "~/components/tm-button";
 import { useTranslation } from "~/i18n";
 import { formatCurrency } from "~/libs/format-currency";
-import { parseCookieFromRequest } from "~/sessions";
 import { ICustomer } from "~/types/customer";
 import { IInvoiceItem, PaymentType } from "~/types/invoice";
 import { IProduct } from "~/types/product";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  // const { cookie, vendorId } = await parseCookieFromRequest(request);
-
   const [invoiceResp, customersResp, productsResp] = await Promise.all([
     invoiceService.getInvoiceById(params.id as string),
     customerService.getCustomers({ pageSize: "100" }),
     productService.getProducts({ pageSize: "100" }),
   ]);
-  // console.log("invoiceResp, customersResp, productsResp", invoiceResp, customersResp, productsResp);
   return {
     invoice: (invoiceResp.data as any)?.data ?? invoiceResp.data,
     customers: customersResp.data?.data ?? [],
@@ -32,9 +28,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  // const { cookie, vendorId } = await parseCookieFromRequest(request);
   const data = await request.json();
-
   try {
     await invoiceService.updateInvoice({ id: Number(params.id), ...data });
     return { ok: true };
@@ -142,7 +136,7 @@ export default function EditInvoice() {
 
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-      <div className="max-w-5xl w-full mx-auto">
+      <div className="w-full mx-auto">
         <CardItem
           title={
             <div className="flex items-start justify-between gap-4">

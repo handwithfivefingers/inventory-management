@@ -161,13 +161,9 @@ class HTTPService {
       return { status: response.status };
     } catch (error) {
       console.log(JSON.stringify(error, null, 2));
-      throw {
-        message:
-          "message" in (error as Record<string, string>)
-            ? (error as Record<string, string>).message
-            : error?.toString(),
-        status: 400,
-      };
+      const apiError = error as { error?: string; message?: string; status?: number };
+      const message = apiError?.error || apiError?.message || (error instanceof Error ? error.message : String(error));
+      throw new ResponseError({ error: message, status: Number(apiError?.status) || 400 });
     }
   };
   delete = async <R>(apiPath: string, options?: Record<string, string>): Promise<IResponse<R>> => {

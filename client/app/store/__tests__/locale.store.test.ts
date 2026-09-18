@@ -26,4 +26,17 @@ describe("useLocale store", () => {
   it("exposes a default locale that is a recognised locale", () => {
     expect(LOCALES).toContain(DEFAULT_LOCALE);
   });
+
+  it("hydrates a valid persisted locale", async () => {
+    localStorage.setItem("locale-storage", JSON.stringify({ state: { locale: "en" } }));
+    await useLocale.persist.rehydrate();
+    expect(useLocale.getState().locale).toBe("en");
+  });
+
+  it("falls back to the current locale when persisted state is invalid", async () => {
+    useLocale.setState({ locale: DEFAULT_LOCALE });
+    localStorage.setItem("locale-storage", JSON.stringify({ state: { locale: "xx" } }));
+    await useLocale.persist.rehydrate();
+    expect(useLocale.getState().locale).toBe(DEFAULT_LOCALE);
+  });
 });

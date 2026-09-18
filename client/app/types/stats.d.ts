@@ -17,7 +17,8 @@ export interface IDashboardLowStockItem {
   id: number;
   quantity: number;
   variantId?: number | null;
-  product?: { id: number; name?: string; code?: string };
+  product?: { id: number; name?: string };
+  variant?: { id: number; code?: string | null; skuCode?: string };
   warehouse?: { id: number; name?: string };
 }
 

@@ -77,6 +77,18 @@ describe("useUser store", () => {
     expect(useUser.getState().activeWarehouse?.id).toBe(21);
   });
 
+  it("updateVendor refreshes the active and vendor-list names without changing the warehouse", () => {
+    const v1 = vendor(1, [warehouse(10, true)]);
+    useUser.getState().syncAuth({ user, vendors: [v1], selectedVendorId: 1, selectedWarehouseId: 10 });
+
+    useUser.getState().updateVendor({ id: 1, name: "Updated Shop" });
+
+    const state = useUser.getState();
+    expect(state.activeVendor?.name).toBe("Updated Shop");
+    expect(state.vendors?.[0].name).toBe("Updated Shop");
+    expect(state.activeWarehouse?.id).toBe(10);
+  });
+
   it("setWarehouse updates only the active warehouse", () => {
     const v1 = vendor(1, [warehouse(10, true), warehouse(11, false)]);
     useUser.getState().setVendor(v1);

@@ -328,7 +328,9 @@ export default class OrderService {
     const productRows: any[] = productIds.length
       ? await Product.findAll({
           where: { id: { [Op.in]: productIds } },
-          attributes: ['id', 'name', 'isNegative'],
+          // Sellability/oversell policy is variant-level now.  The
+          // variant-only migration removes isNegative from products.
+          attributes: ['id', 'name'],
           transaction
         })
       : []

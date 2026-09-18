@@ -5,7 +5,7 @@ import ProductVariant from '#/database/models/productVariant'
 import Unit from '#/database/models/units'
 import { IRequestLocal } from '#/types/common'
 import { assertValidBarcode } from '#/utils/barcode'
-import { applyCodeFormat, generateSkuFromTemplate, getCodeFormat, padSeq } from '#/utils/code-generator'
+import { generateSkuFromTemplate, padSeq } from '#/utils/code-generator'
 import { nextSequence } from '#/utils/sequence'
 import { assertUniqueVariantSku, assertValidSku, duplicateSkuMessage, normalizeSku } from '#/utils/sku'
 import {
@@ -412,25 +412,16 @@ export class ProductExcelService {
         transaction: t,
         initial: (await Product.count()) + 1
       })
-      // 8-digit padding keeps generated barcodes >= 12 chars (see ProductService).
-      const seq8 = padSeq(seq, 8)
+      const seq12 = padSeq(seq, 12)
       if (!fields.code) {
-        if (settings) {
-          const { prefix, suffix } = getCodeFormat(settings.codePrefix, settings.codeSuffix, 'product')
-          fields.code = applyCodeFormat(seq8, prefix, suffix)
-        } else {
-          fields.code = `PRD-${seq8}`
-        }
-        if (String(fields.code).length < 12) {
-          fields.code = `PRD-${padSeq(seq, 10)}`
-        }
+        fields.code = seq12
       }
       if (!fields.skuCode) {
-        const baseCode = (fields.code as string) || seq8
+        const baseCode = (fields.code as string) || seq12
         fields.skuCode = settings
           ? generateSkuFromTemplate(
               settings.skuTemplate,
-              { CODE: baseCode, SEQ: seq8, YYYY: String(new Date().getFullYear()) },
+              { CODE: baseCode, SEQ: seq12, YYYY: String(new Date().getFullYear()) },
               baseCode
             )
           : baseCode

@@ -23,7 +23,7 @@ import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
 import { useTranslation } from "~/i18n";
 import { dayjs } from "~/libs/date";
 import { debounce } from "~/libs/debounce";
-import { formatCurrency } from "~/libs/format-currency";
+import { getProductPriceLabel, mapProductListRow } from "~/libs/product-price";
 import { IProduct, IProductSearchRow } from "~/types/product";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -38,7 +38,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     s,
   });
   return {
-    data: resp.data?.data,
+    data: resp.data?.data?.map(mapProductListRow),
     total: resp.data?.total,
     s,
     page,
@@ -90,7 +90,7 @@ export default function Products() {
     },
   });
   const searchingUnified = unifiedActive && unifiedQuery.trim() !== "";
-  const products = searchingUnified ? unifiedRows : fetcher.data?.data || data || [];
+  const products = searchingUnified ? unifiedRows : fetcher.data?.data?.map(mapProductListRow) || data || [];
   const total = searchingUnified ? unifiedTotal : fetcher.data?.total || currentTotal || 0;
   const query = fetcher?.data?.s || s || "";
   const pageSize = Number(fetcher?.data?.pageSize || defaultPageSize || 10);
@@ -130,7 +130,12 @@ export default function Products() {
     () =>
       products
         .filter((p) => selectedIds.has(p.id))
-        .map((p) => ({ id: p.id, name: p.name, skuCode: p.skuCode || p.code, price: p.salePrice ?? p.regularPrice })),
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          skuCode: p.skuCode || p.code,
+          price: p.priceFrom ?? p.salePrice ?? p.regularPrice ?? p.costPrice,
+        })),
     [products, selectedIds],
   );
 
@@ -239,14 +244,14 @@ export default function Products() {
                   page: "1",
                   pageSize: String(pageSize),
                 }).toString()}`;
-                // fetcher.load(
-                //   `/products?${new URLSearchParams({
-                //     s: value,
-                //     page: "1",
-                //     pageSize: String(pageSize),
-                //   }).toString()}`,
-                // );
-                navigate(url);
+                fetcher.load(
+                  `/products?${new URLSearchParams({
+                    s: value,
+                    page: "1",
+                    pageSize: String(pageSize),
+                  }).toString()}`,
+                );
+                // navigate(url);
               }, 500)}
             />
           </div>
@@ -299,10 +304,7 @@ export default function Products() {
                 {
                   title: "Giá bán",
                   dataIndex: "salePrice",
-                  render: (record) =>
-                    (record as IProductSearchRow).unifiedAdmin
-                      ? "—"
-                      : formatCurrency(Number(record?.salePrice) > 0 ? record.salePrice : record.regularPrice ?? 0),
+                  render: (record) => getProductPriceLabel(record as IProduct),
                 },
                 {
                   title: "Tồn kho",
@@ -314,9 +316,9 @@ export default function Products() {
                   dataIndex: "variantCount",
                   hideOnMobile: true,
                   render: (record) =>
-                    Number(record.variantCount) > 0 ? (
+                    Number(record.type) === 1 ? (
                       <span className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-full px-2 py-0.5 text-xs">
-                        {record.variantCount} biến thể
+                        {record.type} biến thể
                       </span>
                     ) : (
                       <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>

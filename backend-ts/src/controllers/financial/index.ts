@@ -1,7 +1,7 @@
 import { FinancialService } from '#/services/financial'
 import { IRequestHandler } from '#/types/common'
 import { getPagination } from '#/utils'
-import { getRequestedWarehouseId, getVendorScope } from '#/utils/tenant'
+import { getRequestedWarehouseId } from '#/utils/tenant'
 import { NextFunction, Request, Response } from 'express'
 
 export class FinancialController {
@@ -76,7 +76,7 @@ export class FinancialController {
 
       const { from, to } = req.query
       const warehouseId = getRequestedWarehouseId(req as any)
-      const vendorScope = getVendorScope(req as any)
+      const vendorScope = (req as any).tenant.scope
       const resp = await new FinancialService().getReport(
         {
           from: from as string,

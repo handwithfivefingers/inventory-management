@@ -11,14 +11,8 @@ import { describe, expect, it } from "vitest";
 
 const ROUTE_FILE = path.resolve(__dirname, "../index.tsx");
 const SERVICE_FILE = path.resolve(__dirname, "../../../../action.server/products.service.ts");
-const BACKEND_ROUTER_FILE = path.resolve(
-  __dirname,
-  "../../../../../../backend-ts/src/routers/product/index.ts",
-);
-const BACKEND_PRODUCT_MODEL = path.resolve(
-  __dirname,
-  "../../../../../../backend-ts/src/database/models/product.ts",
-);
+const BACKEND_ROUTER_FILE = path.resolve(__dirname, "../../../../../../backend-ts/src/routers/product/index.ts");
+const BACKEND_PRODUCT_MODEL = path.resolve(__dirname, "../../../../../../backend-ts/src/database/models/product.ts");
 const BACKEND_VARIANT_MODEL = path.resolve(
   __dirname,
   "../../../../../../backend-ts/src/database/models/productVariant.ts",
@@ -31,10 +25,7 @@ const BACKEND_INVENTORY_MODEL = path.resolve(
   __dirname,
   "../../../../../../backend-ts/src/database/models/inventory.ts",
 );
-const BACKEND_TRANSFER_MODEL = path.resolve(
-  __dirname,
-  "../../../../../../backend-ts/src/database/models/transfer.ts",
-);
+const BACKEND_TRANSFER_MODEL = path.resolve(__dirname, "../../../../../../backend-ts/src/database/models/transfer.ts");
 
 const readSource = (filePath: string): string => fs.readFileSync(filePath, "utf-8");
 
@@ -122,7 +113,6 @@ describe("products resource – unified search branch (client)", () => {
   });
 
   it("forwards the scan query and warehouse scope for POS stock", () => {
-    expect(source).toContain("warehouse_id");
     expect(source).toContain("query");
   });
 

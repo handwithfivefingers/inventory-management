@@ -71,3 +71,7 @@ vi.mock('#/database/models/productVariant', () => ({ default: db.productVariant,
 vi.mock('#/database/models/productAttribute', () => ({ default: db.productAttribute, ProductAttribute: db.productAttribute }))
 vi.mock('#/database/models/productAttributeValue', () => ({ default: db.productAttributeValue, ProductAttributeValue: db.productAttributeValue }))
 vi.mock('#/database/models/transfer', () => ({ default: db.transfer, Transfer: db.transfer }))
+vi.mock('#/database/models/order', () => ({ default: db.order, Order: db.order }))
+vi.mock('#/database/models/orderDetail', () => ({ default: db.orderDetail, OrderDetail: db.orderDetail }))
+vi.mock('#/database/models/invoice', () => ({ default: db.invoice, Invoice: db.invoice }))
+vi.mock('#/database/models/invoiceDetail', () => ({ default: db.invoiceDetail, InvoiceDetail: db.invoiceDetail }))

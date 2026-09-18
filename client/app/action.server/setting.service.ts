@@ -14,8 +14,12 @@ export const settingService = {
   /**
    * Get the settings for a vendor (creates defaults on first access)
    */
-  getSettings: async () => {
-    return HTTPService.getInstance().get<{ data: IVendorSettings }>(API_PATH.settings);
+  getSettings: async (context?: { cookie?: string; vendorId?: string | number; warehouseId?: string | number }) => {
+    const headers: Record<string, string> = {};
+    if (context?.cookie) headers.Cookie = context.cookie;
+    if (context?.vendorId != null) headers["X-Vendor"] = String(context.vendorId);
+    if (context?.warehouseId != null) headers["X-Warehouse"] = String(context.warehouseId);
+    return HTTPService.getInstance().get<{ data: IVendorSettings }>(API_PATH.settings, headers);
   },
 
   /**

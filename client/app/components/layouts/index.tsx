@@ -5,6 +5,7 @@ import { Loading } from "../loading";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { BottomNav } from "./bottom-nav";
+import { m } from "motion/react";
 
 export const AppLayout = ({ children, showSidebar = false }: BaseProps & { showSidebar?: boolean }) => {
   const navigation = useNavigation();
@@ -12,11 +13,15 @@ export const AppLayout = ({ children, showSidebar = false }: BaseProps & { showS
   return (
     <div className="w-full bg-slate-100/80 dark:bg-slate-900 h-[100dvh] min-h-[100svh] flex overflow-hidden">
       {/* Desktop sidebar; on mobile the BottomNav replaces it */}
-      {showSidebar && (
-        <div className="hidden sm:block h-full shrink-0">
-          <Sidebar />
-        </div>
-      )}
+      <m.div
+        className="hidden sm:block h-full shrink-0 overflow-x-hidden"
+        animate={{
+          opacity: showSidebar ? 1 : 0,
+          width: showSidebar ? "auto" : 0,
+        }}
+      >
+        <Sidebar />
+      </m.div>
       <div className="flex flex-col flex-1 min-w-0 min-h-0">
         <div className="shrink-0">
           <Header />

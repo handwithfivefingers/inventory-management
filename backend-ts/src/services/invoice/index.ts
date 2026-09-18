@@ -99,7 +99,10 @@ export class InvoiceService {
       },
       {
         model: database.invoiceDetail,
-        include: [{ model: database.product, attributes: ['id', 'name', 'code', 'skuCode'], paranoid: false }]
+        include: [
+          { model: database.product, attributes: ['id', 'name'], paranoid: false },
+          { model: database.productVariant, attributes: ['id', 'skuCode', 'code'], paranoid: false }
+        ]
       }
     ]
   }
@@ -118,7 +121,8 @@ export class InvoiceService {
         {
           model: database.invoiceDetail,
           include: [
-            { model: database.product, attributes: ['id', 'name', 'code', 'skuCode', 'salePrice'], paranoid: false }
+            { model: database.product, attributes: ['id', 'name'], paranoid: false },
+            { model: database.productVariant, attributes: ['id', 'skuCode', 'code'], paranoid: false }
           ]
         }
       ]

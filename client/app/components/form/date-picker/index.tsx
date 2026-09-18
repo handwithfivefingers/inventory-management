@@ -138,6 +138,7 @@ export const DatePicker = forwardRef<HTMLDivElement, IDatePicker>(
             "relative rounded-md flex items-center cursor-pointer select-none bg-slate-50 dark:bg-slate-700",
             "ring-2 ring-transparent border border-slate-300 transition-all focus:ring-indigo-400/30 outline-none",
             {
+              ["mt-1"]: !!label,
               ["opacity-60 pointer-events-none"]: disabled,
               ["ring-red-600"]: !!error,
               ["ring-indigo-400/30"]: open,

@@ -12,9 +12,9 @@ import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useSubmitPromise } from "~/hooks";
 import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
+import { debounce } from "~/libs/debounce";
 import { useTranslation } from "~/i18n";
 import { IProduct, IProductSearchRow, IProductVariant } from "~/types/product";
-import type { IVendorSettings } from "~/types/setting";
 import { MainLayoutContext } from "../../_layout";
 
 const PRINT_STYLES = `
@@ -54,7 +54,6 @@ export default function OrderItem() {
   const { settings } = useOutletContext<MainLayoutContext>();
   const { t } = useTranslation();
   const [showTempInvoice, setShowTempInvoice] = useState(false);
-  console.log("settings", settings);
   const form = useForm<OrderSchema>({
     defaultValues: {
       customer: undefined,
@@ -106,9 +105,9 @@ export default function OrderItem() {
     console.log("errors", errors);
   };
 
-  const handleFilterProduct = (value: string) => {
+  const handleFilterProduct = debounce((value: string) => {
     searchProducts(value);
-  };
+  }, 250);
 
   const addLine = (
     currentValue: OrderDetailSchema[],

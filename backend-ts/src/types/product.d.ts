@@ -11,17 +11,8 @@ import {
 export interface IProductModel extends Model<InferAttributes<IProductModel>, InferCreationAttributes<IProductModel>> {
   id: CreationOptional<number>
   name: string
-  code: string
-  skuCode: string
   description: string
-  salePrice: number
-  regularPrice: number
-  wholeSalePrice: number
-  costPrice: number
-  VAT?: number | null
-  sold: number
-  image?: string | null
-  isNegative: CreationOptional<boolean>
+  /** Sellable fields live on productVariants. */
   unitId?: number
   vendorId?: number | null
 

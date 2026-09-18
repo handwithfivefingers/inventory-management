@@ -1,5 +1,5 @@
 import { idParam, paginationQuery, validate, vendorIdQuery } from '#/middleware/validate'
-import { MIN_BARCODE_LENGTH } from '#/utils/barcode'
+import { MAX_BARCODE_LENGTH } from '#/utils/barcode'
 import { SKU_FORMAT_MESSAGE, SKU_PATTERN } from '#/utils/sku'
 import { body, query } from 'express-validator'
 
@@ -32,16 +32,20 @@ const productCreateValidation = validate([
     .withMessage('code must be a string')
     .bail()
     .trim()
-    .isLength({ min: MIN_BARCODE_LENGTH })
-    .withMessage(`code must be at least ${MIN_BARCODE_LENGTH} characters`),
+    .matches(/^[A-Za-z0-9-]+$/)
+    .withMessage('code must contain only letters, digits, and hyphens')
+    .isLength({ max: MAX_BARCODE_LENGTH })
+    .withMessage(`code must be at most ${MAX_BARCODE_LENGTH} characters`),
   body('variants.*.code')
     .optional({ nullable: true, checkFalsy: true })
     .isString()
     .withMessage('variants[].code must be a string')
     .bail()
     .trim()
-    .isLength({ min: MIN_BARCODE_LENGTH })
-    .withMessage(`variants[].code must be at least ${MIN_BARCODE_LENGTH} characters`),
+    .matches(/^[A-Za-z0-9-]+$/)
+    .withMessage('variants[].code must contain only letters, digits, and hyphens')
+    .isLength({ max: MAX_BARCODE_LENGTH })
+    .withMessage(`variants[].code must be at most ${MAX_BARCODE_LENGTH} characters`),
   skuRule('sku'),
   skuRule('skuCode'),
   skuRule('variants.*.sku'),
@@ -73,8 +77,10 @@ const productUpdateValidation = validate([
     .withMessage('code must be a string')
     .bail()
     .trim()
-    .isLength({ min: MIN_BARCODE_LENGTH })
-    .withMessage(`code must be at least ${MIN_BARCODE_LENGTH} characters`),
+    .matches(/^[A-Za-z0-9-]+$/)
+    .withMessage('code must contain only letters, digits, and hyphens')
+    .isLength({ max: MAX_BARCODE_LENGTH })
+    .withMessage(`code must be at most ${MAX_BARCODE_LENGTH} characters`),
   body('description').optional({ nullable: true }).isString().withMessage('description must be a string'),
   body('image').optional({ nullable: true }).isString().withMessage('image must be a string'),
   body('type')
@@ -125,8 +131,10 @@ const productUpdateValidation = validate([
     .withMessage('variants[].code must be a string')
     .bail()
     .trim()
-    .isLength({ min: MIN_BARCODE_LENGTH })
-    .withMessage(`variants[].code must be at least ${MIN_BARCODE_LENGTH} characters`),
+    .matches(/^[A-Za-z0-9-]+$/)
+    .withMessage('variants[].code must contain only letters, digits, and hyphens')
+    .isLength({ max: MAX_BARCODE_LENGTH })
+    .withMessage(`variants[].code must be at most ${MAX_BARCODE_LENGTH} characters`),
   skuRule('sku'),
   skuRule('skuCode'),
   skuRule('variants.*.sku'),

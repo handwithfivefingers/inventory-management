@@ -37,20 +37,16 @@ describe("useUnifiedProductSearch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useFetcher).mockReturnValue({ submit, state: "idle", data: undefined } as any);
-    vi.mocked(useUser).mockImplementation((selector: any) =>
-      selector({ activeWarehouse: { id: 7 } }),
-    );
+    vi.mocked(useUser).mockImplementation((selector: any) => selector({ activeWarehouse: { id: 7 } }));
   });
 
   it("submits POS searches with context and the active warehouse", () => {
     const { result } = renderHook(() => useUnifiedProductSearch({ context: "POS" }));
-
     act(() => {
       result.current.search("abc");
     });
-
     expect(submit).toHaveBeenCalledWith(
-      { context: "POS", query: "abc", warehouse_id: "7", page: "1", limit: "20" },
+      { context: "POS", intent: "search", query: "abc", warehouse_id: "7", page: "1", limit: "20" },
       { method: "POST", action: "/products" },
     );
   });
@@ -64,7 +60,7 @@ describe("useUnifiedProductSearch", () => {
     });
 
     expect(submit).toHaveBeenCalledWith(
-      { context: "ADMIN", query: "ao", page: "2", limit: "10" },
+      { context: "ADMIN", intent: "search", query: "ao", page: "2", limit: "10" },
       { method: "POST", action: "/products" },
     );
   });
@@ -81,7 +77,8 @@ describe("useUnifiedProductSearch", () => {
     expect(onExactMatch).toHaveBeenCalledTimes(1);
   });
 
-  it("exposes fallback rows and totalCount", () => {    vi.mocked(useFetcher).mockReturnValue({
+  it("exposes fallback rows and totalCount", () => {
+    vi.mocked(useFetcher).mockReturnValue({
       submit,
       state: "loading",
       data: {

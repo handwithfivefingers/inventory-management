@@ -477,10 +477,10 @@ const UserButton = () => {
       </div>
       <Portal>
         {show && (
-          <div className="user-popover fixed top-0 left-0 right-0 bottom-0 z-50">
+          <div className="user-popover fixed top-0 left-0 right-0 bottom-0 z-50 ">
             <div className="w-full h-full absolute z-1" onClick={toggle} />
             <m.div
-              className="flex flex-col z-2 gap-1 bg-white p-2 rounded fixed"
+              className="flex flex-col z-2 gap-1 bg-white p-2 rounded fixed shadow"
               animate={{
                 x: mainRef.current ? mainRef.current.offsetLeft + mainRef.current.offsetWidth + 8 : 0,
                 width: mainRef.current ? mainRef.current.offsetWidth + 8 : 0,
@@ -490,6 +490,8 @@ const UserButton = () => {
               }}
               ref={popupRef}
             >
+              <span className="absolute bottom-1 left-0 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-white w-3 h-3 border-slate-200/80 rounded-[0_0_0_4px] shadow" />
+              <span className="absolute bottom-1 left-0 bg-white w-4 h-4" />
               {items.map((item, i) => (
                 <div
                   onClick={item.onClick}

@@ -150,6 +150,9 @@ export const CreatableTagInput: React.FC<Props> = ({
         className={cn(
           "relative flex flex-wrap gap-1 items-center rounded-md bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 px-2 py-1 cursor-text transition-all",
           "ring-2 ring-transparent focus-within:ring-indigo-400/30",
+          {
+            ["mt-1"]: !!label,
+          },
           SizeClass[inputSize || "sm"],
         )}
       >

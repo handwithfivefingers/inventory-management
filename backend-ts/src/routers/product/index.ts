@@ -68,7 +68,7 @@ Router.post(
   // #swagger.summary = 'Create product'
   // #swagger.security = [{ "bearerAuth": [] }]
   /* #swagger.parameters['body'] = { in: 'body', required: true, schema: { $ref: '#/definitions/ProductBody' } } */
-  new ProductController().create
+  new ProductController().create as any
 )
 // NOTE: must be registered before '/:id' so "search" is not captured as an id
 Router.post(
@@ -188,7 +188,7 @@ Router.put(
   // #swagger.tags = ['Products']
   // #swagger.summary = 'Update a product (simple + variant unified; variants carry their own barcode)'
   // #swagger.security = [{ "bearerAuth": [] }]
-  new ProductController().updateProduct
+  new ProductController().updateProduct as any
 )
 
 Router.delete(

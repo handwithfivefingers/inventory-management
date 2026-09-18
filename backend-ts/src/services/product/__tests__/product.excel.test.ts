@@ -79,6 +79,9 @@ const req = (extra: any = {}) =>
   ({
     body: extra.body ?? {},
     params: {},
+    // Tenant vendor filter is header-resolved (getRequestedVendorId reads
+    // `x-vendor` only); query vendorId is a legacy no-op for exportExcel.
+    headers: { 'x-vendor': 3, ...(extra.headers ?? {}) },
     query: { vendorId: 3, ...(extra.query ?? {}) },
     file: extra.file,
     user: { vendorIds: [3] }
@@ -165,7 +168,7 @@ describe('ProductService.exportExcel', () => {
   })
 
   it('rejects foreign vendor scopes (403)', async () => {
-    await expect(new ProductService().exportExcel(req({ query: { vendorId: 9 } }))).rejects.toThrow(
+    await expect(new ProductService().exportExcel(req({ headers: { 'x-vendor': 9 } }))).rejects.toThrow(
       /Unauthorized vendor filter/
     )
   })

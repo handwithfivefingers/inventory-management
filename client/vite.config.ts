@@ -16,7 +16,6 @@ function autoContextPlugin() {
     transform(code: string, id: string) {
       // Chỉ can thiệp vào các file route trong Remix và khi build cho Server
       if (id.includes("app/routes/") && (id.endsWith(".tsx") || id.endsWith(".ts"))) {
-        console.log(`id`, id);
         let newCode = code;
         const hasLoader = code.includes("export async function loader");
         const hasAction = code.includes("export async function action");
@@ -42,11 +41,44 @@ function autoContextPlugin() {
     },
   };
 }
+function autoImportTailwindToScss() {
+  return {
+    name: "auto-import-tailwind-to-scss",
+    enforce: "pre", // Chạy TRƯỚC KHI các bộ tiền xử lý (Sass-loader) hoạt động
+    transform(code: string, id: string) {
+      // Kiểm tra nếu file là .scss hoặc .module.scss
+      if (id.endsWith(".scss") || id.endsWith(".module.scss")) {
+        // Chèn đoạn mã reference của Tailwind v4 vào đầu file
+        const targetCssPath = path.resolve(__dirname, "./app/assets/styles/tailwind.css");
+
+        // 2. Tính toán đường dẫn tương đối chính xác từ file SCSS hiện tại (id) đến file tailwind.css
+        const currentFileDir = path.dirname(id);
+        let relativePath = path.relative(currentFileDir, targetCssPath);
+
+        // Định dạng lại đường dẫn chuẩn cho môi trường Windows (thay \ bằng /)
+        relativePath = relativePath.replace(/\\/g, "/");
+
+        // Đảm bảo đường dẫn bắt đầu bằng ./ nếu ở cùng cấp hoặc cấp con
+        if (!relativePath.startsWith(".")) {
+          relativePath = "./" + relativePath;
+        }
+
+        // 3. Tiến hành chèn mã với đường dẫn đã được tính toán tự động
+        return {
+          code: `@reference "${relativePath}";\n${code}`,
+          map: null,
+        };
+      }
+      return null;
+    },
+  } as const;
+}
 
 export default defineConfig(({}) => {
   return {
     plugins: [
       autoContextPlugin(),
+      autoImportTailwindToScss(),
       tailwindcss(),
       remix({
         future: {
@@ -122,7 +154,7 @@ export default defineConfig(({}) => {
     css: {
       preprocessorOptions: {
         scss: {
-          api: "morden-compiler",
+          api: "modern",
           silenceDeprecations: ["legacy-js-api"],
         },
       },

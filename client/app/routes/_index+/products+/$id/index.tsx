@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { ActionFunctionArgs } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useOutletContext } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { namedAction } from "remix-utils/named-action";
@@ -9,8 +9,8 @@ import { historyService } from "~/action.server/history.service";
 import { productService } from "~/action.server/products.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
-import { ProductForm } from "~/components/form/product-form";
-import { VariantEditor } from "~/components/form/variant-editor";
+import { getSimpleVariant, mapSimpleVariantToProductForm, ProductForm } from "~/components/form/product-form";
+import { IVariantDraft, VariantEditor } from "~/components/form/variant-editor";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { Tab } from "~/components/tab";
@@ -18,6 +18,7 @@ import { TMButton } from "~/components/tm-button";
 import { TMTimeline } from "~/components/tm-timeline";
 import { productSchema, ProductSchemaType } from "~/constants/schema/product";
 import { useSubmitPromise } from "~/hooks";
+import { ResponseError } from "~/http/index.server";
 import { useTranslation } from "~/i18n";
 import { ICategory } from "~/types/category";
 import { IProduct, IProductAttribute, IProductAttributeValue, IProductVariant } from "~/types/product";
@@ -51,9 +52,10 @@ export default function ProductItem() {
   const { data, history } = useLoaderData<typeof loader>();
   const [edit, setEdit] = useState<boolean>(false);
   const { t } = useTranslation();
+  const variantTransitionBlocked = Boolean((data as any)?.variantTransitionBlocked);
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-      <div className="max-w-5xl w-full mx-auto">
+      <div className="w-full mx-auto">
         <CardItem
           title={
             <div className="flex gap-3">
@@ -103,11 +105,14 @@ export default function ProductItem() {
                   </div>
                 ),
                 value: "variants",
-                content: (
+                content: variantTransitionBlocked ? (
+                  <VariantTransitionNotice reason={(data as any)?.variantTransitionBlockReason} />
+                ) : (
                   <VariantsManager
                     productId={data?.id}
                     attributes={(data?.attributes || []) as IProductAttribute[]}
                     variants={(data?.variants || []) as IProductVariant[]}
+                    productType={Number(data?.type ?? 0)}
                   />
                 ),
               },
@@ -137,32 +142,35 @@ const VariantsManager = ({
   productId,
   attributes: serverAttributes,
   variants: serverVariants,
+  productType,
 }: {
   productId?: number | string;
   attributes: IProductAttribute[];
   variants: IProductVariant[];
+  productType: number;
 }) => {
   const { submit, isLoading } = useSubmitPromise();
   const { t } = useTranslation();
-  const loaderData: any = (() => {
-    try {
-      return useLoaderData() as any;
-    } catch {
-      return {};
-    }
-  })();
-  const suggestedAttributes: any[] = loaderData?.suggestedAttributes || [];
-  let moneyStep = 1000;
-  try {
-    const ctx = useOutletContext<{ settings?: { moneyStep?: number | string } }>();
-    const step = Number(ctx?.settings?.moneyStep);
-    if (step > 0) moneyStep = step;
-  } catch {
-    // no layout context -> default step
-  }
+  const loaderData = useLoaderData<typeof loader>();
 
-  const invSum = (variant: IProductVariant) =>
-    (variant.inventories || []).reduce((sum, inv) => sum + Number(inv.quantity || 0), 0);
+  const suggestedAttributes: any[] = loaderData?.suggestedAttributes || [];
+
+  const invSum = (variant: IProductVariant) => {
+    return (variant.inventories || []).reduce((sum, inv) => sum + Number(inv.quantity || 0), 0);
+  };
+  const defaultVariant = productType === 0 ? getSimpleVariant({ variants: serverVariants }) : undefined;
+  console.log(`productType`, productType);
+  const defaultVariantValues = defaultVariant
+    ? {
+        quantity: invSum(defaultVariant),
+        costPrice: defaultVariant.costPrice ?? "",
+        regularPrice: defaultVariant.regularPrice ?? "",
+        salePrice: defaultVariant.salePrice ?? "",
+        wholeSalePrice: defaultVariant.wholeSalePrice ?? "",
+        VAT: defaultVariant.VAT ?? null,
+        isNegative: !!defaultVariant.isNegative,
+      }
+    : {};
 
   // Defaults are derived from the server data on every render; the form is
   // reset only when the server-side structure (attribute/variant ids) changes,
@@ -171,28 +179,23 @@ const VariantsManager = ({
     let attrs = (serverAttributes || []).map((a) => ({
       id: a.id,
       name: a.name,
-      values: ((a.values || []) as IProductAttributeValue[]).map((v) => ({ label: v.value, value: v.value })),
+      values: ((a.values || []) as IProductAttributeValue[]).map((v) => ({
+        label: v.value,
+        value: v.value,
+      })),
     }));
-    const variants = serverVariants.map((v) => ({
+    const editableVariants = productType === 0 ? (defaultVariant ? [defaultVariant] : []) : serverVariants;
+    const variants = editableVariants.map((v) => ({
       variantId: v.id,
+      ...v,
+      quantity: invSum(v),
       options: Object.fromEntries(
         ((v.attributeValues || []) as any[]).map((av: any) => [
           av.attribute?.name || av.productAttribute?.name || "",
           av.value,
         ]),
       ),
-      code: (v as any).code ?? "",
-      skuCode: v.skuCode,
-      quantity: invSum(v),
-      costPrice: (v.costPrice ?? "") as any,
-      regularPrice: (v.regularPrice ?? "") as any,
-      salePrice: (v.salePrice ?? "") as any,
-      wholeSalePrice: (v.wholeSalePrice ?? "") as any,
-      VAT: v.VAT ?? null,
-      imageUrl: v.imageUrl ?? null,
-      isNegative: !!(v as any).isNegative,
     }));
-    // Fallback: if product no longer stores attributes per product, derive from variants + catalog
     if (!attrs.length && variants.length && suggestedAttributes.length) {
       const names = [...new Set(variants.flatMap((v) => Object.keys(v.options || {})))].filter(Boolean);
       attrs = names
@@ -204,7 +207,10 @@ const VariantsManager = ({
           return {
             id: cat.id,
             name: cat.name,
-            values: ((cat.values || []) as any[]).map((val: any) => ({ label: val.value, value: val.value })),
+            values: ((cat.values || []) as any[]).map((val: any) => ({
+              label: val.value,
+              value: val.value,
+            })),
           };
         })
         .filter((a: any) => a.name);
@@ -214,12 +220,12 @@ const VariantsManager = ({
       variants,
       attributeIds: attrs.map((a) => (a as any).id),
       variantIds: serverVariants.map((v) => v.id),
+      type: productType,
     };
-  }, [serverAttributes, serverVariants, suggestedAttributes]);
+  }, [productType, serverAttributes, serverVariants, suggestedAttributes]);
 
   const signature = `${defaults.attributeIds.join("-")}|${defaults.variantIds.join("-")}`;
   const lastSignature = useRef(signature);
-
   const formMethods = useForm({ defaultValues: defaults });
 
   useEffect(() => {
@@ -230,7 +236,7 @@ const VariantsManager = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
 
-  const onSubmit = (v: any) => {
+  const onSubmit = async (v: any) => {
     const catalog: any[] = suggestedAttributes.length ? suggestedAttributes : (serverAttributes as any[]);
     const attrByName = new Map<string, any>();
     const valByAttrAndValue = new Map<string, number>();
@@ -261,30 +267,68 @@ const VariantsManager = ({
           variantId,
           id: variantId,
           ...fields,
-          // Per-variant barcode: manual value wins, blank clears to null on the
-          // server, missing auto-extends the parent barcode.
           ...(code !== undefined ? { code: String(code ?? "").trim() } : {}),
+          options,
           attributes: attributeIds,
           attributeValues: attributeValueIds,
         };
       });
     const removedVariantIds = defaults.variantIds.filter(
-      (id) => !list.some((m: any) => String(m.variantId) === String(id)),
+      (id) =>
+        !list.some((m: any) => String(m.variantId) === String(id) && m?.options && Object.keys(m.options).length > 0),
     );
-    submit(
-      {
-        intent: "updateProduct",
-        data: JSON.stringify({
-          data: {
-            // Preserve combo products (server ignores variants for type 2).
-            type: (loaderData as any)?.data?.type === 2 ? 2 : 1,
-            variants: variantsPayload,
-            removedVariantIds,
-          },
+    if (productType === 0) {
+      if (variantsPayload.length === 0) {
+        toast.danger({
+          title: t("common.error"),
+          message: "Vui lòng chọn ít nhất một tổ hợp biến thể trước khi chuyển đổi sản phẩm.",
+        });
+        return;
+      }
+      if (
+        !window.confirm(
+          "Hành động này sẽ thay đổi cấu trúc mã vạch/SKU và có thể làm gián đoạn việc quét mã tại POS. Bạn có chắc chắn không?",
+        )
+      ) {
+        return;
+      }
+    }
+    try {
+      const response: any = await submit(
+        {
+          intent: "updateProduct",
+          data: JSON.stringify({
+            data: {
+              // Preserve combo products (server ignores variants for type 2).
+              type: (loaderData as any)?.data?.type === 2 ? 2 : 1,
+              variants: variantsPayload,
+              removedVariantIds,
+            },
+          }),
+        },
+        { method: "POST" },
+      );
+      const body = response?.data ?? response;
+      const error = body?.error || body?.message || response?.error;
+      if (error || (response?.status && response.status !== 200)) {
+        toast.danger({
+          title: t("common.error"),
+          message: String(error || t("common.tryAgain")),
+        });
+        return;
+      }
+      toast.success({
+        title: t("common.success"),
+        message: t("product.updateSuccess", {
+          defaultValue: "Update product success",
         }),
-      },
-      { method: "POST" },
-    );
+      });
+    } catch (error) {
+      toast.danger({
+        title: t("common.error"),
+        message: error instanceof Error ? error.message : t("common.tryAgain"),
+      });
+    }
   };
 
   if (!productId) return null;
@@ -293,7 +337,10 @@ const VariantsManager = ({
     <FormProvider {...formMethods}>
       <form onSubmit={formMethods.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
         <div className="p-1">
-          <VariantEditor />
+          <VariantEditor
+            seed={productType === 0 ? (defaultVariantValues as Partial<IVariantDraft>) : undefined}
+            protectFirstVariant={productType === 0}
+          />
         </div>
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
           <TMButton variant="ghost" size="sm" component={Link} to=".." type="button">
@@ -309,28 +356,44 @@ const VariantsManager = ({
   );
 };
 
+const VariantTransitionNotice = ({ reason }: { reason?: string | null }) => (
+  <div className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+    <Icon name="alert-triangle" fontSize={18} className="mt-0.5 shrink-0" />
+    <div className="flex flex-col gap-1 text-sm">
+      <strong>Chưa thể chuyển sản phẩm sang biến thể</strong>
+      <span>{reason || "Đơn hàng của sản phẩm chưa có invoice đã hoàn tất."}</span>
+    </div>
+  </div>
+);
+
 const EditForm = () => {
   const { data } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
-  const hasVariants = (data?.variants || []).length > 0;
-  const productType = (data as any)?.type ?? (hasVariants ? 1 : 0);
+  const productType = Number((data as any)?.type ?? 0);
+  const hasVariants = productType === 1;
+  const product = data as IProduct;
+  const simpleVariant = productType === 0 ? getSimpleVariant(product) : undefined;
+  const simpleVariantFields: Partial<ProductSchemaType> =
+    productType === 0 ? mapSimpleVariantToProductForm(product, simpleVariant) : {};
   const { submit, isLoading } = useSubmitPromise();
   const formMethods = useForm<ProductSchemaType>({
     defaultValues: {
       name: data?.name ?? "",
-      code: data?.code ?? "",
-      skuCode: data?.skuCode ?? "",
+      code: simpleVariantFields.code ?? data?.code ?? "",
+      skuCode: simpleVariantFields.skuCode ?? data?.skuCode ?? "",
       type: productType as any,
-      quantity: (data?.quantity as number) ?? undefined,
+      quantity: (simpleVariantFields.quantity as number) ?? undefined,
       unit: (data as any)?.unitId || undefined,
       categories: ((data?.categories as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
       tags: (((data as any)?.tags as ICategory[]) || []).map((item: ICategory) => item?.id).filter(Boolean) as any,
       description: data?.description ?? "",
-      costPrice: (data?.costPrice ?? undefined) as any,
-      regularPrice: (data?.regularPrice ?? undefined) as any,
-      salePrice: (data?.salePrice ?? undefined) as any,
-      wholeSalePrice: (data?.wholeSalePrice ?? undefined) as any,
-      VAT: (data as any)?.VAT ?? 0,
+      costPrice: (simpleVariantFields.costPrice ?? data?.costPrice ?? undefined) as any,
+      regularPrice: (simpleVariantFields.regularPrice ?? data?.regularPrice ?? undefined) as any,
+      salePrice: (simpleVariantFields.salePrice ?? data?.salePrice ?? undefined) as any,
+      wholeSalePrice: (simpleVariantFields.wholeSalePrice ?? data?.wholeSalePrice ?? undefined) as any,
+      VAT: simpleVariantFields.VAT ?? (data as any)?.VAT ?? 0,
+      image: simpleVariantFields.image,
+      isNegative: simpleVariantFields.isNegative,
       expiredAt: (data as any)?.expiredAt || undefined,
     },
     resolver: zodResolver(productSchema),
@@ -340,9 +403,15 @@ const EditForm = () => {
     console.log("errors", errors);
   };
 
-  const { load, data: categories } = useFetcher<{ data: ICategory[] }>({ key: "categories" });
-  const { load: loadUnits, data: units } = useFetcher<{ data: ICategory[] }>({ key: "units" });
-  const { load: loadTags, data: tags } = useFetcher<{ data: ICategory[] }>({ key: "tags" });
+  const { load, data: categories } = useFetcher<{ data: ICategory[] }>({
+    key: "categories",
+  });
+  const { load: loadUnits, data: units } = useFetcher<{ data: ICategory[] }>({
+    key: "units",
+  });
+  const { load: loadTags, data: tags } = useFetcher<{ data: ICategory[] }>({
+    key: "tags",
+  });
   useEffect(() => {
     load("/categories");
     loadUnits("/units");
@@ -369,12 +438,22 @@ const EditForm = () => {
         },
         { method: "POST" },
       );
-      if (response.status === 200) {
-        return toast.success({ title: "Success", message: "Update product success" });
+      const responseBody = (response as any)?.data ?? response;
+      if (!responseBody?.error && responseBody?.status === 200) {
+        return toast.success({
+          title: "Success",
+          message: "Update product success",
+        });
       }
-      return toast.danger({ title: "Error", message: "Update product failed" });
+      return toast.danger({
+        title: t("common.error"),
+        message: String(responseBody?.error || responseBody?.message || "Update product failed"),
+      });
     } catch (error) {
-      console.log("error", error);
+      toast.danger({
+        title: t("common.error"),
+        message: error instanceof Error ? error.message : t("common.tryAgain"),
+      });
     }
   };
   return (
@@ -384,7 +463,8 @@ const EditForm = () => {
         onSubmit={formMethods.handleSubmit(onSubmit, (error) => handleError(error))}
       >
         <ProductForm
-          barcode={data?.code}
+          barcode={productType === 0 ? (simpleVariantFields.code as string) : data?.code}
+          variantMode={hasVariants}
           categories={categories?.data || []}
           tags={tags?.data || []}
           units={units?.data || []}
@@ -404,7 +484,6 @@ const EditForm = () => {
 };
 
 const HistoryList = ({ history }: { history: IProduct[] }) => {
-  console.log("history", history);
   return (
     <div className="w-full flex flex-col gap-2">
       <TMTimeline
@@ -429,32 +508,33 @@ const HistoryList = ({ history }: { history: IProduct[] }) => {
 };
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  // const { warehouseId, vendorId, cookie } = await parseCookieFromRequest(request);
-  const { id } = params;
-  if (!id) throw new Error("Không tìm thấy sản phẩm");
-  const formData = await request.formData();
-  return namedAction(formData, {
-    updateProduct: async () => {
-      const raw = formData.get("data");
-      if (!raw) return Response.json({ error: "Missing data" }, { status: 400 });
-      let data: any;
-      try {
-        data = JSON.parse(String(raw));
-      } catch {
-        return Response.json({ error: "Invalid JSON" }, { status: 400 });
-      }
-      const payload = data?.data ?? data;
-      if (typeof payload !== "object" || payload === null) {
-        return Response.json({ error: "Invalid product payload" }, { status: 400 });
-      }
-      const response = await productService.updateProduct({
-        id,
-        ...payload,
-      });
-
-      return Response.json(response);
-    },
-  });
+  try {
+    const { id } = params;
+    if (!id) return Response.json({ error: "Không tìm thấy sản phẩm" }, { status: 400 });
+    const formData = await request.formData();
+    return namedAction(formData, {
+      updateProduct: async () => {
+        const raw = formData.get("data");
+        if (!raw) return Response.json({ error: "Missing data" }, { status: 400 });
+        let data: any;
+        try {
+          data = JSON.parse(String(raw));
+        } catch {
+          return Response.json({ error: "Invalid JSON" }, { status: 400 });
+        }
+        const payload = data?.data ?? data;
+        if (typeof payload !== "object" || payload === null) {
+          return Response.json({ error: "Invalid product payload" }, { status: 400 });
+        }
+        const response = await productService.updateProduct({ id, ...payload });
+        return Response.json(response);
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String((error as any)?.error || "Update product failed");
+    const status = error instanceof ResponseError ? error.status : Number((error as any)?.status) || 400;
+    return Response.json({ error: message, status }, { status });
+  }
 }
 
 export function ErrorBoundary() {

@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
+import { LoaderFunctionArgs } from "@remix-run/node";
+import { useFetcher, useOutletContext } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { importOrderService } from "~/action.server/importOrder.service";
@@ -11,9 +12,11 @@ import { toast } from "~/components/notification";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
 import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
 import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
+import { debounce } from "~/libs/debounce";
 import { useTranslation } from "~/i18n";
 import { IProduct, IProductSearchRow, IProductVariant } from "~/types/product";
 import { IProvider } from "~/types/provider";
+import { MainLayoutContext } from "../../_layout";
 
 export const meta: MetaFunction = () => {
   return [{ title: "Tạo phiếu nhập" }, { name: "description", content: "Tạo phiếu nhập hàng" }];
@@ -22,13 +25,13 @@ export const meta: MetaFunction = () => {
 export default function OrderItem() {
   const { t } = useTranslation();
   const fetcher = useFetcher();
-
+  const { settings } = useOutletContext<MainLayoutContext>();
   const form = useForm<OrderSchema>({
     defaultValues: {
       customer: undefined,
       orderDetails: [],
       price: 0,
-      VAT: "5",
+      VAT: settings.defaultTaxRate ?? 0,
       surcharge: "0",
       paid: 0,
       paymentType: "cash",
@@ -43,6 +46,9 @@ export default function OrderItem() {
   const [variantTarget, setVariantTarget] = useState<IProduct | null>(null);
   const [showVariantPicker, setShowVariantPicker] = useState(false);
 
+  const importPriceOf = (item: IProduct | IProductVariant) =>
+    Number((item as IProductVariant).costPrice ?? (item as IProduct).costPrice ?? 0);
+
   // Unified POS search: exact scans auto-add a line, the fallback list carries
   // actionable variants (real-time stock per warehouse).
   const { rows: searchedRows, search: searchProducts } = useUnifiedProductSearch({
@@ -54,7 +60,7 @@ export default function OrderItem() {
           productId: item.product_id,
           variantId: item.variant_id,
           name: item.display_name,
-          price: item.price,
+          price: item.costPrice,
           note: "",
         }),
       );
@@ -95,7 +101,7 @@ export default function OrderItem() {
 
   const pickVariant = (variant: IProductVariant) => {
     if (!variantTarget) return;
-    const price = Number(variant.salePrice ?? variantTarget.regularPrice ?? 0);
+    const price = importPriceOf(variant);
     form.setValue(
       "orderDetails",
       addLine(form.getValues("orderDetails") || [], {
@@ -114,7 +120,7 @@ export default function OrderItem() {
     // Unified POS rows already carry their actionable variant — add directly.
     const unifiedVariant = (item as IProductSearchRow).unifiedVariant;
     if (unifiedVariant) {
-      const price = Number(unifiedVariant.salePrice ?? unifiedVariant.regularPrice ?? item.regularPrice ?? 0);
+      const price = importPriceOf(unifiedVariant);
       form.setValue(
         "orderDetails",
         addLine(form.getValues("orderDetails") || [], {
@@ -139,14 +145,14 @@ export default function OrderItem() {
       addLine(form.getValues("orderDetails") || [], {
         productId: item.id,
         name: item.name,
-        price: Number(item.regularPrice),
+        price: importPriceOf(item),
         note: "",
       }),
     );
   };
-  const handleFilterProduct = (e: any) => {
-    searchProducts(e.target.value);
-  };
+  const handleFilterProduct = debounce((value: string) => {
+    searchProducts(value);
+  }, 250);
 
   const handleError = () => {
     toast.danger({ title: t("common.error"), message: t("common.tryAgain") });
@@ -161,7 +167,7 @@ export default function OrderItem() {
   return (
     <FormProvider {...form}>
       <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-        <div className="max-w-5xl w-full mx-auto">
+        <div className="w-full mx-auto">
           <CardItem
             title={
               <div className="flex items-start justify-between gap-4">
@@ -188,6 +194,7 @@ export default function OrderItem() {
               onSubmit={onSubmit}
               onError={handleError}
               providers={[...(providers?.data || [])]}
+              priceType="cost"
             />
             <VariantPickerModal
               show={showVariantPicker}

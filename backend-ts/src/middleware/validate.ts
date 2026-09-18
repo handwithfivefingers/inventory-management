@@ -54,4 +54,13 @@ const warehouseHeader = () =>
 const optionalIsoDateQuery = (field: string) =>
   query(field).optional().isISO8601().withMessage(`${field} must be an ISO8601 date`)
 
-export { header, idParam, optionalIsoDateQuery, paginationQuery, validate, vendorHeader, vendorIdQuery, warehouseHeader }
+export {
+  header,
+  idParam,
+  optionalIsoDateQuery,
+  paginationQuery,
+  validate,
+  vendorHeader,
+  vendorIdQuery,
+  warehouseHeader
+}

@@ -1,7 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { invoiceService } from "~/action.server/invoice.service";
-import { parseCookieFromRequest } from "~/sessions";
 
 /**
  * JSON endpoint for browser-side printing.
@@ -12,12 +11,11 @@ import { parseCookieFromRequest } from "~/sessions";
  *
  * GET /api/invoices/:id -> { data: IInvoice }
  */
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { cookie, vendorId } = await parseCookieFromRequest(request);
+export const loader = async ({ params }: LoaderFunctionArgs) => {
   const id = params.id as string;
   if (!id) throw json({ message: "Missing invoice id" }, { status: 400 });
   try {
-    const resp = await invoiceService.getInvoiceById({ id, cookie, vendorId });
+    const resp = await invoiceService.getInvoiceById(id);
     const data = (resp.data as any)?.data ?? resp.data;
     return json(data);
   } catch (e: any) {

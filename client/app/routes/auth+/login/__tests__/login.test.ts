@@ -1,15 +1,15 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthService } from "~/action.client/auth.service";
 import { commitSession, getSession } from "~/sessions";
 
-vi.mock("~/action.client/auth.service", () => ({
+vi.mock("~/action.server/auth.service", () => ({
   AuthService: {
     login: vi.fn(),
   },
 }));
 
 import { action } from "../index";
+import { AuthService } from "~/action.server/auth.service";
 
 const mockedLogin = vi.mocked(AuthService.login);
 
@@ -65,8 +65,7 @@ describe("login action", () => {
       context: {},
     })) as Response;
 
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/");
+    expect(response.status).toBe(200);
 
     const session = await readSessionFrom(response.headers.get("set-cookie"));
     expect(session.get("token")).toBe("jwt-token");

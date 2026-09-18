@@ -24,7 +24,7 @@ Router.get(
 )
 Router.post(
   '/',
-  providerCreateValidation,
+  providerCreateValidation as any,
   // #swagger.tags = ['Providers']
   // #swagger.summary = 'Create provider'
   // #swagger.security = [{ "bearerAuth": [] }]

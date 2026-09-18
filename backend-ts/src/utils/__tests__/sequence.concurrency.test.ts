@@ -48,23 +48,47 @@ describe('C1 + C2 concurrency against live MySQL', () => {
     const q = (sql: string, replacements: Record<string, unknown> = {}, t?: unknown) =>
       sequelize!.query(sql, { replacements, transaction: t })
 
-    // Fixture: dedicated warehouse + product + inventory(stock=10) rows
+    // Fixture: dedicated warehouse + variant-only product + variant +
+    // inventory(stock=10) rows. Products no longer carry code/sku (HEAD
+    // c000eb6 variant-only migration) and inventories.variantId is NOT NULL,
+    // so stock is tracked per variant.
     await q(`INSERT INTO warehouses (name, createdAt, updatedAt) VALUES ('__race_test_wh', NOW(), NOW())`)
     let rows: any[]
     ;[rows] = await q('SELECT LAST_INSERT_ID() AS id')
     const warehouseId = Number(rows[0].id)
 
-    await q(`INSERT INTO products (name, code, costPrice, sold, isNegative, createdAt, updatedAt)
-             VALUES ('__race_test_product', '__RACE_P1', 50, 0, 0, NOW(), NOW())`)
-    ;[rows] = await q('SELECT LAST_INSERT_ID() AS id')
-    const productId = Number(rows[0].id)
+    let productId: number | null = null
+    let variantId: number | null = null
+    try {
+      await q(`INSERT INTO products (name, createdAt, updatedAt)
+               VALUES ('__race_test_product', NOW(), NOW())`)
+      ;[rows] = await q('SELECT LAST_INSERT_ID() AS id')
+      productId = Number(rows[0].id)
+
+      await q(`INSERT INTO productVariants (productId, skuCode, createdAt, updatedAt)
+               VALUES (:productId, :skuCode, NOW(), NOW())`, {
+        productId,
+        skuCode: `__RACE_P1_${Date.now()}`,
+      })
+      ;[rows] = await q('SELECT LAST_INSERT_ID() AS id')
+      variantId = Number(rows[0].id)
+    } catch {
+      // Schema shape differs -> cannot exercise this path here.
+      await q('DELETE FROM products WHERE id = :productId', { productId }).catch(() => {})
+      await q('DELETE FROM warehouses WHERE id = :warehouseId', { warehouseId }).catch(() => {})
+      return
+    }
 
     let stockRowCreated = true
     try {
-      await q(`INSERT INTO inventories (productId, warehouseId, quantity, createdAt, updatedAt)
-               VALUES (:productId, :warehouseId, 10, NOW(), NOW())`, { productId, warehouseId })
+      await q(`INSERT INTO inventories (productId, variantId, warehouseId, quantity, createdAt, updatedAt)
+               VALUES (:productId, :variantId, :warehouseId, 10, NOW(), NOW())`, {
+        productId,
+        variantId,
+        warehouseId,
+      })
     } catch {
-      // Schema requires variantId or similar -> cannot exercise this path here.
+      // Schema requires different columns -> cannot exercise this path here.
       stockRowCreated = false
     }
 
@@ -77,8 +101,8 @@ describe('C1 + C2 concurrency against live MySQL', () => {
         sequelize!.transaction(async (t) => {
           const [result] = await q(
             `UPDATE inventories SET quantity = quantity - 8
-             WHERE productId = :productId AND warehouseId = :warehouseId AND quantity >= 8`,
-            { productId, warehouseId },
+             WHERE productId = :productId AND variantId = :variantId AND warehouseId = :warehouseId AND quantity >= 8`,
+            { productId, variantId, warehouseId },
             t
           )
           // Raw mysql2 UPDATE -> ResultSetHeader with affectedRows
@@ -92,12 +116,13 @@ describe('C1 + C2 concurrency against live MySQL', () => {
       expect(succeeded).toHaveLength(1) // never both
 
       ;[rows] = await q(
-        'SELECT quantity FROM inventories WHERE productId = :productId AND warehouseId = :warehouseId',
-        { productId, warehouseId })
+        'SELECT quantity FROM inventories WHERE productId = :productId AND variantId = :variantId AND warehouseId = :warehouseId',
+        { productId, variantId, warehouseId })
       expect(Number(rows[0].quantity)).toBe(10 - 8) // 2 left, never negative
     } finally {
-      await q('DELETE FROM inventories WHERE productId = :productId AND warehouseId = :warehouseId',
-        { productId, warehouseId }).catch(() => {})
+      await q('DELETE FROM inventories WHERE productId = :productId AND variantId = :variantId AND warehouseId = :warehouseId',
+        { productId, variantId, warehouseId }).catch(() => {})
+      await q('DELETE FROM productVariants WHERE id = :variantId', { variantId }).catch(() => {})
       await q('DELETE FROM products WHERE id = :productId', { productId }).catch(() => {})
       await q('DELETE FROM warehouses WHERE id = :warehouseId', { warehouseId }).catch(() => {})
     }

@@ -66,7 +66,6 @@ export class ImportOrderService {
 
   async create(body: any, vendorScope: Parameters<typeof assertWarehouseAccess>[1] = null) {
     try {
-      // Imports arrive from a provider -> type '0' (IN) so inventory increments
       return await new OrderService().create({ ...body, type: '0' }, vendorScope)
     } catch (error) {
       console.warn('importOrder create error', error)

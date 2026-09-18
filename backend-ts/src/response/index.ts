@@ -45,7 +45,6 @@ export class ApiError extends Error {
   constructor(message: string, status?: number, options?: ApiErrorOptions)
   constructor(cause: unknown, status?: number)
   constructor(arg1: unknown, status?: number, options: ApiErrorOptions = {}) {
-    console.log('APIERROR', arg1)
     const isStringInput = typeof arg1 === 'string'
     const cause = isStringInput ? options.cause : arg1
 

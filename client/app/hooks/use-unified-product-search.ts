@@ -53,7 +53,7 @@ export const useUnifiedProductSearch = ({
         ...buildUnifiedFormParams({
           query,
           context,
-          // warehouseId: (activeWarehouse as any)?.id ?? undefined,
+          warehouseId: (activeWarehouse as any)?.id ?? undefined,
           page: opts?.page ?? 1,
           limit: opts?.limit ?? pageSize,
         }),

@@ -140,7 +140,6 @@ export default class AuthenticateService {
       const staff = user.staff.parsed as IStaffModel
       return { ...user.parsed, ...staff, role: user.staff.role } as Omit<LoginResponse, 'roles' | 'vendors'>
     } catch (error) {
-      console.log('LOGIN ERROR >> error', error)
       throw new ApiError(error as any)
     }
   }

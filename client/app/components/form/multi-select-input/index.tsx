@@ -118,6 +118,9 @@ export const MultiSelectInput = forwardRef<HTMLDivElement, IMultiSelectInput & a
             "relative rounded-md flex items-center py-1 px-1 bg-slate-50 dark:bg-slate-700",
             "ring-2 ring-transparent transition-all border border-slate-300 dark:border-slate-600 outline-none",
             "text-slate-700 placeholder:text-gray-400 focus:ring-indigo-400/30",
+            {
+              ["mt-1"]: !!label,
+            },
             SizeClass[inputSize || "sm"],
             styles.input,
             {

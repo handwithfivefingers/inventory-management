@@ -86,7 +86,7 @@ export default function InvoiceDetail() {
 
   return (
     <div className="w-full flex flex-col p-3 gap-3 overflow-auto h-full bg-slate-50/50 dark:bg-transparent">
-      <div className="max-w-5xl w-full mx-auto">
+      <div className="w-full mx-auto">
         <CardItem
           title={
             <div className="flex items-start justify-between gap-4">
@@ -104,6 +104,13 @@ export default function InvoiceDetail() {
           className="p-5 sm:p-6"
           action={
             <div className="flex gap-2 justify-center items-center flex-wrap">
+              {/* <TMButton variant="ghost" size="sm" component={Link} to="/invoices" type="button">
+                {t("common.cancel")}
+              </TMButton> */}
+              <TMButton size="sm" component={Link} to="/invoices">
+                <Icon name="save" fontSize={16} />
+                {t("common.save")}
+              </TMButton>{" "}
               <TMButton variant="outline" type="button" onClick={printInvoiceViaBrowser} size="sm">
                 🖨 {t("invoices.detail.print")}
               </TMButton>
@@ -131,75 +138,69 @@ export default function InvoiceDetail() {
             </div>
           }
         >
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col xl:flex-row gap-8">
             {/* Toolbar */}
             {/* Receipt preview + printer settings. The component injects its own
           print CSS into <head> after mount (hydration-safe). */}
             <ReceiptPrinter invoice={data} />
             {/* Explicit VAT breakdown (screen only — the receipt above is the print source) */}
             {details.length > 0 && (
-              <div className="border border-slate-200 dark:border-slate-700 rounded overflow-x-auto">
-                <table className="w-full min-w-[560px] text-sm text-slate-700 dark:text-slate-200">
-                  <thead className="bg-gray-50 dark:bg-slate-700/60">
-                    <tr>
-                      <th className="p-2 text-left font-medium">{t("importOrder.product")}</th>
-                      <th className="p-2 w-28 text-right font-medium">VAT (%)</th>
-                      <th className="p-2 w-32 text-right font-medium">Tiền VAT</th>
-                      <th className="p-2 w-32 text-right font-medium">Thành tiền (chưa VAT)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-slate-800">
-                    {details.map((d: any) => (
-                      <tr key={d.id} className="border-t border-slate-100 dark:border-slate-700">
-                        <td className="p-2">
-                          {(d.product as any)?.name || `#${d.productId ?? d.orderDetailId ?? d.id}`} × {d.quantity}
-                        </td>
-                        <td className="p-2 text-right">{Number(d.taxRate || 0)}%</td>
-                        <td className="p-2 text-right">{formatCurrency(lineTaxOf(d))}</td>
-                        <td className="p-2 text-right">{formatCurrency(lineBaseOf(d))}</td>
+              <div className="flex flex-col flex-1 gap-4">
+                <h3 className="font-semibold text-xl py-3">Order</h3>
+                <div className="border border-slate-200 dark:border-slate-700 rounded overflow-x-auto">
+                  <table className="w-full min-w-[560px] text-sm text-slate-700 dark:text-slate-200">
+                    <thead className="bg-gray-50 dark:bg-slate-700/60">
+                      <tr>
+                        <th className="p-2 text-left font-medium">{t("importOrder.product")}</th>
+                        <th className="p-2 w-28 text-right font-medium">VAT (%)</th>
+                        <th className="p-2 w-32 text-right font-medium">Tiền VAT</th>
+                        <th className="p-2 w-32 text-right font-medium">Thành tiền (chưa VAT)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="flex justify-end border-t border-slate-200 dark:border-slate-700 p-3">
-                  <div className="w-full sm:w-72 sm:ml-auto space-y-2">
-                    <div className="flex justify-between">
-                      <span>Tạm tính (chưa VAT)</span>
-                      <span className="font-medium">{formatCurrency(subtotalExcVat)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tổng VAT{data.VAT ? ` (${Number(data.VAT)}%)` : ""}</span>
-                      <span className="font-medium">{formatCurrency(vatTotal)}</span>
-                    </div>
-                    {Number(data.discount || 0) > 0 && (
+                    </thead>
+                    <tbody className="bg-white dark:bg-slate-800">
+                      {details.map((d: any) => (
+                        <tr key={d.id} className="border-t border-slate-100 dark:border-slate-700">
+                          <td className="p-2">
+                            {(d.product as any)?.name || `#${d.productId ?? d.orderDetailId ?? d.id}`} × {d.quantity}
+                          </td>
+                          <td className="p-2 text-right">{Number(d.taxRate || 0)}%</td>
+                          <td className="p-2 text-right">{formatCurrency(lineTaxOf(d))}</td>
+                          <td className="p-2 text-right">{formatCurrency(lineBaseOf(d))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex justify-end border-t border-slate-200 dark:border-slate-700 p-3">
+                    <div className="w-full sm:w-72 sm:ml-auto space-y-2">
                       <div className="flex justify-between">
-                        <span>Giảm giá</span>
-                        <span className="font-medium">{formatCurrency(data.discount)}</span>
+                        <span>Tạm tính (chưa VAT)</span>
+                        <span className="font-medium">{formatCurrency(subtotalExcVat)}</span>
                       </div>
-                    )}
-                    {Number(data.surcharge || 0) > 0 && (
                       <div className="flex justify-between">
-                        <span>Phụ thu</span>
-                        <span className="font-medium">{formatCurrency(data.surcharge)}</span>
+                        <span>Tổng VAT{data.VAT ? ` (${Number(data.VAT)}%)` : ""}</span>
+                        <span className="font-medium">{formatCurrency(vatTotal)}</span>
                       </div>
-                    )}
-                    <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2">
-                      <span>Tổng tiền thanh toán</span>
-                      <span className="text-blue-600 dark:text-blue-400">{formatCurrency(data.total)}</span>
+                      {Number(data.discount || 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Giảm giá</span>
+                          <span className="font-medium">{formatCurrency(data.discount)}</span>
+                        </div>
+                      )}
+                      {Number(data.surcharge || 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Phụ thu</span>
+                          <span className="font-medium">{formatCurrency(data.surcharge)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-lg font-bold border-t border-slate-200 dark:border-slate-700 pt-2">
+                        <span>Tổng tiền thanh toán</span>
+                        <span className="text-blue-600 dark:text-blue-400">{formatCurrency(data.total)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">
-              <TMButton variant="ghost" size="sm" component={Link} to="/invoices" type="button">
-                {t("common.cancel")}
-              </TMButton>
-              <TMButton size="sm" component={Link} to="/invoices">
-                <Icon name="save" fontSize={16} />
-                {t("common.save")}
-              </TMButton>
-            </div>
           </div>
         </CardItem>
       </div>

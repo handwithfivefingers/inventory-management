@@ -231,7 +231,11 @@ export default function Home() {
             <TMTable
               columns={[
                 { title: t("dashboard.product"), dataIndex: "product", render: (record) => record["product"]?.name },
-                { title: t("dashboard.code"), dataIndex: "product", render: (record) => record["product"]?.code },
+                {
+                  title: t("dashboard.code"),
+                  dataIndex: "variant",
+                  render: (record) => record["variant"]?.code || record["variant"]?.skuCode,
+                },
                 {
                   title: t("dashboard.warehouse"),
                   dataIndex: "warehouse",

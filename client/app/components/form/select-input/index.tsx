@@ -112,7 +112,10 @@ export const SelectInput = forwardRef<HTMLDivElement, ISelectInput & actions>(
         <InputLabel label={label} name={name} required={required} />
         <div
           className={cn(
-            "relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700 outline-none mt-2 cursor-pointer",
+            "relative rounded-md flex items-center w-full bg-slate-50 dark:bg-slate-700 outline-none cursor-pointer",
+            {
+              ["mt-1"]: !!label,
+            },
             className,
           )}
           onClick={(e: React.MouseEvent<HTMLDivElement>) => {
