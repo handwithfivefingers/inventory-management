@@ -9,18 +9,14 @@ import { ProductSchemaType } from "~/constants/schema/product";
 import { IProduct, IProductVariant } from "~/types/product";
 
 /** Simple products keep their sellable fields on their single default variant. */
-export const getSimpleVariant = (
-  product: Pick<IProduct, "variants">
-): IProductVariant | undefined => {
+export const getSimpleVariant = (product: Pick<IProduct, "variants">): IProductVariant | undefined => {
   const variants = product.variants || [];
-  return (variants.find((variant) => Number((variant as any).type) === 0) ||
-    variants[0]) as IProductVariant | undefined;
+  return (variants.find((variant) => Number((variant as any).type) === 0) || variants[0]) as
+    | IProductVariant
+    | undefined;
 };
 
-export const mapSimpleVariantToProductForm = (
-  product: IProduct,
-  variant = getSimpleVariant(product)
-) => {
+export const mapSimpleVariantToProductForm = (product: IProduct, variant = getSimpleVariant(product)) => {
   // Product detail is warehouse-scoped; `baseQuantity` is already calculated
   // by the API and must not be recomputed from raw inventory rows.
   const quantity = (variant as any)?.baseQuantity ?? variant?.quantity ?? product.quantity;
@@ -38,10 +34,7 @@ interface Props {
   categories: ICategory[];
   tags: ICategory[];
 }
-export const ProductForm = ({
-  categories,
-  tags,
-}: Props) => {
+export const ProductForm = ({ categories, tags }: Props) => {
   const { t } = useTranslation();
   return (
     <div className="w-full">
@@ -55,9 +48,7 @@ export const ProductForm = ({
             <TextInput
               label={t("product.name")}
               required
-              prefix={
-                <Icon name="package" fontSize={16} className="text-slate-400" />
-              }
+              prefix={<Icon name="package" fontSize={16} className="text-slate-400" />}
             />
           </FormControl>
           <FormControl name="categories" className="col-span-12 sm:col-span-4">

@@ -39,3 +39,20 @@ export type OrderDetailSchema = z.infer<typeof orderDetails>;
 export const orderFormSchema = schema;
 /** react-hook-form resolver for the order form. */
 export const orderSchema = zodResolver(schema);
+
+/**
+ * Import (inbound) orders must always carry a provider — the backend rejects
+ * `POST /import-order` with 400 `providerId is required` otherwise.
+ * The shared sales schema above keeps `providerId` optional, so import pages
+ * must use this stricter variant.
+ */
+export const importOrderFormSchema = schema.extend({
+  // `StrOrNum` alone would accept `""`; import orders need a real id.
+  providerId: z.union([z.number(), z.string().min(1)], {
+    required_error: "Required",
+    invalid_type_error: "Required",
+  }),
+});
+export type ImportOrderSchema = z.infer<typeof importOrderFormSchema>;
+/** react-hook-form resolver for the import-order form (provider required). */
+export const importOrderSchema = zodResolver(importOrderFormSchema);

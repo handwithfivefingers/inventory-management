@@ -330,7 +330,7 @@ const VariantsManager = ({
             type={productType as 0 | 1 | 2}
           />
         </div>
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
+        {/* <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
           <TMButton type="button" variant="ghost" size="sm" component={Link} to="..">
             {t("common.cancel")}
           </TMButton>
@@ -338,7 +338,7 @@ const VariantsManager = ({
             <Icon name="save" fontSize={16} />
             {t("common.save")}
           </TMButton>
-        </div>
+        </div> */}
       </div>
     </FormProvider>
   );
@@ -480,12 +480,17 @@ const EditForm = () => {
 export async function action({ request, params }: ActionFunctionArgs) {
   try {
     const { id } = params;
-    if (!id) return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Không tìm thấy sản phẩm" }, { status: 400 });
+    if (!id)
+      return Response.json(
+        { success: false, code: "VALIDATION_ERROR", message: "Không tìm thấy sản phẩm" },
+        { status: 400 },
+      );
     const formData = await request.formData();
     return namedAction(formData, {
       updateProduct: async () => {
         const raw = formData.get("data");
-        if (!raw) return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Missing data" }, { status: 400 });
+        if (!raw)
+          return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Missing data" }, { status: 400 });
         let data: any;
         try {
           data = JSON.parse(String(raw));
@@ -494,7 +499,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
         }
         const payload = data?.data ?? data;
         if (typeof payload !== "object" || payload === null) {
-          return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Invalid product payload" }, { status: 400 });
+          return Response.json(
+            { success: false, code: "VALIDATION_ERROR", message: "Invalid product payload" },
+            { status: 400 },
+          );
         }
         const response = await productService.updateProduct({ id, ...payload });
         return Response.json(response);

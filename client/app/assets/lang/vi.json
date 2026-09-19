@@ -215,7 +215,7 @@
     "unitPrice": "Đơn giá",
     "surcharge": "Phụ phí",
     "orderTotal": "Tổng tiền đơn hàng",
-    "totalPayable": "Tổng phải thu",
+    "totalPayable": "Tổng phải thanh toán",
     "paid": "Đã thanh toán",
     "createOrder": "Tạo đơn hàng"
   },
@@ -377,7 +377,8 @@
     "configurePricing": "Cấu hình Giá & Đơn vị",
     "addConversion": "Thêm quy cách",
     "wholesalePrice": "Giá sỉ",
-    "outOfStock": "Hết hàng"
+    "outOfStock": "Hết hàng",
+    "description": "Mô tả sản phẩm"
   },
   "settings": {
     "moneyStep": "Bước nhảy tiền tệ (+/-)",

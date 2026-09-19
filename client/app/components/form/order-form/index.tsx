@@ -39,6 +39,12 @@ interface Props {
   fixedChannel?: (typeof CHANNELS)[number];
   /** Price shown in the product picker. The selected line price is supplied by the route. */
   priceType?: "sale" | "cost";
+  /**
+   * When true, the stock gate is bypassed and every row is pickable.
+   * Import (inbound) orders must allow zero-stock products for replenishment;
+   * sales flows keep the default `false` (block out-of-stock unless isNegative).
+   */
+  allowOutOfStock?: boolean;
 }
 export const OrderForm = ({
   onSubmit,
@@ -51,6 +57,7 @@ export const OrderForm = ({
   submitLabel,
   fixedChannel,
   priceType = "sale",
+  allowOutOfStock = false,
 }: Props) => {
   const { t } = useTranslation();
   const [canScan, setCanScan] = useState(true);
@@ -197,6 +204,28 @@ export const OrderForm = ({
       )}
       {/* <BarcodeScanner onScan={handleRetrieveData} start={canScan}> */}
       <form className="flex gap-2 flex-col" onSubmit={form.handleSubmit(onHandleSubmit, onError)}>
+        {providers !== undefined && (
+          <div className="w-full sm:max-w-xs">
+            <FormControl name="providerId">
+              {(field) => {
+                return (
+                  <SelectInput
+                    options={
+                      providers?.map((item) => ({
+                        label: item.name,
+                        value: item.id,
+                      })) || []
+                    }
+                    {...field}
+                    label={t("importOrder.provider")}
+                    required
+                    onSelect={(v) => field.onChange(v)}
+                  />
+                );
+              }}
+            </FormControl>
+          </div>
+        )}
         <div className="relative">
           <TextInput
             ref={scanInputRef}
@@ -226,7 +255,13 @@ export const OrderForm = ({
             }}
             onBlur={() => setTimeout(() => setShowDropdown(false), 100)}
           />
-          <ProductDropdown open={showDropdown} products={filteredProducts} onSelect={selectProduct} priceType={priceType} />
+          <ProductDropdown
+            open={showDropdown}
+            products={filteredProducts}
+            onSelect={selectProduct}
+            priceType={priceType}
+            allowOutOfStock={allowOutOfStock}
+          />
         </div>
         <div className="flex gap-2 flex-col lg:flex-row">
           <div className="flex-1 min-w-0 bg-slate-200/30 rounded overflow-x-auto">
@@ -262,11 +297,11 @@ export const OrderForm = ({
 
             <div className="flex justify-between font-bold">
               <span className="text-sm">{t("importOrder.totalPayable")}</span>{" "}
-              <NumberInput value={`${totalPaid}`} displayType="text" />
+              {totalPaid > 0 ? <NumberInput value={`${totalPaid}`} displayType="text" /> : "-"}
             </div>
             <div className="flex justify-between">
               <span className="text-sm">{t("importOrder.paid")}</span>{" "}
-              <NumberInput value={`${totalPaid}`} displayType="text" />
+              {totalPaid > 0 ? <NumberInput value={`${totalPaid}`} displayType="text" /> : "-"}
             </div>
 
             <FormControl name="paymentType">
@@ -291,31 +326,6 @@ export const OrderForm = ({
             </div>
           </div>
         </div>
-        <div>
-          {providers?.length ? (
-            <div className="max-w-[200px]">
-              <FormControl name="providerId">
-                {(field) => {
-                  return (
-                    <SelectInput
-                      options={
-                        providers?.map((item) => ({
-                          label: item.name,
-                          value: item.id,
-                        })) || []
-                      }
-                      {...field}
-                      label={t("importOrder.provider")}
-                      onSelect={(v) => field.onChange(v)}
-                    />
-                  );
-                }}
-              </FormControl>
-            </div>
-          ) : (
-            ""
-          )}
-        </div>
       </form>
       {/* </BarcodeScanner> */}
     </div>
@@ -327,8 +337,9 @@ interface ProductDropdownProps {
   products: IProduct[];
   onSelect: (product: IProduct, variant?: IProductVariant) => void;
   priceType: "sale" | "cost";
+  allowOutOfStock?: boolean;
 }
-const ProductDropdown = ({ open, products, onSelect, priceType }: ProductDropdownProps) => {
+const ProductDropdown = ({ open, products, onSelect, priceType, allowOutOfStock = false }: ProductDropdownProps) => {
   const variantLabel = (variant: IProductVariant) => {
     return (variant.attributeValues || [])
       .map((v: any) => v.value)
@@ -336,6 +347,7 @@ const ProductDropdown = ({ open, products, onSelect, priceType }: ProductDropdow
       .join(" / ");
   };
   const canPickVariant = (variant: IProductVariant) => {
+    if (allowOutOfStock) return true;
     return variantStock(variant) > 0 || !!(variant as any).isNegative;
   };
   const variantStock = (variant: IProductVariant) => {
@@ -345,6 +357,7 @@ const ProductDropdown = ({ open, products, onSelect, priceType }: ProductDropdow
     );
   };
   const canPickProduct = (product: IProduct) => {
+    if (allowOutOfStock) return true;
     return Number(product.quantity ?? 0) > 0 || !!product.isNegative || Number(product.variantCount || 0) > 0;
   };
   console.log("products", products);
@@ -385,8 +398,8 @@ const ProductDropdown = ({ open, products, onSelect, priceType }: ProductDropdow
                 <div className="w-24 shrink-0 text-right text-sm">
                   {formatCurrency(
                     priceType === "cost"
-                      ? (product.costPrice ?? product.regularPrice ?? 0)
-                      : (product.salePrice ?? product.regularPrice ?? 0),
+                      ? product.costPrice ?? product.regularPrice ?? 0
+                      : product.salePrice ?? product.regularPrice ?? 0,
                   )}
                 </div>
                 {hasVariants && <div className="text-xs text-primary shrink-0">Biến thể</div>}

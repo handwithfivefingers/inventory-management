@@ -15,6 +15,11 @@ interface Props {
   variants: IProductVariant[];
   loading?: boolean;
   onSelect: (variant: IProductVariant) => void;
+  /**
+   * When true, every variant is pickable regardless of stock.
+   * Import (inbound) orders use `true`; sales flows keep the default `false`.
+   */
+  allowOutOfStock?: boolean;
 }
 
 const optionLabel = (variant: IProductVariant) =>
@@ -26,18 +31,22 @@ const optionLabel = (variant: IProductVariant) =>
 const stockOf = (variant: IProductVariant) =>
   (variant.inventories || []).reduce((sum, inv) => sum + Number(inv.quantity || 0), 0);
 
-/** Oversell rule: variant stock must be positive unless the flag allows negatives */
-const canPick = (variant: IProductVariant) => stockOf(variant) > 0 || !!(variant as any).isNegative;
-
 /**
  * Shown when a variable product is selected in the order flow:
  * lets the user pick which variant (attribute combination) to add.
- * Out-of-stock variants (stock<=0 without isNegative) are disabled.
+ * Out-of-stock variants (stock<=0 without isNegative) are disabled,
+ * unless `allowOutOfStock` bypasses the gate (import orders).
  */
-export const VariantPickerModal = ({ show, close, product, variants, loading, onSelect }: Props) => {
+export const VariantPickerModal = ({ show, close, product, variants, loading, onSelect, allowOutOfStock = false }: Props) => {
   const { t } = useTranslation();
 
-  const pickableCount = useMemo(() => variants.filter(canPick).length, [variants]);
+  const canPick = (variant: IProductVariant) =>
+    allowOutOfStock || stockOf(variant) > 0 || !!(variant as any).isNegative;
+  const pickableCount = useMemo(
+    () => variants.filter(canPick).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [variants, allowOutOfStock],
+  );
 
   return (
     <TMModal open={show} close={close} width={640}>

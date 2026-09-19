@@ -1,16 +1,17 @@
-import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import { LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher, useOutletContext } from "@remix-run/react";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { useFetcher, useLoaderData, useNavigate, useOutletContext } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { importOrderService } from "~/action.server/importOrder.service";
+import { providerService } from "~/action.server/provider.service";
 import { CardItem } from "~/components/card-item";
 import { ErrorComponent } from "~/components/error-component";
 import { OrderForm } from "~/components/form/order-form";
 import { Icon } from "~/components/icon";
 import { toast } from "~/components/notification";
 import { VariantPickerModal } from "~/components/variant-picker-modal";
-import { OrderDetailSchema, OrderSchema, orderSchema } from "~/constants/schema/order";
+import { ImportOrderSchema, OrderDetailSchema, importOrderSchema } from "~/constants/schema/order";
 import { useUnifiedProductSearch } from "~/hooks/use-unified-product-search";
 import { debounce } from "~/libs/debounce";
 import { getVariantCostPrice } from "~/libs/product-price";
@@ -23,11 +24,26 @@ export const meta: MetaFunction = () => {
   return [{ title: "Tạo phiếu nhập" }, { name: "description", content: "Tạo phiếu nhập hàng" }];
 };
 
+export async function loader(_args: LoaderFunctionArgs) {
+  try {
+    const response = await providerService.getProviders({
+      page: "1",
+      pageSize: "100",
+      isProvider: true,
+    });
+    return { providers: response.data?.data ?? [] };
+  } catch {
+    return { providers: [] as IProvider[] };
+  }
+}
+
 export default function OrderItem() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const fetcher = useFetcher();
+  const { providers: initialProviders } = useLoaderData<typeof loader>();
   const { settings } = useOutletContext<MainLayoutContext>();
-  const form = useForm<OrderSchema>({
+  const form = useForm<ImportOrderSchema>({
     defaultValues: {
       customer: undefined,
       orderDetails: [],
@@ -38,7 +54,7 @@ export default function OrderItem() {
       paymentType: "cash",
       providerId: undefined,
     },
-    resolver: orderSchema,
+    resolver: importOrderSchema,
   });
 
   const variantsFetcher = useFetcher<{ data: { data: IProductVariant[]; total: number } }>({
@@ -69,7 +85,7 @@ export default function OrderItem() {
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { load: loadProvider, data: providers } = useFetcher<{ data: IProvider[] }>({ key: "providers" });
+  const submitted = fetcher.data as any;
 
   const addLine = (
     currentValue: OrderDetailSchema[],
@@ -160,8 +176,19 @@ export default function OrderItem() {
   };
 
   useEffect(() => {
-    loadProvider("/providers");
-  }, []);
+    if (fetcher.state !== "idle" || !submitted) return;
+    if (submitted?.error || submitted?.status === 400) {
+      toast.danger({
+        title: t("common.error"),
+        message: submitted?.error?.message || submitted?.error || t("common.tryAgain"),
+      });
+      return;
+    }
+    if (submitted?.data) {
+      toast.success({ title: t("common.success"), message: t("importOrder.add") });
+      navigate("/import-order");
+    }
+  }, [fetcher.state, submitted, navigate, t]);
 
   const data = searchedRows;
 
@@ -194,8 +221,9 @@ export default function OrderItem() {
               isLoading={fetcher.state !== "idle"}
               onSubmit={onSubmit}
               onError={handleError}
-              providers={[...(providers?.data || [])]}
+              providers={[...(initialProviders || [])]}
               priceType="cost"
+              allowOutOfStock
             />
             <VariantPickerModal
               show={showVariantPicker}
@@ -207,6 +235,7 @@ export default function OrderItem() {
               variants={variantsFetcher?.data?.data?.data || []}
               loading={variantsFetcher.state !== "idle"}
               onSelect={pickVariant}
+              allowOutOfStock
             />
           </CardItem>
         </div>
@@ -215,11 +244,30 @@ export default function OrderItem() {
   );
 }
 export async function action({ request }: ActionFunctionArgs) {
-  const formData = await request.formData();
-  const data: any = await formData.get("data");
-  const dataJson = data ? JSON.parse(data) : {};
+  let dataJson: any;
+  try {
+    const formData = await request.formData();
+    const data = formData.get("data");
+    if (!data) {
+      return json({ error: "Missing data" }, { status: 400 });
+    }
+    dataJson = JSON.parse(String(data));
+  } catch {
+    return json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  if (
+    dataJson.providerId === undefined ||
+    dataJson.providerId === null ||
+    String(dataJson.providerId).trim() === ""
+  ) {
+    return json({ error: "providerId is required" }, { status: 400 });
+  }
   const resp = await importOrderService.createOrder(dataJson);
-  return resp;
+  const status = Number((resp as any)?.status) || 200;
+  if ((resp as any)?.error || status !== 200) {
+    return json((resp as any)?.data ?? { error: "Create failed" }, { status: status || 400 });
+  }
+  return json((resp as any)?.data ?? resp);
 }
 export function ErrorBoundary() {
   return <ErrorComponent />;

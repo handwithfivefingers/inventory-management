@@ -50,8 +50,7 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
   // line total = base x (1 + lineVAT / 100).
   const headerVAT = form.watch("VAT");
   const lineRateOf = (item: any) => Number(item?.VAT ?? headerVAT ?? 0);
-  const lineBaseOf = (item: any) =>
-    Number(item?.buyPrice ?? Number(item?.quantity || 0) * Number(item?.price || 0));
+  const lineBaseOf = (item: any) => Number(item?.buyPrice ?? Number(item?.quantity || 0) * Number(item?.price || 0));
   const lineTotalOf = (item: any) => lineBaseOf(item) * (1 + lineRateOf(item) / 100);
   const subtotalInclVAT = (orderDetails || []).reduce((sum: number, item: any) => sum + lineTotalOf(item), 0);
 
@@ -117,9 +116,7 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
                     </FormControl>
                   </div>
                   <div className="w-28 shrink-0 text-right">
-                    <span className="text-sm font-medium">
-                      {formatCurrency(lineTotalOf((orderDetails || [])[i]))}
-                    </span>
+                    <span className="text-sm font-medium">{formatCurrency(lineTotalOf((orderDetails || [])[i]))}</span>
                     <div className="hidden">
                       <FormControl name={`orderDetails.${i}.buyPrice` as any}>
                         <NumberInput displayType="text" className="text-sm" />
@@ -162,9 +159,9 @@ export const OrderDetails = forwardRef<OrderDetailFunction, Props>((props, ref) 
         </div>
       </div>
       <div className="flex gap-2 items-center order-row mt-auto bg-indigo-50 p-2 text-sm rounded-b text-primary">
-        <div className="w-full font-medium">Tạm tính (gồm VAT dòng)</div>
+        <div className="w-full font-medium">Tạm tính (gồm VAT)</div>
         <div className="shrink-0">
-          <NumberInput displayType="text" value={subtotalInclVAT as any} />
+          {+subtotalInclVAT > 0 ? <NumberInput displayType="text" value={subtotalInclVAT as any} /> : "-"}
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { tagSchema } from "../tag";
 import { productSchema } from "../product";
 import { shiftSchema } from "../shift";
 import { financialSchema } from "../financial";
-import { orderFormSchema } from "../order";
+import { orderFormSchema, importOrderFormSchema } from "../order";
 import { providerSchema, providerUpdateSchema } from "../provider";
 import { warehouseSchema } from "../warehouse";
 import { unitSchema } from "../units";
@@ -159,6 +159,30 @@ describe("orderFormSchema", () => {
   });
   it("requires productId inside each order detail", () => {
     expect(orderFormSchema.safeParse({ orderDetails: [{ quantity: 2 }] }).success).toBe(false);
+  });
+  it("keeps providerId optional for sales orders", () => {
+    expect(orderFormSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe("importOrderFormSchema", () => {
+  it("rejects a missing providerId", () => {
+    const result = importOrderFormSchema.safeParse({});
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.providerId).toBeDefined();
+    }
+  });
+  it("rejects an empty-string providerId", () => {
+    expect(importOrderFormSchema.safeParse({ providerId: "" }).success).toBe(false);
+  });
+  it("accepts a numeric providerId", () => {
+    const result = importOrderFormSchema.safeParse({ providerId: 3 });
+    expect(result.success).toBe(true);
+  });
+  it("accepts a string providerId", () => {
+    const result = importOrderFormSchema.safeParse({ providerId: "3" });
+    expect(result.success).toBe(true);
   });
 });
 

@@ -237,7 +237,7 @@ export default function ProductItem() {
               }
               className="p-5 sm:p-6"
             >
-              <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
                 {[
                   [0, "Basic"],
                   [1, "Variant"],
@@ -258,14 +258,21 @@ export default function ProductItem() {
                 ))}
               </div>
               <ProductForm categories={categories?.data || []} tags={tags?.data || []} />
-              <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
-                <VariantEditor
-                  type={productType as 0 | 1 | 2}
-                  seed={variantSeed}
-                  units={(units?.data || [])
-                    .filter((unit: any) => unit.id != null)
-                    .map((unit: any) => ({ id: unit.id, name: unit.name }))}
-                />
+              <VariantEditor
+                type={productType as 0 | 1 | 2}
+                seed={variantSeed}
+                units={(units?.data || [])
+                  .filter((unit: any) => unit.id != null)
+                  .map((unit: any) => ({ id: unit.id, name: unit.name }))}
+              />
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-700">
+                <TMButton type="button" variant="ghost" size="sm" component={Link} to="..">
+                  {t("common.cancel")}
+                </TMButton>
+                <TMButton type="submit" loading={isLoading} size="sm">
+                  <Icon name="save" fontSize={16} />
+                  {t("common.save")}
+                </TMButton>
               </div>
             </CardItem>
           </form>
@@ -279,7 +286,8 @@ export async function action({ request }: any) {
   try {
     const formData = await request.formData();
     const data = formData.get("data");
-    if (!data) return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Missing data" }, { status: 400 });
+    if (!data)
+      return Response.json({ success: false, code: "VALIDATION_ERROR", message: "Missing data" }, { status: 400 });
     const dataJson = JSON.parse(data);
     const resp = await productService.createProduct(dataJson);
     if (resp.status === 200) {
@@ -288,7 +296,11 @@ export async function action({ request }: any) {
     throw resp;
   } catch (error) {
     return Response.json(
-      { success: false, code: (error as any)?.code || "VALIDATION_ERROR", message: error instanceof Error ? error.message : "Create product failed" },
+      {
+        success: false,
+        code: (error as any)?.code || "VALIDATION_ERROR",
+        message: error instanceof Error ? error.message : "Create product failed",
+      },
       { status: 400 },
     );
   }

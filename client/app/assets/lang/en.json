@@ -375,7 +375,8 @@
     "configurePricing": "Configure pricing & units",
     "addConversion": "Add selling unit",
     "wholesalePrice": "Wholesale price",
-    "outOfStock": "Out of stock"
+    "outOfStock": "Out of stock",
+    "description": "Description"
   },
   "settings": {
     "moneyStep": "Money step (+/-)",

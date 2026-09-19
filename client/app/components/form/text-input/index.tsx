@@ -1,8 +1,8 @@
-import React, { HTMLInputTypeAttribute, forwardRef, useRef } from "react";
+import React, { forwardRef, useRef } from "react";
+import { useFormContext, useFormState } from "react-hook-form";
 import { cn } from "~/libs/utils";
 import { BaseProps } from "~/types/common";
 import styles from "./styles.module.scss";
-import { useFormContext, useFormState } from "react-hook-form";
 export interface ITextInput extends BaseProps, React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   name?: string;
