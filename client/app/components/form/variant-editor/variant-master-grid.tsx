@@ -7,6 +7,7 @@ import { MODULE_ENUM } from "~/constants/modules";
 import type { ProductSchemaType } from "~/constants/schema/product";
 import { useTranslation } from "~/i18n";
 import { getBaseUnit } from "~/libs/product-unit";
+import { formatCurrency } from "~/libs/format-currency";
 import { NumberInput } from "../number-input";
 import { SelectInput } from "../select-input";
 import { SwitchInput } from "../switch-input";
@@ -15,7 +16,7 @@ import { PricingUnitDrawer } from "./pricing-unit-drawer";
 import type { IVariantAttributeDraft, IVariantDraft } from "./types";
 
 type VariantMasterGrid = {
-  units: { id: number | string; name: string }[];
+  units: { id: number | string; name: string; isDefault?: boolean }[];
   attributes?: IVariantAttributeDraft[];
   fields: FieldArrayWithId<ProductSchemaType, "variants", "id">[];
   remove: (idx: number) => void;
@@ -37,20 +38,25 @@ export const VariantMasterGrid = ({ fields, units, attributes = [], remove }: Va
 
   return (
     <div className="overflow-hidden rounded-lg">
-      <div className="hidden grid-cols-[minmax(160px,1.5fr)_minmax(110px,1fr)_minmax(100px,.7fr)_auto] gap-3 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 md:grid dark:bg-slate-800 dark:text-slate-300">
+      <div className="hidden grid-cols-[minmax(160px,1.5fr)_minmax(100px,.8fr)_minmax(120px,.9fr)_minmax(100px,.7fr)_auto] gap-3 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 md:grid dark:bg-slate-800 dark:text-slate-300">
         <span>{t("product.variant", { defaultValue: "Biến thể" })}</span>
         <span>SKU</span>
+        <span>{t("product.retailPrice", { defaultValue: "Giá lẻ" })}</span>
         <span>{t("product.stock", { defaultValue: "Tồn kho" })}</span>
         <span />
       </div>
       {fields.map((field, index) => {
         const variant = variants[index] || ({ options: {} } as IVariantDraft);
         const base = getBaseUnit(variant.barcodes);
+        const barcodeRows = variant.barcodes || [];
+        const retailPrices = barcodeRows.map((row) => Number(row.retailPrice)).filter(Number.isFinite);
+        const minRetailPrice = retailPrices.length ? Math.min(...retailPrices) : 0;
+        const maxRetailPrice = retailPrices.length ? Math.max(...retailPrices) : 0;
         const quantity = Number(variant.quantity || 0);
         return (
           <div
             key={field.id}
-            className="grid grid-cols-1 gap-2 border-t border-slate-200 p-3 md:grid-cols-[minmax(160px,1.5fr)_minmax(110px,1fr)_minmax(100px,.7fr)_auto] md:items-center dark:border-slate-700"
+            className="grid grid-cols-1 gap-2 border-t border-slate-200 p-3 md:grid-cols-[minmax(160px,1.5fr)_minmax(100px,.8fr)_minmax(120px,.9fr)_minmax(100px,.7fr)_auto] md:items-center dark:border-slate-700"
           >
             <div>
               <p className="font-medium">{nameOf(variant)}</p>
@@ -75,7 +81,13 @@ export const VariantMasterGrid = ({ fields, units, attributes = [], remove }: Va
                   />
                 ))}
               </div>
-              <p className="mt-1 text-xs text-slate-500">{base?.barcode || "—"}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {barcodeRows.length === 0
+                  ? t("product.noBarcodes", { defaultValue: "Chưa có mã vạch" })
+                  : barcodeRows.length === 1
+                    ? base?.barcode || "—"
+                    : `${base?.barcode || "—"} · ${barcodeRows.length} ${t("product.barcodes", { defaultValue: "mã vạch" })}`}
+              </p>
             </div>
             <PermissionGuard
               permission="UPDATE"
@@ -94,6 +106,30 @@ export const VariantMasterGrid = ({ fields, units, attributes = [], remove }: Va
                 }
               />
             </PermissionGuard>
+            <div>
+              {barcodeRows.length === 1 ? (
+                <PermissionGuard
+                  permission="UPDATE"
+                  module={MODULE_ENUM.product}
+                  fallback={<span className="text-sm">{formatCurrency(barcodeRows[0]?.retailPrice)}</span>}
+                >
+                  <NumberInput
+                    aria-label={t("product.retailPrice", { defaultValue: "Giá lẻ" })}
+                    value={String(barcodeRows[0]?.retailPrice ?? 0)}
+                    onValueChange={(value) =>
+                      form.setValue(`variants.${index}.barcodes.0.retailPrice`, value.value, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  />
+                </PermissionGuard>
+              ) : barcodeRows.length > 1 ? (
+                <span className="text-sm font-medium">{minRetailPrice === maxRetailPrice ? formatCurrency(minRetailPrice) : `${formatCurrency(minRetailPrice)} – ${formatCurrency(maxRetailPrice)}`}</span>
+              ) : (
+                <span className="text-sm text-slate-500">—</span>
+              )}
+            </div>
             <div>
               {variant.variantId ? (
                 <span className="font-medium">{quantity}</span>

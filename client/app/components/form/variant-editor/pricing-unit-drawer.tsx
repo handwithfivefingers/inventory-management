@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import { MODULE_ENUM } from "~/constants/modules";
 import type { ProductSchemaType } from "~/constants/schema/product";
@@ -12,8 +12,9 @@ import { NumberStepper } from "../number-stepper";
 import { SelectInput } from "../select-input";
 import { TextInput } from "../text-input";
 import { SwitchInput } from "../switch-input";
+import { BarcodeEditor, BarcodeFormRef } from "./barcodeEditor";
 
-type Unit = { id: number | string; name: string };
+type Unit = { id: number | string; name: string; isDefault?: boolean };
 
 export function PricingUnitDrawer({
   index,
@@ -27,16 +28,32 @@ export function PricingUnitDrawer({
   const { t } = useTranslation();
   const form = useFormContext<ProductSchemaType>();
   const [open, setOpen] = useState(false);
+  const barcodeFormRef = useRef<BarcodeFormRef>(null);
   const name = `variants.${index}.barcodes` as const;
-  const { fields, append, remove } = useFieldArray({ control: form.control, name });
+  // const variantName = `variants.${index as number}`;
+  const nameDefinition = `variants.${index}` as `variants.${number}`;
+  // const { fields, append, remove } = useFieldArray({ control: form.control, name });
   const rows = useWatch({ control: form.control, name }) || [];
   const baseQuantity = Number(form.getValues(`variants.${index}.quantity` as const) || 0);
   const baseExists = useMemo(() => rows.some((row: any) => Number(row?.conversionRate) === 1), [rows]);
 
+  const defaultUnitId = units.find((unit) => unit.isDefault)?.id ?? null;
+  const selectedUnitIds = useMemo(
+    () =>
+      new Set(
+        rows
+          .map((row: any) => row?.unitId)
+          .filter((unitId: unknown) => unitId != null)
+          .map(String),
+      ),
+    [rows],
+  );
+  const nextUnitId = units.find((unit) => !selectedUnitIds.has(String(unit.id)))?.id ?? null;
+
   const addRow = () =>
-    append({
+    barcodeFormRef.current?.append({
       barcode: null,
-      unitId: units[0]?.id ?? null,
+      unitId: nextUnitId,
       conversionRate: 2,
       costPrice: 0,
       retailPrice: 0,
@@ -45,9 +62,9 @@ export function PricingUnitDrawer({
 
   const openDrawer = () => {
     if (!rows.length)
-      append({
+      barcodeFormRef.current?.append({
         barcode: null,
-        unitId: units[0]?.id ?? null,
+        unitId: defaultUnitId,
         conversionRate: 1,
         costPrice: 0,
         retailPrice: 0,
@@ -83,7 +100,8 @@ export function PricingUnitDrawer({
         title={t("product.pricingUnits", { defaultValue: "Giá & đơn vị" })}
       >
         <div className="max-h-[65svh] overflow-auto space-y-3 p-1">
-          {fields.map((field, rowIndex) => {
+          <BarcodeEditor variantName={nameDefinition} units={units} ref={barcodeFormRef} />
+          {/* {fields.map((field, rowIndex) => {
             const row: any = rows[rowIndex] || {};
             const isBase = Number(row.conversionRate) === 1;
             const stock = getConvertedStock(baseQuantity, Number(row.conversionRate));
@@ -103,7 +121,12 @@ export function PricingUnitDrawer({
                             disabled
                             label={t("product.unit", { defaultValue: "Đơn vị" })}
                             value={input.value}
-                            options={units.map((unit) => ({ label: unit.name, value: unit.id }))}
+                            options={units
+                              .filter(
+                                (unit) =>
+                                  String(unit.id) === String(input.value) || !selectedUnitIds.has(String(unit.id)),
+                              )
+                              .map((unit) => ({ label: unit.name, value: unit.id }))}
                             onSelect={input.onChange}
                           />
                         }
@@ -111,7 +134,13 @@ export function PricingUnitDrawer({
                         <SelectInput
                           label={t("product.unit", { defaultValue: "Đơn vị" })}
                           value={input.value}
-                          options={units.map((unit) => ({ label: unit.name, value: unit.id }))}
+                          disabled={isBase}
+                          options={units
+                            .filter(
+                              (unit) =>
+                                String(unit.id) === String(input.value) || !selectedUnitIds.has(String(unit.id)),
+                            )
+                            .map((unit) => ({ label: unit.name, value: unit.id }))}
                           onSelect={input.onChange}
                         />
                       </PermissionGuard>
@@ -258,7 +287,7 @@ export function PricingUnitDrawer({
                 </div>
               </div>
             );
-          })}
+          })} */}
           {!baseExists && (
             <p className="text-sm text-red-600">
               {t("product.baseUnitRequired", { defaultValue: "Cần đúng một dòng đơn vị gốc với tỷ lệ 1." })}
@@ -274,7 +303,7 @@ export function PricingUnitDrawer({
             />
           </PermissionGuard>
           <PermissionGuard permission="UPDATE" module={MODULE_ENUM.product}>
-            <TMButton type="button" size="sm" onClick={addRow}>
+            <TMButton type="button" size="sm" disabled={nextUnitId == null} onClick={addRow}>
               {t("product.addConversion", { defaultValue: "Thêm quy cách" })}
             </TMButton>
           </PermissionGuard>

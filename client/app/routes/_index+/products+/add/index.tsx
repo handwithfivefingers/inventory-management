@@ -90,6 +90,7 @@ export default function ProductItem() {
   const navigate = useNavigate();
   const { suggestedAttributes, categories, units, tags } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
+  const defaultUnitId = (units?.data || []).find((unit: any) => unit.isDefault)?.id ?? null;
   const formMethods = useForm<ProductSchemaType>({
     // defaultValues: sampleProduct,
     defaultValues: {
@@ -107,7 +108,7 @@ export default function ProductItem() {
           barcodes: [
             {
               barcode: null,
-              unitId: null,
+              unitId: defaultUnitId,
               conversionRate: 1,
               costPrice: 0,
               retailPrice: 0,
@@ -124,7 +125,7 @@ export default function ProductItem() {
   const variantSeed = {
     quantity: formMethods.watch("quantity"),
     isNegative: formMethods.watch("isNegative"),
-    barcodes: [{ barcode: null, unitId: null, conversionRate: 1, costPrice: 0, retailPrice: 0, wholesalePrice: 0 }],
+    barcodes: [{ barcode: null, unitId: defaultUnitId, conversionRate: 1, costPrice: 0, retailPrice: 0, wholesalePrice: 0 }],
   };
 
   const onSubmit = async (v: ProductSchemaType) => {
@@ -263,7 +264,7 @@ export default function ProductItem() {
                 seed={variantSeed}
                 units={(units?.data || [])
                   .filter((unit: any) => unit.id != null)
-                  .map((unit: any) => ({ id: unit.id, name: unit.name }))}
+                  .map((unit: any) => ({ id: unit.id, name: unit.name, isDefault: unit.isDefault }))}
               />
               <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-700">
                 <TMButton type="button" variant="ghost" size="sm" component={Link} to="..">

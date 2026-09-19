@@ -9,6 +9,7 @@ const schema = z
     vendor: z.string(),
     warehouse: z.string(),
     niche: z.string(),
+    language: z.enum(["vi", "en"]).default("vi"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",

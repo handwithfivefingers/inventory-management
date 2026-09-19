@@ -37,6 +37,7 @@ export default function Register() {
       vendor: "Pro-IERP",
       warehouse: "HCM",
       niche: "other",
+      language: "vi",
     },
     resolver: registerSchema,
   });
@@ -107,6 +108,24 @@ export default function Register() {
             <div className="col-span-1">
               <FormControl name="warehouse">
                 <TextInput label="Tên kho/bãi" required />
+              </FormControl>
+            </div>
+            <div className="col-span-2">
+              <FormControl name="language">
+                {(field) => (
+                  <label className="flex flex-col gap-1 text-sm font-medium">
+                    Ngôn ngữ
+                    <select
+                      aria-label="Ngôn ngữ"
+                      className="rounded border border-slate-300 bg-white px-3 py-2"
+                      value={field.value}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    >
+                      <option value="vi">Tiếng Việt</option>
+                      <option value="en">English</option>
+                    </select>
+                  </label>
+                )}
               </FormControl>
             </div>
             <div className="col-span-2">

@@ -141,25 +141,20 @@ module.exports = {
     )
 
     // --- 5. role_permissions (src/database/models/role_permission.ts) ------
-    await createTableIfMissing(
-      queryInterface,
-      Sequelize,
-      'role_permissions',
-      {
-        roleId: {
-          ...fk(Sequelize, 'roleId', 'roles', 'CASCADE', 'CASCADE'),
-          allowNull: false,
-          primaryKey: true
-        },
-        permissionId: {
-          ...fk(Sequelize, 'permissionId', 'permissions', 'CASCADE', 'CASCADE'),
-          allowNull: false,
-          primaryKey: true
-        },
-        createdAt: { type: DATE, allowNull: false },
-        updatedAt: { type: DATE, allowNull: false }
-      }
-    )
+    await createTableIfMissing(queryInterface, Sequelize, 'role_permissions', {
+      roleId: {
+        ...fk(Sequelize, 'roleId', 'roles', 'CASCADE', 'CASCADE'),
+        allowNull: false,
+        primaryKey: true
+      },
+      permissionId: {
+        ...fk(Sequelize, 'permissionId', 'permissions', 'CASCADE', 'CASCADE'),
+        allowNull: false,
+        primaryKey: true
+      },
+      createdAt: { type: DATE, allowNull: false },
+      updatedAt: { type: DATE, allowNull: false }
+    })
 
     // --- 6. user_roles (no model file; used by 20260820000001 seeder + role down) --
     await createTableIfMissing(
@@ -237,12 +232,11 @@ module.exports = {
         isMain: { type: BOOLEAN, defaultValue: false },
         vendorId: { ...fk(Sequelize, 'vendorId', 'vendors', 'CASCADE', 'CASCADE'), allowNull: true },
         createdAt: { type: DATE, allowNull: false },
-        updatedAt: { type: DATE, allowNull: false }
+        updatedAt: { type: DATE, allowNull: false },
+        deletedAt: { type: DATE, allowNull: true }
       },
       {},
-      [
-        { name: 'warehouses_vendorId', fields: ['vendorId'] }
-      ]
+      [{ name: 'warehouses_vendorId', fields: ['vendorId'] }]
     )
 
     // --- 10. categories (src/database/models/category.ts) ---------------------
@@ -270,7 +264,9 @@ module.exports = {
       {
         id: { type: INTEGER, autoIncrement: true, primaryKey: true, allowNull: false },
         name: { type: STRING, allowNull: false },
-        vendorId: { ...fk(Sequelize, 'vendorId', 'vendors', 'NO ACTION', 'CASCADE'), allowNull: true },
+        // vendorId is read by units.defaultVendorId, a stored generated
+        // column added later. MySQL forbids CASCADE on that source column.
+        vendorId: { ...fk(Sequelize, 'vendorId', 'vendors', 'NO ACTION', 'RESTRICT'), allowNull: true },
         createdAt: { type: DATE, allowNull: false },
         updatedAt: { type: DATE, allowNull: false }
       },
@@ -324,7 +320,11 @@ module.exports = {
       },
       {},
       [
-        { name: 'productAttributeValues_attributeId_value', fields: ['attributeId', 'value'], options: { unique: true } },
+        {
+          name: 'productAttributeValues_attributeId_value',
+          fields: ['attributeId', 'value'],
+          options: { unique: true }
+        },
         { name: 'productAttributeValues_attributeId', fields: ['attributeId'] }
       ]
     )

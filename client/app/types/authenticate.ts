@@ -29,6 +29,7 @@ export interface IRegisterParams {
   fullName?: string;
   confirmPassword?: string;
   niche?: string;
+  language?: "vi" | "en";
 }
 
 export interface IRegisterResponse {

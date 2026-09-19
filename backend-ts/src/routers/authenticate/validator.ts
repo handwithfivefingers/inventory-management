@@ -26,7 +26,8 @@ const registerValidator = validate([
     .withMessage('Mật khẩu là bắt buộc')
     .bail()
     .isLength({ min: 6 })
-    .withMessage('password must be at least 6 characters')
+    .withMessage('password must be at least 6 characters'),
+  body('language').optional().isIn(['vi', 'en']).withMessage('language must be vi or en')
 ])
 
 export { loginValidator, registerValidator }

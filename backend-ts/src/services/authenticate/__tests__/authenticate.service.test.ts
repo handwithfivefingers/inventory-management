@@ -17,6 +17,7 @@ vi.mock("#/database/models/role", () => ({ default: db.role, Role: db.role }));
 vi.mock("#/database/models/staff", () => ({ default: db.staff, Staff: db.staff }));
 vi.mock("#/database/models/vendor", () => ({ default: db.vendor, Vendor: db.vendor }));
 vi.mock("#/database/models/warehouse", () => ({ default: db.warehouse, Warehouse: db.warehouse }));
+vi.mock("#/database/models/units", () => ({ default: db.unit, Unit: db.unit }));
 vi.mock("#/database/models/permission", () => ({ default: db.permission, Permission: db.permission }));
 import database from "#/database";
 
@@ -198,7 +199,7 @@ describe("AuthenticateService", () => {
       return { userRow, vendorRow, warehouseBuilder, staffRow };
     };
 
-    it("creates user, vendor, warehouse, staff with links and commits", async () => {
+    it("creates user, vendor, warehouse, staff and a Vietnamese default unit with links and commits", async () => {
       const tx = makeTx();
       database.sequelize.transaction.mockResolvedValue(tx);
       const { userRow, vendorRow, warehouseBuilder, staffRow } = mockRegisterGraph();
@@ -211,6 +212,10 @@ describe("AuthenticateService", () => {
       expect(database.vendor.build).toHaveBeenCalledWith(
         expect.objectContaining({ name: params.vendor })
       );
+      expect(database.unit.create).toHaveBeenCalledWith(
+        { name: "Cái", vendorId: vendorRow.id, isDefault: true },
+        { transaction: tx },
+      );
       expect(userRow.$set).toHaveBeenCalledWith("staff", staffRow, expect.anything());
       expect(vendorRow.$set).toHaveBeenCalledWith("warehouses", [warehouseBuilder], expect.anything());
       expect(staffRow.$set).toHaveBeenCalledWith("vendors", [vendorRow], expect.anything());
@@ -222,6 +227,19 @@ describe("AuthenticateService", () => {
         vendor: vendorRow,
         warehouses: [warehouseBuilder],
       });
+    });
+
+    it("creates Piece as the default unit for English registration", async () => {
+      const tx = makeTx();
+      database.sequelize.transaction.mockResolvedValue(tx);
+      const { vendorRow } = mockRegisterGraph();
+
+      await service.register({ ...params, language: "en" } as any);
+
+      expect(database.unit.create).toHaveBeenCalledWith(
+        { name: "Piece", vendorId: vendorRow.id, isDefault: true },
+        { transaction: tx },
+      );
     });
 
     it("throws when the Admin role is missing", async () => {

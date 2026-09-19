@@ -17,9 +17,10 @@ describe('syncVariantBarcodes', () => {
     const transaction: any = {}
     nextSequence.mockResolvedValue(42)
     ;(ProductBarcode.findOne as any).mockResolvedValue(null)
-    ;(ProductBarcode.findAll as any).mockResolvedValueOnce([]).mockResolvedValueOnce([{}])
+    ;(ProductBarcode.findAll as any).mockResolvedValueOnce([]).mockResolvedValueOnce([{ get: () => 1 }])
     ;(ProductBarcode.create as any).mockResolvedValue({})
     ;(Unit.findAll as any).mockResolvedValue([{ id: 7 }])
+    ;(Unit.findOne as any).mockResolvedValue({ id: 7 })
 
     await syncVariantBarcodes(
       3,
@@ -35,11 +36,11 @@ describe('syncVariantBarcodes', () => {
     )
   })
 
-  it('creates a complete base barcode from the global Base unit when no barcode payload is sent', async () => {
+  it('creates a complete base barcode from the vendor default unit when no barcode payload is sent', async () => {
     const transaction: any = {}
     nextSequence.mockResolvedValue(43)
     ;(ProductBarcode.findOne as any).mockResolvedValue(null)
-    ;(ProductBarcode.findAll as any).mockResolvedValueOnce([]).mockResolvedValueOnce([{}])
+    ;(ProductBarcode.findAll as any).mockResolvedValueOnce([]).mockResolvedValueOnce([{ get: () => 1 }])
     ;(ProductBarcode.create as any).mockResolvedValue({})
     ;(Unit.findOne as any).mockResolvedValue({ id: 9 })
     ;(Unit.findAll as any).mockResolvedValue([{ id: 9 }])

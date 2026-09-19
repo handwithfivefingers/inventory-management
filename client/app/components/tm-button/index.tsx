@@ -62,7 +62,7 @@ export const TMButton = ({
 }: ITMButton) => {
   const Element: any = component || "button";
   const classCn = cn(
-    "cursor-pointer active:translate-y-[1px] flex items-center justify-center gap-1",
+    "cursor-pointer active:translate-y-[1px] flex items-center justify-center gap-1 disabled:opacity-50",
     sizes[size as ISizes],
     variants[variant as IVariants],
     className,

@@ -31,14 +31,13 @@ const generateBarcode = async (transaction: Transaction): Promise<string> => {
 
 const defaultUnitId = async (vendorId: number, transaction: Transaction): Promise<number> => {
   const unit: any = await Unit.findOne({
-    where: { name: 'Cái', vendorId },
+    where: { isDefault: true, vendorId },
     order: [['id', 'ASC']],
     transaction
   })
   const id = Number(unit?.get?.('id') ?? unit?.id)
   if (Number.isSafeInteger(id) && id > 0) return id
-  const created: any = await Unit.create({ name: 'Cái', vendorId }, { transaction })
-  return Number(created.get('id'))
+  throw ApiError.badRequest('Vendor default unit is required before creating a product')
 }
 
 const normalize = async (input: BarcodeInput, vendorId: number, transaction: Transaction, fallbackUnitId?: number | string | null) => {
@@ -46,9 +45,8 @@ const normalize = async (input: BarcodeInput, vendorId: number, transaction: Tra
   // value, including an empty string, remains a manual value and is validated.
   const barcode = input.barcode == null ? await generateBarcode(transaction) : String(input.barcode).trim()
   if (!barcode || barcode.length > 64) throw ApiError.badRequest('barcodes[].barcode must be 1 to 64 characters')
-  // Default variants always use the vendor's `Cái` unit. A supplied unit is
-  // retained for existing/explicit pricing rows; the old product.unitId is
-  // deliberately not used as an implicit base-unit substitute.
+  // Omitted units are only valid for a new base barcode and resolve to the
+  // vendor's explicit default unit. Existing rows retain their submitted IDs.
   const unitId = input.unitId ?? (await defaultUnitId(vendorId, transaction))
   const conversionRate = Number(input.conversionRate ?? 1)
   if (!Number.isInteger(conversionRate) || conversionRate <= 0) {
@@ -104,6 +102,14 @@ export const syncVariantBarcodes = async (
   if (units.length !== new Set(unitIds).size) throw ApiError.badRequest('Every barcode unit must belong to the product vendor')
 
   const existing: any[] = await ProductBarcode.findAll({ where: { variantId }, transaction })
+  const baseRow = rows.find((row) => row.conversionRate === 1)!
+  if (existing.length === 0) {
+    const vendorDefault: any = await Unit.findOne({ where: { vendorId, isDefault: true }, transaction })
+    const vendorDefaultId = Number(vendorDefault?.get?.('id') ?? vendorDefault?.id)
+    if (!Number.isSafeInteger(vendorDefaultId) || Number(baseRow.unitId) !== vendorDefaultId) {
+      throw ApiError.badRequest('New variants must use the vendor default unit as their base barcode')
+    }
+  }
   const existingById = new Map(existing.map((row) => [Number(row.get('id')), row]))
   const kept = new Set<number>()
   for (const row of rows) {
@@ -116,6 +122,9 @@ export const syncVariantBarcodes = async (
     if (id) {
       const current = existingById.get(id)
       if (!current) throw ApiError.badRequest('Barcode does not belong to this variant')
+      if (Number(current.get('conversionRate')) === 1 && Number(current.get('unitId')) !== Number(row.unitId)) {
+        throw ApiError.conflict('The base barcode unit cannot be changed')
+      }
       const hasSales = await OrderDetail.count({ where: { barcodeId: id }, transaction })
       if (hasSales && Number(current.get('conversionRate')) !== row.conversionRate) {
         throw ApiError.conflict('Cannot change conversionRate after a barcode has been sold')

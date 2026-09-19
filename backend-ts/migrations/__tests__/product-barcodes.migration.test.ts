@@ -6,6 +6,7 @@ const migration = require('../20260918000002-create-product-barcodes')
 const removalMigration = require('../20260918000004-remove-legacy-variant-barcode-prices')
 const globalBaseUnitMigration = require('../20260918000005-create-global-base-unit')
 const unitMetadataMigration = require('../20260918000006-remove-product-barcode-base-unit')
+const vendorDefaultUnitMigration = require('../20260919000001-add-vendor-default-unit')
 
 const queryInterface = (validation: Record<string, number>) => {
   const query = vi.fn(async (sql: string) => {
@@ -92,5 +93,35 @@ describe('remove barcode base-unit flag migration', () => {
     await unitMetadataMigration.up(qi)
     expect(qi.removeIndex).toHaveBeenCalledWith('product_barcodes', 'product_barcodes_one_base_per_variant')
     expect(qi.removeColumn.mock.calls.map((call: any[]) => call[1])).toEqual(['baseVariantId', 'isBaseUnit'])
+  })
+})
+
+describe('vendor default unit migration', () => {
+  it('replaces the incompatible cascading vendor FK before adding its generated key', async () => {
+    const calls: string[] = []
+    const qi: any = {
+      describeTable: vi.fn().mockResolvedValue({}),
+      addColumn: vi.fn(),
+      removeConstraint: vi.fn(async () => calls.push('remove-fk')),
+      addConstraint: vi.fn(async () => calls.push('add-fk')),
+      addIndex: vi.fn(),
+      showIndex: vi.fn().mockResolvedValue([]),
+      sequelize: {
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes("SHOW COLUMNS FROM units LIKE 'defaultVendorId'")) return [[]]
+          if (sql.includes('INFORMATION_SCHEMA.KEY_COLUMN_USAGE')) return [[{ name: 'units_ibfk_1' }]]
+          if (sql.includes('ALTER TABLE units ADD COLUMN defaultVendorId')) {
+            calls.push('add-generated-column')
+            return [[]]
+          }
+          return [[]]
+        })
+      }
+    }
+
+    await vendorDefaultUnitMigration.up(qi, { BOOLEAN: 'BOOLEAN' })
+
+    expect(calls).toEqual(['remove-fk', 'add-generated-column', 'add-fk'])
+    expect(qi.addConstraint).toHaveBeenCalledWith('units', expect.objectContaining({ onUpdate: 'RESTRICT' }))
   })
 })

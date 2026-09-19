@@ -11,6 +11,7 @@ import { IVendorModel } from './vendor'
 export interface IUnitModel extends Model<InferAttributes<IUnitModel>, InferCreationAttributes<IUnitModel>> {
   id: CreationOptional<number>
   name: string
+  isDefault: CreationOptional<boolean>
   vendorId: ForeignKey<IVendorModel['id']>
 }
 

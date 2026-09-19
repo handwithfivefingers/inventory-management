@@ -12,15 +12,15 @@ export class UnitsService {
   async create(params: Optional<IUnitModel, 'id'>) {
     try {
       const { name, vendorId } = params
-      const _unit = await Unit.create({ name, vendorId })
+      const _unit = await Unit.create({ name, vendorId, isDefault: false })
       return _unit
     } catch (error) {
       throw ApiError.from(error)
     }
   }
-  async update({ id, ...params }: Unit) {
+  async update({ id, vendorId, ...params }: Unit) {
     try {
-      const _unit = await Unit.findByPk(id)
+      const _unit = await Unit.findOne({ where: { id, vendorId } })
 
       if (!_unit) throw ApiError.notFound('Unit not found')
 
@@ -66,9 +66,9 @@ export class UnitsService {
   }
 
   async delete(id: number, vendorId: number) {
-    const _unit = await Unit.findByPk(id)
+    const _unit = await Unit.findOne({ where: { id, vendorId } })
     if (!_unit) throw ApiError.notFound('Unit not found')
-    if (_unit.vendorId !== vendorId) throw ApiError.notFound('Unit not found')
+    if (_unit.isDefault) throw ApiError.conflict('The default unit cannot be deleted')
     await _unit.destroy()
     return true
   }

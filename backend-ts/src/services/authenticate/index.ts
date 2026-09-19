@@ -7,6 +7,7 @@ import Staff from '#/database/models/staff'
 import User from '#/database/models/user'
 import Vendor from '#/database/models/vendor'
 import Warehouse from '#/database/models/warehouse'
+import Unit from '#/database/models/units'
 import { ApiError } from '#/response'
 import { invalidateUserAuthCache } from '#/services/authenticate/userAuth'
 import { IStaffModel } from '#/types/staff'
@@ -23,6 +24,7 @@ interface IRegister {
   warehouse: string
   vendor: string
   niche?: string
+  language?: 'vi' | 'en'
 }
 interface LoginResponse {
   id: number
@@ -148,6 +150,7 @@ export default class AuthenticateService {
     const t = await this.sequelize.transaction()
     try {
       const { vendor, warehouse, email, password, fullName, niche = 'other' } = params
+      const language = params.language === 'en' ? 'en' : 'vi'
       const user = await this.createUser({
         email,
         password,
@@ -159,6 +162,10 @@ export default class AuthenticateService {
         transaction: t,
         niche
       })
+      await Unit.create(
+        { name: language === 'en' ? 'Piece' : 'Cái', vendorId: _vendor.id, isDefault: true },
+        { transaction: t }
+      )
       const _warehouse = await this.createWarehouseEntity({ name: warehouse, transaction: t })
 
       const staff = await this.createStaffEntity({ transaction: t, fullName })
@@ -215,14 +222,16 @@ export default class AuthenticateService {
   }
 
   private async createWarehouseEntity({ name, transaction }: Partial<Warehouse> & { transaction: Transaction }) {
-    const builder = database.warehouse.build({
-      name: name || 'Main Warehouse',
-      isMain: true,
-      email: 'example@example.com',
-      phone: '1234567890',
-      address: '123 Main St'
-    })
-    await builder.save({ transaction })
+    const builder = await Warehouse.create(
+      {
+        name: name || 'Main Warehouse',
+        isMain: true,
+        email: 'example@example.com',
+        phone: '1234567890',
+        address: '123 Main St'
+      },
+      { transaction }
+    )
     return builder
   }
 

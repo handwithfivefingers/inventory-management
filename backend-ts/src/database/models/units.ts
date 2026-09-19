@@ -9,6 +9,10 @@ export class Unit extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   declare name: string
 
+  /** The vendor-owned unit assigned to every newly-created base barcode. */
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false })
+  declare isDefault: boolean
+
   @ForeignKey(() => Vendor)
   @Column(DataType.INTEGER)
   declare vendorId: number
@@ -19,7 +23,7 @@ export class Unit extends Model {
   @UpdatedAt
   declare updatedAt: Date
 
-  @BelongsTo(() => Vendor, { onDelete: 'NO ACTION', onUpdate: 'CASCADE' })
+  @BelongsTo(() => Vendor, { onDelete: 'NO ACTION', onUpdate: 'RESTRICT' })
   declare vendor: Vendor
 
 }
